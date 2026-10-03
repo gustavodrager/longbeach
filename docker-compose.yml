@@ -1,0 +1,78 @@
+name: longbeach-os
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${LONG_BEACH_POSTGRES_DB:-longbeach}
+      POSTGRES_USER: ${LONG_BEACH_POSTGRES_USER:-longbeach}
+      POSTGRES_PASSWORD: ${LONG_BEACH_POSTGRES_PASSWORD:?copy .env.example to .env and set LONG_BEACH_POSTGRES_PASSWORD}
+    ports:
+      - "${LONG_BEACH_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - longbeach_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    networks:
+      - backend
+
+  api:
+    build:
+      context: .
+      dockerfile: deploy/api.Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__LongBeach: Host=postgres;Port=5432;Database=${LONG_BEACH_POSTGRES_DB:-longbeach};Username=${LONG_BEACH_POSTGRES_USER:-longbeach};Password=${LONG_BEACH_POSTGRES_PASSWORD:?set LONG_BEACH_POSTGRES_PASSWORD}
+      Authentication__Jwt__Issuer: ${LONG_BEACH_JWT_ISSUER:-LongBeach.OS}
+      Authentication__Jwt__Audience: ${LONG_BEACH_JWT_AUDIENCE:-LongBeach.OS.Client}
+      Authentication__Jwt__SigningKey: ${LONG_BEACH_JWT_SIGNING_KEY:?set LONG_BEACH_JWT_SIGNING_KEY}
+      Authentication__CookieDomain: ${LONG_BEACH_COOKIE_DOMAIN:-}
+      Authentication__MobileAllowedOrigins__0: capacitor://localhost
+      Authentication__MobileAllowedOrigins__1: https://localhost
+      Authentication__MobileAllowedOrigins__2: http://localhost
+      Cors__AllowedOrigins__0: ${LONG_BEACH_WEB_ORIGIN:-http://localhost:4173}
+      Database__MigrateOnStartup: "true"
+      Authorization__SeedOnStartup: "true"
+      HealthChecks__DatabaseEnabled: "true"
+      LONG_BEACH_BOOTSTRAP_ADMIN_NAME: ${LONG_BEACH_BOOTSTRAP_ADMIN_NAME:-Administrador Long Beach}
+      LONG_BEACH_BOOTSTRAP_ADMIN_EMAIL: ${LONG_BEACH_BOOTSTRAP_ADMIN_EMAIL:-}
+      LONG_BEACH_BOOTSTRAP_ADMIN_PASSWORD: ${LONG_BEACH_BOOTSTRAP_ADMIN_PASSWORD:-}
+    ports:
+      - "${LONG_BEACH_API_PORT:-5100}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+      - frontend
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/web.Dockerfile
+      args:
+        VITE_API_URL: ${LONG_BEACH_PUBLIC_API_URL:-http://localhost:5100}
+    restart: unless-stopped
+    ports:
+      - "${LONG_BEACH_WEB_PORT:-4173}:8080"
+    depends_on:
+      - api
+    networks:
+      - frontend
+
+volumes:
+  longbeach_postgres_data:
+
+networks:
+  backend:
+    internal: true
+  frontend:

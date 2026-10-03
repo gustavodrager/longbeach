@@ -1,0 +1,241 @@
+using System.Security.Claims;
+using System.Text;
+using System.Threading.RateLimiting;
+using LongBeach.Api.Endpoints;
+using LongBeach.Api.Infrastructure;
+using LongBeach.Api.Middleware;
+using LongBeach.Api.Startup;
+using LongBeach.Application;
+using LongBeach.Application.Abstractions;
+using LongBeach.Application.Authorization;
+using LongBeach.Infrastructure;
+using LongBeach.Infrastructure.Health;
+using LongBeach.Infrastructure.Persistence;
+using LongBeach.Infrastructure.Security;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.IdentityModel.Tokens;
+using Serilog;
+
+var builder = WebApplication.CreateBuilder(args);
+var startupCommand = StartupCommandParser.Parse(args);
+
+builder.Host.UseSerilog((context, services, logger) => logger
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext());
+
+builder.Services.AddProblemDetails();
+builder.Services.AddOpenApi();
+builder.Services.AddApplication();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IAuditContext, HttpAuditContext>();
+builder.Services.AddInfrastructure(builder.Configuration);
+
+ConfigureAuthentication(builder.Services);
+ConfigureAuthorization(builder.Services);
+ConfigureCors(builder.Services, builder.Configuration, builder.Environment);
+ConfigureForwardedHeaders(builder.Services, builder.Configuration);
+ConfigureHealthChecks(builder.Services, builder.Configuration);
+ConfigureRateLimiting(builder.Services);
+
+var app = builder.Build();
+
+if (startupCommand == StartupCommand.MigrateOnly)
+{
+    await using var migrationScope = app.Services.CreateAsyncScope();
+    var migrationDbContext = migrationScope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+    await migrationDbContext.Database.MigrateAsync();
+    app.Logger.LogInformation("Database migrations completed successfully.");
+    return;
+}
+
+app.UseForwardedHeaders();
+app.UseSerilogRequestLogging();
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseCors("web-client");
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
+
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Test"))
+{
+    app.MapOpenApi().AllowAnonymous();
+}
+
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = _ => true
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("live")
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("ready") || registration.Tags.Contains("live")
+}).AllowAnonymous();
+
+app.MapAuthEndpoints();
+var publicOperationalDemo = app.Configuration.GetValue("DemoMode:PublicOperationalData", false);
+app.MapOperationalEndpoints(publicOperationalDemo);
+
+if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
+await app.RunAsync();
+
+static void ConfigureAuthentication(IServiceCollection services)
+{
+    services
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer();
+
+    services
+        .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+        .Configure<Microsoft.Extensions.Options.IOptions<JwtOptions>>((jwt, configuredOptions) =>
+        {
+            var options = configuredOptions.Value;
+            jwt.MapInboundClaims = false;
+            jwt.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = options.Issuer,
+                ValidateAudience = true,
+                ValidAudience = options.Audience,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.SigningKey)),
+                ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
+                ValidateLifetime = true,
+                RequireExpirationTime = true,
+                ClockSkew = TimeSpan.FromSeconds(30),
+                NameClaimType = ClaimTypes.Name,
+                RoleClaimType = ClaimTypes.Role
+            };
+        });
+}
+
+static void ConfigureAuthorization(IServiceCollection services)
+{
+    services.AddAuthorization(options =>
+    {
+        options.FallbackPolicy = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build();
+        options.AddPolicy("Administrator", policy => policy.RequireRole(
+            AuthorizationPolicyCatalog.Owner,
+            AuthorizationPolicyCatalog.Administrator));
+        foreach (var permission in AuthorizationPolicyCatalog.Permissions)
+        {
+            options.AddPolicy(permission, policy => policy.RequireClaim("permission", permission));
+        }
+    });
+}
+
+static void ConfigureRateLimiting(IServiceCollection services)
+{
+    services.AddRateLimiter(options =>
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.AddPolicy("auth-login", context => RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                AutoReplenishment = true
+            }));
+        options.AddPolicy("auth-refresh", context => RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                AutoReplenishment = true
+            }));
+        options.AddPolicy("public-demo-write", context => RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                AutoReplenishment = true
+            }));
+    });
+}
+
+static void ConfigureCors(
+    IServiceCollection services,
+    IConfiguration configuration,
+    IHostEnvironment environment)
+{
+    var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+    var mobileOrigins = configuration.GetSection("Authentication:MobileAllowedOrigins").Get<string[]>() ?? [];
+    var corsOrigins = allowedOrigins
+        .Concat(mobileOrigins)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    if (allowedOrigins.Length == 0 && !environment.IsDevelopment() && !environment.IsEnvironment("Test"))
+    {
+        throw new InvalidOperationException("Cors:AllowedOrigins must be configured outside Development and Test.");
+    }
+
+    services.AddCors(options => options.AddPolicy("web-client", policy =>
+    {
+        if (corsOrigins.Length == 0)
+        {
+            policy.SetIsOriginAllowed(_ => true);
+        }
+        else
+        {
+            policy.WithOrigins(corsOrigins);
+        }
+
+        policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+    }));
+}
+
+static void ConfigureHealthChecks(IServiceCollection services, IConfiguration configuration)
+{
+    var checks = services.AddHealthChecks()
+        .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"]);
+
+    if (configuration.GetValue("HealthChecks:DatabaseEnabled", true))
+    {
+        checks.AddCheck<PostgresHealthCheck>("postgresql", tags: ["ready"]);
+    }
+}
+
+static void ConfigureForwardedHeaders(IServiceCollection services, IConfiguration configuration)
+{
+    services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.ForwardLimit = 1;
+
+        if (configuration.GetValue("ReverseProxy:TrustAllForwarders", false))
+        {
+            options.KnownIPNetworks.Clear();
+            options.KnownProxies.Clear();
+        }
+    });
+}
+
+public partial class Program { }

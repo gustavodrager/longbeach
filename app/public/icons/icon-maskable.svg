@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Long Beach OS">
+  <rect width="512" height="512" fill="#081d21"/>
+  <path d="M72 323c57-50 114-58 171-23 61 37 125 31 209-28v75c-82 55-160 60-233 16-45-27-93-19-147 22z" fill="#e3b65d"/>
+  <path d="M82 258c43-39 87-45 132-17 61 38 125 32 226-39" fill="none" stroke="#21a8a4" stroke-width="42" stroke-linecap="round"/>
+  <circle cx="374" cy="126" r="54" fill="#f5ddb0"/>
+</svg>
