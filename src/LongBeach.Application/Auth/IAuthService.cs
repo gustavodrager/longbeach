@@ -10,6 +10,11 @@ public interface IAuthService
         string? ipAddress,
         CancellationToken cancellationToken = default);
 
+    Task<AuthSession> LoginWithGoogleAsync(
+        string email,
+        string? ipAddress,
+        CancellationToken cancellationToken = default);
+
     Task<AuthSession> RefreshAsync(
         string refreshToken,
         string? csrfToken,

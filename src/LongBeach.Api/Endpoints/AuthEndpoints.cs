@@ -11,11 +11,14 @@ public static class AuthEndpoints
     private const string ClientHeader = "X-LongBeach-Client";
     private const string CsrfHeader = "X-CSRF-Token";
 
-    public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder endpoints)
+    public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder endpoints, bool googleSignInEnabled)
     {
         var group = endpoints.MapGroup("/api/v1/auth").WithTags("Authentication");
 
-        group.MapPost("/login", LoginAsync).AllowAnonymous().RequireRateLimiting("auth-login");
+        if (!googleSignInEnabled)
+        {
+            group.MapPost("/login", LoginAsync).AllowAnonymous().RequireRateLimiting("auth-login");
+        }
         group.MapPost("/refresh", RefreshAsync).AllowAnonymous().RequireRateLimiting("auth-refresh");
         group.MapPost("/logout", LogoutAsync).AllowAnonymous();
         group.MapPost("/change-password", ChangePasswordAsync)
@@ -23,7 +26,35 @@ public static class AuthEndpoints
             .RequireRateLimiting("auth-login");
         group.MapGet("/me", CurrentUser).RequireAuthorization();
 
+        if (googleSignInEnabled)
+        {
+            group.MapPost("/google", LoginWithGoogleAsync)
+                .RequireAuthorization("GoogleSignIn")
+                .RequireRateLimiting("auth-login");
+        }
+
         return endpoints;
+    }
+
+    private static async Task<IResult> LoginWithGoogleAsync(
+        ClaimsPrincipal principal,
+        HttpContext httpContext,
+        IConfiguration configuration,
+        IAuthService authService,
+        CancellationToken cancellationToken)
+    {
+        var email = principal.FindFirstValue("email");
+        var allowedEmail = configuration["Authentication:Google:AllowedEmail"];
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(allowedEmail) ||
+            !string.Equals(email, allowedEmail.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.Unauthorized();
+        }
+
+        var session = await authService.LoginWithGoogleAsync(email, GetIpAddress(httpContext), cancellationToken);
+        SetNoStore(httpContext.Response);
+        SetSessionCookies(httpContext.Response, session, configuration);
+        return Results.Ok(session.Response);
     }
 
     private static async Task<IResult> LoginAsync(

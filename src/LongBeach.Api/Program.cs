@@ -37,8 +37,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuditContext, HttpAuditContext>();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-ConfigureAuthentication(builder.Services);
-ConfigureAuthorization(builder.Services);
+ConfigureAuthentication(builder.Services, builder.Configuration);
+ConfigureAuthorization(builder.Services, builder.Configuration);
 ConfigureCors(builder.Services, builder.Configuration, builder.Environment);
 ConfigureForwardedHeaders(builder.Services, builder.Configuration);
 ConfigureHealthChecks(builder.Services, builder.Configuration);
@@ -83,7 +83,8 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     Predicate = registration => registration.Tags.Contains("ready") || registration.Tags.Contains("live")
 }).AllowAnonymous();
 
-app.MapAuthEndpoints();
+app.MapBarEndpoints();
+app.MapAuthEndpoints(builder.Configuration.GetValue<bool>("Authentication:Google:Enabled"));
 var publicOperationalDemo = app.Configuration.GetValue("DemoMode:PublicOperationalData", false);
 app.MapOperationalEndpoints(publicOperationalDemo);
 
@@ -96,11 +97,34 @@ if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
 
 await app.RunAsync();
 
-static void ConfigureAuthentication(IServiceCollection services)
+static void ConfigureAuthentication(IServiceCollection services, IConfiguration configuration)
 {
-    services
+    var authentication = services
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer();
+
+    if (configuration.GetValue<bool>("Authentication:Google:Enabled"))
+    {
+        var googleClientId = configuration["Authentication:Google:ClientId"];
+        if (string.IsNullOrWhiteSpace(googleClientId))
+        {
+            throw new InvalidOperationException("Authentication:Google:ClientId is required when Google sign-in is enabled.");
+        }
+        if (string.IsNullOrWhiteSpace(configuration["Authentication:Google:AllowedEmail"]))
+        {
+            throw new InvalidOperationException("Authentication:Google:AllowedEmail is required when Google sign-in is enabled.");
+        }
+
+        authentication.AddJwtBearer("Google", google =>
+        {
+            google.Authority = "https://accounts.google.com";
+            google.Audience = googleClientId;
+            google.RequireHttpsMetadata = true;
+            google.MapInboundClaims = false;
+            google.TokenValidationParameters.ValidIssuers = ["https://accounts.google.com", "accounts.google.com"];
+            google.TokenValidationParameters.ValidAudience = googleClientId;
+        });
+    }
 
     services
         .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
@@ -126,7 +150,7 @@ static void ConfigureAuthentication(IServiceCollection services)
         });
 }
 
-static void ConfigureAuthorization(IServiceCollection services)
+static void ConfigureAuthorization(IServiceCollection services, IConfiguration configuration)
 {
     services.AddAuthorization(options =>
     {
@@ -139,6 +163,14 @@ static void ConfigureAuthorization(IServiceCollection services)
         foreach (var permission in AuthorizationPolicyCatalog.Permissions)
         {
             options.AddPolicy(permission, policy => policy.RequireClaim("permission", permission));
+        }
+
+        if (configuration.GetValue<bool>("Authentication:Google:Enabled"))
+        {
+            options.AddPolicy("GoogleSignIn", policy => policy
+                .AddAuthenticationSchemes("Google")
+                .RequireAuthenticatedUser()
+                .RequireClaim("email_verified", "true"));
         }
     });
 }

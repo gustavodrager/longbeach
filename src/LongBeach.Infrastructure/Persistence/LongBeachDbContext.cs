@@ -23,6 +23,12 @@ public sealed class LongBeachDbContext(
     {
         base.OnModelCreating(modelBuilder);
 
+        BarModel.Configure(modelBuilder);
+        StockModel.Configure(modelBuilder);
+        CashModel.Configure(modelBuilder);
+        SalesModel.Configure(modelBuilder);
+        PurchaseModel.Configure(modelBuilder);
+        PaymentModel.Configure(modelBuilder);
         ConfigureUser(modelBuilder);
         ConfigureRole(modelBuilder);
         ConfigurePermission(modelBuilder);
@@ -33,6 +39,7 @@ public sealed class LongBeachDbContext(
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        ProtectBarLedger();
         ApplyTimestamps();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
@@ -41,10 +48,20 @@ public sealed class LongBeachDbContext(
         bool acceptAllChangesOnSuccess,
         CancellationToken cancellationToken = default)
     {
+        ProtectBarLedger();
         ApplyTimestamps();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
+    private void ProtectBarLedger()
+    {
+        ChangeTracker.DetectChanges();
+        foreach(var entry in ChangeTracker.Entries().Where(x=>x.State is EntityState.Modified or EntityState.Deleted))
+            if(entry.Entity is LongBeach.Domain.Inventory.StockMovement or LongBeach.Domain.Cash.CashMovement or LongBeach.Domain.Cash.CashClosing
+                or LongBeach.Domain.Bar.BarSaleItem or LongBeach.Domain.Bar.BarSaleDiscount or LongBeach.Domain.Purchases.PurchaseReceipt or LongBeach.Domain.Payments.PaymentReconciliation
+                or LongBeach.Domain.Payments.PaymentWebhookInbox or LongBeach.Domain.Payments.PaymentProviderTransaction or LongBeach.Domain.Payments.BarEvent)
+                throw new LongBeach.Domain.Bar.BarRuleException("Registro histórico imutável. Registre uma reversão.");
+    }
     private void ApplyTimestamps()
     {
         var now = timeProvider.GetUtcNow();

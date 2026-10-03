@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { apiFetch } from '../../lib/http'
+import { useAuth } from '../auth/authContext'
 
 export type Student = {
   id: string; name: string; phone: string; birthDate: string; address: string; shirtSize: string; shortsSize: string
@@ -50,22 +52,21 @@ const makeId = () => globalThis.crypto?.randomUUID?.() ?? 'xxxxxxxx-xxxx-4xxx-yx
   return (char === 'x' ? random : (random & 0x3) | 0x8).toString(16)
 })
 
-export function DemoDataProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
+export function DemoDataProvider({ enabled, demoMode = false, children }: { enabled: boolean; demoMode?: boolean; children: ReactNode }) {
+  const { user } = useAuth()
   const [data, setData] = useState<Stored>(() => enabled ? readStored() : empty)
   const postgresEnabled = isPostgresEnabled() && enabled
   const [persistenceStatus, setPersistenceStatus] = useState<Operations['persistenceStatus']>(postgresEnabled ? 'connecting' : 'local')
   const [persistenceMessage, setPersistenceMessage] = useState('')
   useEffect(() => { if (enabled) localStorage.setItem(storageKey, JSON.stringify(data)) }, [data, enabled])
   useEffect(() => {
-    if (!postgresEnabled) return
+    if (!postgresEnabled || (!demoMode && !user)) return
     let active = true
     const kinds = ['students', 'team', 'inventory', 'projects'] as const
     const load = async () => {
       try {
         const remote = await Promise.all(kinds.map(async (kind) => {
-          const response = await fetch(`${getApiUrl()}/api/v1/operations/${kind}`, { headers: { Accept: 'application/json' } })
-          if (!response.ok) throw new Error(`Falha ao consultar ${kind} (${response.status}).`)
-          return await response.json() as Stored[typeof kind]
+          return await apiFetch<Stored[typeof kind]>(`/api/v1/operations/${kind}`)
         }))
         if (!active) return
         const stored = readStored()
@@ -85,7 +86,7 @@ export function DemoDataProvider({ enabled, children }: { enabled: boolean; chil
     }
     void load()
     return () => { active = false }
-  }, [postgresEnabled])
+  }, [postgresEnabled, demoMode, user?.id])
   const value = useMemo<Operations>(() => ({
     ...data,
     persistenceStatus,
@@ -131,10 +132,9 @@ export function DemoDataProvider({ enabled, children }: { enabled: boolean; chil
 }
 
 async function writeRemote(kind: string, record: { id: string }) {
-  const response = await fetch(`${getApiUrl()}/api/v1/operations/${kind}/${record.id}`, {
+  await apiFetch(`/api/v1/operations/${kind}/${record.id}`, {
     method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(record),
   })
-  if (!response.ok) throw new Error(`Falha ao salvar registro (${response.status}).`)
 }
 
 async function persist(kind: string, record: { id: string }, onError: () => void, onSuccess: () => void) {

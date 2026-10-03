@@ -13,6 +13,22 @@ public sealed class ExceptionHandlingMiddleware(
         {
             await next(context);
         }
+        catch (LongBeach.Domain.Bar.BarRuleException exception)
+        {
+            await WriteProblemAsync(context, 400, "Operação do Bar rejeitada", exception.Message);
+        }
+        catch (Npgsql.PostgresException exception) when (exception.SqlState is "40001" or "40P01")
+        {
+            await WriteProblemAsync(context,409,"Operação concorrente","Recarregue os dados e repita com a mesma chave de operação.");
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+        {
+            await WriteProblemAsync(context,409,"Operação concorrente","Recarregue os dados e repita com a mesma chave de operação.");
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            await WriteProblemAsync(context, 409, "Conflito de gravação", "Recarregue os dados e verifique duplicidade ou alteração concorrente.");
+        }
         catch (AuthenticationFailedException exception)
         {
             await WriteProblemAsync(context, StatusCodes.Status401Unauthorized, "Authentication failed", exception.Message);

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type PropsWithChildren } from 'react'
 import { restoreSession } from '../../lib/http'
-import { changePassword, getCurrentUser, login, logout } from './authApi'
+import { changePassword, getCurrentUser, login, loginWithGoogle, logout } from './authApi'
 import { AuthContext } from './authContext'
 import type { AuthUser, LoginCredentials, PasswordChange } from './types'
 
@@ -43,6 +43,10 @@ export function AuthProvider({ children, demoMode = false }: AuthProviderProps) 
       isBootstrapping,
       signIn: async (credentials: LoginCredentials) => {
         const authenticatedUser = await login(credentials)
+        setUser(authenticatedUser)
+      },
+      signInWithGoogle: async (credential: string) => {
+        const authenticatedUser = await loginWithGoogle(credential)
         setUser(authenticatedUser)
       },
       signOut: async () => {

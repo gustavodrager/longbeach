@@ -50,6 +50,7 @@ h1, h2, h3, .brand-copy strong { font-family: Inter, ui-sans-serif, system-ui, s
 .login-heading h1 { color: #0a2428; font-size: clamp(2rem, 8vw, 3rem); line-height: 1.06; letter-spacing: -.045em; margin-bottom: 1rem; }
 .login-heading > p:last-child { color: #5c6f6c; font-size: 1rem; margin-bottom: 2rem; }
 .login-form { display: grid; gap: 1.1rem; }
+.google-signin-button { min-height: 44px; display: flex; justify-content: center; overflow: hidden; }
 .login-form label { display: grid; gap: .5rem; font-size: .9rem; font-weight: 700; color: #254348; }
 .login-form input {
   width: 100%; min-height: 3.45rem; border-radius: .9rem; border: 1px solid rgba(15, 53, 58, .16);
@@ -354,3 +355,23 @@ h1, h2, h3, .brand-copy strong { font-family: Inter, ui-sans-serif, system-ui, s
 
 .persistence-banner.connected { border-color: rgba(108, 203, 160, .28); background: rgba(108, 203, 160, .07); color: #a9e2c5; }
 .persistence-banner.error { border-color: rgba(255, 125, 125, .4); background: rgba(255, 125, 125, .08); color: #ffc1c1; }
+
+/* Bar shares the application shell and responsive operations styles. */
+.bar-tabs { display:flex; flex-wrap:wrap; gap:.6rem; padding:1rem; }
+.bar-tabs a, .bar-tabs button { padding:.8rem; border-radius:10px; background:#eef4ef; color:#183f30; text-decoration:none; }
+.bar-form { display:grid; gap:1rem; margin-block:1rem; }
+.bar-field { display:grid; gap:.4rem; }
+.bar-field input,.bar-field select,.bar-cart-item input { width:100%; padding:.8rem; border:1px solid #bccbc1; border-radius:8px; box-sizing:border-box; }
+.bar-inline-form { display:flex; align-items:center; flex-wrap:wrap; gap:1rem; padding-block:1rem; border-bottom:1px solid #dde5df; }
+.bar-table { overflow-x:auto; margin-block:1rem; } .bar-table table { width:100%; border-collapse:collapse; }
+.bar-table td,.bar-table th { padding:.8rem; text-align:left; border-bottom:1px solid #dde5df; }
+.bar-pos { display:grid; grid-template-columns:minmax(0,2fr) minmax(280px,1fr); gap:1.2rem; align-items:start; }
+.bar-product-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:.8rem; }
+.bar-product { min-height:110px; border:1px solid #bfcfc3; background:white; border-radius:12px; display:grid; gap:.5rem; padding:1rem; }
+.bar-product:disabled { opacity:.5; } .bar-cart { position:sticky; top:1rem; display:grid; gap:1rem; }
+.bar-cart-item { display:grid; grid-template-columns:1fr 100px; gap:1rem; align-items:center; }
+.bar-error { color:#9e2525; padding:1rem; background:#fff0ee; } .bar-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; }
+.bar-metrics .operation-card { display:grid; gap:1rem; } .bar-metrics strong { font-size:1.5rem; }
+@media(max-width:760px) { .bar-pos { grid-template-columns:1fr; } .bar-cart { position:static; } .bar-tabs { padding:.7rem; } }
+.bar-product-image { max-width:80px; height:60px; object-fit:contain; justify-self:center; }
+@media print { .side-nav,.mobile-header,.bottom-nav,.bar-tabs,form,button { display:none !important; } .app-main { margin:0 !important; } }

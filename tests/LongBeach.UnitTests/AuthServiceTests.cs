@@ -10,6 +10,26 @@ public sealed class AuthServiceTests
         new(2026, 10, 1, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public async Task Google_login_issues_a_Long_Beach_session_for_an_existing_active_account()
+    {
+        var user = User.Create("Arena Owner", "gustavodrager@gmail.com", "valid-hash");
+        var repository = new FakeUserRepository(user);
+        var service = new AuthService(
+            repository,
+            new FakePasswordHasher(),
+            new FakeTokenService(),
+            new FixedTimeProvider(Now));
+
+        var session = await service.LoginWithGoogleAsync("gustavodrager@gmail.com", "google-client-ip");
+
+        Assert.Equal("gustavodrager@gmail.com", session.Response.User.Email);
+        Assert.Equal("access-token", session.Response.AccessToken);
+        Assert.Equal(Now.AddHours(8), session.RefreshTokenExpiresAtUtc);
+        Assert.Single(user.RefreshTokens);
+        Assert.Equal(1, repository.SaveCount);
+    }
+
+    [Fact]
     public async Task Refresh_rotates_token_inside_the_same_family()
     {
         var user = User.Create("Arena Owner", "owner@longbeach.local", "valid-hash");

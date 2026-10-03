@@ -23,6 +23,8 @@ function initials(name: string) {
 export function AppShell({ demoMode = false }: { demoMode?: boolean }) {
   const { user, signOut } = useAuth()
   const { persistenceStatus, persistenceMessage } = useOperations()
+  const visibleNavItems = !demoMode && user?.permissions.includes('bar:catalog:read')
+    ? [...navItems, { label: 'Bar', icon: '▤', href: '/bar' }] : navItems
   const location = useLocation()
   const isActive = (href: string) => href === '/' ? location.pathname === '/' : location.pathname.startsWith(href)
 
@@ -31,7 +33,7 @@ export function AppShell({ demoMode = false }: { demoMode?: boolean }) {
       <aside className="side-nav">
         <Logo />
         <nav aria-label="Navegação principal">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <Link key={item.label} to={item.href} className={isActive(item.href) ? 'nav-item is-active' : 'nav-item'}>
               <span aria-hidden="true">{item.icon}</span>
               <span>{item.label}</span>
@@ -70,7 +72,7 @@ export function AppShell({ demoMode = false }: { demoMode?: boolean }) {
       </div>
 
       <nav className="bottom-nav" aria-label="Navegação principal para celular">
-        {navItems.map((item) => (
+        {visibleNavItems.map((item) => (
           <Link key={item.label} to={item.href} className={isActive(item.href) ? 'is-active' : ''} aria-current={isActive(item.href) ? 'page' : undefined}>
             <span aria-hidden="true">{item.icon}</span>
             <small>{item.label}</small>

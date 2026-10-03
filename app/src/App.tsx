@@ -6,6 +6,7 @@ import { AuthGuard } from './features/auth/AuthGuard'
 import { AuthProvider } from './features/auth/AuthProvider'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
+import { BarLayout, BarProductsPage, BarStockPage, BarCountsPage, BarCashPage, BarPosPage, BarSalesPage, BarLossesPage, BarPurchasesPage, BarDashboardPage, BarReconciliationPage } from './features/bar/BarPages'
 import { AccountPage } from './pages/AccountPage'
 import { DemoDataProvider } from './features/operations/DemoDataProvider'
 import { StudentsPage, StudentDetailsPage, TeamPage, InventoryPage, ProjectsPage } from './pages/OperationsPages'
@@ -27,7 +28,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider demoMode={demoMode}>
-          <DemoDataProvider enabled={demoMode}>
+          <DemoDataProvider enabled demoMode={demoMode}>
           <Routes>
             {demoMode ? (
               <>
@@ -48,6 +49,23 @@ export function App() {
                   <Route element={<AppShell />}>
                     <Route index element={<DashboardPage />} />
                     <Route path="conta" element={<AccountPage />} />
+                    <Route path="bar" element={<BarLayout />}>
+                      <Route index element={<BarPosPage />} />
+                      <Route path="produtos" element={<BarProductsPage />} />
+                      <Route path="estoque" element={<BarStockPage />} />
+                      <Route path="inventario" element={<BarCountsPage />} />
+                      <Route path="caixa" element={<BarCashPage />} />
+                      <Route path="vendas" element={<BarSalesPage />} />
+                      <Route path="perdas" element={<BarLossesPage />} />
+                      <Route path="compras" element={<BarPurchasesPage />} />
+                      <Route path="indicadores" element={<BarDashboardPage />} />
+                      <Route path="conciliacao" element={<BarReconciliationPage />} />
+                    </Route>
+                    <Route path="alunos" element={<StudentsPage />} />
+                    <Route path="alunos/:studentId" element={<StudentDetailsPage />} />
+                    <Route path="equipe" element={<TeamPage />} />
+                    <Route path="estoque" element={<InventoryPage />} />
+                    <Route path="projetos" element={<ProjectsPage />} />
                   </Route>
                 </Route>
               </>

@@ -1,4 +1,8 @@
 export type UserRole =
+  | 'BarOperator'
+  | 'BarSupervisor'
+  | 'StockManager'
+  | 'BarFinance'
   | 'Owner'
   | 'Administrator'
   | 'Manager'

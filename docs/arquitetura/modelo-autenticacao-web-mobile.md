@@ -122,3 +122,10 @@ O símbolo “—” significa ausência por padrão, não impossibilidade perma
 - acesso permitido e negado para cada policy crítica;
 - alteração de papel refletida sem manter privilégios antigos;
 - auditoria completa sem armazenar tokens ou senha.
+# Login web com Google
+
+O Long Beach OS usa o Google Identity Services para identificar o e-mail permitido, mas mantém sua própria conta, papéis, permissões, JWT, refresh token, cookie CSRF, auditoria e banco. A API valida a assinatura do ID token do Google, sua audiência (Client ID próprio do Long Beach), emissor e `email_verified=true`; depois exige correspondência exata, sem diferenciar maiúsculas, com `Authentication:Google:AllowedEmail` e uma conta ativa já cadastrada no PostgreSQL do Long Beach.
+
+O Client ID OAuth deve ser exclusivo do Long Beach OS, com a origem web de teste e, quando aprovado, a origem oficial do Long Beach autorizadas. Não reutilizar configuração, segredo, usuário, sessão ou banco do Central da Vida. A tela de login Google só substitui a entrada por senha quando `VITE_GOOGLE_CLIENT_ID` estiver configurado; a API habilita o fluxo com `Authentication:Google:Enabled=true` e exige o mesmo Client ID e e-mail permitido. Com Google habilitado, a rota de senha fica desativada. A sessão Long Beach dura até oito horas, como no Central da Vida; a API emite e rotaciona seus próprios tokens e preserva o limite absoluto durante a renovação.
+
+O login web funciona em navegador e PWA. O fluxo de autenticação nativo Capacitor precisa de configuração OAuth nativa própria antes da distribuição em lojas.

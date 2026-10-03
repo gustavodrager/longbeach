@@ -48,7 +48,7 @@ export default defineRailway(() => {
       PORT: preserve(),
       RAILWAY_DOCKERFILE_PATH: preserve(),
       VITE_API_URL: "https://api.longbeach.quebranunca.com.br",
-      VITE_DEMO_MODE: "true",
+      VITE_DEMO_MODE: "false",
       VITE_OPERATIONAL_STORAGE: "postgres",
     },
   });
