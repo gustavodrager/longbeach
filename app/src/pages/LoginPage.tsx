@@ -64,11 +64,12 @@ export function LoginPage() {
     else if (existing) existing.addEventListener('load', render, { once: true })
     else {
       const script = document.createElement('script')
-      script.src = 'https://accounts.google.com/gsi/client'
+      script.src = 'https://accounts.google.com/gsi/client?hl=pt-BR'
       script.async = true
       script.defer = true
       script.dataset.googleIdentity = 'true'
       script.addEventListener('load', render, { once: true })
+      script.addEventListener('error', () => setError('Não foi possível carregar o acesso do Google. Atualize a página e tente novamente.'), { once: true })
       document.head.append(script)
     }
     return () => { cancelled = true }
