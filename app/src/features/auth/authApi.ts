@@ -21,6 +21,19 @@ export async function login(credentials: LoginCredentials) {
   return response.user
 }
 
+export async function loginWithGoogle(credential: string) {
+  const response = await fetch(`${(import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')}/api/v1/auth/google`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Authorization: `Bearer ${credential}`, Accept: 'application/json' },
+  })
+  if (!response.ok) throw new Error('Google sign-in was rejected.')
+  const session = await response.json() as LoginResponse
+  setAccessToken(session.accessToken)
+  setCsrfToken(session.csrfToken)
+  return session.user
+}
+
 export async function getCurrentUser() {
   return apiFetch<AuthUser>('/api/v1/auth/me', undefined, false)
 }

@@ -34,6 +34,24 @@ public sealed class AuthService(
         return await IssueAndPersistAsync(user, ipAddress, cancellationToken);
     }
 
+    public async Task<AuthSession> LoginWithGoogleAsync(
+        string email,
+        string? ipAddress,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await users.FindByEmailAsync(User.NormalizeEmail(email), cancellationToken);
+        if (user is null || !user.IsActive)
+        {
+            throw new AuthenticationFailedException();
+        }
+
+        return await IssueAndPersistAsync(
+            user,
+            ipAddress,
+            cancellationToken,
+            timeProvider.GetUtcNow().AddHours(8));
+    }
+
     public async Task<AuthSession> RefreshAsync(
         string refreshToken,
         string? csrfToken,
@@ -65,7 +83,10 @@ public sealed class AuthService(
             throw new InvalidRefreshTokenException();
         }
 
-        var issued = tokens.Issue(ToPrincipal(user), now);
+        var issued = tokens.Issue(ToPrincipal(user), now) with
+        {
+            RefreshTokenExpiresAtUtc = currentToken.ExpiresAtUtc
+        };
         currentToken.Revoke(now, ipAddress, "Rotated", issued.RefreshTokenId);
         user.AddRefreshToken(RefreshToken.Create(
             issued.RefreshTokenId,
@@ -140,9 +161,14 @@ public sealed class AuthService(
     private async Task<AuthSession> IssueAndPersistAsync(
         User user,
         string? ipAddress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateTimeOffset? refreshTokenExpiresAtUtc = null)
     {
         var issued = tokens.Issue(ToPrincipal(user), timeProvider.GetUtcNow());
+        if (refreshTokenExpiresAtUtc is not null)
+        {
+            issued = issued with { RefreshTokenExpiresAtUtc = refreshTokenExpiresAtUtc.Value };
+        }
         user.AddRefreshToken(RefreshToken.Create(
             issued.RefreshTokenId,
             user.Id,

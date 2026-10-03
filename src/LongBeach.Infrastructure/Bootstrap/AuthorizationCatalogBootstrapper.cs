@@ -14,10 +14,17 @@ public sealed class AuthorizationCatalogBootstrapper(
     private static readonly IReadOnlyDictionary<string, IReadOnlyCollection<string>> Grants =
         new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.Ordinal)
         {
+            [SystemRoles.BarOperator] = [SystemPermissions.BarCatalogRead,SystemPermissions.BarStockRead,SystemPermissions.BarStockOutput,SystemPermissions.BarCashOperate,SystemPermissions.BarSalesRead,SystemPermissions.BarSalesOperate],
+            [SystemRoles.BarSupervisor] = [SystemPermissions.BarCatalogRead,SystemPermissions.BarStockRead,SystemPermissions.BarStockOutput,SystemPermissions.BarStockManage,SystemPermissions.BarCashOperate,SystemPermissions.BarSalesRead,SystemPermissions.BarSalesOperate,SystemPermissions.BarSupervise,SystemPermissions.BarRefundApprove],
+            [SystemRoles.StockManager] = [SystemPermissions.BarCatalogRead,SystemPermissions.BarCatalogWrite,SystemPermissions.BarStockRead,SystemPermissions.BarStockManage,SystemPermissions.BarStockOutput,SystemPermissions.BarPurchasesManage],
+            [SystemRoles.BarFinance] = [SystemPermissions.BarCatalogRead,SystemPermissions.BarStockRead,SystemPermissions.BarSalesRead,SystemPermissions.BarFinanceRead,SystemPermissions.BarReconcile,SystemPermissions.BarRefundApprove],
             [SystemRoles.Owner] = SystemPermissions.All,
             [SystemRoles.Administrator] = SystemPermissions.All,
             [SystemRoles.Manager] =
             [
+                SystemPermissions.BarStockOutput, SystemPermissions.BarStockRead, SystemPermissions.BarStockManage, SystemPermissions.BarCashOperate, SystemPermissions.BarSupervise, SystemPermissions.BarRefundApprove,
+                SystemPermissions.BarSalesRead, SystemPermissions.BarSalesOperate, SystemPermissions.BarFinanceRead, SystemPermissions.BarPurchasesManage, SystemPermissions.BarReconcile,
+                SystemPermissions.BarCatalogRead, SystemPermissions.BarCatalogWrite,
                 SystemPermissions.StudentsRead, SystemPermissions.StudentsWrite,
                 SystemPermissions.EmployeesRead, SystemPermissions.EmployeesWrite,
                 SystemPermissions.InventoryRead, SystemPermissions.InventoryWrite,
@@ -29,6 +36,7 @@ public sealed class AuthorizationCatalogBootstrapper(
             [SystemPermissions.StudentsRead, SystemPermissions.StudentsWrite, SystemPermissions.InventoryRead, SystemPermissions.ProjectsRead],
             [SystemRoles.Operations] =
             [
+                SystemPermissions.BarCatalogRead, SystemPermissions.BarStockOutput, SystemPermissions.BarStockRead, SystemPermissions.BarCashOperate, SystemPermissions.BarSalesRead, SystemPermissions.BarSalesOperate,
                 SystemPermissions.StudentsRead, SystemPermissions.EmployeesRead,
                 SystemPermissions.InventoryRead, SystemPermissions.InventoryWrite,
                 SystemPermissions.ProjectsRead, SystemPermissions.ProjectsWrite
