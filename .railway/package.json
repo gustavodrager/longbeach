@@ -1,0 +1,10 @@
+{
+  "name": "longbeach-os-railway-infrastructure",
+  "private": true,
+  "scripts": {
+    "plan": "railway config plan"
+  },
+  "devDependencies": {
+    "railway": "^3.12.0"
+  }
+}

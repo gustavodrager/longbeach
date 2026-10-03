@@ -1,0 +1,158 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+
+jobs:
+  backend:
+    name: Backend .NET
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: longbeach_ci
+          POSTGRES_USER: longbeach_ci
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U longbeach_ci -d longbeach_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore LongBeach.sln
+
+      - name: Build
+        run: dotnet build LongBeach.sln --configuration Release --no-restore
+
+      - name: Test
+        env:
+          LONG_BEACH_TEST_DATABASE_URL: Host=127.0.0.1;Port=5432;Database=longbeach_ci;Username=longbeach_ci;Password=ci-only-password
+        run: >-
+          dotnet test LongBeach.sln
+          --configuration Release
+          --no-build
+          --logger "trx;LogFilePrefix=tests"
+          --results-directory TestResults
+          --collect "XPlat Code Coverage"
+
+      - name: Apply migrations and verify API readiness
+        env:
+          ASPNETCORE_ENVIRONMENT: Test
+          ASPNETCORE_URLS: http://127.0.0.1:5100
+          ConnectionStrings__LongBeach: Host=127.0.0.1;Port=5432;Database=longbeach_ci;Username=longbeach_ci;Password=ci-only-password
+          Authentication__Jwt__Issuer: LongBeach.CI
+          Authentication__Jwt__Audience: LongBeach.CI.Client
+          Authentication__Jwt__SigningKey: ci-only-signing-key-with-at-least-32-characters
+          Cors__AllowedOrigins__0: http://localhost:4173
+          Database__MigrateOnStartup: "true"
+          Authorization__SeedOnStartup: "true"
+          HealthChecks__DatabaseEnabled: "true"
+        run: |
+          dotnet run \
+            --project src/LongBeach.Api/LongBeach.Api.csproj \
+            --configuration Release \
+            --no-build \
+            > "$RUNNER_TEMP/longbeach-api.log" 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+
+          ready=false
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:5100/health/ready > /dev/null; then
+              ready=true
+              break
+            fi
+            if ! kill -0 "$api_pid" 2>/dev/null; then
+              cat "$RUNNER_TEMP/longbeach-api.log"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" != true ]; then
+            cat "$RUNNER_TEMP/longbeach-api.log"
+            exit 1
+          fi
+
+          curl --fail --silent --show-error http://127.0.0.1:5100/health > /dev/null
+
+      - name: Publish test results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-test-results
+          path: TestResults/**/*
+          if-no-files-found: warn
+          retention-days: 7
+
+  frontend:
+    name: Frontend React/PWA
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm --dir app install --frozen-lockfile
+
+      - name: Test
+        run: pnpm --dir app test
+
+      - name: Build PWA
+        env:
+          VITE_API_URL: https://api.test.invalid
+        run: pnpm --dir app build
+
+      - name: Publish PWA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: longbeach-pwa
+          path: app/dist
+          if-no-files-found: error
+          retention-days: 7

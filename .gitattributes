@@ -1,0 +1,3 @@
+* text=auto
+*.bat text eol=crlf whitespace=-trailing-space
+docs/arquitetura/LongBeach_OS_Arquitetura_Standalone_v0.2.md whitespace=-trailing-space

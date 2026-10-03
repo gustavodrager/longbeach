@@ -1,0 +1,60 @@
+# Operating systems and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+appsettings.*.local.json
+secrets*.json
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+
+# .NET
+**/bin/
+**/obj/
+TestResults/
+artifacts/
+coverage/
+*.coverage
+*.coveragexml
+
+# Node, Vite and test output
+**/node_modules/
+app/dist/
+app/coverage/
+*.tsbuildinfo
+*.local
+
+# Capacitor native build output and machine-local settings
+app/android/.gradle/
+app/android/local.properties
+app/android/**/build/
+app/ios/App/Pods/
+app/ios/DerivedData/
+app/ios/**/*.xcuserstate
+app/ios/**/*.xcuserdata/
+
+# Local databases and runtime files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.log
+*.pid
+
+# Local tool caches
+.dotnet/
+.nuget/
+.cache/
