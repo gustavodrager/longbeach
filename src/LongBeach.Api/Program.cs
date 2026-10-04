@@ -7,6 +7,7 @@ using LongBeach.Api.Middleware;
 using LongBeach.Api.Startup;
 using LongBeach.Application;
 using LongBeach.Application.Abstractions;
+using LongBeach.Application.Auth;
 using LongBeach.Application.Authorization;
 using LongBeach.Infrastructure;
 using LongBeach.Infrastructure.Health;
@@ -110,7 +111,7 @@ static void ConfigureAuthentication(IServiceCollection services, IConfiguration 
         {
             throw new InvalidOperationException("Authentication:Google:ClientId is required when Google sign-in is enabled.");
         }
-        if (string.IsNullOrWhiteSpace(configuration["Authentication:Google:AllowedEmail"]))
+        if (GoogleEmailAllowlist.Parse(configuration["Authentication:Google:AllowedEmail"]).Length == 0)
         {
             throw new InvalidOperationException("Authentication:Google:AllowedEmail is required when Google sign-in is enabled.");
         }
