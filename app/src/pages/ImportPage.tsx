@@ -14,7 +14,7 @@ export function ImportPage() {
 
   async function load() {
     try { setBatches(await apiFetch<StagedBatch[]>('/api/v1/imports')) }
-    catch (error) { setMessage(error instanceof ApiError && error.status === 403 ? 'Esta área está disponível apenas para proprietários e administradores.' : 'Não foi possível consultar os lotes de importação.') }
+    catch (error) { setMessage(error instanceof ApiError && error.status === 403 ? 'Esta área está disponível apenas para o proprietário.' : 'Não foi possível consultar os lotes de importação.') }
   }
 
   useEffect(() => { if (canImport) void load() }, [canImport])
