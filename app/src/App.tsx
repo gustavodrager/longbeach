@@ -10,6 +10,7 @@ import { BarLayout, BarProductsPage, BarStockPage, BarCountsPage, BarCashPage, B
 import { AccountPage } from './pages/AccountPage'
 import { DemoDataProvider } from './features/operations/DemoDataProvider'
 import { StudentsPage, StudentDetailsPage, TeamPage, InventoryPage, ProjectsPage } from './pages/OperationsPages'
+import { ImportPage } from './pages/ImportPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
