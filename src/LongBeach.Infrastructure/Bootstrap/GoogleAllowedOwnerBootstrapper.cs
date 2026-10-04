@@ -69,7 +69,7 @@ public sealed class GoogleAllowedOwnerBootstrapper(
     private static string DisplayName(string email)
     {
         var localPart = email.Split('@', 2)[0];
-        return string.Join(' ', localPart.Split(['.', '_', '-'], StringSplitOptions.RemoveEmptyEntries)
+        return string.Join(" ", localPart.Split(['.', '_', '-'], StringSplitOptions.RemoveEmptyEntries)
             .Select(part => char.ToUpperInvariant(part[0]) + part[1..]));
     }
 }
