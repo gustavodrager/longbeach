@@ -14,7 +14,7 @@ public static partial class ImportEndpoints
 {
     private const int MaxRows = 2_000;
     private const int MaxPayloadBytes = 32_768;
-    private static readonly HashSet<string> RecordTypes = ["student", "student-history", "class-session", "rental", "cost", "balance", "customer-summary", "calendar"];
+    private static readonly HashSet<string> RecordTypes = ["student", "student-history", "class-session", "rental", "cost", "balance", "customer-summary", "calendar", "reference-data"];
 
     public static IEndpointRouteBuilder MapImportEndpoints(this IEndpointRouteBuilder endpoints)
     {
