@@ -44,9 +44,8 @@ public static class AuthEndpoints
         CancellationToken cancellationToken)
     {
         var email = principal.FindFirstValue("email");
-        var allowedEmail = configuration["Authentication:Google:AllowedEmail"];
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(allowedEmail) ||
-            !string.Equals(email, allowedEmail.Trim(), StringComparison.OrdinalIgnoreCase))
+        var allowedEmails = configuration["Authentication:Google:AllowedEmail"];
+        if (!GoogleEmailAllowlist.Contains(allowedEmails, email))
         {
             return Results.Unauthorized();
         }
