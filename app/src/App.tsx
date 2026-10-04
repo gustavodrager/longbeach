@@ -10,6 +10,7 @@ import { BarLayout, BarProductsPage, BarStockPage, BarCountsPage, BarCashPage, B
 import { AccountPage } from './pages/AccountPage'
 import { DemoDataProvider } from './features/operations/DemoDataProvider'
 import { StudentsPage, StudentDetailsPage, TeamPage, InventoryPage, ProjectsPage } from './pages/OperationsPages'
+import { ImportPage } from './pages/ImportPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +67,7 @@ export function App() {
                     <Route path="equipe" element={<TeamPage />} />
                     <Route path="estoque" element={<InventoryPage />} />
                     <Route path="projetos" element={<ProjectsPage />} />
+                    <Route path="importacoes" element={<ImportPage />} />
                   </Route>
                 </Route>
               </>

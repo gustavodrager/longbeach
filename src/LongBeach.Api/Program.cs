@@ -85,6 +85,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 }).AllowAnonymous();
 
 app.MapBarEndpoints();
+app.MapImportEndpoints();
 app.MapAuthEndpoints(builder.Configuration.GetValue<bool>("Authentication:Google:Enabled"));
 var publicOperationalDemo = app.Configuration.GetValue("DemoMode:PublicOperationalData", false);
 app.MapOperationalEndpoints(publicOperationalDemo);
@@ -158,6 +159,8 @@ static void ConfigureAuthorization(IServiceCollection services, IConfiguration c
         options.FallbackPolicy = new AuthorizationPolicyBuilder()
             .RequireAuthenticatedUser()
             .Build();
+        options.AddPolicy(AuthorizationPolicyCatalog.Owner, policy =>
+            policy.RequireRole(AuthorizationPolicyCatalog.Owner));
         options.AddPolicy("Administrator", policy => policy.RequireRole(
             AuthorizationPolicyCatalog.Owner,
             AuthorizationPolicyCatalog.Administrator));

@@ -23,8 +23,10 @@ function initials(name: string) {
 export function AppShell({ demoMode = false }: { demoMode?: boolean }) {
   const { user, signOut } = useAuth()
   const { persistenceStatus, persistenceMessage } = useOperations()
-  const visibleNavItems = !demoMode && user?.permissions.includes('bar:catalog:read')
-    ? [...navItems, { label: 'Bar', icon: '▤', href: '/bar' }] : navItems
+  const visibleNavItems = [
+    ...(!demoMode && user?.permissions.includes('bar:catalog:read') ? [...navItems, { label: 'Bar', icon: '▤', href: '/bar' }] : navItems),
+    ...(!demoMode && user?.roles.includes('Owner') ? [{ label: 'Importações', icon: '⇧', href: '/importacoes' }] : []),
+  ]
   const location = useLocation()
   const isActive = (href: string) => href === '/' ? location.pathname === '/' : location.pathname.startsWith(href)
 
