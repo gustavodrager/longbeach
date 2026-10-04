@@ -45,7 +45,7 @@ public static class AuthEndpoints
     {
         var email = principal.FindFirstValue("email");
         var allowedEmails = configuration["Authentication:Google:AllowedEmail"];
-        if (!GoogleEmailAllowlist.Contains(allowedEmails, email))
+        if (string.IsNullOrWhiteSpace(email) || !GoogleEmailAllowlist.Contains(allowedEmails, email))
         {
             return Results.Unauthorized();
         }
