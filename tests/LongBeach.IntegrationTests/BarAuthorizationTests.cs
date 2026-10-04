@@ -18,6 +18,8 @@ public sealed class BarAuthorizationTests
     [InlineData("/api/v1/bar/purchases")]
     [InlineData("/api/v1/bar/payments")]
     [InlineData("/api/v1/bar/dashboard")]
+    [InlineData("/api/v1/imports")]
+    [InlineData("/api/v1/imports/00000000-0000-0000-0000-000000000001/rows")]
     public async Task Bar_requires_login_even_when_operational_demo_is_public(string path)
     {
         await using var factory=new LongBeachWebApplicationFactory().WithWebHostBuilder(b=>b.ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?>{["DemoMode:PublicOperationalData"]="true"})));
