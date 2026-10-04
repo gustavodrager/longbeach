@@ -85,6 +85,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 }).AllowAnonymous();
 
 app.MapBarEndpoints();
+app.MapImportEndpoints();
 app.MapAuthEndpoints(builder.Configuration.GetValue<bool>("Authentication:Google:Enabled"));
 var publicOperationalDemo = app.Configuration.GetValue("DemoMode:PublicOperationalData", false);
 app.MapOperationalEndpoints(publicOperationalDemo);
