@@ -67,6 +67,7 @@ export function App() {
                     <Route path="equipe" element={<TeamPage />} />
                     <Route path="estoque" element={<InventoryPage />} />
                     <Route path="projetos" element={<ProjectsPage />} />
+                    <Route path="importacoes" element={<ImportPage />} />
                   </Route>
                 </Route>
               </>
