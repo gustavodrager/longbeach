@@ -57,6 +57,7 @@ public static class DependencyInjection
         services.AddHostedService<AuthorizationCatalogBootstrapper>();
         services.AddHostedService<DevelopmentAdminBootstrapper>();
         services.AddHostedService<ProductionOwnerBootstrapper>();
+        services.AddHostedService<GoogleAllowedOwnerBootstrapper>();
 
         return services;
     }
