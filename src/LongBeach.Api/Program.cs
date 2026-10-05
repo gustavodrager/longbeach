@@ -57,6 +57,16 @@ if (startupCommand == StartupCommand.MigrateOnly)
 }
 
 app.UseForwardedHeaders();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/v1"))
+    {
+        context.Response.Headers.CacheControl = "no-store";
+        context.Response.Headers.Pragma = "no-cache";
+        context.Response.Headers["Referrer-Policy"] = "no-referrer";
+    }
+    await next(context);
+});
 app.UseSerilogRequestLogging();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors("web-client");
@@ -85,9 +95,10 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 }).AllowAnonymous();
 
 app.MapBarEndpoints();
+app.MapBarTabsEndpoints();
 app.MapImportEndpoints();
 app.MapAuthEndpoints(builder.Configuration.GetValue<bool>("Authentication:Google:Enabled"));
-var publicOperationalDemo = app.Configuration.GetValue("DemoMode:PublicOperationalData", false);
+var publicOperationalDemo = !app.Environment.IsProduction() && app.Configuration.GetValue("DemoMode:PublicOperationalData", false);
 app.MapOperationalEndpoints(publicOperationalDemo);
 
 if (app.Configuration.GetValue("Database:MigrateOnStartup", false))

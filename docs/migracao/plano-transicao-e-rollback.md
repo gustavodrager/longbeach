@@ -2,7 +2,14 @@
 
 ## Objetivo
 
-Publicar e validar o Long Beach OS standalone sem interromper a operação, perder dados ou tornar a Plataforma QuebraNunca uma dependência. Os endereços oficiais serão `longbeach.quebranunca.com.br` e `api.longbeach.quebranunca.com.br`. Como a web legada ocupa hoje o primeiro endereço, a base nova será validada pelos domínios técnicos do Railway antes de uma transferência controlada e reversível. A configuração de domínio não muda, por si só, a fonte oficial de escrita.
+Publicar e validar o Long Beach OS standalone sem interromper a operação, perder dados ou tornar a Plataforma QuebraNunca uma dependência. Os endereços oficiais são `longbeach.quebranunca.com.br` e `api.longbeach.quebranunca.com.br`. A web oficial já atende o primeiro endereço, com a API no segundo. A configuração de domínio, por si só, não muda a fonte oficial de escrita.
+
+### Estado em 2026-10-05
+
+- O serviço `web` e a API `api` do projeto standalone atendem os endereços oficiais e seguem o repositório `gustavodrager/longbeach`, branch `main`.
+- O endereço `preview.longbeach.quebranunca.com.br` foi removido do binding Railway. Os endereços técnicos Railway permanecem para health check e retorno.
+- O login Google está habilitado no endereço oficial para as contas autorizadas. O bootstrap automático de Owner permanece desabilitado.
+- Os pacotes `fonte-0.xlsx` (80 linhas) e `fonte-1.xlsx` (1.031 linhas) estão em `NeedsReview` nas tabelas de staging. Nenhuma linha foi aplicada a cadastros operacionais; a fonte oficial de escrita continua sendo o sistema legado até novo aceite.
 
 ## Princípios
 
@@ -11,7 +18,7 @@ Publicar e validar o Long Beach OS standalone sem interromper a operação, perd
 - Importações idempotentes, identificadas por lote, arquivo, hash e linha de origem.
 - Datas armazenadas em UTC; interpretação operacional em `America/Sao_Paulo`.
 - Dados pessoais e credenciais não aparecem em logs, fixtures ou relatórios de CI.
-- Domínio web só muda de serviço depois de validação pelos endereços técnicos, certificado pronto e retorno ao legado testado.
+- Alterações de domínio e de fonte oficial de escrita são decisões separadas e exigem registro e rollback próprios.
 - Migrations de produção avançam; rollback de aplicação deve ser compatível com schema expand-and-contract.
 - Publicação técnica, migração de dados e mudança da fonte oficial de escrita são decisões separadas.
 
@@ -51,12 +58,12 @@ Publicar e validar o Long Beach OS standalone sem interromper a operação, perd
 2. Configurar secrets, logs, health checks, migrations controladas e bootstrap inicial sem referenciar recursos do projeto legado ou da Plataforma QuebraNunca.
 3. Publicar web e API primeiro em domínios técnicos exclusivos do Railway.
 4. Validar builds e health checks nesses endereços, executar o bootstrap/smoke direto da API e remover seus secrets temporários.
-5. Associar `api.longbeach.quebranunca.com.br` à API standalone, validar TLS/readiness e manter esse domínio até o corte.
-6. Associar `preview.longbeach.quebranunca.com.br` temporariamente à web e ensaiar login, cookie, refresh, logout, autorização negativa, auditoria e troca obrigatória da senha inicial. Antes do corte, CORS permite o preview e proíbe `longbeach.quebranunca.com.br`, que ainda executa o legado.
-7. Manter `longbeach.quebranunca.com.br` no serviço Node enquanto a validação ocorre; preservar volume SQLite, banco D1 e domínio técnico do legado.
-8. Manter os dados novos como validação controlada até uma autorização futura definir migração e fonte oficial de escrita.
+5. Associar `api.longbeach.quebranunca.com.br` à API standalone, validar TLS/readiness e manter esse domínio.
+6. Publicar a web standalone em `longbeach.quebranunca.com.br`, validar login, cookie, refresh, logout, autorização negativa e auditoria; remover o preview do binding Railway depois da validação.
+7. Preservar serviço, volume SQLite, banco D1 e endereço técnico do legado.
+8. Manter os dados novos como staging controlado até uma autorização futura definir reconciliação e fonte oficial de escrita.
 
-**Saída:** API oficial associada e validada; web standalone validada no preview; domínio web oficial ainda no legado; bootstrap desabilitado e secrets temporários removidos.
+**Saída:** API e web standalone atendem os endereços oficiais; bootstrap desabilitado e secrets temporários removidos; o legado segue preservado no endereço técnico.
 
 ### T3 — Importação seca e reconciliação
 
@@ -65,6 +72,8 @@ Publicar e validar o Long Beach OS standalone sem interromper a operação, perd
 3. Produzir relatório: recebidos, válidos, rejeitados, duplicados, conciliados e pendentes.
 4. Aprovar conflitos com usuário autorizado e registrar a decisão.
 5. Reexecutar o mesmo lote para provar idempotência.
+
+Em 2026-10-05, os dois pacotes de planilhas já foram recebidos em staging (80 e 1.031 linhas). Eles aguardam validação e reconciliação; a confirmação na tela não significa que dados foram aplicados.
 
 **Saída:** totais por competência e saldos por item conciliados; diferenças conhecidas e aceitas.
 
@@ -80,19 +89,19 @@ Publicar e validar o Long Beach OS standalone sem interromper a operação, perd
 
 ### T5 — Futura migração operacional controlada
 
-Esta etapa só começa com autorização específica dos responsáveis de produto e operação, após as saídas de T3 e T4. Ela combina a mudança da fonte oficial de escrita com a transferência reversível do domínio web.
+Esta etapa só começa com autorização específica dos responsáveis de produto e operação, após as saídas de T3 e T4. A web já usa o domínio oficial; esta etapa trata da troca controlada da fonte oficial de escrita. Não reassocie os domínios como parte da importação dos lotes.
 
 1. Confirmar backup e restauração dos dois sistemas e comunicar uma janela curta de congelamento de escrita no legado.
 2. Tirar export final de D1/SQLite e planilhas, importar somente o delta e reconciliar.
 3. Colocar o legado em leitura ou restringir sua escrita e confirmar que seu domínio técnico Railway está acessível.
-4. Revalidar TLS/readiness da API já publicada em `api.longbeach.quebranunca.com.br` e conferir ao vivo issuer, CookieDomain e `VITE_API_URL`.
-5. Revogar sessões de preview/teste, remover `longbeach.quebranunca.com.br` do serviço legado e, sem permitir que o legado permaneça como origem CORS, trocar atomicamente CORS e domínio web do preview para o endereço oficial.
-6. Remover preview do binding, DNS, CORS e IaC; sincronizar o snapshot com `railway config pull`, revisão, commit e `railway config plan`.
-7. Validar login, refresh, CORS e fluxos críticos pelos endereços oficiais.
+4. Revalidar TLS/readiness da API em `api.longbeach.quebranunca.com.br` e conferir ao vivo issuer, CookieDomain, CORS e `VITE_API_URL`.
+5. Revogar sessões de teste. Confirmar que CORS aceita somente a origem oficial, que o preview não está associado no Railway e que o snapshot representa o live.
+6. Fazer export final, carregar somente o delta em staging e reconciliar contagens, conflitos e saldos.
+7. Validar login, refresh, CORS, importação e fluxos críticos pelos endereços oficiais.
 8. Autorizar explicitamente o novo Production como fonte oficial de escrita.
 9. Acompanhar erros, latência, auditoria e operações durante a janela reforçada.
 
-**Saída:** novo sistema atende os endereços oficiais e é a única fonte de escrita; legado permanece acessível por seu domínio técnico Railway, preferencialmente em modo somente leitura, durante a retenção definida.
+**Saída:** após autorização e reconciliação, o novo sistema passa a ser a fonte de escrita; o legado permanece acessível por seu domínio técnico Railway, preferencialmente em modo somente leitura, durante a retenção definida.
 
 ### T6 — Estabilização e retirada posterior
 
@@ -107,8 +116,8 @@ Esta etapa só começa com autorização específica dos responsáveis de produt
 | Etapa | Legado | Staging novo | Production novo |
 |---|---|---|---|
 | T0–T2 | fonte operacional | testes/importações descartáveis | inexistente |
-| T2A–T4 | fonte operacional no domínio web oficial | cópia para ensaio | API oficial + web preview, sem ser fonte oficial |
-| T5 antes do congelamento | fonte operacional no domínio web oficial | validação | API oficial + web preview, sem tráfego operacional |
+| T2A–T4 | fonte operacional no sistema legado | cópia para ensaio; 1.111 linhas em revisão | web e API oficiais, sem ser fonte oficial de escrita |
+| T5 antes do congelamento | fonte operacional no sistema legado | staging e reconciliação | web e API oficiais, sem tráfego operacional de escrita |
 | T5 durante o corte | congelado/somente leitura | referência | recebe importação final |
 | T5 após aceite | fallback somente leitura no domínio técnico | referência | única fonte de escrita nos domínios oficiais |
 | T6 após aceite | arquivado | ambiente normal de homologação | fonte oficial |

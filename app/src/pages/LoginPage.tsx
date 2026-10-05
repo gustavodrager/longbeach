@@ -57,7 +57,7 @@ export function LoginPage() {
           }
         },
       })
-      window.google.accounts.id.renderButton(googleButton.current, { theme: 'outline', size: 'large', width: 360, text: 'signin_with' })
+      window.google.accounts.id.renderButton(googleButton.current, { theme: 'outline', size: 'large', width: Math.min(360, googleButton.current.clientWidth || 280), text: 'signin_with' })
     }
     const existing = document.querySelector<HTMLScriptElement>('script[data-google-identity]')
     if (window.google) render()

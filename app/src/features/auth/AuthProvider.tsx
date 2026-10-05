@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type PropsWithChildren } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { restoreSession } from '../../lib/http'
 import { changePassword, getCurrentUser, login, loginWithGoogle, logout } from './authApi'
 import { AuthContext } from './authContext'
@@ -7,6 +8,7 @@ import type { AuthUser, LoginCredentials, PasswordChange } from './types'
 type AuthProviderProps = PropsWithChildren<{ demoMode?: boolean }>
 
 export function AuthProvider({ children, demoMode = false }: AuthProviderProps) {
+  const queryClient = useQueryClient()
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isBootstrapping, setIsBootstrapping] = useState(!demoMode)
 
@@ -43,16 +45,19 @@ export function AuthProvider({ children, demoMode = false }: AuthProviderProps) 
       isBootstrapping,
       signIn: async (credentials: LoginCredentials) => {
         const authenticatedUser = await login(credentials)
+        queryClient.clear()
         setUser(authenticatedUser)
       },
       signInWithGoogle: async (credential: string) => {
         const authenticatedUser = await loginWithGoogle(credential)
+        queryClient.clear()
         setUser(authenticatedUser)
       },
       signOut: async () => {
         try {
           await logout()
         } finally {
+          queryClient.clear()
           setUser(null)
         }
       },
@@ -64,9 +69,10 @@ export function AuthProvider({ children, demoMode = false }: AuthProviderProps) 
           // Session storage can be unavailable in restricted browser modes.
         }
         setUser(null)
+        queryClient.clear()
       },
     }),
-    [isBootstrapping, user],
+    [isBootstrapping, user, queryClient],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

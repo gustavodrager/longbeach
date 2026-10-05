@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddHostedService<LongBeach.Infrastructure.Payments.PagBankReconciliationWorker>();
         services.AddHttpClient<LongBeach.Application.Bar.IPaymentGateway, LongBeach.Infrastructure.Payments.PagBankPaymentGateway>(client => client.Timeout = TimeSpan.FromSeconds(20));
         services.AddScoped<LongBeach.Application.Bar.IBarPayments, LongBeach.Infrastructure.Bar.BarPaymentsService>();
+        services.AddScoped<LongBeach.Application.Bar.IBarTabs, LongBeach.Infrastructure.Bar.BarTabsService>();
         services.AddScoped<LongBeach.Application.Bar.IBarPurchases, LongBeach.Infrastructure.Bar.BarPurchasesService>();
         services.AddScoped<LongBeach.Application.Bar.IBarSales, LongBeach.Infrastructure.Bar.BarSalesService>();
         services.AddScoped<LongBeach.Application.Bar.IBarCash, LongBeach.Infrastructure.Bar.BarCashService>();

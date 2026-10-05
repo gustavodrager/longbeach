@@ -93,6 +93,9 @@ jobs:
           push: true
           build-args: |
             VITE_API_URL=${{ vars.LONG_BEACH_PUBLIC_API_URL }}
+            VITE_GOOGLE_CLIENT_ID=${{ vars.LONG_BEACH_GOOGLE_CLIENT_ID }}
+            VITE_DEMO_MODE=false
+            VITE_OPERATIONAL_STORAGE=postgres
           tags: ${{ steps.names.outputs.web }}:${{ steps.names.outputs.tag }}
           cache-from: type=gha,scope=longbeach-web
           cache-to: type=gha,mode=max,scope=longbeach-web

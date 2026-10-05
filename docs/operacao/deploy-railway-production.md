@@ -11,9 +11,9 @@ Este runbook publica a base standalone em recursos exclusivos do projeto Railway
 
 A conta Railway e o namespace DNS `quebranunca.com.br` são compartilhados somente como infraestrutura administrativa. O projeto, os serviços, banco, usuários, autenticação, migrations, variáveis, secrets, logs, backups e deploy do Long Beach OS são próprios. Não use referências de serviço, banco, volume, variável ou domínio interno da Plataforma QuebraNunca nem do projeto legado.
 
-O serviço Node/SQLite legado atende hoje `longbeach.quebranunca.com.br`. Antes de transferir esse domínio, preserve o serviço, volume, dados e credenciais e valide seu domínio técnico Railway. A nova web e a API são testadas primeiro pelos domínios técnicos do projeto standalone. Não haverá registro de `longbeach.com.br`, nova zona DNS nem nova conta Cloudflare.
+O endereço `longbeach.quebranunca.com.br` atende hoje o Long Beach OS standalone no serviço `web`; a API usa `api.longbeach.quebranunca.com.br`. O serviço Node/SQLite legado permanece preservado em seu projeto e endereço técnico Railway para consulta e retorno. Não haverá registro de `longbeach.com.br`, nova zona DNS nem nova conta Cloudflare.
 
-A infraestrutura Railway é descrita em `.railway/railway.ts` como **snapshot declarativo da fase corrente**, e não como desenho atemporal do estado final. Na fase atual, o snapshot registra a API no domínio oficial `api.longbeach.quebranunca.com.br` e a web no domínio temporário `preview.longbeach.quebranunca.com.br`. Depois do corte, o domínio de preview deve ser substituído no IaC por `longbeach.quebranunca.com.br`; os dois não permanecem juntos.
+A infraestrutura Railway é descrita em `.railway/railway.ts` como **snapshot declarativo da fase corrente**, e não como desenho atemporal do estado final. O snapshot corrente registra `api.longbeach.quebranunca.com.br` no serviço `api` e `longbeach.quebranunca.com.br` no serviço `web`. A promoção UX de 2026-10-05 vincula somente os serviços oficiais à revisão validada `codex/ux-identidade-global-20261005` no mesmo repositório; os serviços auxiliares conservam sua fonte anterior. O binding de `preview.longbeach.quebranunca.com.br` foi removido em 2026-10-05; mantenha os domínios técnicos Railway para health check e retorno.
 
 ### Sincronização obrigatória do snapshot
 
@@ -35,17 +35,17 @@ Valores não secretos e estáveis devem aparecer explicitamente no IaC da fase, 
 
 Antes de cada build da web, promoção e corte, confira diretamente nas variáveis live do Railway, sem exportar um dump com secrets:
 
-| Serviço | Variável | Valor exigido antes do corte |
+| Serviço | Variável | Valor exigido em Production |
 |---|---|---|
 | `api` | `Authentication__CookieDomain` | `longbeach.quebranunca.com.br` |
 | `api` | `Authentication__Jwt__Issuer` | `https://api.longbeach.quebranunca.com.br` |
 | `api` | `AllowedHosts` | `api.longbeach.quebranunca.com.br;<api-tecnica>.up.railway.app;healthcheck.railway.app` |
-| `api` | `Cors__AllowedOrigins__0` | `https://preview.longbeach.quebranunca.com.br` |
-| `api` | demais `Cors__AllowedOrigins__*` | ausentes, salvo host Railway controlado e justificado para smoke |
+| `api` | `Cors__AllowedOrigins__0` | `https://longbeach.quebranunca.com.br` |
+| `api` | demais `Cors__AllowedOrigins__*` | ausentes ou repetição da origem oficial; qualquer host adicional exige justificativa para smoke |
 | `api` | `ReverseProxy__TrustAllForwarders` | `false` |
 | `web` | `VITE_API_URL` | `https://api.longbeach.quebranunca.com.br` |
 
-Falhe o build ou corte se o valor live, o snapshot e esta tabela divergirem. Depois do corte, a origem CORS exigida muda atomicamente para `https://longbeach.quebranunca.com.br` e o preview deixa de existir no binding, DNS, CORS e IaC.
+Falhe o build ou promoção se o valor live, o snapshot e esta tabela divergirem. No estado atual, a origem CORS oficial é `https://longbeach.quebranunca.com.br`; o preview foi removido do binding e do IaC.
 
 ## Configuração dos serviços
 
@@ -89,7 +89,7 @@ Authentication__CookieDomain=longbeach.quebranunca.com.br
 Authentication__MobileAllowedOrigins__0=capacitor://localhost
 Authentication__MobileAllowedOrigins__1=https://localhost
 
-Cors__AllowedOrigins__0=https://preview.longbeach.quebranunca.com.br
+Cors__AllowedOrigins__0=https://longbeach.quebranunca.com.br
 Database__MigrateOnStartup=false
 Authorization__SeedOnStartup=false
 HealthChecks__DatabaseEnabled=true
@@ -104,11 +104,11 @@ Mantenha `ReverseProxy__TrustAllForwarders=false` até existir política validad
 
 `Authentication__CookieDomain` usa `longbeach.quebranunca.com.br`, o menor domínio comum entre web e API. Não configure `quebranunca.com.br`, pois isso ampliaria o cookie anti-CSRF a outros subdomínios. O refresh token continua em cookie `HttpOnly` restrito ao host da API.
 
-### Barreira de origem durante a coexistência
+### Origem CORS no estado atual
 
-Antes do corte, **não** permita `https://longbeach.quebranunca.com.br` no CORS nem na validação de `Origin` da API. Esse endereço ainda executa o legado e consegue ler `lb_csrf`, pois o cookie anti-CSRF usa o domínio pai `longbeach.quebranunca.com.br`. Além disso, os hosts são same-site; `SameSite=Lax` não isola subdomínios irmãos e o navegador pode enviar o refresh cookie host-only à API em uma requisição iniciada pelo legado. A combinação de CORS com credenciais e validação explícita de `Origin` é a barreira que impede o legado de obter a resposta autenticada.
+Permita no CORS somente `https://longbeach.quebranunca.com.br`. O legado permanece em outro domínio técnico Railway. Não acrescente o preview removido nem um domínio técnico à lista de origens web sem um ensaio justificado. O cookie anti-CSRF continua restrito a `longbeach.quebranunca.com.br`, e o refresh token permanece em cookie `HttpOnly` host-only da API.
 
-Na fase de preview, permita somente `https://preview.longbeach.quebranunca.com.br`. Um host técnico Railway controlado pode ser incluído temporariamente apenas se um smoke realmente depender de CORS; health checks não precisam dessa exceção. Use somente contas de teste/Owner inicial, não acesse o legado no mesmo navegador durante o ensaio e revogue todas as sessões de teste antes do corte.
+O preview foi desativado. Use a conta Owner autorizada no endereço oficial e encerre sessões de teste após validação. Health checks pelos domínios técnicos não exigem exceção CORS.
 
 ## Bootstrap único do primeiro Owner
 
@@ -143,40 +143,24 @@ No preview, valide o fluxo web com cookies: login, recarga com refresh, perfil `
 
 ## Domínios e TLS — estado corrente
 
-A criação de `Postgres`, `api` e `web` sem domínios customizados foi a fase inicial e já foi concluída. Não a execute novamente. O snapshot corrente deve representar:
+A fase de promoção para o endereço oficial foi concluída em 2026-10-05. O endereço público da web é somente `https://longbeach.quebranunca.com.br`; a API permanece em `https://api.longbeach.quebranunca.com.br`. O preview foi removido do serviço `web` e os serviços técnicos continuam disponíveis para health check e retorno.
 
-- `api`: `api.longbeach.quebranunca.com.br` associado;
-- `web`: `preview.longbeach.quebranunca.com.br` associado;
-- legado: `longbeach.quebranunca.com.br` ainda associado ao serviço Node/SQLite em seu projeto separado.
+O `web` e a `api` estão vinculados a `gustavodrager/longbeach`. A fase inicial de 2026-10-05 usou `main`; a promoção UX posterior usa a revisão validada `codex/ux-identidade-global-20261005`, conforme `revisao-ux-identidade-2026-10-05.md`. O build publicado inclui o módulo de Importações e o login Google. `VITE_API_URL` aponta para a API oficial, e CORS permite a origem web oficial.
 
-Confirme esse estado com `railway config pull`, diff, variáveis live, TLS e health checks. Se o live divergir, pare e reconcilie o snapshot antes de novo build ou domínio.
+O último `railway config pull` foi revisado e `railway config plan` ficou sem drift. A API e a web concluíram o deploy com sucesso; readiness da API e health check da web responderam `200`. A tela `/importacoes` confirmou dois lotes no PostgreSQL, ambos `NeedsReview`: `fonte-0.xlsx` (80 linhas) e `fonte-1.xlsx` (1.031 linhas). Os dados continuam em staging e nenhuma linha foi aplicada aos cadastros.
 
-### Sequência restante antes do corte
+### Retorno da versão web/API
 
-1. Validar health checks nos domínios técnicos e em `api.longbeach.quebranunca.com.br`. O `AllowedHosts` temporário deve conter o host técnico real da API.
-2. Concluir o bootstrap e seu smoke direto de API; desabilitar o bootstrap, remover seus valores temporários e aplicar nova revisão.
-3. Validar pelo preview login web, cookie, recarga/refresh, troca obrigatória da senha inicial e logout. `Cors__AllowedOrigins` contém somente o preview nessa fase.
-4. Confirmar que o domínio técnico do legado responde, que seu volume está íntegro e que o procedimento de retorno foi ensaiado.
-5. Executar a verificação live de `CookieDomain`, issuer, CORS e `VITE_API_URL`, revisar o build exato a promover e obter go/no-go.
+1. Se a versão publicada falhar, use o deploy anterior de `web` e `api` no Railway ou restaure os digests anteriores compatíveis com o schema.
+2. Mantenha `https://longbeach.quebranunca.com.br` no serviço standalone `web`; não reassocie o domínio ao legado como parte de uma falha apenas de aplicação.
+3. Preserve o serviço, o banco e os dados do legado no projeto separado, acessíveis pelo endereço técnico que o administra.
+4. Sincronize `.railway/railway.ts` com `railway config pull`, revise, faça commit do snapshot e exija `railway config plan` sem drift.
 
-### Troca controlada da web
-
-1. Encerrar/revogar todas as sessões de preview e teste. A troca da senha inicial deve ter revogado as sessões anteriores; finalize também a sessão usada na validação final.
-2. Remover `longbeach.quebranunca.com.br` do serviço legado e registrar a mutação no projeto/repositório que o administra.
-3. Enquanto o domínio oficial não atende conteúdo legado, alterar a fase standalone de forma coordenada:
-   - trocar CORS de `https://preview.longbeach.quebranunca.com.br` para `https://longbeach.quebranunca.com.br`;
-   - substituir no IaC o domínio web de preview pelo domínio web oficial;
-   - remover o binding e o registro DNS do preview;
-   - manter `VITE_API_URL=https://api.longbeach.quebranunca.com.br`.
-4. Executar `railway config plan`, revisar e aplicar a mudança de fase.
-5. Imediatamente executar `railway config pull`, revisar, fazer commit do snapshot corrente e executar `railway config plan` novamente. O plano final não pode mostrar drift inesperado.
-6. Aguardar o certificado web e executar os smoke tests oficiais antes de liberar escrita operacional.
-
-O domínio web não pode ficar associado aos dois serviços. Preserve os alvos, TTL observado, horários, commits e responsáveis. Cada associação ou remoção, inclusive a remoção do preview, exige o ciclo pull/revisão/commit/plan descrito acima.
+Essa promoção do endereço não autoriza mudar a fonte oficial de escrita nem aplicar linhas dos lotes em staging. Qualquer migração para cadastros operacionais segue o processo de reconciliação e aceite humano descrito no plano de transição.
 
 ## Smoke tests
 
-Antes do corte, substitua os placeholders pelos domínios técnicos gerados pelo Railway. Essa etapa prova health e entrega estática; o fluxo de cookies é validado depois pelo preview sob o domínio comum:
+Os domínios técnicos gerados pelo Railway provam health e entrega estática. O fluxo de cookies é validado no endereço oficial, que compartilha o domínio pai com a API:
 
 ```bash
 curl --fail --silent --show-error https://<api-tecnica>.up.railway.app/health/live
@@ -184,15 +168,6 @@ curl --fail --silent --show-error https://<api-tecnica>.up.railway.app/health/re
 curl --fail --silent --show-error https://<web-tecnica>.up.railway.app/healthz
 curl --fail --silent --show-error https://<legado-tecnico>.up.railway.app/health
 ```
-
-Com a API oficial e o preview configurados:
-
-```bash
-curl --fail --silent --show-error https://api.longbeach.quebranunca.com.br/health/ready
-curl --fail --silent --show-error https://preview.longbeach.quebranunca.com.br/healthz
-```
-
-Depois da transferência:
 
 ```bash
 curl --fail --silent --show-error https://api.longbeach.quebranunca.com.br/health/live
@@ -202,21 +177,20 @@ curl --fail --silent --show-error https://longbeach.quebranunca.com.br/healthz
 
 Além das respostas públicas:
 
-- antes do corte, confirmar que a origem preview recebe CORS com credenciais e que `https://longbeach.quebranunca.com.br` não recebe `Access-Control-Allow-Origin` nem passa pela validação de `Origin`;
-- confirmar que a tela web carrega sem erro de CORS;
+- confirmar que somente `https://longbeach.quebranunca.com.br` recebe CORS com credenciais;
+- confirmar que a tela web e `/importacoes` carregam pelo endereço oficial;
 - entrar com o Owner e recarregar a página para provar refresh por cookie;
-- trocar a senha inicial no preview, confirmar que as sessões anteriores foram revogadas e que a senha inicial não autentica mais;
 - sair e confirmar que a sessão não é restaurada;
 - confirmar que a API rejeita `/api/v1/auth/me` sem access token;
 - verificar nos logs somente IDs/correlation IDs, sem senha ou token;
 - conferir que o bundle web contém `https://api.longbeach.quebranunca.com.br` e nenhuma URL localhost;
 - confirmar que o legado continua acessível no domínio técnico preservado.
 
-Depois do corte, repetir a prova CORS no sentido inverso: a origem oficial deve ser a única origem web aceita e o preview não pode existir em CORS, binding ou DNS.
+No estado atual, repetir a prova CORS no sentido inverso: a origem oficial deve ser a única origem web aceita e o preview não pode existir em CORS nem no binding Railway. A remoção do registro DNS do preview depende do administrador da zona DNS.
 
 ## Rollback
 
-Antes da transferência do domínio web, reverta `api` e `web` para os digests anteriores compatíveis com o schema e mantenha o legado no endereço oficial. Depois da transferência, se migration, readiness, login, CORS, refresh ou fluxo crítico falhar:
+Se o deploy de aplicação falhar antes da migração operacional, reverta `api` e `web` para os deployments anteriores compatíveis com o schema e mantenha os domínios oficiais nos serviços standalone. Depois da autorização de migração operacional, se migration, readiness, login, CORS, refresh ou fluxo crítico falhar:
 
 1. bloquear novas escritas no standalone e registrar o horário;
 2. preservar e exportar as transações já confirmadas;
@@ -228,3 +202,7 @@ Antes da transferência do domínio web, reverta `api` e `web` para os digests a
 8. reconciliar as transações preservadas antes de tentar novo corte.
 
 Não apague o PostgreSQL, o serviço legado, o volume SQLite ou o D1 durante o rollback. O novo sistema só assume a fonte operacional depois da importação seca, reconciliação, teste de restauração e aceite previstos no plano de transição.
+
+## Promoções posteriores à revisão UX
+
+Antes de mudar a fonte de produção, conferir o commit integral e executar CI/build e revisão de telas. Publicar primeiro a API compatível; depois a web. Promover uma branch de revisão validada evita que outra publicação de `main` retire módulos já aceitos. Não mesclar ou promover por upload um snapshot antigo sem conciliar a fonte conectada. Preserve Google, lotes em revisão e as variáveis existentes. Registre commit, deployments, digests e evidência visual no relatório da promoção.

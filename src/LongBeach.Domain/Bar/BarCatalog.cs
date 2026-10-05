@@ -59,10 +59,13 @@ public sealed class BarProduct : Entity
     public bool Favorite { get; private set; }
     public int DisplayOrder { get; private set; }
     public bool Active { get; private set; }
+    public bool Prepared { get; private set; }
     public string? Barcode { get; private set; }
     public string? ImageUrl { get; private set; }
     public Guid? MainSupplierId { get; private set; }
     public int Version { get; private set; }
+
+    public void SetPreparation(bool prepared) { if (Prepared != prepared) { Prepared = prepared; Version++; } }
 
     public void Change(string name, string shortName, Guid categoryId, string saleUnit, string purchaseUnit,
         decimal conversionFactor, decimal salePrice, decimal averageCost, decimal minimumStock,

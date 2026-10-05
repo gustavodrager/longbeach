@@ -1,0 +1,30 @@
+export type Court = { id: string; version?: number; costsVisible?: boolean; name: string; sport: string; status: 'Disponível' | 'Manutenção'; openingTime: string; closingTime: string }
+export type Reservation = {
+  id: string; version?: number; costsVisible?: boolean; name: string; courtId: string; date: string; startTime: string; endTime: string
+  customerName: string; phone: string; amount: number; status: 'Confirmada' | 'Chegou' | 'Concluída' | 'Cancelada' | 'Bloqueio'; notes: string
+  groupId?: string; groupTitle?: string; occurrenceIndex?: number
+}
+export type RecurringReservationInput = {
+  operationId: string; groupTitle: string; courtId: string; startDate: string; startTime: string; endTime: string; weeks: number
+  customerName: string; phone: string; amount: number; notes: string
+}
+export type RecurringReservationResponse = { groupId: string; groupTitle: string; reservations: Reservation[] }
+export type ArenaClass = {
+  id: string; version?: number; costsVisible?: boolean; name: string; sport: string; courtId: string; weekDay: number; startTime: string; endTime: string
+  teacherId: string; capacity: number; studentIds: string[]; status: 'Ativa' | 'Pausada' | 'Encerrada'; notes: string
+}
+export type Enrollment = { id: string; version?: number; costsVisible?: boolean; name: string; studentId: string; classId: string; startDate: string; endDate?: string; status: 'Ativa' | 'Encerrada'; monthlyAmount: number }
+export type Presence = { id: string; version?: number; costsVisible?: boolean; name: string; classId: string; studentId: string; date: string; status: 'Presente' | 'Ausente' }
+export type FinanceEntry = {
+  id: string; version?: number; costsVisible?: boolean; name: string; direction: 'Receber' | 'Pagar'; origin: 'Bar' | 'Escola' | 'Locações' | 'Arena'
+  amount: number; dueDate: string; status: 'Pendente' | 'Pago' | 'Cancelado'; paidDate: string; notes: string
+  sourceId?: string; sourceKind?: 'enrollments' | 'reservations' | 'projects' | 'maintenance'; month?: string
+}
+export type Maintenance = {
+  id: string; version?: number; costsVisible?: boolean; name: string; area: string; owner: string; dueDate: string
+  status: 'Aberta' | 'Em andamento' | 'Concluída' | 'Cancelada'; priority: 'Normal' | 'Urgente'; notes: string
+}
+
+export type CourtScheduleBlock = { source: 'Aula' | 'Reserva' | 'Bloqueio'; startTime: string; endTime: string; sourceId: string | null }
+export type CourtScheduleRow = { courtId: string; openingTime: string; closingTime: string; availableMinutes: number; reservedMinutes: number; classMinutes: number; closedForMaintenance: boolean; hasConflict: boolean; blocks: CourtScheduleBlock[] }
+export type CourtSchedule = { date: string; updatedAtUtc: string; courts: CourtScheduleRow[] }
