@@ -66,3 +66,18 @@ O cadastro direcionado foi publicado no commit `96407c386f6573b22465648921bf0bf8
 A configuração final restaurou `--migrate-only`, manteve as flags de provisionamento, seed e bootstrap de senha desativadas e removeu os três controles temporários de alvos/janela. O deployment final da API `5c7654ac-c231-4c06-90e3-2426586925a7` concluiu com `SUCCESS`, commit `b779492defc0611fbb4ccb4e7b135c0c763deb84`, digest `sha256:8c5f7e2e79e70300de69b17800c3fed329b5d90b15c7273144c9c4f723fb9480`; nenhuma migration nova foi aplicada e nenhum provisionamento foi registrado nessa inicialização. Web permanece fixada em `b31701a6190d7ba71db191914d9a33b152e95d91`, deployment `35d5b559-cb7d-4634-800d-2eb886531ddd`. API readiness, web health e login responderam `200`; a web conserva os assets da revisão UX. O plano Railway ficou sem alterações após a limpeza.
 
 O `400 origin_mismatch` informado no login exige conferir a origem `https://longbeach.quebranunca.com.br` em Authorized JavaScript origins do cliente OAuth Web no Google Cloud. O client ID do bundle corresponde à configuração da API. Não foi alterado o cadastro do cliente Google Cloud nem validado login com a nova conta; o papel Owner não elimina esse bloqueio anterior à autenticação.
+
+## Publicação consolidada autorizada — 21:56 UTC
+
+A autorização de seguir e publicar a versão completa promoveu API e web à mesma revisão `feb5908cbbc87124fae7d28db72afbfb692dcb47`. O CI [37367380339](https://github.com/gustavodrager/longbeach/actions/runs/37367380339) passou na segunda tentativa: 132 testes de frontend, 76 unitários e 138 integração .NET, total de 346, sem falhas ou ignorados; compilação da API, build PWA, migrations e readiness também passaram. A primeira tentativa não conseguiu alocar runners do GitHub e não executou nenhuma etapa.
+
+| Serviço | Deployment | Digest da imagem publicada |
+| --- | --- | --- |
+| api | `314b14b6-7a11-4d7a-a52a-04bb1cbe559f` | `sha256:8c5f7e2e79e70300de69b17800c3fed329b5d90b15c7273144c9c4f723fb9480` |
+| web | `6933e752-b993-4636-9c64-0a371a3c2ec1` | `sha256:78a1013690bdb7a6c4bba99aed33a40098c05087b0d49cde4ce26ada848ccc84` |
+
+Os dois deployments concluíram com `SUCCESS`; a API foi promovida e conferida antes da web. Branch e commit continuam explícitos na configuração de Production. O plano final ficou sem alterações ou diagnósticos. O código executável da API coincide com a revisão previamente validada `b779492`; o frontend coincide com a revisão UX `b31701a`. Nenhuma migration nova foi aplicada. As flags de provisionamento, seed e bootstrap de senha permanecem desativadas, com a conta Owner solicitada na allowlist.
+
+Readiness da API, health da web, `/login`, logo vetorial e Manrope responderam `200`; `/api/v1/auth/me` sem autenticação retornou `401`. A web mantém `index-go58ZWZS.js` e `index-CPn9vPjC.css`; a tela oficial apresentou marca e botão Google. Nenhuma venda, cobrança, aplicação de lote ou alteração dos serviços auxiliares foi executada.
+
+A inspeção de leitura no Google Cloud localizou o cliente exato no projeto Long Beach OS, com client ID correspondente ao bundle/API. A única origem autorizada ainda era o endereço técnico de teste; o domínio oficial estava ausente. A correção foi preparada, mas aguarda confirmação específica exigida pela política de controle do navegador antes de ampliar as origens de autenticação. Nenhuma alteração do cliente OAuth foi salva nesta publicação.
