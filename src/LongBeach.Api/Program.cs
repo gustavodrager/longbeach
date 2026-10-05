@@ -10,6 +10,7 @@ using LongBeach.Application.Abstractions;
 using LongBeach.Application.Auth;
 using LongBeach.Application.Authorization;
 using LongBeach.Infrastructure;
+using LongBeach.Infrastructure.Bootstrap;
 using LongBeach.Infrastructure.Health;
 using LongBeach.Infrastructure.Persistence;
 using LongBeach.Infrastructure.Security;
@@ -25,6 +26,11 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 var startupCommand = StartupCommandParser.Parse(args);
+var verifyGoogleOwners = args.Contains("--verify-google-owners", StringComparer.OrdinalIgnoreCase);
+if (verifyGoogleOwners && startupCommand == StartupCommand.MigrateOnly)
+{
+    throw new InvalidOperationException("--verify-google-owners cannot be combined with --migrate-only.");
+}
 
 builder.Host.UseSerilog((context, services, logger) => logger
     .ReadFrom.Configuration(context.Configuration)
@@ -46,6 +52,27 @@ ConfigureHealthChecks(builder.Services, builder.Configuration);
 ConfigureRateLimiting(builder.Services);
 
 var app = builder.Build();
+
+if (verifyGoogleOwners)
+{
+    try
+    {
+        await using var verificationScope = app.Services.CreateAsyncScope();
+        var verificationDbContext = verificationScope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+        var verification = new GoogleOwnerVerifier(verificationDbContext, app.Configuration, app.Environment);
+        var result = await verification.VerifyAsync(CancellationToken.None);
+        app.Logger.LogInformation(
+            "Google Owner verification: target count {TargetCount}; active Owner count {ActiveOwnerCount}; grants outside targets {OutsideTargetGrantCount}; succeeded {Succeeded}.",
+            result.TargetCount, result.ActiveOwnerCount, result.OutsideTargetGrantCount, result.Succeeded);
+        Environment.ExitCode = result.Succeeded ? 0 : 1;
+    }
+    catch (Exception)
+    {
+        app.Logger.LogError("Google Owner verification completed: succeeded false.");
+        Environment.ExitCode = 1;
+    }
+    return;
+}
 
 if (startupCommand == StartupCommand.MigrateOnly)
 {
