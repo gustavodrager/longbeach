@@ -65,7 +65,7 @@ O cadastro direcionado foi publicado no commit `96407c386f6573b22465648921bf0bf8
 
 A configuração final restaurou `--migrate-only`, manteve as flags de provisionamento, seed e bootstrap de senha desativadas e removeu os três controles temporários de alvos/janela. O deployment final da API `5c7654ac-c231-4c06-90e3-2426586925a7` concluiu com `SUCCESS`, commit `b779492defc0611fbb4ccb4e7b135c0c763deb84`, digest `sha256:8c5f7e2e79e70300de69b17800c3fed329b5d90b15c7273144c9c4f723fb9480`; nenhuma migration nova foi aplicada e nenhum provisionamento foi registrado nessa inicialização. Web permanece fixada em `b31701a6190d7ba71db191914d9a33b152e95d91`, deployment `35d5b559-cb7d-4634-800d-2eb886531ddd`. API readiness, web health e login responderam `200`; a web conserva os assets da revisão UX. O plano Railway ficou sem alterações após a limpeza.
 
-O `400 origin_mismatch` informado no login exige conferir a origem `https://longbeach.quebranunca.com.br` em Authorized JavaScript origins do cliente OAuth Web no Google Cloud. O client ID do bundle corresponde à configuração da API. Não foi alterado o cadastro do cliente Google Cloud nem validado login com a nova conta; o papel Owner não elimina esse bloqueio anterior à autenticação.
+O `400 origin_mismatch` informado no login levou à conferência de `https://longbeach.quebranunca.com.br` em Authorized JavaScript origins do cliente OAuth Web no Google Cloud. O client ID do bundle corresponde à configuração da API. Na etapa de inclusão individual do Owner, o cadastro OAuth ainda não havia sido alterado; a correção e o teste posteriores estão registrados abaixo. O primeiro login da nova conta continua separado da verificação de seu papel no banco.
 
 ## Publicação consolidada autorizada — 21:56 UTC
 
@@ -80,4 +80,12 @@ Os dois deployments concluíram com `SUCCESS`; a API foi promovida e conferida a
 
 Readiness da API, health da web, `/login`, logo vetorial e Manrope responderam `200`; `/api/v1/auth/me` sem autenticação retornou `401`. A web mantém `index-go58ZWZS.js` e `index-CPn9vPjC.css`; a tela oficial apresentou marca e botão Google. Nenhuma venda, cobrança, aplicação de lote ou alteração dos serviços auxiliares foi executada.
 
-A inspeção de leitura no Google Cloud localizou o cliente exato no projeto Long Beach OS, com client ID correspondente ao bundle/API. A única origem autorizada ainda era o endereço técnico de teste; o domínio oficial estava ausente. A correção foi preparada, mas aguarda confirmação específica exigida pela política de controle do navegador antes de ampliar as origens de autenticação. Nenhuma alteração do cliente OAuth foi salva nesta publicação.
+A inspeção de leitura no Google Cloud localizou o cliente exato no projeto Long Beach OS, com client ID correspondente ao bundle/API. Antes da correção, a única origem autorizada era o endereço técnico de teste e o domínio oficial estava ausente.
+
+## Origem OAuth salva e login verificado — 23:36–23:37 UTC
+
+Após confirmação específica do responsável, às 23:36 UTC de 2026-10-05 foi acrescentada `https://longbeach.quebranunca.com.br` em **Authorized JavaScript origins** do cliente OAuth Web identificado. O Console informou **Cliente OAuth salvo**; a reabertura do mesmo cliente confirmou as duas origens, com o endereço técnico existente preservado. Nome e client ID foram mantidos, e os redirect URIs continuaram vazios. O Console informou que a propagação pode levar de cinco minutos a algumas horas.
+
+Às 23:37 UTC, o teste no Chrome partiu de `/login` no domínio oficial. O botão Google abriu a seleção de contas; após escolher uma conta existente já autorizada, o popup fechou e a aba principal abriu o painel administrativo em `/`. A tela **Minha conta** em `/conta` apresentou a identidade esperada. O fluxo concluiu sem `origin_mismatch`; nomes, e-mails, credenciais e tokens não são registrados nesta evidência.
+
+A nova conta solicitada mantém o papel Owner ativo comprovado pela consulta de banco descrita acima. Seu primeiro login com Google ainda não foi testado, pois essa conta não estava autenticada no navegador do ensaio.
