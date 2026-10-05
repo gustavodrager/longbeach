@@ -147,7 +147,7 @@ A fase de promoção para o endereço oficial foi concluída em 2026-10-05. O en
 
 O `web` e a `api` estão vinculados a `gustavodrager/longbeach`. A fase inicial de 2026-10-05 usou `main`; a promoção UX posterior usa a revisão validada `codex/ux-identidade-global-20261005`, conforme `revisao-ux-identidade-2026-10-05.md`. O build publicado inclui o módulo de Importações e o login Google. `VITE_API_URL` aponta para a API oficial, e CORS permite a origem web oficial.
 
-O último `railway config pull` foi revisado e `railway config plan` ficou sem drift. A API e a web concluíram o deploy com sucesso; readiness da API e health check da web responderam `200`. A tela `/importacoes` confirmou dois lotes no PostgreSQL, ambos `NeedsReview`: `fonte-0.xlsx` (80 linhas) e `fonte-1.xlsx` (1.031 linhas). Os dados continuam em staging e nenhuma linha foi aplicada aos cadastros.
+Na promoção inicial do endereço, `railway config pull` foi revisado e o plano ficou sem drift. Na promoção UX posterior, o plano apresenta somente as duas diferenças de branch não observáveis pela exportação Railway, explicadas em `revisao-ux-identidade-2026-10-05.md`. A API e a web concluíram o deploy com sucesso; readiness da API e health check da web responderam `200`. A tela `/importacoes` confirmou dois lotes no PostgreSQL, ambos `NeedsReview`: `fonte-0.xlsx` (80 linhas) e `fonte-1.xlsx` (1.031 linhas). Os dados continuam em staging e nenhuma linha foi aplicada aos cadastros.
 
 ### Retorno da versão web/API
 
@@ -206,3 +206,19 @@ Não apague o PostgreSQL, o serviço legado, o volume SQLite ou o D1 durante o r
 ## Promoções posteriores à revisão UX
 
 Antes de mudar a fonte de produção, conferir o commit integral e executar CI/build e revisão de telas. Publicar primeiro a API compatível; depois a web. Promover uma branch de revisão validada evita que outra publicação de `main` retire módulos já aceitos. Não mesclar ou promover por upload um snapshot antigo sem conciliar a fonte conectada. Preserve Google, lotes em revisão e as variáveis existentes. Registre commit, deployments, digests e evidência visual no relatório da promoção.
+
+A promoção UX de 2026-10-05 está confirmada no commit `b31701a6190d7ba71db191914d9a33b152e95d91`: API `082f03d5-4b54-4d34-ac60-4583d4348d83`, web `56d1cb1d-22fd-46d0-b10b-1b1de5dc0dba`, ambos `SUCCESS`. Somente esses dois serviços foram atualizados. Migrations foram verificadas pelo pre-deploy, sem novas aplicações.
+
+Ao sincronizar o snapshot, preserve `codex/ux-identidade-global-20261005` explicitamente nos serviços oficiais: o SDK assume `main` se ela for omitida. A exportação atual não inclui a branch, mesmo quando `service source connect` e os deployments confirmam a revisão correta. Inspecione com `config pull --json` sem sobrescrever o arquivo, confronte branch/commit/digest e registre a diferença explicada. O requisito de conferir o plano continua válido; não use `config apply` apenas para eliminar essas duas diferenças de leitura.
+
+## Inclusão direcionada de Owner Google
+
+A lista `Authentication__Google__AllowedEmail` permite login; ela não é uma autorização para ampliar automaticamente o papel de todas as contas. Para uma inclusão individual já autorizada, preserve os e-mails existentes, acrescente apenas a nova conta e use o provisionamento direcionado da API. Não versão e-mails reais, senhas ou tokens neste runbook.
+
+1. Confirme que a versão da API suporta `Authentication__Google__ProvisionOwnerEmails`, que o papel Owner já existe e que a nova conta está autorizada pelo responsável.
+2. Em Production, configure `Authentication__Google__ProvisionOwnerEmails` apenas com os alvos aprovados. Todos precisam constar na allowlist. Campo presente, mas vazio ou com alvo fora da allowlist, interrompe o provisionamento antes de qualquer escrita.
+3. Habilite temporariamente `Authentication__Google__ProvisionAllowedEmailsAsOwners=true` e publique a API compatível. O cadastro não altera contas inativas, não amplia papéis de contas fora dos alvos e é idempotente. Senhas aleatórias ficam somente como hash; o acesso da nova conta usa Google.
+4. Confirme nos registros os IDs provisionados e a saúde do serviço. Desabilite imediatamente a flag, publique a configuração desabilitada e remova a lista temporária de alvos. Preserve a allowlist necessária para login. Não habilite seed nem bootstrap de senha.
+5. Confirme que API e web continuam na revisão validada e que o serviço não registra novo provisionamento após reiniciar com a flag desabilitada.
+
+A inclusão como Owner não resolve erros do Google anteriores à emissão do token. Para `400 origin_mismatch`, confira o mesmo cliente OAuth Web usado pela web e API e cadastre `https://longbeach.quebranunca.com.br` em **Authorized JavaScript origins**, sem `/login`. A aplicação usa Google Identity Services com popup e callback; o cadastro de redirect URI não substitui a origem JavaScript. Ver [orientação oficial do Google](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid).
