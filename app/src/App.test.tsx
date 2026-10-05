@@ -11,6 +11,13 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+function withOperationalReads(authHandler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
+  return vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+    if (String(input).includes('/api/v1/operations/') && !init?.method) return Promise.resolve(jsonResponse([]))
+    return authHandler(input, init)
+  })
+}
+
 describe('autenticação e shell', () => {
   beforeEach(() => {
     setAccessToken(null)
@@ -95,7 +102,7 @@ describe('autenticação e shell', () => {
     render(<App />)
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: '+ Adicionar item' }))
-    await user.type(screen.getByLabelText('Produto ou material'), 'Bola de teste')
+    await user.type(screen.getByLabelText('Material ou equipamento'), 'Bola de teste')
     await user.clear(screen.getByLabelText('Quantidade atual'))
     await user.type(screen.getByLabelText('Quantidade atual'), '2')
     await user.click(screen.getByRole('button', { name: 'Salvar cadastro' }))
@@ -142,7 +149,7 @@ describe('autenticação e shell', () => {
     await user.type(screen.getByLabelText('Custo previsto (R$)'), '2500')
     await user.click(screen.getByRole('button', { name: 'Salvar projeto' }))
     await user.click(await screen.findByRole('button', { name: /Reforma da quadra/ }))
-    expect(document.querySelector('.project-detail')).toBeInTheDocument()
+    await waitFor(() => expect(document.querySelector('.project-detail')).toBeInTheDocument())
     expect(JSON.parse(localStorage.getItem('longbeach-os-demo-v1') ?? '{}').projects[0].estimatedCost).toBe(2500)
   })
 
@@ -157,8 +164,7 @@ describe('autenticação e shell', () => {
   })
 
   it('entra pela API e apresenta o shell autenticado', async () => {
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
+    const authFetch = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
       .mockResolvedValueOnce(jsonResponse({}, 401))
       .mockResolvedValueOnce(
         jsonResponse({
@@ -174,6 +180,7 @@ describe('autenticação e shell', () => {
           },
         }),
       )
+    withOperationalReads(authFetch)
 
     render(<App />)
     const user = userEvent.setup()
@@ -184,9 +191,9 @@ describe('autenticação e shell', () => {
 
     expect(await screen.findByRole('heading', { name: 'Visão geral' })).toBeInTheDocument()
     expect(screen.getByText('Gustavo Drager')).toBeInTheDocument()
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(authFetch).toHaveBeenCalledTimes(2))
 
-    const loginRequest = fetchMock.mock.calls[1]
+    const loginRequest = authFetch.mock.calls[1]
     expect(loginRequest[0]).toBe('/api/v1/auth/login')
     expect(loginRequest[1]).toEqual(
       expect.objectContaining({ method: 'POST', credentials: 'include' }),
@@ -204,8 +211,7 @@ describe('autenticação e shell', () => {
       roles: ['Owner'],
       permissions: ['arena.manage'],
     }
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
+    const authFetch = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
       .mockResolvedValueOnce(
         jsonResponse({
           accessToken: 'access-token-rotacionado',
@@ -215,11 +221,12 @@ describe('autenticação e shell', () => {
         }),
       )
       .mockResolvedValueOnce(jsonResponse(authenticatedUser))
+    withOperationalReads(authFetch)
 
     render(<App />)
 
     expect(await screen.findByRole('heading', { name: 'Visão geral' })).toBeInTheDocument()
-    const refreshRequest = fetchMock.mock.calls[0]
+    const refreshRequest = authFetch.mock.calls[0]
     expect(refreshRequest[0]).toBe('/api/v1/auth/refresh')
     expect((refreshRequest[1]?.headers as Headers).get('X-CSRF-Token')).toBe('csrf-anterior')
     expect(getCsrfToken()).toBe('csrf-rotacionado')
@@ -233,8 +240,7 @@ describe('autenticação e shell', () => {
       roles: ['Owner'],
       permissions: ['arena.manage'],
     }
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
+    const authFetch = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
       .mockResolvedValueOnce(
         jsonResponse({
           accessToken: 'access-token-atual',
@@ -250,6 +256,7 @@ describe('autenticação e shell', () => {
           requiresReauthentication: true,
         }),
       )
+    withOperationalReads(authFetch)
 
     window.history.replaceState({}, '', '/')
     render(<App />)
@@ -268,9 +275,9 @@ describe('autenticação e shell', () => {
       'Senha alterada. Entre novamente com a nova senha.',
     )
     expect(screen.getByRole('heading', { name: 'Entre no Long Beach OS' })).toBeInTheDocument()
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
+    await waitFor(() => expect(authFetch).toHaveBeenCalledTimes(3))
 
-    const changeRequest = fetchMock.mock.calls[2]
+    const changeRequest = authFetch.mock.calls[2]
     expect(changeRequest[0]).toBe('/api/v1/auth/change-password')
     expect(changeRequest[1]).toEqual(expect.objectContaining({ method: 'POST' }))
     expect((changeRequest[1]?.headers as Headers).get('Authorization')).toBe(

@@ -1,10 +1,12 @@
 # Modo de teste público com PostgreSQL
 
-Durante a validação autorizada, o serviço `web` usa `VITE_DEMO_MODE=true` e `VITE_OPERATIONAL_STORAGE=postgres`. A página abre sem login, e alunos, equipe, estoque e projetos leem e gravam no PostgreSQL próprio do Long Beach OS. A API habilita somente essas rotas quando `DemoMode__PublicOperationalData=true`; as rotas de autenticação continuam com a política normal.
+Este modo foi usado na validação inicial com dados fictícios. Na implantação operacional de outubro de 2026, a web deve usar `VITE_DEMO_MODE=false`, e a API deve usar `DemoMode__PublicOperationalData=false`. Production ignora a habilitação de acesso operacional anônimo, mesmo que a configuração antiga esteja presente.
+
+Somente Development e Test podem habilitar as quatro rotas originais fictícias com `DemoMode__PublicOperationalData=true`. Os novos módulos da arena continuam exigindo uma conta individual. O protótipo `/prototipo` mantém uma demonstração local independente, sem gravação no banco real.
 
 O endereço é público. Qualquer pessoa que o conheça pode consultar, criar ou alterar os cadastros fictícios compartilhados. As gravações são limitadas por IP a 60 por minuto. O CORS aceita apenas os endereços configurados. Não insira informações pessoais reais, credenciais, senhas ou informações financeiras reais nesta fase. A trilha de auditoria registra as operações sem copiar o conteúdo dos cadastros para os logs.
 
-Na primeira abertura, o sistema envia ao PostgreSQL os registros que existirem somente no armazenamento local deste navegador. Quando o banco já tiver registros, o PostgreSQL é a fonte principal; registros locais com IDs novos são acrescentados. Depois da conexão, os módulos mantêm o armazenamento local como cópia de contingência. O indicador no menu informa conexão e falhas de gravação.
+A aplicação não envia cadastros locais automaticamente ao PostgreSQL. Na operação autenticada, a API é a fonte dos dados; respostas de uma sessão encerrada são descartadas. Não existe cópia local de contingência com dados pessoais. Uma falha de gravação mantém o formulário aberto e não apresenta confirmação de salvamento.
 
 As quatro categorias ficam na tabela `operational_records`, com o tipo em `Kind` (`students`, `team`, `inventory` ou `projects`) e os campos do cadastro em `Payload` JSONB. A migration `20261001000200_OperationalRecords` cria a tabela sem apagar ou alterar as tabelas de autenticação.
 

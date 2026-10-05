@@ -45,14 +45,16 @@ public sealed class BarCatalogService(LongBeachDbContext db) : IBarCatalog
         {
             product = await db.Set<BarProduct>().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new BarRuleException("Produto não encontrado.");
             if (input.Version != product.Version) throw new BarRuleException("Produto alterado por outro usuário. Recarregue o cadastro.");
+            if(input.SaleUnit!=product.SaleUnit&&await db.Set<BarRecipeIngredient>().AnyAsync(x=>x.ProductId==product.Id,ct))throw new BarRuleException("A unidade do estoque está vinculada a fichas técnicas. Cadastre outro produto para mudar essa unidade sem reinterpretar o histórico.");
             product.Change(input.Name, input.ShortName, input.CategoryId, input.SaleUnit, input.PurchaseUnit,
                 input.ConversionFactor, input.SalePrice, input.AverageCost, input.MinimumStock, input.ControlsStock, input.Favorite, input.DisplayOrder, input.Active);
         }
         if(input.MainSupplierId is not null && !await db.Set<LongBeach.Domain.Purchases.Supplier>().AnyAsync(x=>x.Id==input.MainSupplierId,ct))throw new BarRuleException("Fornecedor principal inexistente.");
         product.SetMetadata(input.Barcode,input.ImageUrl,input.MainSupplierId);
+        product.SetPreparation(input.Prepared);
         await db.SaveChangesAsync(ct); return Managed(product);
     }
     private static CatalogProduct Public(BarProduct x) => new(x.Id, x.Code, x.Name, x.ShortName, x.CategoryId, x.SaleUnit,
-        x.SalePrice, x.ControlsStock, x.MinimumStock, x.Favorite, x.DisplayOrder, x.Active, x.Version,x.Barcode,x.ImageUrl);
+        x.SalePrice, x.ControlsStock, x.MinimumStock, x.Favorite, x.DisplayOrder, x.Active, x.Version,x.Barcode,x.ImageUrl,x.Prepared);
     private static ManagedProduct Managed(BarProduct x) => new(Public(x), x.PurchaseUnit, x.ConversionFactor, x.AverageCost, x.LastCost,x.MainSupplierId);
 }

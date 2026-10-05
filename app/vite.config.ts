@@ -7,13 +7,13 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['icons/icon.svg', 'icons/icon-maskable.svg'],
+      includeAssets: ['icons/icon.svg', 'icons/icon-maskable.svg', 'prototype-assets/logo-horizontal.svg', 'prototype-assets/logo-symbol.svg', 'prototype-assets/manrope.ttf'],
       manifest: {
         name: 'Long Beach OS',
         short_name: 'Long Beach',
         description: 'Gestão da Long Beach Arena',
-        theme_color: '#081d21',
-        background_color: '#061416',
+        theme_color: '#f2e8d8',
+        background_color: '#f2e8d8',
         display: 'standalone',
         orientation: 'portrait-primary',
         start_url: '/',

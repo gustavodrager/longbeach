@@ -12,10 +12,10 @@ public sealed class BarSalesService(LongBeachDbContext db, IPaymentGateway? gate
     public async Task<object> Create(SaleInput input, Guid actor, CancellationToken ct)
     {
         if (input.Items is null || input.Items.Count is 0 or > 100) throw new BarRuleException("Informe de 1 a 100 itens.");
-        var session = await Session(input.SessionId, ct); session.EnsureOpen();
+        var session = await Session(input.SessionId, ct); if (session.OpenedBy != actor) throw new BarRuleException("Você só pode vender no próprio caixa."); session.EnsureOpen();
         var sale = new BarSale(session.Id, session.LocationId, actor);
         foreach (var item in input.Items)
-        { var product = await db.Set<BarProduct>().SingleOrDefaultAsync(x => x.Id == item.ProductId, ct) ?? throw new BarRuleException("Produto inexistente."); sale.Add(product, item.Quantity); }
+        { var product = await db.Set<BarProduct>().SingleOrDefaultAsync(x => x.Id == item.ProductId, ct) ?? throw new BarRuleException("Produto inexistente."); if(product.SalePrice<=0)throw new BarRuleException("Produto sem preço de venda. Use ajuste supervisionado para cortesia."); if(product.Prepared&&await db.Set<BarRecipeVersion>().AnyAsync(x=>x.ProductId==product.Id,ct))throw new BarRuleException("Este produto tem ficha técnica. Use o novo atendimento para reservar e entregar os ingredientes."); sale.Add(product, item.Quantity); }
         db.Add(sale); await db.SaveChangesAsync(ct); return Public(sale, false);
     }
     public async Task<object> List(Guid actor, bool all, bool costs, CancellationToken ct) =>
@@ -27,7 +27,7 @@ public sealed class BarSalesService(LongBeachDbContext db, IPaymentGateway? gate
         var sale = await Sale(saleId, ct); Own(sale, actor);
         var existing = await db.Set<BarPayment>().SingleOrDefaultAsync(x => x.OperationId == input.OperationId, ct);
         if (existing is not null) { if (existing.SaleId != saleId || existing.Method != method || existing.Tendered != input.Tendered || existing.Authorization != input.Authorization) throw new BarRuleException("Chave reutilizada para outro pagamento."); return new {sale = Public(sale, false), paymentId = existing.Id, change = method == "Cash" ? existing.Tendered - existing.Amount : 0}; }
-        var session = await Session(sale.SessionId, ct); session.EnsureOpen();
+        var session = await Session(sale.SessionId, ct); if (session.OpenedBy != actor) throw new BarRuleException("Você só pode receber no próprio caixa."); session.EnsureOpen();
         BarRules.Money(input.Tendered); if (method == "Cash" && input.Tendered < sale.Total) throw new BarRuleException("Dinheiro recebido insuficiente.");
         sale.Paid(); var payment = new BarPayment(sale.Id, sale.Total, method, input.OperationId, actor, input.Authorization,input.Tendered);
         db.Add(payment); await Consume(sale, "Sale", actor, ct);
@@ -59,6 +59,9 @@ public sealed class BarSalesService(LongBeachDbContext db, IPaymentGateway? gate
             if(confirmed.Reference!=payment.Id.ToString() || confirmed.Currency!="BRL" || confirmed.Amount!=checked((long)(payment.Amount*100)) || confirmed.Refunded!=checked((long)(payment.Amount*100)))throw new BarRuleException("Estorno diverge da cobrança registrada.");
         }
         await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM bar_sales WHERE \"Id\" = {sale.Id} FOR UPDATE", ct);
+        await db.Entry(sale).ReloadAsync(ct); await db.Entry(payment).ReloadAsync(ct);
+        if (sale.State != "Paid" || payment.State != "Approved") throw new BarRuleException("Venda já estornada. Confira o histórico antes de devolver novamente.");
         sale.Refund(input.Reason); payment.Refund();
         if (payment.Method == "Cash") db.Add(new CashMovement(await Session(sale.SessionId,ct), -payment.Amount, "Refund", input.Reason, actor, payment.Id));
         var stock = new BarStockService(db);

@@ -10,6 +10,7 @@ using LongBeach.Application.Abstractions;
 using LongBeach.Application.Auth;
 using LongBeach.Application.Authorization;
 using LongBeach.Infrastructure;
+using LongBeach.Infrastructure.Bootstrap;
 using LongBeach.Infrastructure.Health;
 using LongBeach.Infrastructure.Persistence;
 using LongBeach.Infrastructure.Security;
@@ -25,6 +26,11 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 var startupCommand = StartupCommandParser.Parse(args);
+var verifyGoogleOwners = args.Contains("--verify-google-owners", StringComparer.OrdinalIgnoreCase);
+if (verifyGoogleOwners && startupCommand == StartupCommand.MigrateOnly)
+{
+    throw new InvalidOperationException("--verify-google-owners cannot be combined with --migrate-only.");
+}
 
 builder.Host.UseSerilog((context, services, logger) => logger
     .ReadFrom.Configuration(context.Configuration)
@@ -47,6 +53,27 @@ ConfigureRateLimiting(builder.Services);
 
 var app = builder.Build();
 
+if (verifyGoogleOwners)
+{
+    try
+    {
+        await using var verificationScope = app.Services.CreateAsyncScope();
+        var verificationDbContext = verificationScope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+        var verification = new GoogleOwnerVerifier(verificationDbContext, app.Configuration, app.Environment);
+        var result = await verification.VerifyAsync(CancellationToken.None);
+        app.Logger.LogInformation(
+            "Google Owner verification: target count {TargetCount}; active Owner count {ActiveOwnerCount}; grants outside targets {OutsideTargetGrantCount}; succeeded {Succeeded}.",
+            result.TargetCount, result.ActiveOwnerCount, result.OutsideTargetGrantCount, result.Succeeded);
+        Environment.ExitCode = result.Succeeded ? 0 : 1;
+    }
+    catch (Exception)
+    {
+        app.Logger.LogError("Google Owner verification completed: succeeded false.");
+        Environment.ExitCode = 1;
+    }
+    return;
+}
+
 if (startupCommand == StartupCommand.MigrateOnly)
 {
     await using var migrationScope = app.Services.CreateAsyncScope();
@@ -57,6 +84,16 @@ if (startupCommand == StartupCommand.MigrateOnly)
 }
 
 app.UseForwardedHeaders();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/v1"))
+    {
+        context.Response.Headers.CacheControl = "no-store";
+        context.Response.Headers.Pragma = "no-cache";
+        context.Response.Headers["Referrer-Policy"] = "no-referrer";
+    }
+    await next(context);
+});
 app.UseSerilogRequestLogging();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors("web-client");
@@ -85,9 +122,10 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 }).AllowAnonymous();
 
 app.MapBarEndpoints();
+app.MapBarTabsEndpoints();
 app.MapImportEndpoints();
 app.MapAuthEndpoints(builder.Configuration.GetValue<bool>("Authentication:Google:Enabled"));
-var publicOperationalDemo = app.Configuration.GetValue("DemoMode:PublicOperationalData", false);
+var publicOperationalDemo = !app.Environment.IsProduction() && app.Configuration.GetValue("DemoMode:PublicOperationalData", false);
 app.MapOperationalEndpoints(publicOperationalDemo);
 
 if (app.Configuration.GetValue("Database:MigrateOnStartup", false))

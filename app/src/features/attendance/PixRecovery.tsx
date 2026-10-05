@@ -1,0 +1,7 @@
+import { useState } from 'react'
+import type { TabPayment } from './api'
+export function PixRecovery({ payment, busy, resume }: { payment: TabPayment; busy: boolean; resume: (payer: { name: string; email: string; taxId: string }) => Promise<unknown> }) {
+  const [name, setName] = useState(''); const [email, setEmail] = useState(''); const [taxId, setTaxId] = useState('')
+  if (payment.state !== 'Pending' || !(payment.canResume ?? (!payment.providerId && !payment.pixText && !payment.qrImageUrl))) return null
+  return <form className="ux-panel" onSubmit={event => { event.preventDefault(); void resume({ name, email, taxId }) }}><h2>Retomar o mesmo Pix</h2><p>A criação foi interrompida. Informe os dados do pagador para consultar ou concluir a mesma cobrança.</p><label className="ux-field">Nome do pagador<input required maxLength={120} value={name} disabled={busy} onChange={event => setName(event.target.value)} /></label><label className="ux-field">E-mail<input required type="email" maxLength={254} value={email} disabled={busy} onChange={event => setEmail(event.target.value)} /></label><label className="ux-field">CPF / CNPJ<input required inputMode="numeric" maxLength={14} value={taxId} disabled={busy} onChange={event => setTaxId(event.target.value.replace(/\D/g, ''))} /></label><button className="ux-button primary" disabled={busy}>Retomar sem cobrar novamente</button><p className="ux-note">Use o mesmo acesso que iniciou este Pix. Se ele foi encerrado, peça ajuda à equipe para conferir o provedor.</p></form>
+}

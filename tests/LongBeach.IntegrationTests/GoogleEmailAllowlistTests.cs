@@ -7,18 +7,18 @@ public sealed class GoogleEmailAllowlistTests
     [Fact]
     public void Contains_accepts_multiple_emails_with_whitespace_and_case_differences()
     {
-        const string configured = "gustavodrager@gmail.com; quebranunca@gmail.com";
+        const string configured = "fixture-1@longbeach.test; fixture-2@longbeach.test";
 
-        Assert.True(GoogleEmailAllowlist.Contains(configured, "GustavoDrager@gmail.com "));
-        Assert.True(GoogleEmailAllowlist.Contains(configured, " QUEBRANUNCA@gmail.com"));
+        Assert.True(GoogleEmailAllowlist.Contains(configured, "FIXTURE-1@LONGBEACH.TEST "));
+        Assert.True(GoogleEmailAllowlist.Contains(configured, " fixture-2@longbeach.test"));
     }
 
     [Fact]
     public void Contains_rejects_unlisted_or_missing_emails()
     {
-        const string configured = "gustavodrager@gmail.com,quebranunca@gmail.com";
+        const string configured = "fixture-1@longbeach.test,fixture-2@longbeach.test";
 
-        Assert.False(GoogleEmailAllowlist.Contains(configured, "other@gmail.com"));
+        Assert.False(GoogleEmailAllowlist.Contains(configured, "fixture-3@longbeach.test"));
         Assert.False(GoogleEmailAllowlist.Contains(configured, null));
         Assert.Empty(GoogleEmailAllowlist.Parse(" ; , "));
     }

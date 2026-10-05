@@ -18,6 +18,7 @@ public sealed class GoogleAllowedOwnerBootstrapper(
     ILogger<GoogleAllowedOwnerBootstrapper> logger) : IHostedService
 {
     public const string EnabledKey = "Authentication:Google:ProvisionAllowedEmailsAsOwners";
+    public const string ProvisionOwnerEmailsKey = "Authentication:Google:ProvisionOwnerEmails";
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -26,10 +27,24 @@ public sealed class GoogleAllowedOwnerBootstrapper(
             return;
         }
 
-        var emails = GoogleEmailAllowlist.Parse(configuration["Authentication:Google:AllowedEmail"]);
-        if (emails.Length == 0)
+        var allowedEmails = GoogleEmailAllowlist.Parse(configuration["Authentication:Google:AllowedEmail"]);
+        if (allowedEmails.Length == 0)
         {
             throw new InvalidOperationException("Authentication:Google:AllowedEmail must contain at least one address when owner provisioning is enabled.");
+        }
+
+        var hasExplicitOwners = configuration.AsEnumerable()
+            .Any(entry => string.Equals(entry.Key, ProvisionOwnerEmailsKey, StringComparison.OrdinalIgnoreCase));
+        var emails = hasExplicitOwners
+            ? GoogleEmailAllowlist.Parse(configuration[ProvisionOwnerEmailsKey])
+            : allowedEmails;
+        if (emails.Length == 0)
+        {
+            throw new InvalidOperationException($"{ProvisionOwnerEmailsKey} must contain at least one address when explicitly configured.");
+        }
+        if (emails.Any(email => !allowedEmails.Contains(email, StringComparer.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException($"Every address in {ProvisionOwnerEmailsKey} must also be included in Authentication:Google:AllowedEmail.");
         }
 
         await using var scope = scopeFactory.CreateAsyncScope();
@@ -39,12 +54,22 @@ public sealed class GoogleAllowedOwnerBootstrapper(
             .SingleOrDefaultAsync(role => role.Name == SystemRoles.Owner, cancellationToken)
             ?? throw new InvalidOperationException("The Owner role is missing; seed the authorization catalog before provisioning Google owners.");
 
+        var normalizedEmails = emails.Select(User.NormalizeEmail).ToArray();
+        var existingUsers = await dbContext.Users
+            .Include(item => item.UserRoles)
+            .Where(item => normalizedEmails.Contains(item.NormalizedEmail))
+            .ToDictionaryAsync(item => item.NormalizedEmail, cancellationToken);
+        if (existingUsers.Values.Any(user => !user.IsActive))
+        {
+            throw new InvalidOperationException("A configured Google owner already exists but is inactive.");
+        }
+
+        var provisionedUsers = new List<(User User, bool Created)>();
+
         foreach (var email in emails)
         {
             var normalizedEmail = User.NormalizeEmail(email);
-            var user = await dbContext.Users
-                .Include(item => item.UserRoles)
-                .SingleOrDefaultAsync(item => item.NormalizedEmail == normalizedEmail, cancellationToken);
+            existingUsers.TryGetValue(normalizedEmail, out var user);
             var created = user is null;
 
             if (user is null)
@@ -53,13 +78,13 @@ public sealed class GoogleAllowedOwnerBootstrapper(
                 user = User.Create(DisplayName(email), email, passwordHasher.Hash(generatedPassword));
                 dbContext.Users.Add(user);
             }
-            else if (!user.IsActive)
-            {
-                throw new InvalidOperationException($"The configured Google owner {email} already exists but is inactive.");
-            }
-
             user.AssignRole(ownerRole);
-            await dbContext.SaveChangesAsync(cancellationToken);
+            provisionedUsers.Add((user, created));
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        foreach (var (user, created) in provisionedUsers)
+        {
             logger.LogInformation("Google owner account provisioned (user {UserId}; created: {Created}).", user.Id, created);
         }
     }

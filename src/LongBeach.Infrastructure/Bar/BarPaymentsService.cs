@@ -9,7 +9,7 @@ using LongBeach.Domain.Payments;
 using LongBeach.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 namespace LongBeach.Infrastructure.Bar;
-public sealed class BarPaymentsService(LongBeachDbContext db,IPaymentGateway gateway,TimeProvider time):IBarPayments
+public sealed class BarPaymentsService(LongBeachDbContext db,IPaymentGateway gateway,TimeProvider time,IBarTabs? tabs = null):IBarPayments
 {
     public bool PixEnabled=>gateway.Enabled;
     public async Task<object> Payments(CancellationToken ct)=>await db.Set<BarPayment>().AsNoTracking().OrderByDescending(x=>x.CreatedAtUtc).Take(200).ToListAsync(ct);
@@ -79,7 +79,11 @@ public sealed class BarPaymentsService(LongBeachDbContext db,IPaymentGateway gat
         var hash=Convert.ToHexString(SHA256.HashData(body));if(await db.Set<PaymentWebhookInbox>().AnyAsync(x=>x.PayloadHash==hash,ct))return true;
         using var doc=JsonDocument.Parse(body);var orderId=doc.RootElement.GetProperty("id").GetString();
         var payment=await db.Set<BarPayment>().SingleOrDefaultAsync(x=>x.ProviderId==orderId,ct);
-        if(payment is null)throw new BarRuleException("Pedido ainda não vinculado; reenviar notificação.");
+        if(payment is null)
+        {
+            if(tabs is not null && await tabs.Webhook(body,signatures,ct))return true;
+            throw new BarRuleException("Pedido ainda não vinculado; reenviar notificação.");
+        }
         await Refresh(payment.Id,ct);db.Add(new PaymentWebhookInbox(hash,orderId!));await db.SaveChangesAsync(ct);return true;
     }
     public async Task<object> Reconcile(Guid paymentId,ReconcileInput input,Guid actor,CancellationToken ct)

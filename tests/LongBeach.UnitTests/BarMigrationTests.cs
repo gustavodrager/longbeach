@@ -12,8 +12,8 @@ public sealed class BarMigrationTests
     {
         using var db=new LongBeachDbContext(new DbContextOptionsBuilder<LongBeachDbContext>().UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").Options,TimeProvider.System);
         Assert.False(db.Database.HasPendingModelChanges());var sql=db.GetService<IMigrator>().GenerateScript();
-        foreach(var table in new[]{"bar_products","stock_locations","stock_balances","stock_movements","cash_sessions","cash_closings","bar_sales","bar_payments","purchases","purchase_receipts","stock_reservations","payment_webhook_inbox","payment_reconciliations"}) Assert.Contains("CREATE TABLE "+table,sql);
-        Assert.DoesNotContain("DROP TABLE",sql);Assert.Contains("CK_stock_balance",sql);
+        foreach(var table in new[]{"bar_products","stock_locations","stock_balances","stock_movements","cash_sessions","cash_closings","bar_sales","bar_payments","purchases","purchase_receipts","stock_reservations","payment_webhook_inbox","payment_reconciliations","bar_tabs","bar_tab_items","bar_tab_payments","bar_tab_refunds","bar_tab_access","bar_tab_history","bar_tab_operations","bar_recipe_versions","bar_recipe_ingredients","bar_tab_ingredients"}) Assert.Contains("CREATE TABLE "+table,sql);
+        Assert.DoesNotContain("DROP TABLE",sql);Assert.Contains("CK_stock_balance",sql);Assert.Contains("Multiple open cash sessions",sql);Assert.Contains("bar_tab_item_snapshot",sql);
         Assert.Contains(db.Model.FindEntityType(typeof(StockBalance))!.GetIndexes(),i=>i.IsUnique&&i.Properties.Select(p=>p.Name).SequenceEqual(new[]{"ProductId","LocationId"}));
         Assert.True(db.Model.FindEntityType(typeof(StockBalance))!.FindProperty("Version")!.IsConcurrencyToken);
         Assert.True(db.Model.FindEntityType(typeof(CashSession))!.FindProperty("Version")!.IsConcurrencyToken);

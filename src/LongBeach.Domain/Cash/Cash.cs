@@ -48,6 +48,7 @@ public sealed class CashClosing : Entity
     {
         session.EnsureOpen(); Counted = BarRules.Money(counted); Expected = session.Expected; Difference = Counted - Expected;
         if (Difference != 0) { Reason = BarRules.Text(reason, 500, "Justificativa da diferença"); if (!approveDifference) throw new BarRuleException("Diferença de caixa exige supervisor."); }
+        if (Difference == 0 && !string.IsNullOrWhiteSpace(reason)) Reason = BarRules.Text(reason, 500, "Motivo do fechamento");
         SessionId = session.Id; ActorId = actor; session.Close();
     }
     public Guid SessionId { get; private set; }

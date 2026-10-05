@@ -35,14 +35,19 @@ public sealed partial class PagBankPaymentGateway(HttpClient http, IConfiguratio
         using var response=await http.GetAsync("orders/"+orderId,ct);return await Read(response,ct);
     }
     public async Task<GatewayPayment> Refund(string orderId,Guid operationId,decimal amount,CancellationToken ct)
+        => await RefundPartial(orderId, operationId, amount, 0, ct);
+    public async Task<GatewayPayment> RefundPartial(string orderId,Guid operationId,decimal amount,decimal previouslyRefunded,CancellationToken ct)
     {
-        var current=await Get(orderId,ct);if(current.Refunded==checked((long)(amount*100)))return current;
+        BarRules.Money(amount); BarRules.Money(previouslyRefunded); if(amount<=0)throw new BarRuleException("Estorno precisa ser positivo.");
+        var expected = checked((long)((amount + previouslyRefunded) * 100));
+        var current=await Get(orderId,ct);if(current.Refunded==expected)return current;
+        if(current.Refunded!=checked((long)(previouslyRefunded*100)))throw new BarRuleException("Estorno externo diverge do histórico. Concilie antes de continuar.");
         if(!ChargePattern().IsMatch(current.ChargeId))throw new BarRuleException("Identificador da cobrança inválido.");
         using var request=new HttpRequestMessage(HttpMethod.Post,"charges/"+current.ChargeId+"/cancel"){Content=JsonContent.Create(new {amount=new {value=checked((long)(amount*100))}})};
         request.Headers.Add("x-idempotency-key",operationId.ToString());
         using var response=await http.SendAsync(request,ct);
         var confirmed=await Get(orderId,ct);
-        if(confirmed.Refunded!=checked((long)(amount*100)))throw new BarRuleException("Estorno PagBank ainda não confirmado. Consulte antes de repetir.");
+        if(confirmed.Refunded!=expected)throw new BarRuleException("Estorno PagBank ainda não confirmado. Consulte antes de repetir.");
         return confirmed;
     }
     public bool VerifyWebhook(byte[] body,IEnumerable<string> signatures)
