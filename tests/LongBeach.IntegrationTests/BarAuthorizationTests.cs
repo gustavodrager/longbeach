@@ -60,6 +60,7 @@ public sealed class BarAuthorizationTests
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/payments/00000000-0000-0000-0000-000000000002/reconcile")]
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/payments/00000000-0000-0000-0000-000000000002/refund")]
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/items/00000000-0000-0000-0000-000000000002/reverse")]
+    [InlineData("/api/v1/bar/purchases/00000000-0000-0000-0000-000000000001/payment-reference")]
     public async Task Tab_mutations_require_login_and_their_permission(string path)
     {
         await using var factory = new LongBeachWebApplicationFactory();
@@ -74,6 +75,7 @@ public sealed class BarAuthorizationTests
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/payments/00000000-0000-0000-0000-000000000002/reconcile")]
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/payments/00000000-0000-0000-0000-000000000002/refund")]
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/items/00000000-0000-0000-0000-000000000002/reverse")]
+    [InlineData("/api/v1/bar/purchases/00000000-0000-0000-0000-000000000001/payment-reference")]
     public async Task Operator_cannot_approve_supervisory_actions(string path)
     {
         await using var factory = new LongBeachWebApplicationFactory();

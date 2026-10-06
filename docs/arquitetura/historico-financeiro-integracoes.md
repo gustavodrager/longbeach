@@ -22,6 +22,10 @@ Quando o proprietário confirma que a Planilha2 é o consolidado mensal da arena
 
 Nas compras do bar, a referência da conta identifica quem pagou e o acerto pendente quando um proprietário adiantou recursos. Data, fornecedor, forma informada e referência ficam visíveis na ficha da compra. Registrar e receber produtos não executa pagamento ou compensação; o recebimento atualiza estoque e custo, sem inventar débito no PagBank.
 
+A correção da conta/forma informada usa `POST /api/v1/bar/purchases/{id}/payment-reference`, com a permissão de gestão de compras e a versão corrente. A auditoria conserva antes/depois; a operação não modifica valores, estoque ou recebimentos, mesmo quando a compra já foi recebida. O Financeiro operacional mantém sua própria referência e deve ser corrigido separadamente quando houver um lançamento manual vinculado.
+
+O item de compra aceita um total informado opcional para preservar centavos do comprovante ao dividir embalagens ou trabalhar com pesos. A divergência em relação a quantidade × custo só pode estar dentro do arredondamento do custo unitário (meio centavo por unidade, mínimo de um centavo). O total conciliado alimenta o rateio e o custo recebido já existentes, sem alterar o cadastro ou a conversão global do produto. Descontos de um item podem ser representados pelo custo líquido; descontos gerais seguem o rateio existente. Nenhuma migration nova é necessária.
+
 ## Indicadores da escola e dos mensalistas
 
 O dashboard Owner consulta `GET /api/v1/financial-history/arena-summary`. A leitura calcula os indicadores sobre todas as observações aplicadas do mês, sem o limite de 50 linhas da tela de histórico. Por padrão cada controle usa sua última competência; um mês explícito não retrocede para dados antigos quando faltam registros. Os cartões mostram a competência e abrem o histórico correspondente.

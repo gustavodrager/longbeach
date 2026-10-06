@@ -16,6 +16,27 @@ public sealed class PostgresFactAttribute : FactAttribute
 public sealed class BarPostgresTests
 {
     [PostgresFact]
+    public async Task Purchase_total_survives_reload_and_payment_correction_is_audited_without_new_receipts()
+    {
+        await using var db=Database();await db.Database.MigrateAsync();var suffix=Guid.NewGuid().ToString("N");var actor=Guid.NewGuid();
+        var catalog=new BarCatalogService(db);var service=new BarPurchasesService(db);var stock=new BarStockService(db);
+        var category=await catalog.CreateCategory(new CategoryInput("Purchase test "+suffix),default);
+        var managed=await catalog.SaveProduct(null,new ProductInput(suffix,"Test pack units","Test",category.Id,"un","un",1,10,0,0,true,false,0),default);
+        var supplier=await service.CreateSupplier("Supplier "+suffix,default);var location=await stock.CreateLocation(new LocationInput("Receipt "+suffix),default);
+        var purchase=await service.Create(new PurchaseInput(supplier.Id,"Test "+suffix,[new PurchaseItemInput(managed.Product.Id,24,4.17m,100m)],PaymentMethod:"Pix",AccountReference:"Owner test"),actor,default);
+        var id=purchase.Id;db.ChangeTracker.Clear();
+        await service.Receive(id,new ReceiptInput(location.Id,Guid.NewGuid(),[new ReceiptItemInput(managed.Product.Id,24)]),actor,default);
+        db.ChangeTracker.Clear();
+        var saved=await db.Set<LongBeach.Domain.Purchases.Purchase>().AsNoTracking().Include(x=>x.Items).SingleAsync(x=>x.Id==id);
+        Assert.Equal(100m,saved.Total);Assert.Equal(100m,saved.Items.Single().CostReceived);
+        var corrected=await service.CorrectPaymentReference(id,new PurchasePaymentReferenceInput("Pix","Arena account",saved.Version),default);
+        Assert.Equal("Received",corrected.State);Assert.Equal(100m,corrected.Total);Assert.Equal("Arena account",corrected.AccountReference);
+        await Assert.ThrowsAsync<BarRuleException>(()=>service.CorrectPaymentReference(id,new PurchasePaymentReferenceInput("Cash","Stale",saved.Version),default));
+        Assert.Equal(1,await db.Set<LongBeach.Domain.Purchases.PurchaseReceipt>().CountAsync(x=>x.PurchaseId==id));
+        Assert.Equal(24m,(await db.Set<StockBalance>().SingleAsync(x=>x.ProductId==managed.Product.Id&&x.LocationId==location.Id)).Quantity);
+        Assert.True(await db.AuditLogs.AnyAsync(x=>x.Resource=="Purchase"&&x.ResourceId==id.ToString()&&x.Action=="Modified"&&x.MetadataJson.Contains("AccountReference")));
+    }
+    [PostgresFact]
     public async Task Physical_count_manual_sale_receipt_and_refund_preserve_ledger_and_idempotency()
     {
         await using var db=Database();await db.Database.MigrateAsync();var actor=Guid.NewGuid();var suffix=Guid.NewGuid().ToString("N");
