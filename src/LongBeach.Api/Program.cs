@@ -146,6 +146,7 @@ app.MapImportEndpoints();
 app.MapFinancialHistoryEndpoints();
 app.MapAuthEndpoints(builder.Configuration.GetValue<bool>("Authentication:Google:Enabled"));
 var publicOperationalDemo = !app.Environment.IsProduction() && app.Configuration.GetValue("DemoMode:PublicOperationalData", false);
+app.MapRentalGroupsEndpoints();
 app.MapOperationalEndpoints(publicOperationalDemo);
 
 if (app.Configuration.GetValue("Database:MigrateOnStartup", false))

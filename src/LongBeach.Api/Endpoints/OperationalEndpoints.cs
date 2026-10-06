@@ -67,8 +67,14 @@ public static class OperationalEndpoints
             var incoming = prepared.Body;
             if (kind == "reservations")
             {
-                var metadataError = RecurringReservationBatch.ValidateMetadata(incoming, record?.Payload);
+                var metadataError = RecurringReservationBatch.ValidateMetadata(incoming, record?.Payload) ?? RentalGroupRules.ReservationMetadata(incoming, record?.Payload);
                 if (metadataError is not null) return Results.BadRequest(new { message = metadataError });
+            }
+            if (kind == "financeEntries" && record is not null)
+            {
+                var saved = ParsePayload(record.Payload);
+                if (OperationalValidation.Text(saved, "sourceKind") == "rentalMonths" && new[] { "sourceKind", "sourceId", "month" }.Any(key => incoming[key]?.ToString() != OperationalValidation.Text(saved, key)))
+                    return Results.BadRequest(new { message = "Preserve a origem e a competência da mensalidade. Cancele o lançamento para corrigir o acordo." });
             }
             body = JsonSerializer.SerializeToElement(incoming);
             var error = OperationalValidation.Validate(kind, id, body, snapshot, DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-3)));

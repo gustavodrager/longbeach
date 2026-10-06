@@ -10,6 +10,7 @@ type NavigationItem = { label: string; icon: IconName; href: string; group?: str
 const managementItems: NavigationItem[] = [
   { label: 'Início', icon: 'home', href: '/', group: 'Arena' },
   { label: 'Agenda', icon: 'calendar', href: '/agenda', kind: 'reservations', group: 'Arena' },
+  { label: 'Mensalistas', icon: 'people', href: '/mensalistas', kind: 'rentalGroups', group: 'Arena' },
   { label: 'Escola', icon: 'school', href: '/escola', kind: 'classes', group: 'Arena' },
   { label: 'Alunos', icon: 'people', href: '/alunos', kind: 'students', group: 'Arena' },
   { label: 'Financeiro', icon: 'wallet', href: '/financeiro', kind: 'financeEntries', group: 'Arena' },

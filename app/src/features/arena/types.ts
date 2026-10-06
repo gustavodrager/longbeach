@@ -2,7 +2,7 @@ export type Court = { id: string; version?: number; costsVisible?: boolean; name
 export type Reservation = {
   id: string; version?: number; costsVisible?: boolean; name: string; courtId: string; date: string; startTime: string; endTime: string
   customerName: string; phone: string; amount: number; status: 'Confirmada' | 'Chegou' | 'Concluída' | 'Cancelada' | 'Bloqueio'; notes: string
-  groupId?: string; groupTitle?: string; occurrenceIndex?: number
+  rentalGroupId?: string; rentalMonth?: string; groupId?: string; groupTitle?: string; occurrenceIndex?: number
 }
 export type RecurringReservationInput = {
   operationId: string; groupTitle: string; courtId: string; startDate: string; startTime: string; endTime: string; weeks: number
@@ -18,7 +18,7 @@ export type Presence = { id: string; version?: number; costsVisible?: boolean; n
 export type FinanceEntry = {
   id: string; version?: number; costsVisible?: boolean; name: string; direction: 'Receber' | 'Pagar'; origin: 'Bar' | 'Escola' | 'Locações' | 'Arena'
   amount: number; dueDate: string; status: 'Pendente' | 'Pago' | 'Cancelado'; paidDate: string; notes: string
-  sourceId?: string; sourceKind?: 'enrollments' | 'reservations' | 'projects' | 'maintenance'; month?: string
+  sourceId?: string; sourceKind?: 'rentalMonths' | 'enrollments' | 'reservations' | 'projects' | 'maintenance'; month?: string
 }
 export type Maintenance = {
   id: string; version?: number; costsVisible?: boolean; name: string; area: string; owner: string; dueDate: string
