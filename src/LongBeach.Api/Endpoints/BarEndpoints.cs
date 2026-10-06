@@ -19,6 +19,7 @@ public static class BarEndpoints
         bar.MapPost("/stock/locations", (LocationInput i, IBarStock s, CancellationToken ct) => s.CreateLocation(i,ct)).RequireAuthorization(SystemPermissions.BarStockManage);
         bar.MapGet("/stock/balances", (HttpContext h, IBarStock s, CancellationToken ct) => s.Balances(Costs(h),ct)).RequireAuthorization(SystemPermissions.BarStockRead);
         bar.MapGet("/stock/movements", (HttpContext h, IBarStock s, CancellationToken ct) => s.Movements(Costs(h),ct)).RequireAuthorization(SystemPermissions.BarStockRead);
+        bar.MapGet("/stock/valuation", (IBarStock s, CancellationToken ct) => s.Valuation(ct)).RequireAuthorization(SystemPermissions.BarFinanceRead);
         bar.MapPost("/stock/transfers", async (TransferInput i, HttpContext h, IBarStock s, CancellationToken ct) => { await s.Transfer(i,Actor(h),ct); return Results.NoContent(); }).RequireAuthorization(SystemPermissions.BarStockManage);
         bar.MapPost("/stock/losses", async (StockOutputInput i, HttpContext h, IBarStock s, CancellationToken ct) => { await s.Output(i,"Loss",Actor(h),Has(h,SystemPermissions.BarSupervise),ct); return Results.NoContent(); }).RequireAuthorization(SystemPermissions.BarStockOutput);
         bar.MapPost("/stock/internal-consumption", async (StockOutputInput i, HttpContext h, IBarStock s, CancellationToken ct) => { await s.Output(i,"InternalConsumption",Actor(h),Has(h,SystemPermissions.BarSupervise),ct); return Results.NoContent(); }).RequireAuthorization(SystemPermissions.BarStockOutput);

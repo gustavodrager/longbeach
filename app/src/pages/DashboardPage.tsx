@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../features/auth/authContext'
 import { BarArenaMetrics } from '../features/attendance/BarArenaMetrics'
 import { FinancialBalanceOverview } from '../features/finance/FinancialBalanceOverview'
+import { StockValuation } from '../features/bar/StockValuation'
 import { BankStatementOverview, FinancialHistoryOverview } from '../features/finance/FinancialHistory'
 import { ArenaHistoryOverview } from '../features/finance/ArenaHistoryOverview'
 import { useCourtSchedule } from '../features/arena/queries'
@@ -64,6 +65,7 @@ export function DashboardPage() {
     <Heading eyebrow={new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: 'long' }).format(new Date())} title="Visão geral" description="Sua arena em um só lugar. Veja as prioridades e abra os registros de cada resultado." action={<div className="arena-actions">{data.canRead('reservations') && <Link className="primary-link" to={`/agenda?date=${day}&view=day`}>Abrir agenda de hoje</Link>}{barHref && <Link className="secondary-link" to={barHref}>Abrir bar e caixa <span aria-hidden="true">→</span></Link>}</div>} />
     <Feedback />
     <FinancialBalanceOverview />
+    <StockValuation compact />
     <FinancialHistoryOverview />
     <BankStatementOverview />
     <ArenaHistoryOverview />

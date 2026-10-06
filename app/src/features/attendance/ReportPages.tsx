@@ -1,5 +1,6 @@
 import { Disclosure, RecordTable } from '../../components/managementUi'
 import { reportPeriod, reportPeriodError } from './reportPeriod'
+import { StockValuation } from '../bar/StockValuation'
 import { useState, type ReactNode } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -52,6 +53,7 @@ export function BarOverviewPage() {
   })}</div>
   return <ReportFrame>
     <Heading eyebrow="Gestão do bar" title="Resumo do bar" description="Acompanhe as comandas, os recebimentos e o que precisa de atenção." />
+    <StockValuation />
     <PeriodFilter />
     {periodError ? <p className="arena-message arena-error" role="alert">{periodError}</p> : <>
       <section className="arena-dashboard-section" aria-labelledby="bar-attention">

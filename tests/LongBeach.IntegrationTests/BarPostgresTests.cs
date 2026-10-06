@@ -16,6 +16,36 @@ public sealed class PostgresFactAttribute : FactAttribute
 public sealed class BarPostgresTests
 {
     [PostgresFact]
+    public async Task Stock_valuation_reads_received_costs_reservations_and_missing_initial_cost_without_writes()
+    {
+        await using var db = Database(); await db.Database.MigrateAsync();
+        var actor = Guid.NewGuid(); var suffix = Guid.NewGuid().ToString("N");
+        var category = new BarProductCategory("Valuation " + suffix); db.Add(category);
+        var known = new BarProduct("value-" + suffix[..8], "Known " + suffix, "Known", category.Id, "un", "un", 1, 18, 0, 0, true, false, 0);
+        var mixed = new BarProduct("mixed-" + suffix[..8], "Mixed " + suffix, "Mixed", category.Id, "un", "un", 1, 8, 0, 0, true, false, 0);
+        var other = new BarProduct("other-" + suffix[..8], "Other " + suffix, "Other", category.Id, "un", "un", 1, 10, 5, 0, true, false, 0);
+        db.AddRange(known, mixed, other);
+        var mixedBalance = new StockBalance(mixed.Id, StockModel.Bar); db.Add(mixedBalance);
+        db.Add(new StockMovement(mixedBalance, 2, 0, "InitialCount", "Uncosted opening", Guid.NewGuid(), actor));
+        var elsewhere = new StockBalance(other.Id, StockModel.Warehouse); elsewhere.Move(5); db.Add(elsewhere);
+        await db.SaveChangesAsync();
+        var purchases = new BarPurchasesService(db); var supplier = await purchases.CreateSupplier("Valuation supplier " + suffix, default);
+        var purchase = await purchases.Create(new PurchaseInput(supplier.Id, "Value " + suffix, [new(known.Id, 24, 6.25m, 149.90m), new(mixed.Id, 6, 4.5m)]), actor, default);
+        await purchases.Receive(purchase.Id, new ReceiptInput(StockModel.Bar, Guid.NewGuid(), [new(known.Id, 24), new(mixed.Id, 6)]), actor, default);
+        (await db.Set<StockBalance>().SingleAsync(b => b.ProductId == known.Id && b.LocationId == StockModel.Bar)).Reserve(4);
+        await db.SaveChangesAsync(); db.ChangeTracker.Clear();
+        var countBefore = await db.Set<StockMovement>().CountAsync(m => m.ProductId == known.Id || m.ProductId == mixed.Id);
+        var response = await new BarStockService(db).Valuation(default);
+        var row = response.Rows.Single(r => r.ProductId == known.Id);
+        Assert.Equal(149.90m, row.StockCost); Assert.Equal(20m, row.Available); Assert.Equal(360m, row.SalePotential);
+        Assert.Equal(235.08m, row.GrossProfit); Assert.Equal("registered", row.CostStatus);
+        var incomplete = response.Rows.Single(r => r.ProductId == mixed.Id);
+        Assert.Equal("incomplete", incomplete.CostStatus); Assert.Null(incomplete.GrossProfit); Assert.Equal(27m, incomplete.StockCost);
+        Assert.DoesNotContain(response.Rows, r => r.ProductId == other.Id);
+        Assert.Equal(countBefore, await db.Set<StockMovement>().CountAsync(m => m.ProductId == known.Id || m.ProductId == mixed.Id));
+        Assert.Empty(db.ChangeTracker.Entries());
+    }
+    [PostgresFact]
     public async Task Purchase_total_survives_reload_and_payment_correction_is_audited_without_new_receipts()
     {
         await using var db=Database();await db.Database.MigrateAsync();var suffix=Guid.NewGuid().ToString("N");var actor=Guid.NewGuid();
