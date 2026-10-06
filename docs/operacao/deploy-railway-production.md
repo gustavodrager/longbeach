@@ -1,5 +1,17 @@
 # Deploy de Production no Railway
 
+## Promoção de saldos e acesso Google — 2026-10-06
+
+Runtime de API e web fixado em `ee43f5cf4e7f414af8e82cf32e69940ad01813f7`, branch `codex/saldos-pagina-inicial`. CI `37473848182` aprovado (backend, conversores e frontend). API publicada primeiro, web depois. Health checks oficiais responderam normalmente e os cartões, períodos, despesas positivas e origem dos registros foram conferidos no Chrome.
+
+Dois usuários individuais pendentes receberam os e-mails explicitamente autorizados pelo proprietário por `--authorize-google-access --provision-from-stdin`. O pre-deploy temporário executou migration e os dois comandos em sequência; os logs confirmaram duas alterações, preservação de papel e desativação da credencial inicial. Nenhuma conta foi criada. Os dois parâmetros temporários foram removidos após sucesso e o pre-deploy voltou a `--migrate-only`. Os e-mails permanecem na allowlist privada, sem PII em Git. O primeiro login pessoal de cada proprietário deve ser feito por ele no Google.
+
+Deploy inicial da API: `0c224e7d-445f-4e07-8ff9-f375ab36ee18`; API após retirada dos parâmetros: `629d709b-2ecd-4796-99d3-55fb1e069d4e`; web: `534b4425-adde-41b5-b43a-ba5ef1a170e2`. Snapshots registrados por etapa e planos sem alterações. Não houve mudança nos serviços auxiliares, domínios ou acesso privado ao PostgreSQL.
+
+Extrato classificado de setembro aplicado pelo fluxo de staging/conferência/auditoria: 152 movimentos bancários e duas despesas externas confirmadas, com releitura indicando zero novos e 154 existentes. Arquivo, totais e comprovantes da conferência permanecem em armazenamento local privado. O extrato não informa saldo inicial/final nem substitui o consolidado completo da arena.
+
+EDI continua aguardando USER/token próprios e primeira coleta real. O coletor está disponível no servidor, porém a ausência de credenciais não representa sincronização ativa. PagVendas mantém importação por exportações oficiais; API administrativa ainda não confirmada.
+
 ## Escopo e isolamento
 
 Este runbook publica a base standalone em recursos exclusivos do projeto Railway `longbeach-os`:
