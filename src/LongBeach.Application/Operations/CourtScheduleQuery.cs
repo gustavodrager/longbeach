@@ -16,7 +16,7 @@ public static class CourtScheduleQuery
             var blocks = new List<CourtScheduleBlock>(); var intervals = new List<(int Start, int End)>(); var reserved = 0; var classes = 0;
             foreach (var record in Records("reservations").Where(row => OperationalValidation.Text(row, "courtId") == courtId.ToString() && OperationalValidation.Text(row, "date") == date.ToString("yyyy-MM-dd") && OperationalValidation.Text(row, "status") != "Cancelada"))
                 AddBlock(record, OperationalValidation.Text(record, "status") == "Bloqueio" ? "Bloqueio" : "Reserva", true);
-            foreach (var record in Records("classes").Where(row => OperationalValidation.Text(row, "courtId") == courtId.ToString() && OperationalValidation.Text(row, "status") == "Ativa" && row.TryGetProperty("weekDay", out var weekday) && weekday.TryGetInt32(out var value) && value == (int)date.DayOfWeek))
+            foreach (var record in Records("classes").Where(row => OperationalValidation.Text(row, "courtId") == courtId.ToString() && OperationalValidation.Text(row, "status") == "Ativa" && OperationalValidation.ClassStartedOn(row, date) && row.TryGetProperty("weekDay", out var weekday) && weekday.TryGetInt32(out var value) && value == (int)date.DayOfWeek))
                 AddBlock(record, "Aula", includeClassIds);
             var used = 0; var cursor = begin;
             foreach (var interval in intervals.OrderBy(interval => interval.Start).ThenBy(interval => interval.End))

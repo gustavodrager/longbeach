@@ -32,6 +32,9 @@ public static class OperationalValidation
     private static bool Overlaps(JsonElement first, JsonElement second) => Time(first, "startTime", out var a) && Time(first, "endTime", out var b) && Time(second, "startTime", out var c) && Time(second, "endTime", out var d) && a < d && c < b;
     private static Guid Id(JsonElement body, string field = "id") => Guid.TryParse(Text(body, field), out var id) ? id : Guid.Empty;
     private static bool Money(JsonElement body, string field) { var number = Number(body, field); return number is >= 0 and <= 999_999_999 && decimal.Round(number, 2) == number; }
+    private static bool OptionalMoney(JsonElement body, string field) => body.TryGetProperty(field, out var value) && (value.ValueKind == JsonValueKind.Null || Money(body, field));
+
+    public static bool ClassStartedOn(JsonElement body, DateOnly date) => string.IsNullOrEmpty(Text(body, "startDate")) || Date(body, "startDate", out var start) && start <= date;
 
     public static string? Validate(string kind, Guid id, JsonElement body, IReadOnlyDictionary<string, JsonElement[]> records, DateOnly today)
     {
@@ -49,7 +52,7 @@ public static class OperationalValidation
                 if (!Money(body, "monthlyAmount")) return "Confira o valor da mensalidade.";
                 break;
             case "team":
-                if (!Money(body, "payAmount")) return "Confira o valor combinado.";
+                if (!OptionalMoney(body, "payAmount")) return "Confira o valor combinado ou deixe a combinar.";
                 break;
             case "projects":
                 if (!Money(body, "estimatedCost") || !Money(body, "actualCost")) return "Confira os custos do projeto.";
@@ -80,10 +83,11 @@ public static class OperationalValidation
                     if (!CourtHours.OpensOn(court, (int)date.DayOfWeek)) return "A quadra não funciona neste dia da semana.";
                     if (date > today && Status(body, "Chegou", "Concluída")) return "A chegada ou conclusão só pode ser registrada na data da reserva ou depois dela.";
                     if (Text(court, "status") != "Disponível") return "Esta quadra está em manutenção.";
-                    if (others.Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "date") == Text(body, "date") && Text(row, "status") != "Cancelada" && Overlaps(row, body)) || Rows("classes").Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "status") == "Ativa" && Number(row, "weekDay") == (int)date.DayOfWeek && Overlaps(row, body))) return "Este horário já está ocupado por uma reserva ou aula nesta quadra.";
+                    if (others.Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "date") == Text(body, "date") && Text(row, "status") != "Cancelada" && Overlaps(row, body)) || Rows("classes").Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "status") == "Ativa" && ClassStartedOn(row, date) && Number(row, "weekDay") == (int)date.DayOfWeek && Overlaps(row, body))) return "Este horário já está ocupado por uma reserva ou aula nesta quadra.";
                 }
                 else
                 {
+                    if (body.TryGetProperty("startDate", out var classStart) && (classStart.ValueKind != JsonValueKind.String || Text(body, "startDate") != "" && !Date(body, "startDate", out _))) return "Confira a data de início da grade.";
                     var weekday = Number(body, "weekDay"); var capacity = Number(body, "capacity");
                     if (weekday < 0 || weekday > 6 || decimal.Truncate(weekday) != weekday || capacity < 1 || capacity > 500 || decimal.Truncate(capacity) != capacity || !Status(body, "Ativa", "Pausada", "Encerrada")) return "Confira o dia da semana, o estado e o número de vagas da turma.";
                     if (!Exists("team", "teacherId")) return "Escolha um professor cadastrado na equipe.";
@@ -95,11 +99,11 @@ public static class OperationalValidation
                     if (Text(body, "status") != "Ativa") break;
                     if (!CourtHours.OpensOn(court, (int)weekday)) return "A quadra não funciona neste dia da semana.";
                     if (Text(court, "status") != "Disponível") return "Esta quadra está em manutenção.";
-                    if (others.Any(row => Id(row, "courtId") == Id(body, "courtId") && Number(row, "weekDay") == weekday && Text(row, "status") == "Ativa" && Overlaps(row, body)) || Rows("reservations").Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "status") != "Cancelada" && Date(row, "date", out var day) && day >= today && (int)day.DayOfWeek == weekday && Overlaps(row, body))) return "A aula conflita com uma reserva ou turma nesta quadra.";
+                    if (others.Any(row => Id(row, "courtId") == Id(body, "courtId") && Number(row, "weekDay") == weekday && Text(row, "status") == "Ativa" && Overlaps(row, body)) || Rows("reservations").Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "status") != "Cancelada" && Date(row, "date", out var day) && day >= today && ClassStartedOn(body, day) && (int)day.DayOfWeek == weekday && Overlaps(row, body))) return "A aula conflita com uma reserva ou turma nesta quadra.";
                 }
                 break;
             case "enrollments":
-                if (!Exists("students", "studentId") || !Exists("classes", "classId") || !Date(body, "startDate", out _) || !Money(body, "monthlyAmount") || !Status(body, "Ativa", "Encerrada")) return "Confira o aluno, a turma, a data e o valor da matrícula.";
+                if (!Exists("students", "studentId") || !Exists("classes", "classId") || !Date(body, "startDate", out _) || !OptionalMoney(body, "monthlyAmount") || !Status(body, "Ativa", "Encerrada")) return "Confira o aluno, a turma, a data e o valor da matrícula.";
                 if (Text(body, "status") == "Encerrada")
                 {
                     if (!Date(body, "endDate", out var endDate) || !Date(body, "startDate", out var startDate) || endDate < startDate) return "Informe uma data de encerramento a partir do início da matrícula.";
@@ -107,6 +111,7 @@ public static class OperationalValidation
                 }
                 if (!string.IsNullOrEmpty(Text(body, "endDate"))) return "Uma matrícula ativa deve ficar sem data de encerramento.";
                 var selectedClass = Rows("classes").Single(row => Id(row) == Id(body, "classId"));
+                if (Date(body, "startDate", out var enrolledOn) && !ClassStartedOn(selectedClass, enrolledOn)) return "A matrícula não pode começar antes da turma.";
                 if (Text(selectedClass, "status") != "Ativa") return "Só é possível matricular em uma turma ativa.";
                 if (others.Any(row => Id(row, "studentId") == Id(body, "studentId") && Id(row, "classId") == Id(body, "classId") && Text(row, "status") == "Ativa")) return "Este aluno já possui matrícula ativa nesta turma.";
                 if (others.Count(row => Id(row, "classId") == Id(body, "classId") && Text(row, "status") == "Ativa") >= Number(selectedClass, "capacity")) return "Esta turma não possui vagas disponíveis.";

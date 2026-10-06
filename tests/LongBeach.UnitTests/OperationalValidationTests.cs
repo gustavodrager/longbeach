@@ -19,6 +19,32 @@ public sealed class OperationalValidationTests
     };
     private static readonly DateOnly Today = new(2026, 10, 4);
     [Theory]
+    [InlineData("null", true)]
+    [InlineData("0", true)]
+    [InlineData("-1", false)]
+    [InlineData("\"120\"", false)]
+    [InlineData("1.001", false)]
+    public void Unknown_agreements_are_distinct_from_zero_but_invalid_amounts_are_rejected(string amount, bool valid)
+    {
+        using var person = JsonDocument.Parse($$"""{"id":"{{TeacherId}}","name":"Professor","payAmount":{{amount}}} """);
+        Assert.Equal(valid, OperationalValidation.Validate("team", TeacherId, person.RootElement, Records(), Today) is null);
+        var id = Guid.NewGuid();
+        using var enrollment = JsonDocument.Parse($$"""{"id":"{{id}}","name":"Aluno","studentId":"{{StudentId}}","classId":"{{ClassId}}","startDate":"2026-10-06","status":"Ativa","monthlyAmount":{{amount}}} """);
+        Assert.Equal(valid, OperationalValidation.Validate("enrollments", id, enrollment.RootElement, Records(), Today) is null);
+    }
+    [Fact]
+    public void Current_grade_does_not_block_dates_before_its_start()
+    {
+        var records = Records();
+        records["classes"] = [Json(new { id = ClassId, name = "Turma", courtId = CourtId, weekDay = 1, startTime = "18:00", endTime = "19:00", status = "Ativa", capacity = 6, startDate = "2026-10-06" })];
+        var id = Guid.NewGuid();
+        Assert.Null(OperationalValidation.Validate("reservations", id, Json(new { id, name = "Reserva anterior", courtId = CourtId, date = "2026-10-05", startTime = "18:00", endTime = "19:00", status = "Confirmada", amount = 80 }), records, Today));
+        var before = CourtScheduleQuery.Build(new DateOnly(2026, 10, 5), DateTimeOffset.UtcNow, records, true);
+        var after = CourtScheduleQuery.Build(new DateOnly(2026, 10, 12), DateTimeOffset.UtcNow, records, true);
+        Assert.Equal(0, Assert.Single(before.Courts).ClassMinutes);
+        Assert.Equal(60, Assert.Single(after.Courts).ClassMinutes);
+    }
+    [Theory]
     [InlineData("06:00", "24:00", true)]
     [InlineData("24:00", "24:00", false)]
     [InlineData("06:00", "24:01", false)]

@@ -4,7 +4,7 @@ import { useOperations } from '../features/operations/DemoDataProvider'
 import './arena-pages.css'
 
 export const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
-export const currency = (amount: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount)
+export const currency = (amount: number | null) => amount === null ? 'A combinar' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount)
 export const quantity = (amount: number) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(amount)
 export function validDate(value: string) { if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number(value.slice(0,4)) < 1) return false; const date = new Date(`${value}T00:00:00Z`); return Number.isFinite(date.getTime()) && date.toISOString().slice(0,10) === value }
 export function displayDate(value?: string) { if (!value) return 'Não informado'; const date = new Date(value.length === 10 ? `${value}T12:00:00-03:00` : value); return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short' }).format(date) : 'Data não disponível' }

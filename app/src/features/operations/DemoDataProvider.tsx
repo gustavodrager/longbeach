@@ -11,7 +11,7 @@ export type Student = {
   paymentDate: string; statementName: string; status: string; notes: string
 }
 export type TeamMember = {
-  id: string; version?: number; costsVisible?: boolean; name: string; phone: string; role: string; payAmount: number; payBasis: string
+  id: string; version?: number; costsVisible?: boolean; name: string; phone: string; role: string; payAmount: number | null; payBasis: string
   paymentFrequency: string; paymentDay: string; status: string; notes: string
 }
 export type InventoryItem = {

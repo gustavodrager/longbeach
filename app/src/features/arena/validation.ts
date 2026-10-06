@@ -17,7 +17,7 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
       if (kind === 'reservations' && (record as Reservation).date > today && (record.status === 'Chegou' || record.status === 'Concluída')) return 'A chegada ou conclusão só pode ser registrada na data da reserva ou depois dela.'
       const weekday = kind === 'classes' ? (record as ArenaClass).weekDay : new Date(`${(record as Reservation).date}T12:00:00`).getDay()
       if (!opensOn(court, weekday)) return 'A quadra não funciona neste dia da semana.'
-      if (data.classes.some(row => row.id !== record.id && row.courtId === record.courtId && row.status === 'Ativa' && row.weekDay === weekday && overlaps(row, record)) || data.reservations.some(row => row.id !== record.id && row.courtId === record.courtId && row.status !== 'Cancelada' && (kind === 'reservations' ? row.date === (record as Reservation).date : row.date >= today && new Date(`${row.date}T12:00:00`).getDay() === weekday) && overlaps(row, record))) return 'Este horário já está ocupado por uma reserva ou aula nesta quadra.'
+      if (data.classes.some(row => row.id !== record.id && row.courtId === record.courtId && row.status === 'Ativa' && (kind === 'classes' || !row.startDate || row.startDate <= (record as Reservation).date) && row.weekDay === weekday && overlaps(row, record)) || data.reservations.some(row => row.id !== record.id && row.courtId === record.courtId && row.status !== 'Cancelada' && (kind === 'reservations' ? row.date === (record as Reservation).date : row.date >= today && (!(record as ArenaClass).startDate || row.date >= (record as ArenaClass).startDate!) && new Date(`${row.date}T12:00:00`).getDay() === weekday) && overlaps(row, record))) return 'Este horário já está ocupado por uma reserva ou aula nesta quadra.'
     }
     if (kind === 'classes') {
       const arenaClass = record as ArenaClass
@@ -40,6 +40,7 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
     if (enrollment.status === 'Encerrada' && (!enrollment.endDate || enrollment.endDate < enrollment.startDate)) return 'Informe uma data de encerramento a partir do início da matrícula.'
     if (enrollment.status === 'Ativa' && enrollment.endDate) return 'Uma matrícula ativa deve ficar sem data de encerramento.'
     if (enrollment.status === 'Ativa') {
+      if (arenaClass.startDate && enrollment.startDate < arenaClass.startDate) return 'A matrícula não pode começar antes da turma.'
       if (arenaClass.status !== 'Ativa') return 'Só é possível matricular em uma turma ativa.'
       const others = data.enrollments.filter(row => row.id !== enrollment.id && row.classId === enrollment.classId && row.status === 'Ativa')
       if (others.some(row => row.studentId === enrollment.studentId)) return 'Este aluno já possui matrícula ativa nesta turma.'

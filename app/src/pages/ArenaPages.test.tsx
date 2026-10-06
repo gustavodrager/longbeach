@@ -37,6 +37,16 @@ it('mantém zero real quando há cadastros e nenhum atende ao filtro',async()=>{
   expect(within(screen.getByRole('link',{name:/Materiais para repor/})).getByText('0')).toBeInTheDocument()
 })
 
+it('calcula a grade atual sem duplicar alunos nem incluir turmas futuras ou encerradas',()=>{
+  const current={id:'current',name:'Turma atual',status:'Ativa',startDate:'2020-01-01',startTime:'17:00',endTime:'18:00',capacity:6}
+  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({classes:[current,{...current,id:'second'},{...current,id:'future',startDate:'2099-01-01'},{...current,id:'closed',status:'Encerrada'}],enrollments:[{id:'one',studentId:'student',classId:'current',status:'Ativa',startDate:'2020-01-01'},{id:'two',studentId:'student',classId:'second',status:'Ativa',startDate:'2020-01-01'},{id:'three',studentId:'another',classId:'future',status:'Ativa',startDate:'2099-01-01'}]}))
+  start('/')
+  const section=screen.getByRole('region',{name:'Grade de aulas atual'})
+  expect(within(section).getByText('2 h de aulas por semana')).toBeInTheDocument()
+  expect(within(section).getByText('2/12')).toBeInTheDocument()
+  expect(within(within(section).getByRole('link',{name:/Alunos na grade atual/})).getByText('1')).toBeInTheDocument()
+})
+
 it('registra reserva uma vez em dois envios e preserva filtros ao abrir a ficha',async()=>{
   localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[court]}))
   start(`/agenda/novo?date=${today()}&court=${court.id}`)

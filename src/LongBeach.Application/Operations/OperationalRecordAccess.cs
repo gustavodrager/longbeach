@@ -29,7 +29,7 @@ public static class OperationalRecordAccess
         var previous = savedJson is null ? null : JsonNode.Parse(savedJson)!.AsObject();
         foreach (var field in Fields(kind))
         {
-            var saved = previous?[field]?.DeepClone() ?? Default(field);
+            var saved = previous is not null && previous.ContainsKey(field) ? previous[field]?.DeepClone() : Default(field);
             if (financeRead && incoming[field] is not null && !JsonNode.DeepEquals(incoming[field], saved)) return (incoming, false);
             incoming[field] = saved;
         }

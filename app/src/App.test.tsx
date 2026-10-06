@@ -127,6 +127,8 @@ describe('autenticação e shell', () => {
     await user.type(screen.getByLabelText('Nome'), 'Professor de teste')
     await user.clear(screen.getByLabelText('Valor combinado (R$)'))
     await user.type(screen.getByLabelText('Valor combinado (R$)'), '80')
+    await user.selectOptions(screen.getByLabelText('Base do valor'), 'Por hora')
+    await user.selectOptions(screen.getByLabelText('Frequência de pagamento'), 'Semanal')
     await user.click(screen.getByRole('button', { name: 'Salvar cadastro' }))
     expect(await screen.findByText('Professor de teste')).toBeInTheDocument()
     expect(screen.getByText(/Por hora.*semanal/)).toBeInTheDocument()
