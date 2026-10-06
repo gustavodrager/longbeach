@@ -29,3 +29,12 @@ As páginas de gestão usam sete áreas principais, navegação contextual e as 
 Seguir `deploy-railway-production.md`: snapshot anterior, plano sem drift, CI aprovado, promoção do SHA e conferência de saúde. A versão anterior é `ee43f5cf4e7f414af8e82cf32e69940ad01813f7`, com API `629d709b-2ecd-4796-99d3-55fb1e069d4e` e web `534b4425-adde-41b5-b43a-ba5ef1a170e2`. Nenhuma migration ou alteração de dados é necessária para esta entrega. O smoke em produção deve ser somente leitura.
 
 A revisão `b29dfbd97bc34bc6b22b3b130450bec17f747211` passou no CI `37485544156` e foi publicada: API `80d655a8-831c-4247-aea0-2f8eca1e2cdb`, web `df4a74a3-1e1b-4f7c-9fac-4d19f3fa64f1`. Ambos os health checks passaram e o snapshot final não apresentou drift. A leitura em produção confirmou os produtos, mensalistas e contexto financeiro existentes. O ajuste subsequente de apresentação suprime mensagens de lista vazia durante a leitura inicial ou falha sem dados; o erro/carregamento continua no aviso próprio da página.
+
+Entrega final em 2026-10-06:
+
+- Web fixada em `849b5c35aa293c8add5688eb4d63ed187adc1043`, com CI `37488301806` aprovado nas duas etapas e deployment `0a4d010a-4940-43f0-91d5-656bd99fa74f` concluído com `SUCCESS`.
+- API permanece na revisão compatível `b29dfbd97bc34bc6b22b3b130450bec17f747211`. `/health/ready` retornou `Healthy`; `/healthz` da web retornou `ok`.
+- `railway config pull` capturou somente a mudança de revisão da web, além da reorganização equivalente das referências GitHub no arquivo gerado. `railway config plan` confirmou ausência de drift. Nenhuma variável, domínio ou serviço auxiliar mudou.
+- PWA atualizada no Chrome pela ação “Atualizar agora”. Verificação de produtos paginados, competência de mensalistas, mês padrão de lançamentos e histórico com fonte/cobertura visíveis; menu móvel e retorno de foco também conferidos em produção.
+- Cadastro fictício de projeto, em servidor local isolado, confirmou que o primeiro campo permanece preenchido e que salvar fecha o painel e devolve o foco à ação de origem.
+- As versões anteriores e seus identificadores acima permanecem disponíveis para rollback. Nenhum registro de produção foi criado ou alterado durante a verificação.
