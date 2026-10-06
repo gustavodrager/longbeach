@@ -27,3 +27,13 @@ Publicar API compatível antes da web, com commit fixado e CI aprovado. Rollback
 ## Próximos incrementos possíveis
 
 Lista de convidados, confirmação de presença antecipada, controle explícito de reposições, avisos autorizados ao responsável, comparação mensal de frequência e consumo, e acompanhamento de renovação. Não há envio de mensagens, benefícios financeiros ou renovação automática neste incremento.
+
+## Registro de publicação — 2026-10-06
+
+Runtime publicado no commit `6cfa56d62f565d7cd79dd0a5add9d3de2f6320e1`, branch `codex/mensalistas-quadra`; PR de revisão #13 com base no incremento de grade atual. CI `37462913661` concluído com sucesso (backend, frontend, conversores e smoke de migrations/saúde). Validação local: 130 unitários, 161 integrações PostgreSQL, 161 frontend, builds API/PWA, formulário conferido no Chrome e console local sem erros.
+
+API `a3e5dbb8-e56d-4074-9a1b-435aa5747806` e web `227d11ca-7aae-4eda-ad6b-ac3b32131c6c` em `SUCCESS`, uma réplica saudável cada. API `/health/ready` = `Healthy`; web `/healthz` = `ok`. Comparação do snapshot confirmou apenas branch/commit de cada serviço, em etapas separadas. Plano final `No changes.`, sem diagnósticos, nenhuma variável ou serviço auxiliar alterado. Nenhuma migration nova ou grupo fictício gravado em produção.
+
+Rollback do incremento: API `bb0ce23b-07cf-4cc5-9f46-0e310179775f` e web `60877a90-93a7-4b78-b378-ddc17239bd36`, commit `778c580517bc1240d7499ac95366f4c7dfa9805f`; preservar dados novos e revisar reservas/cobranças conforme orientações acima.
+
+Conferência no Chrome autenticado em produção: atualização do PWA aplicada; menu Mensalistas disponível, listagem carregada e formulário aberto com Quadra 1 selecionada, horário editável de duas horas, integrantes, responsável/suplente, vencimento e política do quinto encontro. Retorno à listagem sem gravar dados fictícios. Evidência local fora do Git: `Integracoes/Arena/2026-10-06/mensalistas-producao.png` no workspace de operação.
