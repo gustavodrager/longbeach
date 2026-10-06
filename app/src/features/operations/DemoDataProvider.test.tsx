@@ -18,7 +18,7 @@ function Consumer() {
   return <><p>{operations.persistenceStatus}</p><p data-testid="names">{operations.students.map(row => row.name).join(',')}</p><p data-testid="reservation-count">{operations.reservations.length}</p><p data-testid="updated-at">{operations.dataUpdatedAt}</p><p data-testid="refresh-failed">{operations.refreshFailed ? 'yes' : 'no'}</p><p>{error}</p><button onClick={() => void operations.saveStudent({ ...student, name: 'Alteração confirmada' }, student.id).catch(e => setError(e.message))}>Salvar</button><button onClick={() => void operations.saveStudent({ ...student, name: 'Novo registro' }).catch(e => setError(e.message))}>Criar</button><button onClick={() => void operations.saveRecurringReservations(recurring).catch(e => setError(`${e.status ?? ''}: ${e.message}`))}>Reservar grupo</button><p>{operations.persistenceMessage}</p></>
 }
 function tree(identity: AuthUser | null = user, demoMode = false) {
-  return <AuthContext.Provider value={{ user: identity, isBootstrapping: false, signIn: async () => {}, signInWithGoogle: async () => {}, signOut: async () => {}, changePassword: async () => {} }}><DemoDataProvider enabled demoMode={demoMode}><Consumer /></DemoDataProvider></AuthContext.Provider>
+  return <AuthContext.Provider value={{ user: identity, isBootstrapping: false, signIn: async () => {}, signInWithGoogle: async () => {}, signOut: async () => {}, changePassword: async () => {}, completeFirstAccessWithGoogle: async () => {} }}><DemoDataProvider enabled demoMode={demoMode}><Consumer /></DemoDataProvider></AuthContext.Provider>
 }
 beforeEach(() => { localStorage.clear(); vi.stubEnv('VITE_OPERATIONAL_STORAGE', 'local') })
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.useRealTimers() })

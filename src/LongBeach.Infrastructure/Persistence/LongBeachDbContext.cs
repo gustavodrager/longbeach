@@ -91,7 +91,12 @@ public sealed class LongBeachDbContext(
         user.Property(item => item.Name).HasMaxLength(160).IsRequired();
         user.Property(item => item.Email).HasMaxLength(320).IsRequired();
         user.Property(item => item.NormalizedEmail).HasMaxLength(320).IsRequired();
-        user.Property(item => item.PasswordHash).HasMaxLength(512).IsRequired();
+        user.Property(item => item.PasswordHash).HasMaxLength(512).IsRequired().IsConcurrencyToken();
+        user.Property(item => item.Username).HasMaxLength(64);
+        user.Property(item => item.NormalizedUsername).HasMaxLength(64);
+        user.Property(item => item.GoogleSubject).HasMaxLength(255);
+        user.HasIndex(item => item.NormalizedUsername).IsUnique();
+        user.HasIndex(item => item.GoogleSubject).IsUnique();
         user.HasIndex(item => item.NormalizedEmail).IsUnique();
         user.HasMany(item => item.RefreshTokens)
             .WithOne(item => item.User)

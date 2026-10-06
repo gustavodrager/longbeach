@@ -18,6 +18,8 @@ export type AuthUser = {
   email: string
   roles: UserRole[]
   permissions: string[]
+  requiresFirstAccess?: boolean
+  username?: string | null
 }
 
 export type LoginCredentials = {

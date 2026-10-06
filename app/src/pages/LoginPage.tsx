@@ -1,16 +1,9 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Logo } from '../components/Logo'
 import { useAuth } from '../features/auth/authContext'
 
-declare global {
-  interface Window {
-    google?: { accounts: { id: {
-      initialize: (options: { client_id: string; callback: (response: { credential: string }) => void }) => void
-      renderButton: (element: HTMLElement, options: { theme: string; size: string; width: number; text: string }) => void
-    } } }
-  }
-}
+import { GoogleSignInButton } from '../features/auth/GoogleSignInButton'
 
 export function LoginPage() {
   const { user, isBootstrapping, signIn, signInWithGoogle } = useAuth()
@@ -20,7 +13,6 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const googleButton = useRef<HTMLDivElement>(null)
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
   const [passwordChanged] = useState(() => {
     if ((location.state as { passwordChanged?: boolean } | null)?.passwordChanged === true) {
@@ -36,46 +28,14 @@ export function LoginPage() {
     }
   })
 
-  useEffect(() => {
-    if (!googleClientId || !googleButton.current) return
-    let cancelled = false
-    const render = () => {
-      if (cancelled || !googleButton.current || !window.google) return
-      window.google.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: async ({ credential }) => {
-          setError('')
-          setIsSubmitting(true)
-          try {
-            await signInWithGoogle(credential)
-            const requestedPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/'
-            navigate(requestedPath, { replace: true })
-          } catch {
-            setError('Esta conta Google não está autorizada para o Long Beach OS.')
-          } finally {
-            setIsSubmitting(false)
-          }
-        },
-      })
-      window.google.accounts.id.renderButton(googleButton.current, { theme: 'outline', size: 'large', width: Math.min(360, googleButton.current.clientWidth || 280), text: 'signin_with' })
-    }
-    const existing = document.querySelector<HTMLScriptElement>('script[data-google-identity]')
-    if (window.google) render()
-    else if (existing) existing.addEventListener('load', render, { once: true })
-    else {
-      const script = document.createElement('script')
-      script.src = 'https://accounts.google.com/gsi/client?hl=pt-BR'
-      script.async = true
-      script.defer = true
-      script.dataset.googleIdentity = 'true'
-      script.addEventListener('load', render, { once: true })
-      script.addEventListener('error', () => setError('Não foi possível carregar o acesso do Google. Atualize a página e tente novamente.'), { once: true })
-      document.head.append(script)
-    }
-    return () => { cancelled = true }
-  }, [googleClientId, location.state, navigate, signInWithGoogle])
+  if (user) return <Navigate to={user.requiresFirstAccess ? '/primeiro-acesso' : '/'} replace />
 
-  if (user) return <Navigate to="/" replace />
+  async function handleGoogle(credential: string) {
+    setError(''); setIsSubmitting(true)
+    try { await signInWithGoogle(credential) }
+    catch { setError('Esta conta Google ainda não está vinculada. No primeiro acesso, entre com seu usuário e senha inicial.') }
+    finally { setIsSubmitting(false) }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -86,7 +46,7 @@ export function LoginPage() {
       const requestedPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/'
       navigate(requestedPath, { replace: true })
     } catch {
-      setError('E-mail ou senha inválidos. Confira os dados e tente novamente.')
+      setError('Usuário ou senha inválidos, ou acesso inicial expirado. Confira os dados e tente novamente.')
     } finally {
       setIsSubmitting(false)
     }
@@ -99,28 +59,28 @@ export function LoginPage() {
         <div className="login-heading">
           <p className="eyebrow">Gestão da arena</p>
           <h1 id="login-title">Entre no Long Beach OS</h1>
-          <p>{googleClientId ? 'Entre com a conta Google autorizada para continuar.' : 'Use seu acesso da equipe para continuar.'}</p>
+          <p>Use seu usuário e senha ou entre com sua conta Google vinculada.</p>
         </div>
 
-        {googleClientId ? <div className="login-form">
-          <div ref={googleButton} className="google-signin-button" />
-          {isSubmitting && <p role="status">Verificando seu acesso…</p>}
-          {error && <p className="form-error" role="alert">{error}</p>}
-        </div> : <form onSubmit={handleSubmit} className="login-form">
+        {googleClientId && <div className="login-google"><GoogleSignInButton onCredential={credential => void handleGoogle(credential)} onError={setError} disabled={isSubmitting} /><p className="login-divider">ou entre com usuário e senha</p></div>}
+        <form onSubmit={handleSubmit} className="login-form">
           {passwordChanged && (
             <p className="form-success" role="status">
               Senha alterada. Entre novamente com a nova senha.
             </p>
           )}
           <label>
-            <span>E-mail</span>
+            <span>Usuário ou e-mail</span>
             <input
-              type="email"
+              type="text"
               name="email"
               autoComplete="username"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="seuemail@exemplo.com"
+              placeholder="Seu usuário ou e-mail"
+              autoCapitalize="none"
+              spellCheck={false}
+              maxLength={320}
               required
             />
           </label>
@@ -140,7 +100,7 @@ export function LoginPage() {
           <button className="primary-button" type="submit" disabled={isSubmitting || isBootstrapping}>
             {isSubmitting ? 'Entrando…' : 'Entrar'}
           </button>
-        </form>}
+        </form>
         <p className="login-footnote">Acesso exclusivo para a equipe Long Beach.</p>
       </section>
 

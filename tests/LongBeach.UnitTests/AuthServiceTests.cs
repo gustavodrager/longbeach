@@ -234,6 +234,11 @@ public sealed class AuthServiceTests
     private sealed class FakeUserRepository(User user) : IUserRepository
     {
         public int SaveCount { get; private set; }
+        public Task<User?> FindByUsernameAsync(string normalizedUsername, CancellationToken cancellationToken = default) =>
+            Task.FromResult<User?>(user.NormalizedUsername == normalizedUsername ? user : null);
+        public Task<User?> FindByGoogleSubjectAsync(string subject, CancellationToken cancellationToken = default) =>
+            Task.FromResult<User?>(user.GoogleSubject == subject ? user : null);
+
 
         public Task<User?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
             Task.FromResult<User?>(user.Id == id ? user : null);

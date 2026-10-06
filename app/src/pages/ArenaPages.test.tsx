@@ -14,13 +14,28 @@ const owner: AuthUser={id:'11111111-1111-1111-1111-111111111111',name:'Admin tes
 function json(body:unknown,status=200){return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}})}
 function RouteState(){const location=useLocation();return <output data-testid="route">{location.pathname}{location.search}</output>}
 function start(path:string,demoMode=true,user:AuthUser=owner){
-  const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{}}
+  const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{}, completeFirstAccessWithGoogle: async () => {}}
   const query=new QueryClient({defaultOptions:{queries:{retry:false}}})
   return render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><DemoDataProvider enabled demoMode={demoMode}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<DashboardPage />} /><Route path="/agenda" element={<AgendaPage />} /><Route path="/agenda/:reservationId" element={<ReservationDetailsPage />} /><Route path="/financeiro" element={<FinancePage />} /><Route path="/financeiro/:entryId" element={<FinanceDetailsPage />} /><Route path="/equipe/:memberId" element={<TeamDetailsPage />} /><Route path="/projetos/:projectId" element={<ProjectDetailsPage />} /><Route path="/manutencao/:maintenanceId" element={<MaintenanceDetailsPage />} /></Routes></MemoryRouter></DemoDataProvider></AuthContext.Provider></QueryClientProvider>)
 }
 const court={id:'22222222-2222-2222-2222-222222222222',name:'Quadra 1',sport:'Futevôlei',status:'Disponível',openingTime:'07:00',closingTime:'23:00'}
 beforeEach(()=>{localStorage.clear();sessionStorage.clear();vi.stubEnv('VITE_DEMO_MODE','true');vi.stubEnv('VITE_OPERATIONAL_STORAGE','local')})
 afterEach(()=>vi.unstubAllEnvs())
+
+it('não apresenta cadastros operacionais ausentes como zero confirmado',async()=>{
+  start('/')
+  for(const label of ['Reservas de hoje','Tempo de quadra disponível hoje','Valores vencidos a receber','Materiais para repor','Projetos com prazo vencido','Manutenções urgentes abertas']) {
+    const card=screen.getByRole('link',{name:new RegExp(label)})
+    expect(within(card).getByText('Ainda não disponível')).toBeInTheDocument()
+  }
+  expect(screen.getByText('Faltam as quadras e seus horários de funcionamento.')).toBeInTheDocument()
+})
+
+it('mantém zero real quando há cadastros e nenhum atende ao filtro',async()=>{
+  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({inventory:[{id:'material-test',name:'Rede',quantity:5,minimum:2}]}))
+  start('/')
+  expect(within(screen.getByRole('link',{name:/Materiais para repor/})).getByText('0')).toBeInTheDocument()
+})
 
 it('registra reserva uma vez em dois envios e preserva filtros ao abrir a ficha',async()=>{
   localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[court]}))

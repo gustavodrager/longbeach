@@ -6,6 +6,8 @@ public interface IUserRepository
 {
     Task<User?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<User?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default);
+    Task<User?> FindByUsernameAsync(string normalizedUsername, CancellationToken cancellationToken = default);
+    Task<User?> FindByGoogleSubjectAsync(string subject, CancellationToken cancellationToken = default);
     Task<User?> FindByRefreshTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default);
     Task AddAsync(User user, CancellationToken cancellationToken = default);
     Task SaveChangesAsync(CancellationToken cancellationToken = default);

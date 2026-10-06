@@ -13,6 +13,12 @@ public interface IAuthService
     Task<AuthSession> LoginWithGoogleAsync(
         string email,
         string? ipAddress,
+        CancellationToken cancellationToken = default,
+        string? subject = null,
+        bool allowEmailMatch = true);
+
+    Task<AuthSession> CompleteFirstAccessWithGoogleAsync(
+        Guid userId, string subject, string email, string? ipAddress,
         CancellationToken cancellationToken = default);
 
     Task<AuthSession> RefreshAsync(

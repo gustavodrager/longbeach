@@ -18,4 +18,6 @@ public sealed record UserSummary(
     string Name,
     string Email,
     IReadOnlyCollection<string> Roles,
-    IReadOnlyCollection<string> Permissions);
+    IReadOnlyCollection<string> Permissions,
+    bool RequiresFirstAccess = false,
+    string? Username = null);

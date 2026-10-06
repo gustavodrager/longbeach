@@ -7,6 +7,12 @@ namespace LongBeach.Infrastructure.Persistence;
 
 public sealed class UserRepository(LongBeachDbContext dbContext) : IUserRepository
 {
+    public Task<User?> FindByUsernameAsync(string normalizedUsername, CancellationToken cancellationToken = default) =>
+        IdentityGraph().SingleOrDefaultAsync(user => user.NormalizedUsername == normalizedUsername, cancellationToken);
+
+    public Task<User?> FindByGoogleSubjectAsync(string subject, CancellationToken cancellationToken = default) =>
+        IdentityGraph().SingleOrDefaultAsync(user => user.GoogleSubject == subject, cancellationToken);
+
     public Task<User?> FindByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default) =>

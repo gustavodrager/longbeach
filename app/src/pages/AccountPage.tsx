@@ -4,7 +4,7 @@ import { useAuth } from '../features/auth/authContext'
 
 const minimumPasswordLength = 14
 
-function passwordRequirementError(password: string) {
+export function passwordRequirementError(password: string) {
   if (password.length < minimumPasswordLength) {
     return `A nova senha precisa ter pelo menos ${minimumPasswordLength} caracteres.`
   }
@@ -68,7 +68,7 @@ export function AccountPage() {
         <div>
           <p className="eyebrow">Sua conta</p>
           <h1>Segurança</h1>
-          <p>{user?.name} · {user?.email}</p>
+          <p>{user?.name} · {user?.email || user?.username}</p>
         </div>
         <div className="account-actions">
           <Link to="/" className="secondary-link">Voltar ao início</Link>

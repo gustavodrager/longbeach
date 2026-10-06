@@ -8,6 +8,7 @@ import { AuthProvider } from './features/auth/AuthProvider'
 import { DashboardPage } from './pages/DashboardPage'
 import { FinancialHistoryPage } from './features/finance/FinancialHistory'
 import { LoginPage } from './pages/LoginPage'
+import { FirstAccessPage } from './pages/FirstAccessPage'
 const BarLayout = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarLayout })))
 const BarProductsPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarProductsPage })))
 const BarStockPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarStockPage })))
@@ -143,6 +144,7 @@ function OperationalRoutes() {
   </Route>
   return <AuthProvider demoMode={demoMode}><DemoDataProvider enabled demoMode={demoMode}><Routes>
     <Route path="login" element={demoMode ? <Navigate to="/" replace /> : <LoginPage />} />
+    <Route path="primeiro-acesso" element={demoMode ? <Navigate to="/" replace /> : <FirstAccessPage />} />
     {demoMode ? application : <Route element={<AuthGuard />}>{application}</Route>}
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes><PwaUpdatePrompt /></DemoDataProvider></AuthProvider>

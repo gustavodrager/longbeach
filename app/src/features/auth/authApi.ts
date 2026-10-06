@@ -38,6 +38,15 @@ export async function getCurrentUser() {
   return apiFetch<AuthUser>('/api/v1/auth/me', undefined, false)
 }
 
+export async function completeFirstAccessWithGoogle(credential: string) {
+  const session = await apiFetch<LoginResponse>('/api/v1/auth/first-access/google', {
+    method: 'POST', headers: { 'X-Google-Id-Token': credential },
+  }, false)
+  setAccessToken(session.accessToken)
+  setCsrfToken(session.csrfToken)
+  return session.user
+}
+
 export async function logout() {
   try {
     const headers = new Headers()

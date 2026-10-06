@@ -8,6 +8,7 @@ export type AuthContextValue = {
   signInWithGoogle: (credential: string) => Promise<void>
   signOut: () => Promise<void>
   changePassword: (passwords: PasswordChange) => Promise<void>
+  completeFirstAccessWithGoogle: (credential: string) => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

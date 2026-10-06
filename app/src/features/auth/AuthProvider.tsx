@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type PropsWithChildren } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { restoreSession } from '../../lib/http'
-import { changePassword, getCurrentUser, login, loginWithGoogle, logout } from './authApi'
+import { changePassword, completeFirstAccessWithGoogle, getCurrentUser, login, loginWithGoogle, logout } from './authApi'
 import { AuthContext } from './authContext'
 import type { AuthUser, LoginCredentials, PasswordChange } from './types'
 
@@ -60,6 +60,11 @@ export function AuthProvider({ children, demoMode = false }: AuthProviderProps) 
           queryClient.clear()
           setUser(null)
         }
+      },
+      completeFirstAccessWithGoogle: async (credential: string) => {
+        const authenticatedUser = await completeFirstAccessWithGoogle(credential)
+        queryClient.clear()
+        setUser(authenticatedUser)
       },
       changePassword: async (passwords: PasswordChange) => {
         await changePassword(passwords)

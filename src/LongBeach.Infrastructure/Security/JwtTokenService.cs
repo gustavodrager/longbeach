@@ -15,6 +15,11 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
     public IssuedTokenPair Issue(TokenPrincipal principal, DateTimeOffset now)
     {
         var accessExpiresAt = now.AddMinutes(_options.AccessTokenMinutes);
+        if (principal.RequiresFirstAccess)
+        {
+            accessExpiresAt = now.AddMinutes(Math.Min(15, _options.AccessTokenMinutes));
+            if (principal.InitialAccessExpiresAtUtc < accessExpiresAt) accessExpiresAt = principal.InitialAccessExpiresAtUtc.Value;
+        }
         var credentials = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey)),
             SecurityAlgorithms.HmacSha256);
@@ -33,8 +38,13 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
             new("permissions_version", "1")
         };
 
-        claims.AddRange(principal.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
-        claims.AddRange(principal.Permissions.Select(permission => new Claim("permission", permission)));
+        if (principal.Username is not null) claims.Add(new("username", principal.Username));
+        if (principal.RequiresFirstAccess) claims.Add(new("requires_first_access", "true"));
+        else
+        {
+            claims.AddRange(principal.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+            claims.AddRange(principal.Permissions.Select(permission => new Claim("permission", permission)));
+        }
 
         var jwt = new JwtSecurityToken(
             issuer: _options.Issuer,

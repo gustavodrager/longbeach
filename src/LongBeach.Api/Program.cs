@@ -27,6 +27,12 @@ using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 var startupCommand = StartupCommandParser.Parse(args);
 var verifyGoogleOwners = args.Contains("--verify-google-owners", StringComparer.OrdinalIgnoreCase);
+var provisionFirstAccess = args.Contains("--provision-first-access", StringComparer.OrdinalIgnoreCase);
+var provisionFromStdin = args.Contains("--provision-from-stdin", StringComparer.OrdinalIgnoreCase);
+if (provisionFromStdin && !provisionFirstAccess)
+    throw new InvalidOperationException("--provision-from-stdin requires --provision-first-access.");
+if (provisionFirstAccess && (verifyGoogleOwners || startupCommand == StartupCommand.MigrateOnly))
+    throw new InvalidOperationException("Run first-access provisioning as its own command after migrations.");
 if (verifyGoogleOwners && startupCommand == StartupCommand.MigrateOnly)
 {
     throw new InvalidOperationException("--verify-google-owners cannot be combined with --migrate-only.");
@@ -52,6 +58,19 @@ ConfigureHealthChecks(builder.Services, builder.Configuration);
 ConfigureRateLimiting(builder.Services);
 
 var app = builder.Build();
+
+if (provisionFirstAccess)
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var provisioner = new FirstAccessProvisioner(scope.ServiceProvider.GetRequiredService<LongBeachDbContext>(),
+        scope.ServiceProvider.GetRequiredService<IPasswordHasher>(), scope.ServiceProvider.GetRequiredService<TimeProvider>());
+    var provisioningConfiguration = provisionFromStdin
+        ? new ConfigurationBuilder().AddConfiguration(app.Configuration).AddJsonStream(Console.OpenStandardInput()).Build()
+        : app.Configuration;
+    var result = await provisioner.RunAsync(provisioningConfiguration);
+    app.Logger.LogInformation("First-access provisioning completed: created {Created}; existing {Existing}.", result.Created, result.Existing);
+    return;
+}
 
 if (verifyGoogleOwners)
 {
@@ -164,6 +183,19 @@ static void ConfigureAuthentication(IServiceCollection services, IConfiguration 
             google.MapInboundClaims = false;
             google.TokenValidationParameters.ValidIssuers = ["https://accounts.google.com", "accounts.google.com"];
             google.TokenValidationParameters.ValidAudience = googleClientId;
+            google.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    if (context.Request.Path == "/api/v1/auth/first-access/google")
+                    {
+                        var credential = context.Request.Headers["X-Google-Id-Token"].ToString();
+                        if (string.IsNullOrWhiteSpace(credential)) context.NoResult();
+                        else context.Token = credential;
+                    }
+                    return Task.CompletedTask;
+                }
+            };
         });
     }
 
@@ -188,6 +220,20 @@ static void ConfigureAuthentication(IServiceCollection services, IConfiguration 
                 NameClaimType = ClaimTypes.Name,
                 RoleClaimType = ClaimTypes.Role
             };
+            jwt.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = async context =>
+                {
+                    if (context.Principal?.FindFirstValue("requires_first_access") != "true") return;
+                    if (!Guid.TryParse(context.Principal.FindFirstValue(ClaimTypes.NameIdentifier), out var id))
+                    { context.Fail("Invalid first-access session."); return; }
+                    var repository = context.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
+                    var user = await repository.FindByIdAsync(id, context.HttpContext.RequestAborted);
+                    var clock = context.HttpContext.RequestServices.GetRequiredService<TimeProvider>();
+                    if (user is null || !user.IsActive || !user.RequiresFirstAccess || !user.InitialAccessIsValidAt(clock.GetUtcNow()))
+                        context.Fail("First-access session is no longer valid.");
+                }
+            };
         });
 }
 
@@ -197,7 +243,10 @@ static void ConfigureAuthorization(IServiceCollection services, IConfiguration c
     {
         options.FallbackPolicy = new AuthorizationPolicyBuilder()
             .RequireAuthenticatedUser()
+            .RequireAssertion(context => !context.User.HasClaim("requires_first_access", "true"))
             .Build();
+        options.DefaultPolicy = options.FallbackPolicy;
+        options.AddPolicy("Session", policy => policy.RequireAuthenticatedUser());
         options.AddPolicy(AuthorizationPolicyCatalog.Owner, policy =>
             policy.RequireRole(AuthorizationPolicyCatalog.Owner));
         options.AddPolicy("Administrator", policy => policy.RequireRole(

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using LongBeach.Application.Auth;
 using LongBeach.Contracts.Auth;
+using Microsoft.AspNetCore.Authentication;
 
 namespace LongBeach.Api.Endpoints;
 
@@ -15,21 +16,21 @@ public static class AuthEndpoints
     {
         var group = endpoints.MapGroup("/api/v1/auth").WithTags("Authentication");
 
-        if (!googleSignInEnabled)
-        {
-            group.MapPost("/login", LoginAsync).AllowAnonymous().RequireRateLimiting("auth-login");
-        }
+        group.MapPost("/login", LoginAsync).AllowAnonymous().RequireRateLimiting("auth-login");
         group.MapPost("/refresh", RefreshAsync).AllowAnonymous().RequireRateLimiting("auth-refresh");
         group.MapPost("/logout", LogoutAsync).AllowAnonymous();
         group.MapPost("/change-password", ChangePasswordAsync)
-            .RequireAuthorization()
+            .RequireAuthorization("Session")
             .RequireRateLimiting("auth-login");
-        group.MapGet("/me", CurrentUser).RequireAuthorization();
+        group.MapGet("/me", CurrentUser).RequireAuthorization("Session");
 
         if (googleSignInEnabled)
         {
             group.MapPost("/google", LoginWithGoogleAsync)
                 .RequireAuthorization("GoogleSignIn")
+                .RequireRateLimiting("auth-login");
+            group.MapPost("/first-access/google", CompleteFirstAccessWithGoogleAsync)
+                .RequireAuthorization("Session")
                 .RequireRateLimiting("auth-login");
         }
 
@@ -45,12 +46,32 @@ public static class AuthEndpoints
     {
         var email = principal.FindFirstValue("email");
         var allowedEmails = configuration["Authentication:Google:AllowedEmail"];
-        if (string.IsNullOrWhiteSpace(email) || !GoogleEmailAllowlist.Contains(allowedEmails, email))
+        var subject = principal.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(subject))
         {
             return Results.Unauthorized();
         }
 
-        var session = await authService.LoginWithGoogleAsync(email, GetIpAddress(httpContext), cancellationToken);
+        var session = await authService.LoginWithGoogleAsync(email, GetIpAddress(httpContext), cancellationToken,
+            subject, GoogleEmailAllowlist.Contains(allowedEmails, email));
+        SetNoStore(httpContext.Response);
+        SetSessionCookies(httpContext.Response, session, configuration);
+        return Results.Ok(session.Response);
+    }
+
+    private static async Task<IResult> CompleteFirstAccessWithGoogleAsync(
+        ClaimsPrincipal principal, HttpContext httpContext, IConfiguration configuration,
+        IAuthService authService, CancellationToken cancellationToken)
+    {
+        if (principal.FindFirstValue("requires_first_access") != "true" ||
+            !Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            return Results.Forbid();
+        var google = await httpContext.AuthenticateAsync("Google");
+        var email = google.Principal?.FindFirstValue("email");
+        var subject = google.Principal?.FindFirstValue("sub");
+        if (!google.Succeeded || google.Principal?.FindFirstValue("email_verified") != "true" ||
+            string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(subject)) return Results.Unauthorized();
+        var session = await authService.CompleteFirstAccessWithGoogleAsync(userId, subject, email, GetIpAddress(httpContext), cancellationToken);
         SetNoStore(httpContext.Response);
         SetSessionCookies(httpContext.Response, session, configuration);
         return Results.Ok(session.Response);
@@ -206,7 +227,9 @@ public static class AuthEndpoints
             principal.FindFirstValue(ClaimTypes.Name) ?? string.Empty,
             principal.FindFirstValue("email") ?? string.Empty,
             principal.FindAll(ClaimTypes.Role).Select(claim => claim.Value).Distinct().ToArray(),
-            principal.FindAll("permission").Select(claim => claim.Value).Distinct().ToArray()));
+            principal.FindAll("permission").Select(claim => claim.Value).Distinct().ToArray(),
+            principal.FindFirstValue("requires_first_access") == "true",
+            principal.FindFirstValue("username")));
     }
 
     private static Dictionary<string, string[]> ValidateLogin(LoginRequest request)
