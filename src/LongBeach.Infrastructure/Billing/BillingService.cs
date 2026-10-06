@@ -196,7 +196,7 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
         var account=await Access(p.AccountId,null,ct);var entry=await Entry(account,ct);var json=Payload(entry);
         var payments=await db.Set<BillingPayment>().Where(x=>x.AccountId==account.Id).ToListAsync(ct);
         var paid=payments.Where(x=>x.State is "Approved" or "Refunded").Sum(x=>x.Amount-x.Refunded);
-        if(Text(json,"status")=="Pago"&&payments.All(x=>x.State=="Canceled"))return;
+        if((Text(json,"status") is "Pago" or "Cancelado")&&payments.All(x=>x.State=="Canceled"))return;
         var status=paid>=json["amount"]!.GetValue<decimal>()?"Pago":"Pendente";
         if(Text(json,"status")==status)return;
         json["status"]=status;

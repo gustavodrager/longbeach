@@ -83,6 +83,9 @@ public sealed class BillingPostgresTests
         var card = await service.Pay(seed.Account, Input("CreditCard"), seed.User, true, default); Assert.Equal(100, card.Payable); Assert.Equal("Canceled", Assert.Single(card.Payments).State);
         gateway.State = "WAITING"; var pix = await service.Pay(seed.Account, Input(), seed.User, true, default); Assert.Equal(100, pix.Pending);
         gateway.State = "CANCELED"; var p = pix.Payments.Single(x => x.State == "Pending"); await service.Refresh(seed.Account, p.Id, seed.User, true, default); Assert.Equal(100, (await service.Account(seed.Account, seed.User, default)).Payable);
+        var entry = await db.OperationalRecords.SingleAsync(x => x.Id == seed.Entry); var canceled = JsonNode.Parse(entry.Payload)!.AsObject(); canceled["status"] = "Cancelado";
+        await BillingWriteGuard.Check(db, seed.Entry, canceled, entry.Payload, default); entry.Update(entry.Name, canceled.ToJsonString()); await db.SaveChangesAsync();
+        await service.Refresh(seed.Account, p.Id, seed.User, true, default); var after = await service.Account(seed.Account, seed.User, default); Assert.Equal("Cancelado", after.State); Assert.Equal(0, after.Payable);
     }
     [PostgresFact]
     public async Task Edi_links_one_validated_event_without_creating_another_receipt()
