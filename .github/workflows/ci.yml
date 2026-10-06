@@ -52,6 +52,9 @@ jobs:
       - name: Restore
         run: dotnet restore LongBeach.sln
 
+      - name: Validate PagVendas export converter
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+
       - name: Build
         run: dotnet build LongBeach.sln --configuration Release --no-restore
 

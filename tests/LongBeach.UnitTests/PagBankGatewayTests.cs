@@ -34,6 +34,8 @@ public sealed class PagBankGatewayTests
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)
         {
             Calls++;
+            Assert.Contains("LongBeachOS/1.0",request.Headers.UserAgent.ToString());
+            Assert.Contains(request.Headers.Accept,x=>x.MediaType=="application/json");
             if(request.Method==HttpMethod.Post){Idempotency=request.Headers.GetValues("x-idempotency-key").Single();using var doc=JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));var charge=doc.RootElement.GetProperty("charges")[0];PaymentType=charge.GetProperty("payment_method").GetProperty("type").GetString();Assert.Equal(1000,charge.GetProperty("amount").GetProperty("value").GetInt32());}
             var json=JsonSerializer.Serialize(new{id="ORDE_TEST",charges=new[]{new{id="CHAR_TEST",reference_id=reference,status="WAITING",amount=new{value=1000,currency="BRL",summary=new{refunded=0}},qr_code=new{text="pix-test"}}}});
             return new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(json,Encoding.UTF8,"application/json")};

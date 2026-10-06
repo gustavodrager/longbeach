@@ -17,6 +17,8 @@ public sealed partial class PagBankPaymentGateway(HttpClient http, IConfiguratio
         if(url!="https://sandbox.api.pagseguro.com/" && url!="https://api.pagseguro.com/")throw new BarRuleException("Ambiente PagBank inválido.");
         var token=config["Payments:PagBank:Token"];if(string.IsNullOrWhiteSpace(token))throw new BarRuleException("Credencial PagBank ausente.");
         if(http.BaseAddress is null)http.BaseAddress=new Uri(url);http.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",token);
+        if(!http.DefaultRequestHeaders.UserAgent.Any())http.DefaultRequestHeaders.UserAgent.ParseAdd("LongBeachOS/1.0");
+        if(!http.DefaultRequestHeaders.Accept.Any())http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
     }
     public async Task<GatewayPayment> CreatePix(Guid paymentId, Guid operationId, decimal amount, DateTimeOffset expires, PixCustomer customer, CancellationToken ct)
     {
