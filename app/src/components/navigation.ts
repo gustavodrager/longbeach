@@ -5,7 +5,8 @@ export type Destination = { label: string; href: string; kind?: OperationalKind;
 export type NavigationGroup = Destination & { icon: IconName; children?: Destination[] }
 export const managementNavigation: NavigationGroup[] = [
   { label: 'Início', icon: 'home', href: '/' },
-  { label: 'Minhas contas', icon: 'wallet', href: '/minhas-contas', permission: 'session' },
+  { label: 'Solicitações', icon: 'orders', href: '/solicitacoes-clientes', permission: 'portal:manage' },
+  { label: 'Minha área', icon: 'people', href: '/minha-area', permission: 'session' },
   { label: 'Agenda', icon: 'calendar', href: '/agenda', kind: 'reservations', children: [
     { label: 'Agenda', href: '/agenda', kind: 'reservations' }, { label: 'Quadra e horários', href: '/quadras', kind: 'courts' },
   ] },

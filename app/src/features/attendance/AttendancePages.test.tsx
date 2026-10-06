@@ -379,7 +379,7 @@ it.each(['atendente','cliente'] as const)('pedido com resultado desconhecido con
   cleanup();query.clear();mount(path)
   expect(await screen.findByText('1 × Água')).toBeInTheDocument()
   expect(screen.getByRole('button',{name:'Alterar pedido'})).toBeDisabled()
-  fireEvent.click(screen.getByRole('button',{name:label}))
+  fireEvent.click(screen.getByRole('button',{name:scene==='cliente'?'Verificar envio':label}))
   expect(await screen.findByRole('heading',{name:scene==='cliente'?'Acompanhar pedidos':'Comanda 104'})).toBeInTheDocument()
   const bodies=fetchMock.mock.calls.filter(([,init])=>init?.method==='POST').map(([,init])=>JSON.parse(String(init?.body)))
   expect(bodies).toHaveLength(2);expect(bodies[0]).toEqual(bodies[1]);expect(bodies[0]).toMatchObject({items:[{productId:'water',quantity:1}],deliver:scene==='atendente'})
@@ -413,7 +413,7 @@ it('Pix parcial com POST502 repete a mesma chave até o GET confirmar e cria a p
   fireEvent.click(screen.getByRole('button',{name:'Criar Pix'}))
   expect(await screen.findByRole('alert')).toHaveTextContent('O provedor ainda não confirmou')
   expect(screen.getByLabelText('Valor (R$)')).toBeDisabled()
-  fireEvent.click(screen.getByRole('button',{name:'Repetir confirmação do mesmo Pix'}))
+  fireEvent.click(screen.getByRole('button',{name:'Verificar pagamento'}))
   expect(await screen.findByRole('alert')).toHaveTextContent('A consulta ainda está em andamento')
   const retryBodies=fetchMock.mock.calls.filter(([,init])=>init?.method==='POST').map(([,init])=>JSON.parse(String(init?.body)))
   expect(retryBodies).toHaveLength(2);expect(retryBodies[0]).toEqual(retryBodies[1])
@@ -556,4 +556,13 @@ it.each(['cliente','atendente'])('rejeição de CPF permite corrigir o Pix antes
   const bodies=fetchMock.mock.calls.filter(([,init])=>init?.method==='POST').map(([,init])=>JSON.parse(String(init?.body)))
   expect(bodies.map(body=>body.taxId)).toEqual(['123','12345678901'])
   expect(state.tab.payments).toHaveLength(1);expect(state.tab.paid).toBe(0)
+})
+
+
+it('comanda encerrada permite comprovante sem catálogo nem novo pagamento',async()=>{
+  const fetchMock=server({tab:{...makeTab(),state:'Closed',payable:0,due:0,paid:12.5},pixEnabled:false});mount('/cliente#token=own-secret')
+  expect(await screen.findByRole('heading',{name:'Comanda encerrada'})).toBeInTheDocument()
+  expect(screen.getByRole('button',{name:'Pedir'})).toBeDisabled();expect(screen.getByRole('button',{name:'Pagar'})).toBeDisabled()
+  expect(screen.getByRole('button',{name:'Salvar ou imprimir comprovante'})).toBeInTheDocument()
+  expect(fetchMock.mock.calls.some(([input])=>String(input).endsWith('/catalog'))).toBe(false)
 })

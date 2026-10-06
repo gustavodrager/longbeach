@@ -101,6 +101,7 @@ export function LoginPage() {
             {isSubmitting ? 'Entrando…' : 'Entrar'}
           </button>
         </form>
+        <details className="login-recovery"><summary>Preciso recuperar meu acesso</summary><p>Se você vinculou seu Google, use a mesma conta. Caso contrário, procure a equipe da Long Beach no balcão para confirmar sua identidade e recuperar o acesso. Nunca informe sua senha à equipe.</p></details>
         <p className="login-footnote">Acesso exclusivo para a equipe Long Beach.</p>
       </section>
 

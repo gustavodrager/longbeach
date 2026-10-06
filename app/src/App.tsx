@@ -60,6 +60,14 @@ const BarOverviewPage = lazy(() => import('./features/attendance/ReportPages').t
 const BarReportPage = lazy(() => import('./features/attendance/ReportPages').then(module => ({ default: module.BarReportPage })))
 const BarSourcePage = lazy(() => import('./features/attendance/ReportPages').then(module => ({ default: module.BarSourcePage })))
 
+const ClientLayout = lazy(() => import('./features/portal/ClientLayout').then(m => ({ default: m.ClientLayout })))
+const RequestManagement = lazy(() => import('./features/portal/RequestManagement').then(m => ({ default: m.RequestManagement })))
+const PortalHome = lazy(() => import('./features/portal/ClientPages').then(m => ({ default: m.PortalHome })))
+const PortalAgenda = lazy(() => import('./features/portal/ClientPages').then(m => ({ default: m.PortalAgenda })))
+const PortalRequestForm = lazy(() => import('./features/portal/ClientPages').then(m => ({ default: m.PortalRequestForm })))
+const PortalBar = lazy(() => import('./features/portal/ClientPages').then(m => ({ default: m.PortalBar })))
+const PortalProfile = lazy(() => import('./features/portal/ClientPages').then(m => ({ default: m.PortalProfile })))
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -94,7 +102,7 @@ function Permission({ permission, demoMode = false, children }: { permission: st
 function HomePage({ demoMode }: { demoMode: boolean }) {
   const { user } = useAuth()
   const management = user?.roles.includes('Owner') || Object.values(operationalPermissions).some(item => user?.permissions.includes(item.read)) || ['bar:finance:read', 'bar:catalog:write', 'bar:stock:manage', 'bar:purchases:manage', 'bar:supervise'].some(permission => user?.permissions.includes(permission))
-  if (!demoMode && user?.roles.every(role => role === "Student")) return <Navigate to="/minhas-contas" replace />
+  if (!demoMode && user?.roles.every(role => role === "Student")) return <Navigate to="/minha-area" replace />
   return !demoMode && !management && user?.permissions.includes('bar:sales:operate') ? <Navigate to="/atendimento/vender" replace /> : <DashboardPage />
 }
 function OperationalRoutes() {
@@ -104,7 +112,8 @@ function OperationalRoutes() {
   const application = <Route element={<Suspense fallback={<main className="session-loading" role="status">Abrindo sua área…</main>}><AppShell demoMode={demoMode} /></Suspense>}>
     <Route index element={<HomePage demoMode={demoMode} />} />
     <Route path="conta" element={<AccountPage />} />
-    {!demoMode && <Route path="minhas-contas" element={<BillingPage />} />}
+    {!demoMode && <Route path="solicitacoes-clientes" element={<RequestManagement />} />}
+    {!demoMode && <Route path="minhas-contas" element={<Navigate to="/minha-area/pagamentos" replace />} />}
     {!demoMode && <Route path="recebimentos" element={bar('finance:read', <BillingPage admin />)} />}
     {!demoMode && <Route path="recebimentos/conciliacao" element={bar('finance:read', <SettlementsPage />)} />}
     <Route path="financeiro/historico" element={<FinancialHistoryPage />} />
@@ -161,7 +170,7 @@ function OperationalRoutes() {
   return <AuthProvider demoMode={demoMode}><DemoDataProvider enabled demoMode={demoMode}><Routes>
     <Route path="login" element={demoMode ? <Navigate to="/" replace /> : <LoginPage />} />
     <Route path="primeiro-acesso" element={demoMode ? <Navigate to="/" replace /> : <FirstAccessPage />} />
-    {demoMode ? application : <Route element={<AuthGuard />}>{application}</Route>}
+    {demoMode ? application : <Route element={<AuthGuard />}>{application}<Route path="minha-area" element={<Suspense fallback={<main role="status">Abrindo sua área…</main>}><ClientLayout /></Suspense>}><Route index element={<PortalHome />} /><Route path="agenda" element={<PortalAgenda />} /><Route path="solicitar" element={<PortalRequestForm />} /><Route path="ajuda" element={<PortalRequestForm help />} /><Route path="bar" element={<PortalBar />} /><Route path="pagamentos" element={<BillingPage />} /><Route path="perfil" element={<PortalProfile />} /><Route path="seguranca" element={<AccountPage />} /></Route></Route>}
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes><PwaUpdatePrompt /></DemoDataProvider></AuthProvider>
 }
