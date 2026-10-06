@@ -354,6 +354,8 @@ h1, h2, h3, .brand-copy strong { font-family: Manrope, ui-sans-serif, system-ui,
 .import-batches .section-heading button { border: 1px solid var(--line); background: var(--deep); color: var(--sand); padding: .65rem .9rem; border-radius: .65rem; cursor: pointer; }
 .import-batch { display: grid; gap: .6rem; padding: 1rem; margin-bottom: .65rem; border: 1px solid var(--line); border-radius: .85rem; background: var(--deep); }
 .import-batch > div { display: flex; justify-content: space-between; gap: 1rem; }
+.import-batch > .grade-import-review { display: block; min-width: 0; }
+.grade-import-review > section { margin-top: 1rem; }
 .import-batch span { color: var(--muted); }
 .import-batch code { overflow-wrap: anywhere; color: var(--teal-soft); font-size: .75rem; }
 @media (min-width: 800px) { .import-batch { grid-template-columns: minmax(16rem, 1fr) minmax(18rem, 1.5fr); align-items: center; } }

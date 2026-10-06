@@ -40,6 +40,14 @@ export function DashboardPage() {
   const urgentMaintenance = data.maintenance.filter(item => item.priority === 'Urgente' && !['Concluída', 'Cancelada'].includes(item.status))
   const lowMaterials = data.inventory.filter(item => item.quantity <= item.minimum)
   const overdueReceivables = pending.filter(item => item.direction === 'Receber' && item.dueDate < day).reduce((sum, item) => sum + item.amount, 0)
+  const activeClasses = data.classes.filter(item => item.status === 'Ativa' && (!item.startDate || item.startDate <= day))
+  const classIds = new Set(activeClasses.map(item => item.id))
+  const activeEnrollments = data.enrollments.filter(item => item.status === 'Ativa' && item.startDate <= day && classIds.has(item.classId))
+  const schoolCapacity = activeClasses.reduce((total, item) => total + item.capacity, 0)
+  const classHours = activeClasses.reduce((total, item) => {
+    const minutes = (value: string) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5))
+    return total + (minutes(item.endTime) - minutes(item.startTime)) / 60
+  }, 0)
   const modules: [string, string, string, OperationalKind, AreaIconName][] = [
     ['Agenda e recepção', 'Quadras, reservas e chegada de clientes.', '/agenda', 'reservations', 'agenda'],
     ['Escola', 'Alunos, turmas, matrículas e presença.', '/escola', 'classes', 'school'],
@@ -55,6 +63,16 @@ export function DashboardPage() {
     <Feedback />
     <FinancialHistoryOverview />
     <ArenaHistoryOverview />
+    {readable('classes') && activeClasses.length > 0 && <section className="arena-dashboard-section" aria-labelledby="current-school-grade">
+      <div className="arena-section-heading"><div><p className="arena-section-eyebrow">Escola · cadastros atuais</p><h2 id="current-school-grade">Grade de aulas atual</h2></div></div>
+      <div className="arena-metric-grid">
+        <Metric label="Turmas ativas" value={String(activeClasses.length)} to="/escola?status=Ativa" period="Grade semanal atual" updated={updated} note={`${quantity(classHours)} h de aulas por semana`} />
+        {readable('enrollments') && <>
+          <Metric label="Vagas ocupadas nas turmas" value={`${activeEnrollments.length}/${schoolCapacity}`} to="/escola?status=Ativa" period="Grade semanal atual" updated={updated} note={`${Math.max(0, schoolCapacity - activeEnrollments.length)} vagas livres. Uma matrícula ocupa uma vaga na turma.`} />
+          <Metric label="Alunos na grade atual" value={String(new Set(activeEnrollments.map(item => item.studentId)).size)} to="/escola/matriculas?status=Ativa" period="Matrículas ativas" updated={updated} note="Cada aluno contado uma vez, mesmo que participe de mais de uma turma." />
+        </>}
+      </div>
+    </section>}
     <section className="arena-dashboard-section" aria-labelledby="arena-attention">
       <div className="arena-section-heading"><div><p className="arena-section-eyebrow">01 · Operação de hoje</p><h2 id="arena-attention">Atenção agora</h2></div><p>Agora · atualizado: {updated}</p></div>
       <div className="arena-metric-grid">

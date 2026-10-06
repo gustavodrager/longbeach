@@ -11,9 +11,9 @@ export type RecurringReservationInput = {
 export type RecurringReservationResponse = { groupId: string; groupTitle: string; reservations: Reservation[] }
 export type ArenaClass = {
   id: string; version?: number; costsVisible?: boolean; name: string; sport: string; courtId: string; weekDay: number; startTime: string; endTime: string
-  teacherId: string; capacity: number; studentIds: string[]; status: 'Ativa' | 'Pausada' | 'Encerrada'; notes: string
+  startDate?: string; teacherId: string; capacity: number; studentIds: string[]; status: 'Ativa' | 'Pausada' | 'Encerrada'; notes: string
 }
-export type Enrollment = { id: string; version?: number; costsVisible?: boolean; name: string; studentId: string; classId: string; startDate: string; endDate?: string; status: 'Ativa' | 'Encerrada'; monthlyAmount: number }
+export type Enrollment = { id: string; version?: number; costsVisible?: boolean; name: string; studentId: string; classId: string; startDate: string; endDate?: string; status: 'Ativa' | 'Encerrada'; monthlyAmount: number | null }
 export type Presence = { id: string; version?: number; costsVisible?: boolean; name: string; classId: string; studentId: string; date: string; status: 'Presente' | 'Ausente' }
 export type FinanceEntry = {
   id: string; version?: number; costsVisible?: boolean; name: string; direction: 'Receber' | 'Pagar'; origin: 'Bar' | 'Escola' | 'Locações' | 'Arena'

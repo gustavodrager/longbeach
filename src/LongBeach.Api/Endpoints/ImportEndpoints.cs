@@ -21,6 +21,8 @@ public static partial class ImportEndpoints
         var group = endpoints.MapGroup("/api/v1/imports").WithTags("Imports").RequireAuthorization(AuthorizationPolicyCatalog.Owner);
         group.MapGet("/", ListBatches);
         group.MapGet("/{batchId:guid}/rows", ListRows);
+        group.MapGet("/{batchId:guid}/class-grade", (Guid batchId, LongBeach.Application.Operations.IGradeImport service, CancellationToken ct) => service.Preview(batchId, ct));
+        group.MapPost("/{batchId:guid}/class-grade/apply", (Guid batchId, LongBeach.Contracts.Operations.ApplyGradeImportInput input, LongBeach.Application.Operations.IGradeImport service, CancellationToken ct) => service.Apply(batchId, input.ConfirmationToken, ct));
         group.MapGet("/{batchId:guid}/bar-catalog", (Guid batchId, LongBeach.Application.Bar.ICatalogImport service, CancellationToken ct) => service.Preview(batchId, ct));
         group.MapPost("/{batchId:guid}/bar-catalog/apply", (Guid batchId, LongBeach.Contracts.Bar.ApplyCatalogImportInput input, LongBeach.Application.Bar.ICatalogImport service, CancellationToken ct) => service.Apply(batchId, input.ConfirmationToken, ct));
         group.MapPost("/", StageBatch).WithMetadata(new Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute(8_000_000));
