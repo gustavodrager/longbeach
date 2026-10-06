@@ -42,7 +42,7 @@ function ClientTab({ tab, token }: { tab: Tab; token: string }) {
     finally { lock.current = false; setBusy(false) }
   }
   const products = catalog.data ?? []; const fingerprint = cart.map(row => `${row.productId}:${row.quantity}`).sort().join('|')
-  async function order() { setPendingOrder('order'); const key = `order:${fingerprint}`; if (await run('/items', { operationId: intent(key), items: cart, deliver: false })) { setPendingOrder(''); intent(key, true); setCart([]); setReview(false); setScreen('tab'); setMessage('Pedido enviado. Esperando a equipe confirmar.') } }
+  async function order() { if (!pendingOrder && cart.some(row => !products.some(product => product.id === row.productId && product.available != null && product.available >= row.quantity))) { setError('O estoque mudou. Altere o pedido para conferir as quantidades disponíveis.'); return } setPendingOrder('order'); const key = `order:${fingerprint}`; if (await run('/items', { operationId: intent(key), items: cart, deliver: false })) { setPendingOrder(''); intent(key, true); setCart([]); setReview(false); setScreen('tab'); setMessage('Pedido enviado. Esperando a equipe confirmar.') } }
   async function pay() {
     if (lock.current) return
     const value = part ? parseAmount(amount) : tab.payable
