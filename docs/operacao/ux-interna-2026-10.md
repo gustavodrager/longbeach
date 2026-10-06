@@ -11,13 +11,14 @@ As páginas de gestão usam sete áreas principais, navegação contextual e as 
 - Listas extensas renderizam 20 registros por página. Os endpoints existentes continuam responsáveis pelos dados; não foi introduzida paginação de API nem mudança de contratos financeiros.
 - Zero é um valor válido. Competência, origem, cobertura e atualização não são substituídos por valores fictícios.
 - Produtos esperam as categorias e fornecedores antes de montar o editor, preservando valores de seletores assíncronos. DTO, versão e identificadores de operações permanecem inalterados.
+- Formulários contextuais só são montados após confirmar a mudança da URL, evitando reinicialização do primeiro campo durante uma transição de navegação.
 
 ## Verificação anterior à publicação
 
 - Frontend: 173 testes aprovados e build PWA aprovado.
-- API/solução: build Release aprovado sem avisos; 134 testes unitários aprovados. A integração com PostgreSQL é validada pelo CI antes da promoção.
+- API/solução: build Release aprovado sem avisos; 134 testes unitários e 164 testes de integração com PostgreSQL aprovados no CI.
 - Chrome com API fictícia local, sem conexão à produção: Agenda, mensalista, turma, aluno, Financeiro, Histórico, Produtos e Estoque nas larguras 360, 390, 768 e 1440. Nenhuma página excedeu a largura da viewport.
-- Compras, Caixas, Vendas, Inventário, Equipe, Materiais, Projetos, Manutenção e Comanda verificados em 390 px, incluindo listas vazias.
+- Compras, Caixas, Vendas, Inventário, Equipe, Materiais, Projetos, Manutenção e Comanda também verificados nas quatro larguras, incluindo listas vazias. Total: 68 combinações de página e largura sem transbordamento horizontal.
 - Produto: busca → edição → tentativa de cancelamento → manter alterações → salvar → mesma busca e botão de origem focado.
 - Aluno: turma → aluno → Cadastro → editar → salvar → Cadastro preservado → retorno à turma original.
 - Menu móvel: abertura, Escape e foco restaurado no botão Menu.
@@ -26,3 +27,5 @@ As páginas de gestão usam sete áreas principais, navegação contextual e as 
 ## Publicação e rollback
 
 Seguir `deploy-railway-production.md`: snapshot anterior, plano sem drift, CI aprovado, promoção do SHA e conferência de saúde. A versão anterior é `ee43f5cf4e7f414af8e82cf32e69940ad01813f7`, com API `629d709b-2ecd-4796-99d3-55fb1e069d4e` e web `534b4425-adde-41b5-b43a-ba5ef1a170e2`. Nenhuma migration ou alteração de dados é necessária para esta entrega. O smoke em produção deve ser somente leitura.
+
+A revisão `b29dfbd97bc34bc6b22b3b130450bec17f747211` passou no CI `37485544156` e foi publicada: API `80d655a8-831c-4247-aea0-2f8eca1e2cdb`, web `df4a74a3-1e1b-4f7c-9fac-4d19f3fa64f1`. Ambos os health checks passaram e o snapshot final não apresentou drift. A leitura em produção confirmou os produtos, mensalistas e contexto financeiro existentes. O ajuste subsequente de apresentação suprime mensagens de lista vazia durante a leitura inicial ou falha sem dados; o erro/carregamento continua no aviso próprio da página.

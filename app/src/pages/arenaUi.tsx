@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { safeReturn, useUnsavedChanges, useContextSearchParams } from '../components/managementUi'
-import { useOperations } from '../features/operations/DemoDataProvider'
+import { useOperations, useOptionalOperations } from '../features/operations/DemoDataProvider'
 import './arena-pages.css'
 
 export const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
@@ -32,7 +32,11 @@ export function Field({ label, value, onChange, type = 'text', required = false,
 export function Notes({ label = 'Observações', value, onChange }: { label?: string; value: string; onChange: (value: string) => void }) { return <label className="operation-field operation-field-wide">{label}<textarea value={value} rows={3} onChange={event => onChange(event.target.value)} /></label> }
 export function Group({ title, children }: { title: string; children: ReactNode }) { return <fieldset className="arena-form-group"><legend>{title}</legend><div className="field-grid">{children}</div></fieldset> }
 export function SaveRow({ onCancel, label = 'Salvar cadastro', busy = false, disabled = false }: { onCancel?: () => void; label?: string; busy?: boolean; disabled?: boolean }) { return <div className="form-actions"><button className="primary-button" type="submit" disabled={busy || disabled}>{busy ? 'Salvando…' : label}</button>{onCancel && <button className="secondary-link" type="button" onClick={onCancel} disabled={busy}>Cancelar</button>}</div> }
-export function Empty({ children, action }: { children: ReactNode; action?: ReactNode }) { return <div className="empty-state"><span aria-hidden="true">☀</span><p>{children}</p>{action}</div> }
+export function Empty({ children, action }: { children: ReactNode; action?: ReactNode }) {
+  const operations = useOptionalOperations()
+  if (operations && !operations.dataUpdatedAt && ['connecting','error'].includes(operations.persistenceStatus)) return null
+  return <div className="empty-state"><span aria-hidden="true">☀</span><p>{children}</p>{action}</div>
+}
 export function DetailList({ items }: { items: [string, ReactNode][] }) { return <dl className="detail-list">{items.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value === '' || value === null || value === undefined ? 'Não informado' : value}</dd></div>)}</dl> }
 export function Status({ children, warning = false }: { children: ReactNode; warning?: boolean }) { return <span className={`status-pill ${warning ? 'arena-warning' : ''}`}>{warning && <span aria-hidden="true">! </span>}{children}</span> }
 export function useFilters() {

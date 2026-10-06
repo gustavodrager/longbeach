@@ -256,6 +256,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
   }), [data, persistenceStatus, persistenceMessage, saving, dataUpdatedAt, refreshFailed, canRead, canWrite, reload, save, saveRecurringReservations])
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
+export function useOptionalOperations() { return useContext(Context) }
 export function useOperations() {
   const context = useContext(Context)
   if (!context) throw new Error('Os dados operacionais precisam do DemoDataProvider.')

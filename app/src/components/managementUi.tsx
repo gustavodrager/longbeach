@@ -122,7 +122,9 @@ export function useRecordForm<T extends { id: string }>(records: T[], blank: () 
   const open = (item?: T) => {
     const next = new URLSearchParams(params); next.set('acao', item ? 'editar' : 'novo')
     if (item) next.set('registro', item.id); else next.delete('registro')
-    hydrated.current = (item ? 'editar:' + item.id : 'novo:'); setForm(item ? { ...item } : blank()); setParams(next, { preventScrollReset: true })
+    // Mount the form only after the URL transition commits. Rendering it earlier
+    // lets the previous action's effect clear a field while the user is typing.
+    setParams(next, { preventScrollReset: true })
   }
   const close = () => { const next = new URLSearchParams(params); next.delete('acao'); next.delete('registro'); setForm(null); setParams(next, { replace: true, preventScrollReset: true }) }
   return { form, setForm, editId, open, close }
