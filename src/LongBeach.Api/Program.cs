@@ -124,6 +124,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 app.MapBarEndpoints();
 app.MapBarTabsEndpoints();
 app.MapImportEndpoints();
+app.MapFinancialHistoryEndpoints();
 app.MapAuthEndpoints(builder.Configuration.GetValue<bool>("Authentication:Google:Enabled"));
 var publicOperationalDemo = !app.Environment.IsProduction() && app.Configuration.GetValue("DemoMode:PublicOperationalData", false);
 app.MapOperationalEndpoints(publicOperationalDemo);
