@@ -1,14 +1,13 @@
 import { defineRailway, github, postgres, preserve, project, service, volume } from "railway/iac";
 
 export default defineRailway(() => {
-  const longbeach = github("gustavodrager/longbeach", { branch: "codex/saldos-pagina-inicial", commitSha: "f20cc73d43fff7d6fe1b58318c567aac5bb3bf8f" });
-  const longbeach2 = github("gustavodrager/longbeach");
+  const longbeach = github("gustavodrager/longbeach");
 
   const Postgres = postgres("Postgres", { region: "europe-west4-drams3a" });
   Postgres.networking = { privateNetworkEndpoint: "postgres" };
   const postgresVolume = volume("postgres-volume", { alerts: { usage: { "100": {}, "80": {}, "95": {} } }, allowOnlineResize: true, region: "europe-west4-drams3a", sizeMB: 5000 });
   const api = service("api", {
-    source: longbeach,
+    source: github("gustavodrager/longbeach", { branch: "codex/saldos-pagina-inicial", commitSha: "08e3e9c96b3542d3b48c182b161e38c972a5ba57" }),
     build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "deploy/api.Dockerfile" },
     healthcheck: "/health/ready",
     healthcheckTimeout: 300,
@@ -19,7 +18,7 @@ export default defineRailway(() => {
     env: { ASPNETCORE_ENVIRONMENT: preserve(), ASPNETCORE_URLS: preserve(), AllowedHosts: preserve(), Authentication__CookieDomain: preserve(), Authentication__Google__AllowedEmail: preserve(), Authentication__Google__ClientId: preserve(), Authentication__Google__Enabled: preserve(), Authentication__Google__ProvisionAllowedEmailsAsOwners: preserve(), Authentication__Jwt__AccessTokenMinutes: preserve(), Authentication__Jwt__Audience: preserve(), Authentication__Jwt__Issuer: preserve(), Authentication__Jwt__RefreshTokenDays: preserve(), Authentication__Jwt__SigningKey: preserve(), Authentication__MobileAllowedOrigins__0: preserve(), Authentication__MobileAllowedOrigins__1: preserve(), Authentication__MobileAllowedOrigins__2: preserve(), Authorization__SeedOnStartup: preserve(), Bootstrap__InitialOwner__Enabled: preserve(), ConnectionStrings__LongBeach: preserve(), Cors__AllowedOrigins__0: preserve(), Cors__AllowedOrigins__1: preserve(), Database__MigrateOnStartup: preserve(), DemoMode__PublicOperationalData: preserve(), HealthChecks__DatabaseEnabled: preserve(), PORT: preserve(), RAILWAY_DOCKERFILE_PATH: preserve(), ReverseProxy__TrustAllForwarders: preserve() },
   });
   const web = service("web", {
-    source: longbeach,
+    source: github("gustavodrager/longbeach", { branch: "codex/saldos-pagina-inicial", commitSha: "f20cc73d43fff7d6fe1b58318c567aac5bb3bf8f" }),
     build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "deploy/web.Dockerfile" },
     healthcheck: "/healthz",
     healthcheckTimeout: 300,
@@ -28,7 +27,7 @@ export default defineRailway(() => {
     env: { PORT: preserve(), RAILWAY_DOCKERFILE_PATH: preserve(), VITE_API_URL: preserve(), VITE_DEMO_MODE: preserve(), VITE_GOOGLE_CLIENT_ID: preserve(), VITE_OPERATIONAL_STORAGE: preserve() },
   });
   const webOperationsWCjo = service("web-operations-WCjo", {
-    source: longbeach2,
+    source: longbeach,
     build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "deploy/web.Dockerfile" },
     healthcheck: "/healthz",
     replicas: { "europe-west4-drams3a": 1 },
@@ -36,7 +35,7 @@ export default defineRailway(() => {
     env: { VITE_API_URL: preserve(), VITE_DEMO_MODE: preserve(), VITE_GOOGLE_CLIENT_ID: preserve(), VITE_OPERATIONAL_STORAGE: preserve() },
   });
   const webOperations = service("web-operations", {
-    source: longbeach2,
+    source: longbeach,
     build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "deploy/web.Dockerfile" },
     healthcheck: "/healthz",
     healthcheckTimeout: 300,
@@ -44,7 +43,7 @@ export default defineRailway(() => {
     env: { RAILWAY_DOCKERFILE_PATH: preserve(), VITE_API_URL: preserve(), VITE_DEMO_MODE: preserve(), VITE_OPERATIONAL_STORAGE: preserve() },
   });
   const apiOperations = service("api-operations", {
-    source: longbeach2,
+    source: longbeach,
     build: { buildCommand: "dotnet publish src/LongBeach.Api/LongBeach.Api.csproj --configuration Release --output /app/publish /p:UseAppHost=false", buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "deploy/api.Dockerfile" },
     healthcheck: "/health/ready",
     healthcheckTimeout: 300,
