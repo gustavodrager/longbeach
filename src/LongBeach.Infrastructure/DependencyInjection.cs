@@ -41,7 +41,8 @@ public static class DependencyInjection
                 .AddInterceptors(serviceProvider.GetRequiredService<AuditSaveChangesInterceptor>()));
 
         services.AddHostedService<LongBeach.Infrastructure.Payments.PagBankReconciliationWorker>();
-        services.AddHttpClient<LongBeach.Application.Bar.IPaymentGateway, LongBeach.Infrastructure.Payments.PagBankPaymentGateway>(client => client.Timeout = TimeSpan.FromSeconds(20));
+        services.AddHttpClient<LongBeach.Application.Bar.IPaymentGateway, LongBeach.Infrastructure.Payments.PagBankPaymentGateway>(client => client.Timeout = TimeSpan.FromSeconds(20))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddScoped<LongBeach.Application.Bar.IBarPayments, LongBeach.Infrastructure.Bar.BarPaymentsService>();
         services.AddScoped<LongBeach.Application.Bar.IBarTabs, LongBeach.Infrastructure.Bar.BarTabsService>();
         services.AddScoped<LongBeach.Application.Bar.IBarPurchases, LongBeach.Infrastructure.Bar.BarPurchasesService>();
@@ -49,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<LongBeach.Application.Bar.IBarCash, LongBeach.Infrastructure.Bar.BarCashService>();
         services.AddScoped<LongBeach.Application.Bar.IBarStock, LongBeach.Infrastructure.Bar.BarStockService>();
         services.AddScoped<LongBeach.Application.Bar.IBarCatalog, LongBeach.Infrastructure.Bar.BarCatalogService>();
+        services.AddScoped<LongBeach.Application.Bar.ICatalogImport, LongBeach.Infrastructure.Bar.CatalogImportService>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.Configure<Microsoft.AspNetCore.Identity.PasswordHasherOptions>(options =>
             options.IterationCount = 210_000);
