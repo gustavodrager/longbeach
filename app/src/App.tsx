@@ -6,6 +6,7 @@ import { PwaUpdatePrompt } from './components/PwaUpdatePrompt'
 import { AuthGuard } from './features/auth/AuthGuard'
 import { AuthProvider } from './features/auth/AuthProvider'
 import { DashboardPage } from './pages/DashboardPage'
+import { FinancialHistoryPage } from './features/finance/FinancialHistory'
 import { LoginPage } from './pages/LoginPage'
 const BarLayout = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarLayout })))
 const BarProductsPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarProductsPage })))
@@ -91,6 +92,7 @@ function OperationalRoutes() {
   const application = <Route element={<Suspense fallback={<main className="session-loading" role="status">Abrindo sua área…</main>}><AppShell demoMode={demoMode} /></Suspense>}>
     <Route index element={<HomePage demoMode={demoMode} />} />
     <Route path="conta" element={<AccountPage />} />
+    <Route path="financeiro/historico" element={<FinancialHistoryPage />} />
     <Route path="alunos" element={arena('students', <StudentsPage />)} />
     <Route path="alunos/:studentId" element={arena('students', <StudentDetailsPage />)} />
     <Route path="equipe" element={arena('team', <TeamPage />)} />

@@ -13,7 +13,7 @@ A conta Railway e o namespace DNS `quebranunca.com.br` são compartilhados somen
 
 O endereço `longbeach.quebranunca.com.br` atende hoje o Long Beach OS standalone no serviço `web`; a API usa `api.longbeach.quebranunca.com.br`. O serviço Node/SQLite legado permanece preservado em seu projeto e endereço técnico Railway para consulta e retorno. Não haverá registro de `longbeach.com.br`, nova zona DNS nem nova conta Cloudflare.
 
-A infraestrutura Railway é descrita em `.railway/railway.ts` como **snapshot declarativo da fase corrente**, e não como desenho atemporal do estado final. O snapshot corrente registra `api.longbeach.quebranunca.com.br` no serviço `api` e `longbeach.quebranunca.com.br` no serviço `web`. A promoção UX de 2026-10-05 vincula somente os serviços oficiais à revisão validada `codex/ux-identidade-global-20261005` no mesmo repositório; os serviços auxiliares conservam sua fonte anterior. O binding de `preview.longbeach.quebranunca.com.br` foi removido em 2026-10-05; mantenha os domínios técnicos Railway para health check e retorno.
+A infraestrutura Railway é descrita em `.railway/railway.ts` como **snapshot declarativo da fase corrente**, e não como desenho atemporal do estado final. O snapshot corrente registra `api.longbeach.quebranunca.com.br` no serviço `api` e `longbeach.quebranunca.com.br` no serviço `web`. A promoção financeira de 2026-10-05 vincula somente `api` e `web` à revisão validada `e25bf9cd2e0f2242ac123c53dbc519e2a3753b24`, na branch `codex/historico-financeiro-sincronizacao`. O CI passou e ambos os serviços responderam aos health checks. Os serviços auxiliares conservam sua fonte anterior. O coletor EDI permanece aguardando as credenciais específicas; consulte `docs/arquitetura/historico-financeiro-integracoes.md`. O binding de `preview.longbeach.quebranunca.com.br` foi removido em 2026-10-05; mantenha os domínios técnicos Railway para health check e retorno.
 
 ### Sincronização obrigatória do snapshot
 
@@ -232,3 +232,13 @@ Após confirmação específica do responsável, às 23:36 UTC foi salva a orige
 Às 23:37 UTC, no Chrome, o login iniciado no domínio oficial abriu a seleção Google e concluiu com uma conta existente autorizada: o popup fechou, o painel administrativo carregou em `/` e **Minha conta** em `/conta` apresentou a identidade esperada, sem `origin_mismatch`. A evidência registra somente o resultado, sem nomes, e-mails ou tokens.
 
 O papel Owner ativo da nova conta solicitada está confirmado por consulta PostgreSQL `READ ONLY`; seu primeiro login próprio ainda não foi testado. Preserve essa distinção ao comunicar a validação e não registre dados pessoais da conta em Git.
+
+### Indicadores históricos da escola e dos mensalistas — 2026-10-05
+
+API fixada no commit `ebe62e4539298f20736470ed703b42553fa4557a`, deployment `602b9408-8548-4d34-840b-415e62631e46` (`SUCCESS`). Web fixada em `c0c5681b86e7a676a833dfbc466e8a1203316cf3`, deployment `1133ca94-d497-416b-b196-8fcbb204e161` (`SUCCESS`); essa revisão acrescenta somente espaçamento/legibilidade da tabela à implementação validada em `ebe62e4`.
+
+A API passou antes da promoção da web. Readiness da API e health da web responderam com sucesso; o resumo sem sessão respondeu `401`. O Chrome autenticado como Owner confirmou cartões com os valores das fontes, competências independentes, seleção explícita de mês sem reaproveitar aulas antigas, navegação ao controle e tabela semanal. Nenhuma reserva, cobrança ou importação foi criada por essa mudança; nenhuma migration nova foi necessária.
+
+Validação: 100 testes unitários, 151 de integração PostgreSQL, 144 frontend, builds API/PWA e 9 testes de conversores no CI. Execuções CI `37401087180` e `37401769836` concluíram com sucesso. Configurações públicas e flags de segurança foram conferidas sem expor segredos. Cada promoção mudou exclusivamente o commit do serviço esperado; snapshots comparados e plano final sem diferenças.
+
+Para reverter apenas a apresentação da tabela, a web anterior é `9ad64a03-2316-4255-a3c7-96f77b9fd1e1` em `ebe62e4`. Para retirar todo o incremento de indicadores, preserve os dados e use os deployments anteriores compatíveis: API `fdf7879d-bc64-4b4a-9a60-997f8ff7a7fa` e web `46c934a8-9aab-44ab-b6d1-7648b3e517f2`, ambos em `e25bf9c`. Após qualquer reversão, sincronize os commits fixados do snapshot e exija plano sem drift.

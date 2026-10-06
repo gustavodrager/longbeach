@@ -35,6 +35,10 @@ public sealed class ExceptionHandlingMiddleware(
             };
             await WriteProblemAsync(context, status, "Acesso à comanda indisponível", exception.Message);
         }
+        catch (LongBeach.Application.Finance.FinancialRuleException exception)
+        {
+            await WriteProblemAsync(context, 400, "Conferência financeira rejeitada", exception.Message);
+        }
         catch (LongBeach.Domain.Bar.BarRuleException exception)
         {
             await WriteProblemAsync(context, 400, "Operação do Bar rejeitada", exception.Message);

@@ -1,7 +1,8 @@
 import { defineRailway, github, postgres, preserve, project, service, volume } from "railway/iac";
 
 export default defineRailway(() => {
-  const longbeach = github("gustavodrager/longbeach", { branch: "codex/pagvendas-catalogo-pagbank", commitSha: "4fb0eaed5676cadc9491acf7d9dc6416b93f3c85" });
+  const longbeach = github("gustavodrager/longbeach", { branch: "codex/historico-financeiro-sincronizacao", commitSha: "ebe62e4539298f20736470ed703b42553fa4557a" });
+  const longbeachWeb = github("gustavodrager/longbeach", { branch: "codex/historico-financeiro-sincronizacao", commitSha: "c0c5681b86e7a676a833dfbc466e8a1203316cf3" });
   const longbeach2 = github("gustavodrager/longbeach");
 
   const Postgres = postgres("Postgres", { region: "europe-west4-drams3a" });
@@ -16,10 +17,10 @@ export default defineRailway(() => {
     replicas: { "europe-west4-drams3a": 1 },
     deploy: { preDeployTimeoutSeconds: 300 },
     domains: ["api.longbeach.quebranunca.com.br"],
-    env: { ASPNETCORE_ENVIRONMENT: "Production", ASPNETCORE_URLS: "http://+:8080", AllowedHosts: preserve(), Authentication__CookieDomain: "longbeach.quebranunca.com.br", Authentication__Google__AllowedEmail: preserve(), Authentication__Google__ClientId: preserve(), Authentication__Google__Enabled: "true", Authentication__Google__ProvisionAllowedEmailsAsOwners: "false", Authentication__Jwt__AccessTokenMinutes: preserve(), Authentication__Jwt__Audience: "LongBeach.OS.Client", Authentication__Jwt__Issuer: "https://api.longbeach.quebranunca.com.br", Authentication__Jwt__RefreshTokenDays: preserve(), Authentication__Jwt__SigningKey: preserve(), Authentication__MobileAllowedOrigins__0: preserve(), Authentication__MobileAllowedOrigins__1: preserve(), Authentication__MobileAllowedOrigins__2: preserve(), Authorization__SeedOnStartup: "false", Bootstrap__InitialOwner__Enabled: "false", ConnectionStrings__LongBeach: preserve(), Cors__AllowedOrigins__0: "https://longbeach.quebranunca.com.br", Cors__AllowedOrigins__1: "https://longbeach.quebranunca.com.br", Database__MigrateOnStartup: "false", DemoMode__PublicOperationalData: "false", HealthChecks__DatabaseEnabled: preserve(), PORT: preserve(), RAILWAY_DOCKERFILE_PATH: preserve(), ReverseProxy__TrustAllForwarders: "false" },
+    env: { ASPNETCORE_ENVIRONMENT: "Production", ASPNETCORE_URLS: "http://+:8080", AllowedHosts: "api.longbeach.quebranunca.com.br;api-production-d77d.up.railway.app;healthcheck.railway.app", Authentication__CookieDomain: "longbeach.quebranunca.com.br", Authentication__Google__AllowedEmail: preserve(), Authentication__Google__ClientId: preserve(), Authentication__Google__Enabled: "true", Authentication__Google__ProvisionAllowedEmailsAsOwners: "false", Authentication__Jwt__AccessTokenMinutes: preserve(), Authentication__Jwt__Audience: "LongBeach.OS.Client", Authentication__Jwt__Issuer: "https://api.longbeach.quebranunca.com.br", Authentication__Jwt__RefreshTokenDays: preserve(), Authentication__Jwt__SigningKey: preserve(), Authentication__MobileAllowedOrigins__0: preserve(), Authentication__MobileAllowedOrigins__1: preserve(), Authentication__MobileAllowedOrigins__2: preserve(), Authorization__SeedOnStartup: "false", Bootstrap__InitialOwner__Enabled: "false", ConnectionStrings__LongBeach: preserve(), Cors__AllowedOrigins__0: "https://longbeach.quebranunca.com.br", Cors__AllowedOrigins__1: "https://longbeach.quebranunca.com.br", Database__MigrateOnStartup: "false", DemoMode__PublicOperationalData: "false", HealthChecks__DatabaseEnabled: "true", PORT: preserve(), RAILWAY_DOCKERFILE_PATH: preserve(), ReverseProxy__TrustAllForwarders: "false" },
   });
   const web = service("web", {
-    source: longbeach,
+    source: longbeachWeb,
     build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "deploy/web.Dockerfile" },
     healthcheck: "/healthz",
     healthcheckTimeout: 300,

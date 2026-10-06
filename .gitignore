@@ -58,3 +58,7 @@ app/ios/**/*.xcuserdata/
 .dotnet/
 .nuget/
 .cache/
+
+# Python preparation caches
+__pycache__/
+*.pyc

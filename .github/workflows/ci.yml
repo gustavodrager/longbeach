@@ -52,7 +52,10 @@ jobs:
       - name: Restore
         run: dotnet restore LongBeach.sln
 
-      - name: Validate PagVendas export converter
+      - name: Install spreadsheet reader
+        run: python3 -m pip install openpyxl==3.1.5
+
+      - name: Validate import converters
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
 
       - name: Build

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { ApiError, apiFetch } from '../lib/http'
 import { useAuth } from '../features/auth/authContext'
+import { centsMoney, seriesLabels, type HistoryPreview } from '../features/finance/FinancialHistory'
 
 type StagedBatch = { id: string; sourceName: string; sourceSha256: string; status: string; rowCount: number; createdAtUtc: string }
 type ImportPackage = { sourceName: string; sourceSha256: string; records: Array<{ sheetName: string; rowNumber: number; recordType: string; externalId?: string | null; data: unknown }> }
@@ -12,6 +13,7 @@ export function ImportPage() {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [catalogPreview, setCatalogPreview] = useState<CatalogPreview | null>(null)
+  const [historyPreview, setHistoryPreview] = useState<HistoryPreview | null>(null)
   const canImport = user?.roles.includes('Owner') ?? false
 
   async function load() {
@@ -22,9 +24,25 @@ export function ImportPage() {
   useEffect(() => { if (canImport) void load() }, [canImport])
 
   async function inspectCatalog(id: string) {
-    setBusy(true); setMessage(''); setCatalogPreview(null)
+    setBusy(true); setMessage(''); setCatalogPreview(null); setHistoryPreview(null)
     try { setCatalogPreview(await apiFetch<CatalogPreview>(`/api/v1/imports/${id}/bar-catalog`)) }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível conferir o catálogo.') }
+    finally { setBusy(false) }
+  }
+
+  async function inspectHistory(id: string) {
+    setBusy(true); setMessage(''); setHistoryPreview(null); setCatalogPreview(null)
+    try { setHistoryPreview(await apiFetch<HistoryPreview>(`/api/v1/financial-history/imports/${id}`)) }
+    catch (error) { setMessage(error instanceof Error ? error.message : 'Não foi possível conferir o histórico.') }
+    finally { setBusy(false) }
+  }
+  async function applyHistory() {
+    if (!historyPreview) return
+    setBusy(true); setMessage('')
+    try {
+      setHistoryPreview(await apiFetch<HistoryPreview>(`/api/v1/financial-history/imports/${historyPreview.batchId}/apply`, { method: 'POST', body: JSON.stringify({ confirmationToken: historyPreview.confirmationToken }) }))
+      setMessage('Histórico aplicado ao painel dos proprietários. Cada valor mantém sua origem e estado informado na fonte.'); await load()
+    } catch (error) { setHistoryPreview(null); setMessage(error instanceof Error ? error.message : 'Confira o histórico novamente.') }
     finally { setBusy(false) }
   }
 
@@ -48,7 +66,7 @@ export function ImportPage() {
     const inputElement = event.currentTarget
     const file = event.currentTarget.files?.[0]
     if (!file) return
-    setBusy(true); setMessage(''); setCatalogPreview(null)
+    setBusy(true); setMessage(''); setCatalogPreview(null); setHistoryPreview(null)
     try {
       const input = JSON.parse(await file.text()) as ImportPackage
       if (!input.sourceName || !input.sourceSha256 || !Array.isArray(input.records)) throw new Error('Arquivo de importação inválido.')
@@ -72,8 +90,9 @@ export function ImportPage() {
       </section>
       {message && <p className="persistence-banner" role="status">{message}</p>}
       <section className="import-batches"><div className="section-heading"><div><p className="eyebrow">REGISTRO DE ORIGEM</p><h2>Lotes no PostgreSQL</h2></div><button type="button" onClick={() => void load()}>Atualizar</button></div>
-        {batches.length === 0 ? <p>Nenhum lote foi carregado.</p> : batches.map((batch) => <article className="import-batch" key={batch.id}><div><strong>{batch.sourceName}</strong><span>{batch.rowCount} linhas · {batch.status === 'NeedsReview' ? 'Pendente de conferência' : batch.status === 'Applied' ? 'Aplicado' : batch.status}</span></div><code>{batch.sourceSha256}</code><button type="button" disabled={busy} onClick={() => void inspectCatalog(batch.id)} aria-label={`Conferir produtos do bar: ${batch.sourceName}`}>Conferir produtos do bar</button></article>)}
+        {batches.length === 0 ? <p>Nenhum lote foi carregado.</p> : batches.map((batch) => <article className="import-batch" key={batch.id}><div><strong>{batch.sourceName}</strong><span>{batch.rowCount} linhas · {batch.status === 'NeedsReview' ? 'Pendente de conferência' : batch.status === 'Applied' ? 'Aplicado' : batch.status}</span></div><code>{batch.sourceSha256}</code><button type="button" disabled={busy} onClick={() => void inspectCatalog(batch.id)} aria-label={`Conferir produtos do bar: ${batch.sourceName}`}>Conferir produtos do bar</button><button type="button" disabled={busy} onClick={() => void inspectHistory(batch.id)} aria-label={`Conferir histórico financeiro: ${batch.sourceName}`}>Conferir histórico financeiro</button></article>)}
       </section>
+      {historyPreview && <section className="foundation-card" aria-label="Conferência financeira"><h2>Conferir histórico financeiro</h2><p>{historyPreview.sourceName} · {historyPreview.creates} valores novos · {historyPreview.matches} já aplicados.</p><p>Os totais de cada controle permanecem separados. Esta aplicação disponibiliza o histórico para os donos com o estado informado na fonte.</p><div className="table-scroll"><table><thead><tr><th>Controle</th><th>Indicador</th><th>Período</th><th>Estado</th><th>Registros</th><th>Total</th></tr></thead><tbody>{historyPreview.totals.map(total => <tr key={`${total.series}:${total.metric}:${total.state}:${total.period}:${total.grain}`}><td>{seriesLabels[total.series]}</td><td>{total.metric}</td><td>{total.period} · {total.grain}</td><td>{total.state}</td><td>{total.records}</td><td>{centsMoney(total.amountCents)}</td></tr>)}</tbody></table></div>{historyPreview.applied ? <p role="status">Histórico já aplicado.</p> : <button type="button" disabled={busy} onClick={() => void applyHistory()} className="button-primary">Aplicar histórico conferido</button>}</section>}
       {catalogPreview && <section className="foundation-card" aria-label="Conferência de produtos do bar">
         <h2>Conferir catálogo do bar</h2>
         <p>Arquivo: {catalogPreview.sourceName}</p>

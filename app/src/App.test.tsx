@@ -13,6 +13,7 @@ function jsonResponse(body: unknown, status = 200) {
 
 function withOperationalReads(authHandler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+    if (String(input).includes('/api/v1/financial-history') && !init?.method) return Promise.resolve(jsonResponse({ month: '2026-08', months: [], items: [], totals: [], total: 0, page: 1 }))
     if (String(input).includes('/api/v1/operations/') && !init?.method) return Promise.resolve(jsonResponse([]))
     return authHandler(input, init)
   })
