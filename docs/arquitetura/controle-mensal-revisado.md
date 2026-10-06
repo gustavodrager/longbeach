@@ -15,3 +15,13 @@ Os serviços da quadra têm preço avulso, preço/duração do pacote de sábado
 Validação: regras de preços/horários/permissões, revisão idempotente e concorrente com auditoria no PostgreSQL, bloqueio da equipe, totais estimados e edição por link. Conferência visual em 360, 390, 768 e 1440 px com dados fictícios. No ambiente real, salvar apenas revisões e preços autorizados, reler os valores e confirmar o painel sem gerar movimentações de teste.
 
 Rollback: conservar registros e auditorias; restaurar API e web anteriores retorna à visão de histórico importado, que não conhece a composição revisada. Preferir corrigir para frente. Referências privadas e pacotes de dados não devem entrar no Git.
+
+## Conferência de produção — 2026-10-06
+
+O incremento foi incorporado à publicação conjunta `12281ec8a29f2fff1bf6dee7b0104393129e85f1`, CI `37530868604` aprovado. API `d61045f2-4e33-495f-a703-a654a35cb429` e web `023e0ca8-cb91-473c-9bb9-488858422403`, ambas SUCCESS. O snapshot final corresponde ao estado live, sem drift.
+
+No Chrome autenticado, após aceitar a atualização da PWA, foi aplicada a revisão mensal autorizada de 28 linhas. A releitura após recarregar confirmou as linhas e os totais; o dashboard passou a usar a composição revisada, conservando a fonte/data do saldo bancário. Serviços e limite de saída da quadra foram gravados pelo formulário oficial e conferidos no resumo. Não foram criados pagamentos, reservas ou movimentos de teste em produção. Capturas e fontes financeiras permanecem em armazenamento local privado.
+
+O cabeçalho compacto e a visão financeira foram conferidos em produção em 360, 390, 768 e 1440 px sem rolagem horizontal da página. Edição com conflito, link direto, autorização e persistência foram verificadas nos testes locais/CI. O fluxo de edição no celular também foi exercitado com dados fictícios.
+
+A publicação conjunta inclui migrations do módulo de pagamentos. Qualquer rollback da API deve obedecer também ao runbook de pagamentos unificados, preservando registros e reconciliação; não basta aplicar a orientação isolada deste incremento.
