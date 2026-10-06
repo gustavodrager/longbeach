@@ -3,6 +3,7 @@ using System;
 using LongBeach.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LongBeach.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(LongBeachDbContext))]
-    partial class LongBeachDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261006195814_BillingProviderOrders")]
+    partial class BillingProviderOrders
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -37,7 +37,7 @@ export function parseAmount(value: string) { return /^\d+(?:[,.]\d{1,2})?$/.test
 export const operationId = () => crypto.randomUUID()
 export const isOpen = (session: CashSession) => session.state === 'Open' || session.state === 'Reopened'
 export const itemLabels: Record<string, string> = { Requested: 'Esperando a equipe confirmar', Accepted: 'A preparar / entregar', Fulfilled: 'Entregue', Rejected: 'Recusado', Reversed: 'Consumo corrigido' }
-export const paymentLabels: Record<string, string> = { Cash: 'Dinheiro', CardManual: 'Cartão', Pix: 'Pix' }
+export const paymentLabels: Record<string, string> = { CreditCard: 'Crédito à vista', Cash: 'Dinheiro', CardManual: 'Cartão', Pix: 'Pix' }
 
 export function useBarData<T>(path: string, enabled = true) {
   const { user } = useAuth()

@@ -16,8 +16,8 @@ it('preserva a turma de origem e competência ao trocar seções e editar a fich
   router.dispose()
 })
 
-it('organiza sete grupos e mantém uma única seção ativa para rotas profundas', () => {
-  expect(managementNavigation.map(x => x.label)).toEqual(['Início','Agenda','Mensalistas','Escola','Financeiro','Bar','Estrutura'])
+it('organiza oito grupos e mantém uma única seção ativa para rotas profundas', () => {
+  expect(managementNavigation.map(x => x.label)).toEqual(['Início','Minhas contas','Agenda','Mensalistas','Escola','Financeiro','Bar','Estrutura'])
   expect(destinationFor('/bar/receitas/produto',managementNavigation)?.destination.label).toBe('Fichas técnicas')
   expect(destinationFor('/escola/matriculas',managementNavigation)?.item.label).toBe('Matrículas')
   expect(destinationFor('/financeiro/historico',managementNavigation)?.destination.label).toBe('Histórico')

@@ -51,3 +51,7 @@ Imagens aceitam referência HTTPS; não foi criado storage paralelo. Upload/varr
 6. Promover os artefatos pelo CI/CD existente somente após aceite; preservar os controles atuais e os dados históricos.
 
 Rollback de aplicação pode desativar o Bar/PagBank sem apagar tabelas. Não remover migrations/tabelas com registros financeiros ou de estoque já confirmados. Restauração de dados exige plano e reconciliação, não apagar razão.
+
+## Contas da Quadra e área do aluno
+
+A operação compartilhada, o cartão integrado, as assinaturas e a associação EDI estão descritos em [Pagamentos unificados](pagamentos-unificados.md). O crédito integrado usa `CreditCard`; `CardManual` continua significando aprovação externa na maquininha. Desabilitar novas cobranças não interrompe consulta, webhook, estorno ou recuperação dos registros já iniciados.

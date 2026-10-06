@@ -204,6 +204,28 @@ public sealed class BarTabsPostgresTests
         using(var retry=await client.PostAsJsonAsync("/api/v1/bar/client/payments",input))Assert.Equal(HttpStatusCode.OK,retry.StatusCode);
         publicTab=await client.GetFromJsonAsync<TabResponse>("/api/v1/bar/client"); Assert.NotNull(publicTab); var linked=Assert.Single(publicTab.Payments); Assert.Equal(intent.Id,linked.Id); Assert.False(linked.CanResume); Assert.Null(linked.ProviderId); Assert.Equal(1,f.Gateway.Created);
     }
+    [PostgresFact]
+    public async Task Student_portal_and_counter_share_one_bar_balance_and_delivery_ledger()
+    {
+        await using var f=await Fixture.Create();var tab=await f.Tabs.Open(new(Guid.NewGuid(),f.Location.Id,"Aluno"),f.Actor,default);tab=await f.Tabs.Add(tab.Id,new(Guid.NewGuid(),[new(f.Product.Id,2)],true),f.Actor,null,default);
+        var user=LongBeach.Domain.Identity.User.Create("Aluno",Guid.NewGuid()+"@example.invalid","test");f.Db.Add(user);await f.Db.SaveChangesAsync();
+        var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{["Payments:Billing:Enabled"]="true"}).Build();
+        LongBeach.Infrastructure.Billing.BillingService Service(LongBeachDbContext db)=>new(db,f.Gateway,new BarTabsService(db,f.Gateway,TimeProvider.System,config),new LongBeach.Infrastructure.Payments.PagBankRecurringGateway(new HttpClient(),config),new LongBeach.Infrastructure.Operations.RentalGroupsService(db,TimeProvider.System),TimeProvider.System,Microsoft.Extensions.Logging.Abstractions.NullLogger<LongBeach.Infrastructure.Billing.BillingService>.Instance,config);
+        var account=await Service(f.Db).Assign(new("Bar",tab.Id,user.Id),f.Actor,default);
+        async Task<bool> Attempt(bool student)
+        {
+            await using var db=new LongBeachDbContext(new DbContextOptionsBuilder<LongBeachDbContext>().UseNpgsql(Environment.GetEnvironmentVariable(ConnectionVariable)).Options,TimeProvider.System);
+            try
+            {
+                if(student)await Service(db).Pay(account.Id,new(Guid.NewGuid(),"Pix","Aluno","aluno@example.invalid","12345678909"),user.Id,true,default);
+                else await new BarTabsService(db,f.Gateway,TimeProvider.System,config).Pay(tab.Id,new(Guid.NewGuid(),"CardManual",20,CardApproved:true),f.Actor,null,default);
+                return true;
+            }
+            catch(BarRuleException){return false;}catch(DbUpdateException){return false;}catch(Npgsql.PostgresException e)when(e.SqlState=="40001"){return false;}catch(InvalidOperationException e)when(e.InnerException is Npgsql.PostgresException{SqlState:"40001"}){return false;}
+        }
+        Assert.Single(await Task.WhenAll(Attempt(true),Attempt(false)),x=>x);f.Db.ChangeTracker.Clear();var result=await Service(f.Db).Account(account.Id,user.Id,default);Assert.Equal(20,result.Paid+result.Pending);Assert.Equal(0,result.Payable);
+        Assert.Equal(18,(await f.Db.Set<StockBalance>().SingleAsync(x=>x.ProductId==f.Product.Id&&x.LocationId==f.Location.Id)).Quantity);Assert.Equal(1,await f.Db.Set<StockMovement>().CountAsync(x=>x.OriginId==tab.Items.Single().Id&&x.Kind=="TabDelivery"));
+    }
     private sealed class Fixture : IAsyncDisposable
     {
         public LongBeachDbContext Db {get;} public Guid Actor {get;}=Guid.NewGuid(); public StockLocation Location {get;}=new("Teste "+Guid.NewGuid()); public BarProduct Product {get;} public CashSession Session {get;} public Gateway Gateway {get;}=new(); public BarTabsService Tabs {get;}

@@ -1,3 +1,5 @@
+const BillingPage = lazy(() => import("./features/billing/BillingPages").then(m => ({ default: m.BillingPage })))
+const SettlementsPage = lazy(() => import("./features/billing/SettlementsPage").then(m => ({ default: m.SettlementsPage })))
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createBrowserRouter, RouterProvider, Navigate, Route, Routes } from 'react-router-dom'
@@ -92,6 +94,7 @@ function Permission({ permission, demoMode = false, children }: { permission: st
 function HomePage({ demoMode }: { demoMode: boolean }) {
   const { user } = useAuth()
   const management = user?.roles.includes('Owner') || Object.values(operationalPermissions).some(item => user?.permissions.includes(item.read)) || ['bar:finance:read', 'bar:catalog:write', 'bar:stock:manage', 'bar:purchases:manage', 'bar:supervise'].some(permission => user?.permissions.includes(permission))
+  if (!demoMode && user?.roles.every(role => role === "Student")) return <Navigate to="/minhas-contas" replace />
   return !demoMode && !management && user?.permissions.includes('bar:sales:operate') ? <Navigate to="/atendimento/vender" replace /> : <DashboardPage />
 }
 function OperationalRoutes() {
@@ -101,6 +104,9 @@ function OperationalRoutes() {
   const application = <Route element={<Suspense fallback={<main className="session-loading" role="status">Abrindo sua área…</main>}><AppShell demoMode={demoMode} /></Suspense>}>
     <Route index element={<HomePage demoMode={demoMode} />} />
     <Route path="conta" element={<AccountPage />} />
+    {!demoMode && <Route path="minhas-contas" element={<BillingPage />} />}
+    {!demoMode && <Route path="recebimentos" element={bar('finance:read', <BillingPage admin />)} />}
+    {!demoMode && <Route path="recebimentos/conciliacao" element={bar('finance:read', <SettlementsPage />)} />}
     <Route path="financeiro/historico" element={<FinancialHistoryPage />} />
     <Route path="alunos" element={arena('students', <StudentsPage />)} />
     <Route path="alunos/:studentId" element={arena('students', <StudentDetailsPage />)} />

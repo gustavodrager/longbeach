@@ -5,6 +5,7 @@ export type Destination = { label: string; href: string; kind?: OperationalKind;
 export type NavigationGroup = Destination & { icon: IconName; children?: Destination[] }
 export const managementNavigation: NavigationGroup[] = [
   { label: 'Início', icon: 'home', href: '/' },
+  { label: 'Minhas contas', icon: 'wallet', href: '/minhas-contas', permission: 'session' },
   { label: 'Agenda', icon: 'calendar', href: '/agenda', kind: 'reservations', children: [
     { label: 'Agenda', href: '/agenda', kind: 'reservations' }, { label: 'Quadra e horários', href: '/quadras', kind: 'courts' },
   ] },
@@ -14,7 +15,7 @@ export const managementNavigation: NavigationGroup[] = [
     { label: 'Matrículas', href: '/escola/matriculas', kind: 'enrollments' }, { label: 'Presenças', href: '/escola/presencas', kind: 'presences' },
   ] },
   { label: 'Financeiro', icon: 'wallet', href: '/financeiro', children: [
-    { label: 'Lançamentos', href: '/financeiro', kind: 'financeEntries' }, { label: 'Histórico', href: '/financeiro/historico', owner: true },
+    { label: 'Recebimentos', href: '/recebimentos', permission: 'finance:read' }, { label: 'Lançamentos', href: '/financeiro', kind: 'financeEntries' }, { label: 'Histórico', href: '/financeiro/historico', owner: true },
   ] },
   { label: 'Bar', icon: 'bar', href: '/bar/indicadores', children: [
     { label: 'Resumo', href: '/bar/indicadores', permission: 'bar:finance:read' },

@@ -65,6 +65,7 @@ public static class OperationalEndpoints
                 CanFinance(http, false, publicDemo, kind), CanFinance(http, true, publicDemo, kind));
             if (!prepared.Allowed) return Results.Forbid();
             var incoming = prepared.Body;
+            if (kind == "financeEntries") await LongBeach.Infrastructure.Billing.BillingWriteGuard.Check(db, id, incoming, record?.Payload, ct);
             if (kind == "reservations")
             {
                 var metadataError = RecurringReservationBatch.ValidateMetadata(incoming, record?.Payload) ?? RentalGroupRules.ReservationMetadata(incoming, record?.Payload);

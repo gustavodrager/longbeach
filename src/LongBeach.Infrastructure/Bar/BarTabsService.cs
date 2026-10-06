@@ -110,9 +110,9 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     public async Task<TabPaymentResponse> Pay(Guid id, TabPaymentInput input, Guid? actor, string? accessToken, CancellationToken ct)
     {
         var scope = await Scope(id, actor, accessToken, ct);
-        var fingerprint = input.Method == "Pix" ? Hash(new { action = "payPix", id, input.OperationId, input.Method, input.Amount, scope }) : Hash(new { action = "pay", id, input, scope });
-        if (actor is null && input.Method != "Pix") throw new BarRuleException("O acesso do cliente permite apenas Pix.");
-        if (input.Method == "Pix") { var result = await PayPix(id, input, actor, accessToken, fingerprint, ct); return actor is null ? ClientPayment(result) : result; }
+        var fingerprint = input.Method is "Pix" or "CreditCard" ? Hash(new { action = "payPix", id, input.OperationId, input.Method, input.Amount, scope }) : Hash(new { action = "pay", id, input, scope });
+        if (actor is null && input.Method is not ("Pix" or "CreditCard")) throw new BarRuleException("O cliente pode pagar por Pix ou cartão online.");
+        if (input.Method is "Pix" or "CreditCard") { var result = await PayPix(id, input, actor, accessToken, fingerprint, ct); return actor is null ? ClientPayment(result) : result; }
         return await Run(input.OperationId, fingerprint, async () =>
         {
             var tab = await Lock(id, ct); tab.EnsureOpen(); await CheckAmount(id, input.Amount, ct);
@@ -134,7 +134,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     }
     private async Task<TabPaymentResponse> PayPix(Guid id, TabPaymentInput input, Guid? actor, string? accessToken, string fingerprint, CancellationToken ct)
     {
-        if (!gateway.Enabled) throw new BarRuleException("Pix ainda não está habilitado neste ambiente. Escolha outro meio ou configure o provedor.");
+        if (!(input.Method == "CreditCard" ? gateway.CardEnabled : gateway.Enabled)) throw new BarRuleException("Pix ainda não está habilitado neste ambiente. Escolha outro meio ou configure o provedor.");
         var name = BarRules.Text(input.Name, 160, "Nome do pagador"); var email = BarRules.Text(input.Email, 320, "E-mail do pagador");
         var taxId = new string((input.TaxId ?? "").Where(char.IsDigit).ToArray());
         if (!System.Text.RegularExpressions.Regex.IsMatch(email, "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$") || taxId.Length is not (11 or 14)) throw new BarRuleException("Confira o e-mail e o CPF ou CNPJ do pagador.");
@@ -148,7 +148,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             if (payment is null)
             {
                 tab.EnsureOpen(); await CheckAmount(id, input.Amount, ct);
-                payment = new BarTabPayment(id, input.OperationId, fingerprint, input.Amount, "Pix", actor, null, null, null); payment.SetExpiry(time.GetUtcNow().AddMinutes(10)); db.Add(payment);
+                payment = new BarTabPayment(id, input.OperationId, fingerprint, input.Amount, input.Method, actor, null, null, null); payment.SetExpiry(time.GetUtcNow().AddMinutes(10)); db.Add(payment);
                 db.Add(new BarTabHistory(id, "PaymentPending", actor, payment.Amount, paymentId: payment.Id)); tab.Touch(); await db.SaveChangesAsync(ct);
             }
             else if (payment.Fingerprint != fingerprint || payment.TabId != id) throw new BarRuleException("Chave reutilizada para outro pagamento.");
@@ -158,7 +158,8 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         // provider idempotency key instead of allowing a second allocation.
         if (payment.ProviderId is null)
         {
-            var remote = await ProviderCall(payment, payment.OperationId, () => gateway.CreatePix(payment.Id, payment.OperationId, payment.Amount, payment.ExpiresAtUtc!.Value, new PixCustomer(name, email, taxId), ct), ct);
+            if(time.GetUtcNow()-payment.CreatedAtUtc>=TimeSpan.FromHours(24))throw new BarPaymentConfirmationPendingException(payment.Id,payment.OperationId,"Cobrança antiga sem confirmação. Concilie no provedor antes de retomar.");
+            var remote = await ProviderCall(payment, payment.OperationId, () => input.Method == "CreditCard" ? gateway.CreateCard(payment.Id, payment.OperationId, payment.Amount, new PixCustomer(name, email, taxId), input.EncryptedCard ?? "", ct) : gateway.CreatePix(payment.Id, payment.OperationId, payment.Amount, payment.ExpiresAtUtc!.Value, new PixCustomer(name, email, taxId), ct), ct);
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             await Lock(id, ct); await db.Entry(payment).ReloadAsync(ct);
             if (payment.ProviderId is null) { payment.Provider(remote.OrderId, remote.PixText, remote.QrImageUrl); await db.SaveChangesAsync(ct); }
@@ -180,7 +181,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     public async Task<TabPaymentResponse> RefreshProviderPayment(Guid paymentId, CancellationToken ct)
     {
         var payment = await db.Set<BarTabPayment>().SingleOrDefaultAsync(x => x.Id == paymentId, ct) ?? throw new BarRuleException("Pagamento não encontrado.");
-        if (payment.Method != "Pix" || payment.State != "Pending") return await PublicPayment(payment, ct);
+        if (payment.Method is not ("Pix" or "CreditCard") || payment.State != "Pending") return await PublicPayment(payment, ct);
         if (payment.ProviderId is null) throw new BarPaymentConfirmationPendingException(payment.Id, payment.OperationId, "A criação do Pix ainda precisa ser repetida com a mesma chave de operação. Não receba novamente esse valor.");
         var remote = await ProviderCall(payment, payment.OperationId, () => gateway.Get(payment.ProviderId, ct), ct);
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
@@ -217,7 +218,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
                     if (await db.Set<BarTabRefund>().AnyAsync(x => x.PaymentId == paymentId && x.State == "Pending", ct)) throw new BarRuleException("Há um estorno em confirmação. Consulte essa operação antes de iniciar outro.");
                     refund = new BarTabRefund(id, paymentId, input.OperationId, fingerprint, input.Amount, input.Reason, actor); db.Add(refund);
                 }
-                if (payment.Method != "Pix")
+                if (payment.Method is not ("Pix" or "CreditCard"))
                 {
                     if (payment.Method == "Cash")
                     {
@@ -228,7 +229,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
                     await CompleteRefund(tab, payment, refund, ct);
                 }
                 await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
-                if (payment.Method != "Pix") return await PublicPayment(payment, ct);
+                if (payment.Method is not ("Pix" or "CreditCard")) return await PublicPayment(payment, ct);
             }
             catch { db.ChangeTracker.Clear(); throw; }
         }
@@ -306,13 +307,13 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     }, ct);
     public async Task<bool> Webhook(byte[] body, IEnumerable<string> signatures, CancellationToken ct)
     {
-        if (!gateway.VerifyWebhook(body, signatures)) return false;
+        if (!await gateway.VerifyWebhookAsync(body, signatures,ct)) return false;
         var hash = Convert.ToHexString(SHA256.HashData(body)); if (await db.Set<PaymentWebhookInbox>().AnyAsync(x => x.PayloadHash == hash, ct)) return true;
         using var document = JsonDocument.Parse(body); var order = document.RootElement.GetProperty("id").GetString();
         var payment = await db.Set<BarTabPayment>().SingleOrDefaultAsync(x => x.ProviderId == order, ct);
         if (payment is null && document.RootElement.TryGetProperty("reference_id", out var reference) && Guid.TryParse(reference.GetString(), out var referenceId))
         {
-            payment = await db.Set<BarTabPayment>().SingleOrDefaultAsync(x => x.Id == referenceId && x.Method == "Pix" && x.ProviderId == null, ct);
+            payment = await db.Set<BarTabPayment>().SingleOrDefaultAsync(x => x.Id == referenceId && (x.Method == "Pix" || x.Method == "CreditCard") && x.ProviderId == null, ct);
             if (payment is not null)
             {
                 var remote = await ProviderCall(payment, payment.OperationId, () => gateway.Get(order!, ct), ct);

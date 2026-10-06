@@ -57,7 +57,7 @@ public static class BarEndpoints
         bar.MapPost("/purchases/{id:guid}/payment-reference", (Guid id,PurchasePaymentReferenceInput i,IBarPurchases s,CancellationToken ct)=>s.CorrectPaymentReference(id,i,ct)).RequireAuthorization(SystemPermissions.BarPurchasesManage);
         bar.MapPost("/purchases/{id:guid}/cancel",(Guid id,ApprovalInput i,HttpContext h,IBarPurchases s,CancellationToken ct)=>s.Cancel(id,i.Reason,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarPurchasesManage);
         bar.MapPost("/purchases/{id:guid}/receive", (Guid id,ReceiptInput i,HttpContext h,IBarPurchases s,CancellationToken ct)=>s.Receive(id,i,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarPurchasesManage);
-        bar.MapGet("/payments/config", (IBarPayments s)=> new {pixEnabled=s.PixEnabled}).RequireAuthorization(SystemPermissions.BarSalesOperate);
+        bar.MapGet("/payments/config", async (IPaymentGateway s,CancellationToken ct)=> new {pixEnabled=s.Enabled,cardEnabled=s.CardEnabled,cardPublicKey=await s.CardPublicKey(ct)}).RequireAuthorization(SystemPermissions.BarSalesOperate);
         bar.MapPost("/sales/{id:guid}/payments/pix", (Guid id,PixInput i,HttpContext h,IBarPayments s,CancellationToken ct)=>s.Pix(id,i,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
         bar.MapGet("/sales/{id:guid}/payments",(Guid id,HttpContext h,IBarPayments s,CancellationToken ct)=>s.OwnPayment(id,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarSalesRead);
         bar.MapPost("/sales/{id:guid}/payments/pix/refresh",(Guid id,HttpContext h,IBarPayments s,CancellationToken ct)=>s.OperatorRefresh(id,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
@@ -65,12 +65,12 @@ public static class BarEndpoints
         bar.MapPost("/payments/{id:guid}/refresh", (Guid id,IBarPayments s,CancellationToken ct)=>s.Refresh(id,ct)).RequireAuthorization(SystemPermissions.BarReconcile);
         bar.MapPost("/payments/{id:guid}/reconcile", (Guid id,ReconcileInput i,HttpContext h,IBarPayments s,CancellationToken ct)=>s.Reconcile(id,i,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarReconcile);
         bar.MapGet("/dashboard", (DateTimeOffset? fromUtc,DateTimeOffset? toUtc,IBarPayments s,CancellationToken ct)=>s.Dashboard(fromUtc,toUtc,ct)).RequireAuthorization(SystemPermissions.BarFinanceRead);
-        endpoints.MapPost("/api/v1/integrations/pagbank/webhook", async (HttpContext h,IBarPayments s,CancellationToken ct)=>
+        endpoints.MapPost("/api/v1/integrations/pagbank/webhook", async (HttpContext h,IBarPayments s,LongBeach.Application.Billing.IBilling billing,CancellationToken ct)=>
         {
             if(h.Request.ContentLength > 65536) return Results.StatusCode(413);
             using var body = new MemoryStream(); var buffer = new byte[4096]; int read;
             while((read=await h.Request.Body.ReadAsync(buffer,ct))>0) { if(body.Length+read>65536) return Results.StatusCode(413); await body.WriteAsync(buffer.AsMemory(0,read),ct); }
-            return await s.Webhook(body.ToArray(),h.Request.Headers["x-payload-signature"].Select(x=>x??""),ct) ? Results.Ok() : Results.Unauthorized();
+            return (await billing.Webhook(body.ToArray(),h.Request.Headers["x-payload-signature"].Select(x=>x??""),ct) || await s.Webhook(body.ToArray(),h.Request.Headers["x-payload-signature"].Select(x=>x??""),ct)) ? Results.Ok() : Results.Unauthorized();
         }).AllowAnonymous().RequireRateLimiting("public-demo-write");
         return endpoints;
     }

@@ -3,6 +3,7 @@ using System;
 using LongBeach.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LongBeach.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(LongBeachDbContext))]
-    partial class LongBeachDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261006194848_UnifiedBilling")]
+    partial class UnifiedBilling
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1026,52 +1029,6 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("billing_payments", (string)null);
-                });
-
-            modelBuilder.Entity("LongBeach.Domain.Billing.BillingProviderOrder", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("numeric(12,2)");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Kind")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("PaymentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ProviderId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Reference")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PaymentId")
-                        .IsUnique();
-
-                    b.HasIndex("ProviderId")
-                        .IsUnique();
-
-                    b.ToTable("billing_orders", (string)null);
                 });
 
             modelBuilder.Entity("LongBeach.Domain.Billing.BillingRefund", b =>
@@ -2492,15 +2449,6 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.HasOne("LongBeach.Domain.Billing.BillingAccount", null)
                         .WithMany()
                         .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("LongBeach.Domain.Billing.BillingProviderOrder", b =>
-                {
-                    b.HasOne("LongBeach.Domain.Billing.BillingPayment", null)
-                        .WithMany()
-                        .HasForeignKey("PaymentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
