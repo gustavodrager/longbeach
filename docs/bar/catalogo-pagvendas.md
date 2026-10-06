@@ -22,6 +22,10 @@ Não foi localizada API pública documentada de escrita administrativa de produt
 
 A exportação XLSX observada não contém fotos nem URLs. Não foi localizado endpoint público documentado de consulta das fotos do catálogo PagVendas. A integração de Facebook e Instagram disponibiliza um feed em Loja Online > Configurações > Integrações; a presença e cobertura das imagens da Long Beach nesse feed ainda precisam ser verificadas na conta. O campo `items.image_url` da API de Checkout recebe uma URL fornecida pelo vendedor e não consulta fotos do PagVendas. Este importador mantém as fotos existentes e não inventa imagens para produtos sem foto.
 
+Em 05/10/2026, a lista autenticada com os 100 produtos revelou 78 fotos e 22 produtos sem foto. As imagens usam o CDN `https://cdn.pagvendas.pagseguro.uol.com.br/images/product/<uuid>?lastUpdate=<timestamp>`. Foram baixados os 78 arquivos observados, sem falhas, e guardados localmente com código PV, SHA-256 e mapeamento de origem, fora do Git. Isso identifica recursos de imagem usados pelo painel; não confirma uma API administrativa pública nem permite descobrir os UUIDs apenas pelo código do produto.
+
+As 78 URLs foram associadas aos produtos correspondentes pelo painel Owner do Long Beach OS, sem substituir fotos anteriores. Após recarregar, o atendimento apresentou 100 produtos, 78 com URLs iguais às originais e 22 sem imagem, sem divergências; a tabela de nomes, preços, custos e situação permaneceu igual. As fotos atualmente dependem do CDN PagVendas. As cópias locais permitem uma futura migração para storage próprio com atualização das URLs, que ainda não foi realizada.
+
 ## Verificar a conexão
 
 Configurar as variáveis `Payments__PagBank__BaseUrl`, `Payments__PagBank__Token`, `Payments__PagBank__WebhookPublicKey`, `Payments__PagBank__WebhookUrl` e `Payments__PagBank__Enabled` na plataforma de secrets do ambiente. Nunca enviar tokens ao frontend. A API .NET recebe essas variáveis pelo ambiente; não carrega arquivos `.env` automaticamente.
