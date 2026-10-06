@@ -24,7 +24,7 @@ export function FinancialBalanceOverview() {
       <Link className={`arena-metric ${bank?.amountCents == null ? 'arena-metric-unavailable' : ''}`} to={bankHref}>
         <span className="arena-metric-label">Saldo da conta PagBank</span><strong>{value(bank?.amountCents)}</strong>
         <small>{bank?.date ? `Saldo informado em ${bank.date.split('-').reverse().join('/')}` : 'Data do saldo a confirmar'}</small>
-        {bank?.sourceName && <small>Fonte: planilha · {bank.sourceCell}</small>}
+        {bank?.sourceName && <small>Fonte: {bank.sourceName.toLowerCase().includes('.pdf') ? 'extrato PDF' : 'planilha'} · {bank.sourceCell}</small>}
         {bank?.issue && <small>{bank.issue}</small>}
         <span className="arena-link-label">Conferir saldo e origem →</span>
       </Link>
@@ -37,6 +37,6 @@ export function FinancialBalanceOverview() {
         <span className="arena-link-label">Conferir receitas e despesas →</span>
       </Link>
     </div>
-    {general?.incomeCents != null && general.expenseCents != null && <details className="arena-hint"><summary>Como o saldo geral é calculado</summary><p>Receitas da arena e vendas brutas do bar: {centsMoney(general.incomeCents)}. Despesas líquidas do consolidado: {centsMoney(general.expenseCents)}. Resultado: {centsMoney(general.amountCents!)}.</p><p>{general.records} registros do mesmo mês. As parcelas do controle separado de dívidas ficam disponíveis no histórico.</p></details>}
+    {general?.incomeCents != null && general.expenseCents != null && <details className="arena-hint"><summary>Como o saldo geral é calculado</summary><p>Receitas informadas no consolidado: {centsMoney(general.incomeCents)}. Despesas líquidas do consolidado: {centsMoney(general.expenseCents)}. Resultado: {centsMoney(general.amountCents!)}.</p><p>{general.records} registros do mesmo mês. Movimentos bancários, despesas externas e demais controles ficam disponíveis no histórico, sem serem somados novamente ao consolidado.</p></details>}
   </section>
 }

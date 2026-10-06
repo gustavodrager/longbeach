@@ -11,7 +11,7 @@ type Report = { month: string; months: string[]; totals: Total[]; items: { id: s
 type Integration = { provider: string; state: string; detail: string; lastSuccessUtc: string | null; failureCode: string | null; completeThrough: string | null }
 export type HistoryPreview = { batchId: string; sourceName: string; applied: boolean; confirmationToken: string; creates: number; matches: number; totals: Total[] }
 export const seriesLabels: Record<string, string> = { consolidado: 'Resumo mensal da arena', 'consolidado-com-dividas': 'Resumo mensal com parcelas de dívidas', 'compras-detalhadas': 'Compras detalhadas', 'servicos-detalhados': 'Pagamentos de serviços', saldos: 'Saldos e compromissos em uma data', alunos: 'Controle de alunos', mensalistas: 'Controle de mensalistas', aulas: 'Controle de aulas', 'pagvendas-vendas': 'Vendas registradas no PagVendas', 'pagbank-conta': 'Extrato bancário PagBank', 'despesas-fora-pagbank': 'Despesas pagas fora do PagBank' }
-const metrics: Record<string, string> = { 'vendas-bar-bruto': 'Vendas brutas do bar', despesas: 'Despesas informadas', 'receitas-arena': 'Outras receitas da arena', 'valor-informado': 'Valor no controle', 'valor-escalonavel': 'Valor escalonável das aulas', 'vendas-informadas': 'Vendas informadas no PagVendas' }
+const metrics: Record<string, string> = { 'vendas-bar-bruto': 'Vendas brutas do bar', 'receitas-consolidadas': 'Receitas do consolidado', despesas: 'Despesas informadas', 'receitas-arena': 'Outras receitas da arena', 'valor-informado': 'Valor no controle', 'valor-escalonavel': 'Valor escalonável das aulas', 'vendas-informadas': 'Vendas informadas no PagVendas' }
 export const centsMoney = (value: number) => (value / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const monthLabel = (value: string) => new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(value + '-01T12:00:00Z'))
 function useHistory(params: URLSearchParams) {
@@ -53,7 +53,7 @@ export function BankStatementOverview() {
       <span className="arena-metric-label">{card.label}</span><strong>{centsMoney(Math.abs(card.rows.reduce((sum, row) => sum + row.amountCents, 0)))}</strong>
       <small>{monthLabel(bank.data!.month)} · {card.rows.reduce((sum, row) => sum + row.records, 0)} registros</small><span className="arena-link-label">Conferir movimentos e origem →</span>
     </Link>)}</div>
-    <p className="arena-hint">As entradas e saídas são movimentos da conta. As despesas externas foram pagas por outro meio. Este extrato não informa o saldo final da conta nem substitui o consolidado completo da arena.</p>
+    <p className="arena-hint">As entradas e saídas são movimentos da conta. As despesas externas foram pagas por outro meio. Estes detalhes podem estar incluídos no consolidado mensal; não devem ser somados a ele novamente. O saldo da conta é apresentado separadamente, com sua data e origem.</p>
   </section>
 }
 

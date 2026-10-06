@@ -3,7 +3,8 @@ namespace LongBeach.Application.Finance;
 
 public static class DashboardBalanceRules
 {
-    private static readonly string[] Metrics = ["despesas", "receitas-arena", "vendas-bar-bruto"];
+    private static readonly string[] DetailedMetrics = ["despesas", "receitas-arena", "vendas-bar-bruto"];
+    private static readonly string[] SummaryMetrics = ["despesas", "receitas-consolidadas"];
     public static DashboardBalances Summarize(IEnumerable<HistoryItem> items, DateOnly today)
     {
         var rows = items.ToArray();
@@ -19,8 +20,13 @@ public static class DashboardBalanceRules
         var monthly = rows.Where(x => x.Data.Series == "consolidado" && x.Data.Grain == "month" && x.Data.PeriodStart <= today).ToArray();
         var month = monthly.Select(x => (DateOnly?)x.Data.PeriodStart).Max();
         var current = monthly.Where(x => x.Data.PeriodStart == month).ToArray();
+        // A source may provide either a revenue breakdown or one reconciled revenue total.
+        // Never combine the total with its components or invent zero-valued components.
+        var summarized = current.Any(x => x.Data.Metric == "receitas-consolidadas");
+        var expectedMetrics = summarized ? SummaryMetrics : DetailedMetrics;
         string? issue = current.Length == 0 ? "Aguardando receitas e despesas do consolidado mensal." :
-            !Metrics.All(metric => current.Any(x => x.Data.Metric == metric)) || current.Any(x => !Metrics.Contains(x.Data.Metric)) ? "O consolidado deste mês precisa de conferência antes de calcular o saldo." :
+            !expectedMetrics.All(metric => current.Any(x => x.Data.Metric == metric)) || current.Any(x => !expectedMetrics.Contains(x.Data.Metric)) ||
+            summarized && current.Count(x => x.Data.Metric == "receitas-consolidadas") != 1 ? "O consolidado deste mês precisa de conferência antes de calcular o saldo." :
             current.GroupBy(x => x.Data.SourceCell).Any(g => g.Count() > 1) || current.Select(x => x.SourceSha256).Distinct().Count() != 1 ? "Há fontes sobrepostas neste mês. Confira a conciliação." : null;
         var income = current.Where(x => x.Data.Metric != "despesas").Sum(x => x.Data.AmountCents);
         var expenses = -current.Where(x => x.Data.Metric == "despesas").Sum(x => x.Data.AmountCents);

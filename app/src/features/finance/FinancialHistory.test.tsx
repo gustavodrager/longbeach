@@ -15,7 +15,7 @@ it('separa movimentação bancária de despesas pagas por outro meio no mesmo m�
   expect(await screen.findByText('R$ 500,00')).toBeInTheDocument()
   expect(await screen.findByText('R$ 70,00')).toBeInTheDocument()
   expect(screen.getByText('R$ 100,00')).toBeInTheDocument()
-  expect(screen.getByText(/não informa o saldo final da conta/)).toBeInTheDocument()
+  expect(screen.getByText(/não devem ser somados a ele novamente/)).toBeInTheDocument()
 })
 it('dashboard abre o mês da fonte e identifica o valor informado', async () => {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async input => new Response(JSON.stringify(String(input).includes('pagvendas-vendas') ? { ...report, totals: [], items: [] } : report), { headers: { 'Content-Type': 'application/json' } }))
@@ -29,6 +29,14 @@ it('atendente não consulta o histórico financeiro nem as APIs', () => {
   wrap(<FinancialHistoryPage />)
   expect(screen.getByRole('alert')).toHaveTextContent('apenas para os proprietários')
   expect(fetch).not.toHaveBeenCalled()
+})
+it('apresenta a receita consolidada sem chamá-la de vendas brutas', async () => {
+  const summary = { ...report, month: '2026-09', totals: [{ ...report.totals[0], metric: 'receitas-consolidadas', period: '2026-09', amountCents: 90000 }] }
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async input => new Response(JSON.stringify(String(input).includes('pagvendas-vendas') ? { ...summary, totals: [] } : summary)))
+  wrap(<FinancialHistoryOverview />)
+  expect(await screen.findByText('R$ 900,00')).toBeInTheDocument()
+  expect(screen.getByText('Receitas do consolidado').closest('a')).toHaveAttribute('href', '/financeiro/historico?month=2026-09&series=consolidado&metric=receitas-consolidadas')
+  expect(screen.queryByText('Vendas brutas do bar')).not.toBeInTheDocument()
 })
 it('despesa no início aparece positiva, preservando o valor assinado da fonte', async () => {
   const expense = { ...report, totals: [{ ...report.totals[0], metric: 'despesas', amountCents: -12345 }] }

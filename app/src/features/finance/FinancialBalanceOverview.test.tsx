@@ -25,3 +25,11 @@ it('ausência de fonte permanece indisponível e equipe não consulta saldos', a
   view.unmount(); fetch.mockClear(); auth.roles = ['Operations']; wrap()
   expect(fetch).not.toHaveBeenCalled()
 })
+it('identifica a origem PDF e explica receitas conforme o consolidado', async () => {
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ ...response, pagBank: { ...response.pagBank, sourceName: 'extrato.pdf-saldos-v1.json' }, general: { ...response.general, month: '2026-09', records: 2 } })))
+  wrap()
+  expect(await screen.findByText(/Fonte: extrato PDF/)).toBeInTheDocument()
+  expect(screen.getByText('Resultado de setembro de 2026')).toBeInTheDocument()
+  expect(screen.getByText(/Receitas informadas no consolidado:/)).toHaveTextContent('R$ 500,00')
+  expect(screen.queryByText(/Receitas da arena e vendas brutas/)).not.toBeInTheDocument()
+})

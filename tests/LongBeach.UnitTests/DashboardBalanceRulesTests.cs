@@ -21,6 +21,25 @@ public sealed class DashboardBalanceRulesTests
         var result = DashboardBalanceRules.Summarize([Row("consolidado", "receitas-arena", 100), Row("consolidado", "vendas-bar-bruto", 200), Row("consolidado", "despesas", -600), Row("consolidado", "despesas", 50)], new(2026,10,6));
         Assert.Equal(-250, result.General.AmountCents); Assert.Equal(550, result.General.ExpenseCents);
     }
+    [Fact] public void Reconciled_summary_uses_its_total_without_readding_bank_or_external_details()
+    {
+        var result = DashboardBalanceRules.Summarize([
+            Row("consolidado", "receitas-arena", 1000), Row("consolidado", "vendas-bar-bruto", 2000), Row("consolidado", "despesas", -500),
+            Row("consolidado", "receitas-consolidadas", 90000, 9), Row("consolidado", "despesas", -100000, 9),
+            Row("pagbank-conta", "entradas-extrato", 90000, 9, "day"), Row("despesas-fora-pagbank", "despesas", -20000, 9)], new(2026,10,6));
+        Assert.Equal("2026-09", result.General.Month); Assert.Equal(-10000, result.General.AmountCents);
+        Assert.Equal(90000, result.General.IncomeCents); Assert.Equal(100000, result.General.ExpenseCents); Assert.Equal(2, result.General.Records);
+    }
+    [Theory]
+    [InlineData("receitas-arena", "source")]
+    [InlineData("vendas-bar-bruto", "source")]
+    [InlineData("receitas-consolidadas", "source")]
+    [InlineData("despesas", "another-source")]
+    public void Rejects_total_with_components_repeated_total_or_mixed_sources(string extraMetric, string hash)
+    {
+        var result = DashboardBalanceRules.Summarize([Row("consolidado", "receitas-consolidadas", 100), Row("consolidado", "despesas", -50), Row("consolidado", extraMetric, 10, hash: hash)], new(2026,10,6));
+        Assert.Null(result.General.AmountCents); Assert.NotNull(result.General.Issue);
+    }
     [Fact] public void Missing_or_ambiguous_data_is_unavailable_instead_of_zero_or_sum()
     {
         var empty = DashboardBalanceRules.Summarize([], new(2026,10,6)); Assert.Null(empty.PagBank.AmountCents); Assert.Null(empty.General.AmountCents);

@@ -6,6 +6,31 @@ import openpyxl
 spec=importlib.util.spec_from_file_location('history',Path(__file__).with_name('preparar-historico-financeiro.py'))
 history=importlib.util.module_from_spec(spec);spec.loader.exec_module(history)
 class FinancialConverterTests(unittest.TestCase):
+    def test_explicit_summary_reconciles_totals_without_reimporting_movements(self):
+        import datetime
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'teste.xlsx';wb=openpyxl.Workbook();s=wb.active;s.title='Planilha1'
+            s.append(['CODIGO DA TRANSACAO','DATA','TIPO','DESCRICAO','VALOR','Dia da Semana','Comissão?','Tipo_01','Tipo_02','Tipo_03'])
+            s.append(['id-1',datetime.datetime(2026,9,1),'Vendas','Crédito',900,'Terça','Não','Receita','Bar','Bar'])
+            s.append(['externa',datetime.datetime(2026,9,30),'Compra','Fornecedor',-800,'Quarta','Não','Despesa','Compras','Compras'])
+            s.append(['externa',datetime.datetime(2026,9,30),'Compra','Outro',-200,'Quarta','Não','Despesa','Compras','Compras'])
+            summary=wb.create_sheet('Planilha2')
+            for row,label,value in [(31,'Despesa',-1000),(48,'Receita',900),(51,'Total Geral',-100)]:summary.cell(row,3,label);summary.cell(row,4,value)
+            wb.save(path);result=history.prepare_statement_summary(path)
+            self.assertEqual(len(result['records']),2)
+            self.assertEqual({r['data']['series'] for r in result['records']},{'consolidado'})
+            self.assertEqual(sum(r['data']['amountCents'] for r in result['records']),-10000)
+            self.assertEqual(result['records'][0]['data']['metric'],'receitas-consolidadas')
+            self.assertEqual(result['records'][0]['data']['sourceCell'],'Planilha2!D48')
+            self.assertEqual(result['records'][0]['data']['periodEnd'],'2026-09-30')
+            # Repeated external identifiers cannot become bank transactions through this mode.
+            with self.assertRaises(ValueError):history.prepare(path)
+            summary['D31']=-999;wb.save(path)
+            with self.assertRaises(ValueError):history.prepare_statement_summary(path)
+            summary['D31']=-1000;summary['D51']=None;wb.save(path)
+            with self.assertRaises(ValueError):history.prepare_statement_summary(path)
+            summary['D51']=-100;s['B4']=datetime.datetime(2026,10,1);wb.save(path)
+            with self.assertRaises(ValueError):history.prepare_statement_summary(path)
     def test_bank_transactions_keep_dates_and_signs_exclude_pivot_and_reject_duplicates(self):
         import datetime
         with tempfile.TemporaryDirectory() as directory:
