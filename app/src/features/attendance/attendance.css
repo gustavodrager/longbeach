@@ -130,3 +130,6 @@
   :is(.lb-attendance,.ux-client) .ux-summary .ux-total { background:#fff; }
   :is(.lb-attendance,.ux-client) .ux-summary .ux-total :is(dt,dd) { color:#171717; }
 }
+
+/* Customer balance remains legible when a QR opens directly, without the portal shell. */
+.ux-client .client-balance{padding:12px 0;max-width:100%}.ux-client .client-balance>strong{font-size:2rem}.ux-client .client-balance p{line-height:1.5}.ux-client .client-balance summary{cursor:pointer;min-height:44px;padding-top:12px}.pix-copy textarea{width:100%;box-sizing:border-box}.pix-copy>button{min-height:48px}@media print{.ux-client .ux-tabs,.ux-client button,.ux-client aside,.ux-client .pix-copy{display:none!important}.ux-client .ux-panel{break-inside:avoid}}

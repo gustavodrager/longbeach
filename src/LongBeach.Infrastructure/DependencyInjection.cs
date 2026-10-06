@@ -40,11 +40,16 @@ public static class DependencyInjection
                     npgsql.MigrationsAssembly(typeof(LongBeachDbContext).Assembly.GetName().Name!))
                 .AddInterceptors(serviceProvider.GetRequiredService<AuditSaveChangesInterceptor>()));
 
+        services.AddScoped<LongBeach.Application.Portal.IClientPortal, LongBeach.Infrastructure.Portal.ClientPortalService>();
+        services.AddScoped<LongBeach.Application.Billing.IBilling, LongBeach.Infrastructure.Billing.BillingService>();
+        services.AddHostedService<LongBeach.Infrastructure.Billing.BillingWorker>();
+        services.AddHttpClient<LongBeach.Application.Billing.IRecurringGateway, LongBeach.Infrastructure.Payments.PagBankRecurringGateway>(client => client.Timeout = TimeSpan.FromSeconds(20)).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddHostedService<LongBeach.Infrastructure.Payments.PagBankReconciliationWorker>();
         services.AddScoped<LongBeach.Application.Finance.IFinancialHistory, LongBeach.Infrastructure.Finance.FinancialHistoryService>();
         services.AddHttpClient("PagBankEdi", client => client.Timeout = TimeSpan.FromSeconds(45))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddHostedService<LongBeach.Infrastructure.Finance.PagBankEdiWorker>();
+        services.AddSingleton<LongBeach.Infrastructure.Payments.PagBankWebhookKeys>();
         services.AddHttpClient<LongBeach.Application.Bar.IPaymentGateway, LongBeach.Infrastructure.Payments.PagBankPaymentGateway>(client => client.Timeout = TimeSpan.FromSeconds(20))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddScoped<LongBeach.Application.Bar.IBarPayments, LongBeach.Infrastructure.Bar.BarPaymentsService>();

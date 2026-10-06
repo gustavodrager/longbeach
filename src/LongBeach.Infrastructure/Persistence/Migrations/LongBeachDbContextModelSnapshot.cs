@@ -912,6 +912,342 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.ToTable("bar_tab_refunds", (string)null);
                 });
 
+            modelBuilder.Entity("LongBeach.Domain.Billing.BillingAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssignedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("Kind", "SourceId")
+                        .IsUnique();
+
+                    b.ToTable("billing_accounts", (string)null);
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Billing.BillingPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<string>("ChargeId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("PaidAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PixText")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProviderId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("QrImageUrl")
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("Refunded")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId")
+                        .IsUnique()
+                        .HasFilter("\"State\" = 'Pending'");
+
+                    b.HasIndex("ChargeId")
+                        .IsUnique();
+
+                    b.HasIndex("OperationId")
+                        .IsUnique();
+
+                    b.HasIndex("ProviderId")
+                        .IsUnique();
+
+                    b.ToTable("billing_payments", (string)null);
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Billing.BillingProviderOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("PaymentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProviderId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentId")
+                        .IsUnique();
+
+                    b.HasIndex("ProviderId")
+                        .IsUnique();
+
+                    b.ToTable("billing_orders", (string)null);
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Billing.BillingRefund", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PaymentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Previous")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperationId")
+                        .IsUnique();
+
+                    b.HasIndex("PaymentId")
+                        .IsUnique()
+                        .HasFilter("\"State\" = 'Pending'");
+
+                    b.ToTable("billing_refunds", (string)null);
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Billing.BillingSettlement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("Fee")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<decimal>("Gross")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<decimal>("Net")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<Guid>("PaymentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("ExternalId")
+                        .IsUnique();
+
+                    b.HasIndex("PaymentId")
+                        .IsUnique();
+
+                    b.ToTable("billing_settlements", (string)null);
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Billing.BillingSubscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<Guid?>("CancelOperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ConsentAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("FirstDue")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PlanId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProviderId")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SourceKind")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("OperationId")
+                        .IsUnique();
+
+                    b.HasIndex("ProviderId")
+                        .IsUnique();
+
+                    b.HasIndex("SourceKind", "SourceId")
+                        .IsUnique()
+                        .HasFilter("\"State\" NOT IN ('CANCELED','EXPIRED')");
+
+                    b.ToTable("billing_subscriptions", (string)null);
+                });
+
             modelBuilder.Entity("LongBeach.Domain.Cash.CashClosing", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2138,6 +2474,60 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.HasOne("LongBeach.Domain.Bar.BarTab", null)
                         .WithMany()
                         .HasForeignKey("TabId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Billing.BillingAccount", b =>
+                {
+                    b.HasOne("LongBeach.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Billing.BillingPayment", b =>
+                {
+                    b.HasOne("LongBeach.Domain.Billing.BillingAccount", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Billing.BillingProviderOrder", b =>
+                {
+                    b.HasOne("LongBeach.Domain.Billing.BillingPayment", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Billing.BillingRefund", b =>
+                {
+                    b.HasOne("LongBeach.Domain.Billing.BillingPayment", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Billing.BillingSettlement", b =>
+                {
+                    b.HasOne("LongBeach.Domain.Billing.BillingAccount", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Billing.BillingSubscription", b =>
+                {
+                    b.HasOne("LongBeach.Domain.Billing.BillingAccount", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

@@ -15,10 +15,10 @@ export function AppShell({ demoMode = false }: { demoMode?: boolean }) {
   const queryClient = useQueryClient(); const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false); const [refreshing, setRefreshing] = useState(false)
   const mainRef = useRef<HTMLDivElement>(null)
-  const has = (permission: string) => demoMode || Boolean(user?.roles.includes('Owner') || user?.permissions.includes(permission))
+  const has = (permission: string) => permission === 'portal:manage' ? Boolean(user?.roles.includes('Owner') || user?.permissions.includes('students:write') && user?.permissions.includes('projects:write')) : permission === 'session' ? Boolean(user) : demoMode || Boolean(user?.roles.includes('Owner') || user?.permissions.includes(permission))
   const can = (item: Destination) => (!item.kind || canRead(item.kind)) && (!item.permission || !demoMode && has(item.permission)) && (!item.owner || !demoMode && Boolean(user?.roles.includes('Owner')))
   const management = visibleNavigation(can)
-  const canManage = management.some(item => item.href !== '/')
+  const canManage = management.some(item => item.href !== '/' && item.href !== '/minha-area')
   const canAttend = !demoMode && has('bar:sales:operate')
   const attendance = location.pathname.startsWith('/atendimento') || (!canManage && canAttend)
   const attendants = attendantNavigation.filter(item => has(item.permission!))
@@ -39,7 +39,7 @@ export function AppShell({ demoMode = false }: { demoMode?: boolean }) {
   return <div className={'app-shell ' + (attendance ? 'app-shell-attendance' : 'app-shell-management')}>
     <NavigationMemory /><a className="skip-link" href="#conteudo">Ir para o conteúdo</a>
     <aside className="side-nav"><Logo />{modeLink}{nav}{admin}
-      {demoMode ? <div className="demo-mode-indicator" role="note">Modo de teste<span>{persistenceStatus === 'connected' ? 'Dados fictícios · PostgreSQL conectado' : 'Dados fictícios · salvos neste navegador'}</span></div> : <div className="side-account"><Link className="side-account-summary" to="/conta" aria-label="Abrir configurações da conta"><div className="avatar" aria-hidden="true">{initials(user?.name ?? 'LB')}</div><div><strong>{user?.name}</strong><span>{user?.roles.includes('Owner') ? 'Proprietário' : 'Equipe'}</span></div></Link><button type="button" onClick={() => void signOut()}>Sair</button></div>}
+      {demoMode ? <div className="demo-mode-indicator" role="note">Modo de teste<span>{persistenceStatus === 'connected' ? 'Dados fictícios · PostgreSQL conectado' : 'Dados fictícios · salvos neste navegador'}</span></div> : <div className="side-account"><Link className="side-account-summary" to="/conta" aria-label="Abrir configurações da conta"><div className="avatar" aria-hidden="true">{initials(user?.name ?? 'LB')}</div><div><strong>{user?.name}</strong><span>{user?.roles.includes('Owner') ? 'Proprietário' : user?.roles.includes('Student') ? 'Aluno' : 'Equipe'}</span></div></Link><button type="button" onClick={() => void signOut()}>Sair</button></div>}
     </aside>
     <div className="app-main">
       <header className="mobile-header"><Link className="shell-brand-link" to={attendance ? '/atendimento/vender' : '/'} aria-label={attendance ? 'Início do atendimento' : 'Início da gestão'}><Logo /></Link>{attendance && canManage && <Link className="mobile-mode-link" to="/">Gestão <span aria-hidden="true">↗</span></Link>}{account}{!attendance && <button className="shell-menu-button" type="button" aria-expanded={menuOpen} aria-haspopup="dialog" onClick={() => setMenuOpen(true)}><NavigationIcon name="menu" /> Menu</button>}</header>
