@@ -13,6 +13,7 @@ public static class RentalGroupRules
     public static Guid StableId(string purpose, Guid group, string key) => new(SHA256.HashData(Encoding.UTF8.GetBytes($"longbeach-rentals-v1:{purpose}:{group:D}:{key}"))[..16]);
     public static decimal? Money(JsonElement row, string field) => row.TryGetProperty(field, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetDecimal(out var n) ? n : null;
     private static bool ValidMoney(JsonElement row, string field) => row.TryGetProperty(field, out var v) && (v.ValueKind == JsonValueKind.Null || Money(row, field) is >= 0 and <= 999_999_999 && decimal.Round(Money(row, field)!.Value, 2) == Money(row, field));
+    private static bool OptionalInteger(JsonElement body, string field, int min, int max) => body.TryGetProperty(field, out var value) && (value.ValueKind == JsonValueKind.Null || value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number) && number >= min && number <= max);
     public static JsonElement[] Members(JsonElement group) => group.TryGetProperty("members", out var members) && members.ValueKind == JsonValueKind.Array ? members.EnumerateArray().ToArray() : [];
     public static string? ValidateGroup(JsonElement body, IReadOnlyDictionary<string, JsonElement[]> records)
     {
@@ -23,17 +24,17 @@ public static class RentalGroupRules
         if (!CourtHours.TryMinute(Text(body, "startTime"), false, out var start) || !CourtHours.TryMinute(Text(body, "endTime"), true, out var end) || start >= end || !CourtHours.TryMinute(Text(court, "openingTime"), false, out var open) || !CourtHours.TryMinute(Text(court, "closingTime"), true, out var close) || start < open || end > close) return "Confira o horário dentro do funcionamento da quadra.";
         if (!DateOnly.TryParseExact(Text(body, "startDate"), "yyyy-MM-dd", out var begins) || Text(body, "endDate") != "" && (!DateOnly.TryParseExact(Text(body, "endDate"), "yyyy-MM-dd", out var ends) || ends < begins)) return "Confira as datas do acordo.";
         if (Text(body, "status") is not ("Ativo" or "Pausado" or "Encerrado")) return "Confira a situação do grupo.";
-        if (!body.TryGetProperty("capacity", out var cap) || cap.ValueKind != JsonValueKind.Number || !cap.TryGetInt32(out var capacity) || capacity is < 1 or > 50) return "Informe de 1 a 50 integrantes previstos.";
-        if (!body.TryGetProperty("dueDay", out var due) || due.ValueKind != JsonValueKind.Number || !due.TryGetInt32(out var dueDay) || dueDay is < 1 or > 31) return "Informe o dia de vencimento, de 1 a 31.";
+        if (!OptionalInteger(body, "capacity", 1, 50)) return "Informe de 1 a 50 integrantes previstos.";
+        if (!OptionalInteger(body, "dueDay", 1, 31)) return "Informe o dia de vencimento, de 1 a 31.";
         if (!ValidMoney(body, "monthlyAmount") || !ValidMoney(body, "extraAmount")) return "Confira os valores combinados ou deixe a combinar.";
         if (Text(body, "fifthPolicy") is not ("A confirmar" or "Incluído" or "Extra")) return "Confira o acordo para o quinto encontro.";
         if (Text(body, "notes").Length > 2000 || Text(body, "sport").Length > 80) return "Reduza as observações ou a modalidade.";
         var members = Members(body);
-        if (members.Length is < 1 or > 50 || members.Any(m => m.ValueKind != JsonValueKind.Object || Id(m) == Guid.Empty || string.IsNullOrWhiteSpace(Text(m, "name")) || Text(m, "name").Trim().Length > 120 || Text(m, "phone").Length > 40 || Text(m, "status") is not ("Ativo" or "Inativo"))) return "Cadastre o nome de cada integrante e confira sua situação.";
+        if (!body.TryGetProperty("members", out var memberArray) || memberArray.ValueKind != JsonValueKind.Array || members.Length > 50 || members.Any(m => m.ValueKind != JsonValueKind.Object || Id(m) == Guid.Empty || string.IsNullOrWhiteSpace(Text(m, "name")) || Text(m, "name").Trim().Length > 120 || Text(m, "phone").Length > 40 || Text(m, "status") is not ("Ativo" or "Inativo"))) return "Cadastre o nome de cada integrante e confira sua situação.";
         if (members.Select(m => Id(m)).Distinct().Count() != members.Length || members.Select(m => Text(m, "name").Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count() != members.Length) return "Há integrantes repetidos. Use o nome completo para distinguir homônimos.";
-        if (members.Count(m => Text(m, "status") == "Ativo") > capacity) return "A quantidade prevista não pode ser menor que a de integrantes ativos.";
+        if (members.Count(m => Text(m, "status") == "Ativo") > (Money(body, "capacity") ?? 50)) return "A quantidade prevista não pode ser menor que a de integrantes ativos.";
         bool Active(Guid id) => members.Any(m => Id(m) == id && Text(m, "status") == "Ativo");
-        if (!Active(Id(body, "organizerId")) || Text(body, "backupId") != "" && (!Active(Id(body, "backupId")) || Id(body, "backupId") == Id(body, "organizerId"))) return "Escolha um responsável ativo e, se desejar, outro integrante como suplente.";
+        if (Text(body, "organizerId") != "" && !Active(Id(body, "organizerId")) || Text(body, "backupId") != "" && (!Active(Id(body, "backupId")) || Id(body, "backupId") == Id(body, "organizerId"))) return "Escolha um responsável ativo e, se desejar, outro integrante como suplente.";
         var old = records.GetValueOrDefault("rentalGroups", []).FirstOrDefault(g => Id(g) == Id(body));
         if (old.ValueKind != JsonValueKind.Undefined && Members(old).Any(m => !members.Any(n => Id(n) == Id(m)))) return "Preserve o histórico dos integrantes: marque como inativo em vez de remover.";
         return null;
@@ -58,10 +59,10 @@ public static class RentalGroupRules
     }
     public static JsonObject Reservation(JsonElement group, string month, string date)
     {
-        var organizer = Members(group).Single(m => Id(m) == Id(group, "organizerId"));
+        var organizer = Members(group).FirstOrDefault(m => Id(m) == Id(group, "organizerId"));
         return new JsonObject { ["id"] = StableId("reservation", Id(group), date).ToString(), ["name"] = Text(group, "name"), ["version"] = 1,
             ["courtId"] = Text(group, "courtId"), ["date"] = date, ["startTime"] = Text(group, "startTime"), ["endTime"] = Text(group, "endTime"),
-            ["customerName"] = Text(organizer, "name"), ["phone"] = Text(organizer, "phone"), ["amount"] = 0, ["status"] = "Confirmada",
+            ["customerName"] = organizer.ValueKind == JsonValueKind.Undefined ? Text(group, "name") : Text(organizer, "name"), ["phone"] = organizer.ValueKind == JsonValueKind.Undefined ? "" : Text(organizer, "phone"), ["amount"] = 0, ["status"] = "Confirmada",
             ["notes"] = "Aluguel mensal: cobrança única na competência do grupo. Alterações deste encontro não alteram o acordo mensal.",
             ["rentalGroupId"] = Id(group).ToString(), ["rentalMonth"] = month };
     }

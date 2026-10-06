@@ -35,10 +35,10 @@ public sealed class RentalGroupsService(LongBeachDbContext db, TimeProvider time
         if (dates.Length == 0) errors.Add("O acordo não possui encontros nesta competência.");
         var fifth = dates.Any(d => int.Parse(d[8..]) >= 29);
         var amount = Money(group, "monthlyAmount");
-        if (fifth && Text(group, "fifthPolicy") == "A confirmar") errors.Add("Confirme o acordo para o quinto encontro deste mês.");
+        if (fifth && Text(group, "fifthPolicy") == "A confirmar") { warnings.Add("Quinto encontro a confirmar: os horários podem ser reservados, mas o total do mês ainda precisa ser combinado."); amount = null; }
         if (fifth && Text(group, "fifthPolicy") == "Extra")
         {
-            if (Money(group, "extraAmount") is not decimal extra || extra <= 0) errors.Add("Defina o valor do quinto encontro cobrado à parte.");
+            if (Money(group, "extraAmount") is not decimal extra || extra <= 0) { warnings.Add("Defina o valor do quinto encontro antes de gerar cobrança."); amount = null; }
             else if (amount is not null) amount += extra;
         }
         if (amount > 999_999_999) errors.Add("O total da competência ultrapassa o limite permitido.");
@@ -55,8 +55,9 @@ public sealed class RentalGroupsService(LongBeachDbContext db, TimeProvider time
             if (error is not null) errors.Add($"{date}: {error}");
             reservations.Add(body); snapshot["reservations"] = reservations.ToArray();
         }
-        var due = new DateOnly(first.Year, first.Month, Math.Min(group.GetProperty("dueDay").GetInt32(), DateTime.DaysInMonth(first.Year, first.Month)));
-        return new(Id(group), month, OperationalValidation.Version(group), dates, amount, due.ToString("yyyy-MM-dd"), errors.ToArray(), warnings.ToArray(), null);
+        var due = Money(group, "dueDay") is decimal day ? new DateOnly(first.Year, first.Month, Math.Min((int)day, DateTime.DaysInMonth(first.Year, first.Month))).ToString("yyyy-MM-dd") : "";
+        if (due == "") warnings.Add("Vencimento a confirmar: os encontros podem ser gerados sem cobrança.");
+        return new(Id(group), month, OperationalValidation.Version(group), dates, amount, due, errors.ToArray(), warnings.ToArray(), null);
     }
     public async Task<JsonElement> Generate(Guid groupId, RentalMonthInput input, CancellationToken ct)
     {
@@ -73,6 +74,7 @@ public sealed class RentalGroupsService(LongBeachDbContext db, TimeProvider time
         if (input.GroupVersion != OperationalValidation.Version(group)) throw new RentalRuleException("O acordo mudou. Atualize e revise o mês antes de confirmar.", true);
         if (preview.Errors.Length > 0) throw new RentalRuleException(string.Join(" ", preview.Errors));
         if (input.CreateCharge && preview.Amount is not > 0) throw new RentalRuleException("Defina um valor maior que zero para gerar a cobrança mensal.");
+        if (input.CreateCharge && preview.DueDate == "") throw new RentalRuleException("Confirme o vencimento antes de gerar a cobrança mensal.");
         var monthId = StableId("month", groupId, input.Month);
         foreach (var date in preview.Dates) { var row = Reservation(group, input.Month, date); db.Add(new OperationalRecord(Id(JsonSerializer.SerializeToElement(row)), "reservations", Text(group, "name"), row.ToJsonString())); }
         var monthRow = new JsonObject { ["id"] = monthId.ToString(), ["version"] = 1, ["name"] = $"{Text(group, "name")} · {input.Month}", ["rentalGroupId"] = groupId.ToString(), ["month"] = input.Month,

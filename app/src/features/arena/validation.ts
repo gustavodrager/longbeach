@@ -15,8 +15,8 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
     if (!group.name.trim() || !group.startDate || group.endDate && group.endDate < group.startDate) return 'Confira o nome e as datas do acordo.'
     if (group.members.some(m => !m.name.trim()) || new Set(group.members.map(m => m.name.trim().toLocaleLowerCase('pt-BR'))).size !== group.members.length) return 'Confira os nomes de todos os integrantes, sem repetir pessoas.'
     const active = group.members.filter(m => m.status === 'Ativo')
-    if (!active.some(m => m.id === group.organizerId) || group.backupId && (!active.some(m => m.id === group.backupId) || group.backupId === group.organizerId)) return 'Escolha um responsável ativo e um suplente diferente.'
-    if (active.length > group.capacity || group.capacity < 1 || group.capacity > 50) return 'Confira a quantidade prevista de integrantes.'
+    if (group.organizerId && !active.some(m => m.id === group.organizerId) || group.backupId && (!active.some(m => m.id === group.backupId) || group.backupId === group.organizerId)) return 'Escolha um responsável ativo e um suplente diferente.'
+    if (active.length > 50 || group.capacity !== null && (!Number.isInteger(group.capacity) || active.length > group.capacity || group.capacity < 1 || group.capacity > 50)) return 'Confira a quantidade prevista de integrantes.'
     if (data.rentalGroups.find(g => g.id === group.id)?.members.some(m => !group.members.some(n => n.id === m.id))) return 'Marque integrantes como inativos para preservar o histórico.'
   }
   if (kind === 'rentalAttendances') {

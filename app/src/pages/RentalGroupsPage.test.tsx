@@ -81,3 +81,21 @@ it('mensalidade criada depois dos encontros preserva competência, origem e venc
   expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-10-10')
   expect(screen.getByLabelText('Competência da mensalidade')).toHaveValue('2026-10')
 })
+it('cadastra grupo sem inventar integrantes, capacidade ou vencimento', async()=>{
+  const rows: RentalGroup[] = []
+  vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{
+    const path=String(input)
+    if(init?.method==='PUT'){ const saved={...JSON.parse(String(init.body)),version:1};rows.push(saved);return json(saved,201) }
+    if(path.includes('/preview'))return json({groupId,groupVersion:1,month,dates:[`${month}-02`],amount:500,dueDate:'',errors:[],warnings:[],existingMonthId:null})
+    return json(path.endsWith('/courts')?[court]:path.endsWith('/rentalGroups')?rows:[])
+  })
+  start('/mensalistas/novo')
+  await screen.findByRole('option',{name:'Quadra 1'})
+  fireEvent.change(screen.getByLabelText('Nome do grupo'),{target:{value:'Turma a completar'}})
+  fireEvent.change(screen.getByLabelText('Quadra'),{target:{value:courtId}})
+  fireEvent.click(screen.getByRole('button',{name:'Salvar grupo'}))
+  await screen.findByRole('heading',{name:'Todos da turma'})
+  expect(rows[0]).toMatchObject({members:[],organizerId:'',capacity:null,dueDay:null})
+  await waitFor(()=>expect(screen.getByRole('checkbox')).toBeDisabled())
+  expect(screen.getByRole('button',{name:'Confirmar 1 encontros'})).toBeEnabled()
+})
