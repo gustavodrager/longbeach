@@ -48,9 +48,11 @@ public sealed class LongBeachWebApplicationFactory : WebApplicationFactory<Progr
             Task.FromResult(Session(email));
 
         public Task<AuthSession> LoginWithGoogleAsync(
-            string email,
-            string? ipAddress,
-            CancellationToken cancellationToken = default) =>
+            string email, string? ipAddress, CancellationToken cancellationToken = default,
+            string? subject = null, bool allowEmailMatch = true) => Task.FromResult(Session(email));
+
+        public Task<AuthSession> CompleteFirstAccessWithGoogleAsync(
+            Guid userId, string subject, string email, string? ipAddress, CancellationToken cancellationToken = default) =>
             Task.FromResult(Session(email));
 
         public Task<AuthSession> RefreshAsync(

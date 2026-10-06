@@ -14,7 +14,7 @@ const clients: QueryClient[] = []
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 function RouteState() { const location = useLocation(); return <output data-testid="route">{location.pathname}{location.search}</output> }
 function start() {
-  const auth: AuthContextValue = { user: { id: '11111111-1111-1111-1111-111111111111', name: 'Admin teste', email: 'teste@example.com', roles: ['Owner'], permissions: [] }, isBootstrapping: false, signIn: async () => {}, signInWithGoogle: async () => {}, signOut: async () => {}, changePassword: async () => {} }
+  const auth: AuthContextValue = { user: { id: '11111111-1111-1111-1111-111111111111', name: 'Admin teste', email: 'teste@example.com', roles: ['Owner'], permissions: [] }, isBootstrapping: false, signIn: async () => {}, signInWithGoogle: async () => {}, signOut: async () => {}, changePassword: async () => {}, completeFirstAccessWithGoogle: async () => {} }
   const query = new QueryClient({ defaultOptions: { queries: { retry: false } } }); clients.push(query)
   render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><DemoDataProvider enabled demoMode={false}><MemoryRouter initialEntries={[`/agenda/recorrentes/novo?date=${today()}&court=${court.id}`]}><RouteState /><Routes><Route path="/agenda/recorrentes/novo" element={<RecurringReservationsPage />} /><Route path="/agenda" element={<AgendaPage />} /><Route path="/agenda/:reservationId" element={<ReservationDetailsPage />} /></Routes></MemoryRouter></DemoDataProvider></AuthContext.Provider></QueryClientProvider>)
 }

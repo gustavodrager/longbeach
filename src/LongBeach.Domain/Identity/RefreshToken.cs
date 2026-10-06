@@ -36,6 +36,7 @@ public sealed class RefreshToken : Entity
     public Guid? ReplacedByTokenId { get; private set; }
     public string? RevocationReason { get; private set; }
     public int Version { get; private set; }
+    public bool FirstAccessOnly { get; private set; }
 
     public bool IsActiveAt(DateTimeOffset now) => RevokedAtUtc is null && ExpiresAtUtc > now;
 
@@ -46,8 +47,9 @@ public sealed class RefreshToken : Entity
         string tokenHash,
         string csrfTokenHash,
         DateTimeOffset expiresAtUtc,
-        string? createdByIp) =>
-        new(id, userId, familyId, tokenHash, csrfTokenHash, expiresAtUtc, createdByIp);
+        string? createdByIp,
+        bool firstAccessOnly = false) =>
+        new(id, userId, familyId, tokenHash, csrfTokenHash, expiresAtUtc, createdByIp) { FirstAccessOnly = firstAccessOnly };
 
     public void Revoke(
         DateTimeOffset revokedAtUtc,

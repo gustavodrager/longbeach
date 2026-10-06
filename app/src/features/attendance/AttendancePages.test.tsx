@@ -33,7 +33,7 @@ function RouteState(){const location=useLocation();return <output data-testid="r
 const clients:QueryClient[]=[]
 function mount(path:string,user=actor){
   const query=new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}});clients.push(query)
-  const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{}}
+  const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{}, completeFirstAccessWithGoogle: async () => {}}
   render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<BarArenaMetrics from="2026-10-01" to="2026-10-04" />} /><Route path="/bar/indicadores/:metric" element={<BarReportPage />} /><Route path="/atendimento/vender" element={<SellPage />} /><Route path="/atendimento/comandas" element={<TabsPage />} /><Route path="/atendimento/comandas/:tabId" element={<TabDetailsPage />} /><Route path="/atendimento/receber/:tabId" element={<ReceivePage />} /><Route path="/atendimento/comprovante/:tabId/:paymentId" element={<h1>Comprovante recebido</h1>} /><Route path="/cliente" element={<ClientPage />} /></Routes></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
   return query
 }

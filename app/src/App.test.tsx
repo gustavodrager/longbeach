@@ -186,7 +186,7 @@ describe('autenticação e shell', () => {
     render(<App />)
     const user = userEvent.setup()
 
-    await user.type(await screen.findByLabelText('E-mail'), 'gustavo@example.com')
+    await user.type(await screen.findByLabelText('Usuário ou e-mail'), 'gustavo@example.com')
     await user.type(screen.getByLabelText('Senha'), 'senha-segura')
     await user.click(screen.getByRole('button', { name: 'Entrar' }))
 

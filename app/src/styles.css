@@ -558,3 +558,10 @@ a { color: #654b19; }
   .mobile-header .avatar { width: 48px; flex-shrink: 0; }
   .shell-mobile-menu .nav-group { grid-template-columns: 1fr; }
 }
+
+.login-divider { margin: 1.25rem 0; color: var(--muted); text-align: center; font-size: .95rem; }
+.first-access-page { display: block; }
+.first-access-page .login-panel { max-width: 42rem; padding: 2rem clamp(1.25rem, 4vw, 3rem); }
+.first-access-google h2 { font-size: 1.15rem; margin-bottom: .5rem; }
+.first-access-google > p { color: var(--muted); line-height: 1.5; }
+.first-access-page .form-error { margin-top: 1rem; }

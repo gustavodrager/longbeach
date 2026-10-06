@@ -13,7 +13,7 @@ const clients: QueryClient[] = []
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 const version = (number = 1): RecipeVersion => ({ id: `44444444-4444-4444-4444-${String(number).padStart(12, '0')}`, productId: prepared.product.id, productName: prepared.product.name, version: number, yieldQuantity: 10, reason: `Formulação ${number}`, actorId: manager.id, createdAtUtc: '2026-10-04T12:00:00Z', ingredients: [{ id: '55555555-5555-5555-5555-555555555555', productId: ingredient.product.id, name: ingredient.product.name, quantity: 2, unit: 'Purchase', conversionFactor: 12, stockUnit: 'un', stockQuantity: 24 }] })
 function start(path = `/bar/receitas/${prepared.product.id}`, user = manager) {
-  const auth: AuthContextValue = { user, isBootstrapping: false, signIn: async () => {}, signInWithGoogle: async () => {}, signOut: async () => {}, changePassword: async () => {} }
+  const auth: AuthContextValue = { user, isBootstrapping: false, signIn: async () => {}, signInWithGoogle: async () => {}, signOut: async () => {}, changePassword: async () => {}, completeFirstAccessWithGoogle: async () => {} }
   const query = new QueryClient({ defaultOptions: { queries: { retry: false } } }); clients.push(query)
   render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><Routes><Route path="/bar/receitas" element={<BarRecipesPage />} /><Route path="/bar/receitas/:productId" element={<BarRecipesPage />} /></Routes></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
 }

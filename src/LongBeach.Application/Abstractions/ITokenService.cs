@@ -5,7 +5,10 @@ public sealed record TokenPrincipal(
     string Name,
     string Email,
     IReadOnlyCollection<string> Roles,
-    IReadOnlyCollection<string> Permissions);
+    IReadOnlyCollection<string> Permissions,
+    bool RequiresFirstAccess = false,
+    string? Username = null,
+    DateTimeOffset? InitialAccessExpiresAtUtc = null);
 
 public sealed record IssuedTokenPair(
     string AccessToken,

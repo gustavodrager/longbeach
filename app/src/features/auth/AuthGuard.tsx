@@ -18,5 +18,7 @@ export function AuthGuard() {
     return <Navigate to="/login" replace state={{ from: location }} />
   }
 
+  if (user.requiresFirstAccess) return <Navigate to="/primeiro-acesso" replace />
+
   return <Outlet />
 }

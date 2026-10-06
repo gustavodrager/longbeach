@@ -18,10 +18,13 @@ public sealed class AuthService(
         string? ipAddress,
         CancellationToken cancellationToken = default)
     {
-        var user = await users.FindByEmailAsync(User.NormalizeEmail(email), cancellationToken);
+        var login = User.NormalizeEmail(email);
+        var user = email.Contains('@')
+            ? await users.FindByEmailAsync(login, cancellationToken)
+            : await users.FindByUsernameAsync(login, cancellationToken);
 
         var passwordVerification = passwordHasher.Verify(password, user?.PasswordHash ?? passwordHasher.DummyHash);
-        if (user is null || !user.IsActive || passwordVerification == PasswordHashVerificationResult.Failed)
+        if (user is null || !user.IsActive || !user.InitialAccessIsValidAt(timeProvider.GetUtcNow()) || passwordVerification == PasswordHashVerificationResult.Failed)
         {
             throw new AuthenticationFailedException();
         }
@@ -37,10 +40,15 @@ public sealed class AuthService(
     public async Task<AuthSession> LoginWithGoogleAsync(
         string email,
         string? ipAddress,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? subject = null,
+        bool allowEmailMatch = true)
     {
-        var user = await users.FindByEmailAsync(User.NormalizeEmail(email), cancellationToken);
-        if (user is null || !user.IsActive)
+        var user = subject is null ? null : await users.FindByGoogleSubjectAsync(subject, cancellationToken);
+        if (user is null && allowEmailMatch)
+            user = await users.FindByEmailAsync(User.NormalizeEmail(email), cancellationToken);
+        if (user is null || !user.IsActive || user.RequiresFirstAccess ||
+            (user.GoogleSubject is not null && user.GoogleSubject != subject))
         {
             throw new AuthenticationFailedException();
         }
@@ -50,6 +58,24 @@ public sealed class AuthService(
             ipAddress,
             cancellationToken,
             timeProvider.GetUtcNow().AddHours(8));
+    }
+
+    public async Task<AuthSession> CompleteFirstAccessWithGoogleAsync(
+        Guid userId, string subject, string email, string? ipAddress, CancellationToken cancellationToken = default)
+    {
+        var user = await users.FindByIdAsync(userId, cancellationToken);
+        if (user is null || !user.IsActive || !user.RequiresFirstAccess ||
+            !user.InitialAccessIsValidAt(timeProvider.GetUtcNow())) throw new AuthenticationFailedException();
+        var bySubject = await users.FindByGoogleSubjectAsync(subject, cancellationToken);
+        var byEmail = await users.FindByEmailAsync(User.NormalizeEmail(email), cancellationToken);
+        if (bySubject is not null || (byEmail is not null && byEmail.Id != userId))
+            throw new AuthenticationFailedException();
+        user.LinkGoogle(subject, email);
+        // Destroy the temporary credential; Google becomes the sign-in method.
+        user.ChangePasswordHash(passwordHasher.Hash(Convert.ToBase64String(RandomNumberGenerator.GetBytes(48))));
+        user.CompleteFirstAccess();
+        user.RevokeAllRefreshTokens(timeProvider.GetUtcNow(), ipAddress, "First access completed with Google");
+        return await IssueAndPersistAsync(user, ipAddress, cancellationToken, timeProvider.GetUtcNow().AddHours(8));
     }
 
     public async Task<AuthSession> RefreshAsync(
@@ -64,7 +90,8 @@ public sealed class AuthService(
         var currentToken = user?.RefreshTokens.SingleOrDefault(token => token.TokenHash == tokenHash);
         var now = timeProvider.GetUtcNow();
 
-        if (user is null || !user.IsActive || currentToken is null)
+        if (user is null || !user.IsActive || currentToken is null || !user.InitialAccessIsValidAt(now) ||
+            currentToken.FirstAccessOnly != user.RequiresFirstAccess)
         {
             throw new InvalidRefreshTokenException();
         }
@@ -95,7 +122,7 @@ public sealed class AuthService(
             issued.RefreshTokenHash,
             issued.CsrfTokenHash,
             issued.RefreshTokenExpiresAtUtc,
-            ipAddress));
+            ipAddress, user.RequiresFirstAccess));
 
         await users.SaveChangesAsync(cancellationToken);
         return ToResponse(user, issued);
@@ -138,7 +165,7 @@ public sealed class AuthService(
         var passwordVerification = passwordHasher.Verify(
             currentPassword,
             user?.PasswordHash ?? passwordHasher.DummyHash);
-        if (user is null || !user.IsActive || passwordVerification == PasswordHashVerificationResult.Failed)
+        if (user is null || !user.IsActive || !user.InitialAccessIsValidAt(timeProvider.GetUtcNow()) || passwordVerification == PasswordHashVerificationResult.Failed)
         {
             throw new CurrentPasswordInvalidException();
         }
@@ -150,6 +177,7 @@ public sealed class AuthService(
         }
 
         user.ChangePasswordHash(passwordHasher.Hash(newPassword));
+        user.CompleteFirstAccess();
         user.RevokeAllRefreshTokens(
             timeProvider.GetUtcNow(),
             ipAddress,
@@ -169,6 +197,12 @@ public sealed class AuthService(
         {
             issued = issued with { RefreshTokenExpiresAtUtc = refreshTokenExpiresAtUtc.Value };
         }
+        if (user.RequiresFirstAccess)
+        {
+            var limit = timeProvider.GetUtcNow().AddMinutes(15);
+            issued = issued with { RefreshTokenExpiresAtUtc = user.InitialAccessExpiresAtUtc < limit
+                ? user.InitialAccessExpiresAtUtc.Value : limit };
+        }
         user.AddRefreshToken(RefreshToken.Create(
             issued.RefreshTokenId,
             user.Id,
@@ -176,14 +210,17 @@ public sealed class AuthService(
             issued.RefreshTokenHash,
             issued.CsrfTokenHash,
             issued.RefreshTokenExpiresAtUtc,
-            ipAddress));
+            ipAddress, user.RequiresFirstAccess));
 
         await users.SaveChangesAsync(cancellationToken);
         return ToResponse(user, issued);
     }
 
     private static TokenPrincipal ToPrincipal(User user) =>
-        new(user.Id, user.Name, user.Email, user.GetRoleNames(), user.GetPermissionNames());
+        new(user.Id, user.Name, VisibleEmail(user), user.RequiresFirstAccess ? [] : user.GetRoleNames(),
+            user.RequiresFirstAccess ? [] : user.GetPermissionNames(), user.RequiresFirstAccess, user.Username, user.InitialAccessExpiresAtUtc);
+
+    private static string VisibleEmail(User user) => user.Email.EndsWith("@unlinked.longbeach.invalid", StringComparison.Ordinal) ? string.Empty : user.Email;
 
     private static AuthSession ToResponse(User user, IssuedTokenPair issued) =>
         new(
@@ -194,9 +231,10 @@ public sealed class AuthService(
                 new UserSummary(
                     user.Id,
                     user.Name,
-                    user.Email,
-                    user.GetRoleNames(),
-                    user.GetPermissionNames())),
+                    VisibleEmail(user),
+                    user.RequiresFirstAccess ? [] : user.GetRoleNames(),
+                    user.RequiresFirstAccess ? [] : user.GetPermissionNames(),
+                    user.RequiresFirstAccess, user.Username)),
             issued.RefreshToken,
             issued.RefreshTokenExpiresAtUtc,
             issued.CsrfToken);
