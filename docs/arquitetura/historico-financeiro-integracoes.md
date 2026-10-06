@@ -10,6 +10,14 @@ A aplicação exige fingerprint da conferência, transação serializable, lock 
 
 O dashboard usa a última competência do consolidado. O histórico permite mês, controle, indicador, paginação e inspeção de origem. Valores pendentes e estimados preservam seus estados; não entram em um total geral fictício de recebimentos.
 
+### Saldos e extratos na página inicial
+
+`GET /api/v1/financial-history/dashboard-balances`, exclusivo de Owner, lê todas as linhas do último consolidado mensal e a última fotografia de `Saldo Pagbank` separadamente. O resultado mensal soma receitas da arena e vendas brutas do bar, menos despesas líquidas. Exige os três indicadores da mesma fonte/mês, sem células duplicadas; uma competência incompleta permanece indisponível. Estimativas, parcelas de dívidas do quadro alternativo e controles detalhados não são somados outra vez. A apresentação das despesas no início é positiva, preservando o sinal original no histórico e nos cálculos. Um déficit e um saldo bancário negativo continuam negativos.
+
+O saldo bancário mostra sua data e origem; não representa leitura em tempo real. Saldos em datas distintas nunca são somados. Um extrato sem saldo inicial/final não permite deduzir o dinheiro disponível a partir de seu resultado líquido.
+
+O conversor reconhece o extrato classificado com código de transação, data, descrição, valor e categoria. Rejeita identificadores duplicados, sinais incompatíveis e campos obrigatórios ausentes. Cada linha de detalhe vai para `pagbank-conta`, com métricas `entradas-extrato` e `saidas-extrato`, mantendo código e célula. Os resumos de tabelas dinâmicas não são importados automaticamente. Despesas presentes apenas nesses resumos exigem conciliação e confirmação do meio de pagamento. Quando confirmadas como pagas por outra conta, entram em `despesas-fora-pagbank`, com competência mensal se o dia exato for desconhecido. O dashboard mostra entradas, saídas bancárias e despesas externas separadamente; esse conjunto não substitui o consolidado completo da arena.
+
 ## Indicadores da escola e dos mensalistas
 
 O dashboard Owner consulta `GET /api/v1/financial-history/arena-summary`. A leitura calcula os indicadores sobre todas as observações aplicadas do mês, sem o limite de 50 linhas da tela de histórico. Por padrão cada controle usa sua última competência; um mês explícito não retrocede para dados antigos quando faltam registros. Os cartões mostram a competência e abrem o histórico correspondente.

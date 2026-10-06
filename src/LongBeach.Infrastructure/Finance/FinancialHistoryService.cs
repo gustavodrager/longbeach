@@ -114,6 +114,31 @@ public sealed class FinancialHistoryService(LongBeachDbContext db, IAuditContext
             while(await reader.ReadAsync(ct)){using var json=JsonDocument.Parse(reader.GetString(4));items.Add(new(reader.GetGuid(0),reader.GetGuid(1),reader.GetString(2),reader.GetString(3).Trim(),FinancialHistoryRules.Parse(json.RootElement)));}
         return new(month,months,FinancialHistoryRules.Totals(items.Select(x=>x.Data)),items.Skip((page-1)*50).Take(50).ToArray(),items.Count,page,time.GetUtcNow());
     }
+    public async Task<DashboardBalances> DashboardBalances(CancellationToken ct)
+    {
+        var rows = new List<HistoryItem>();
+        var today = DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime.AddHours(-3));
+        // Independent latest dates for the monthly control and the PagBank snapshot; no pagination loss.
+        await using (var command = await Command("""
+            WITH candidates AS (
+                SELECT * FROM financial_observations
+                WHERE period_start <= @p0 AND
+                  ((series='consolidado' AND payload->>'Grain'='month') OR
+                   (series='saldos' AND lower(trim(metric))='saldo pagbank' AND payload->>'Grain'='snapshot'))
+            )
+            SELECT o.id,o.batch_id,b.source_name,o.source_sha256,o.payload::text
+            FROM candidates o JOIN import_batches b ON b.id=o.batch_id
+            WHERE o.period_start=(SELECT MAX(c.period_start) FROM candidates c WHERE c.series=o.series)
+            ORDER BY o.series,o.source_cell,o.id
+            """, ct, today))
+        await using (var reader = await command.ExecuteReaderAsync(ct)) while (await reader.ReadAsync(ct))
+        {
+            using var json = JsonDocument.Parse(reader.GetString(4));
+            rows.Add(new(reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), reader.GetString(3).Trim(), FinancialHistoryRules.Parse(json.RootElement)));
+        }
+        return DashboardBalanceRules.Summarize(rows, today);
+    }
+
     public async Task<ArenaHistorySummary> ArenaSummary(string? month, CancellationToken ct)
     {
         if (month is not null && !DateOnly.TryParseExact(month + "-01", "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,

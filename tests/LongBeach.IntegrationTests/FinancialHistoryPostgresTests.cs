@@ -11,6 +11,29 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace LongBeach.IntegrationTests;
 public sealed class FinancialHistoryPostgresTests
 {
+    [PostgresFact] public async Task Dashboard_balances_read_all_monthly_rows_and_latest_bank_date_independently()
+    {
+        await using var db = Database(); await db.Database.MigrateAsync();
+        await using var tx = await db.Database.BeginTransactionAsync();
+        var hash = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+        var row = new FinancialObservation("financial-observation-v1", "BRL", "Teste!A1", "consolidado", "despesas", "Teste", "Informado", new(2090,8,1), new(2090,8,31), "month", -100, "");
+        var batch = await Stage(db, hash, row);
+        var rows = Enumerable.Range(1,55).Select(i => row with { SourceCell = "Teste!A" + i }).ToList();
+        rows.Add(row with { SourceCell="Teste!B1", Metric="receitas-arena", AmountCents=6000 });
+        rows.Add(row with { SourceCell="Teste!B2", Metric="vendas-bar-bruto", AmountCents=2000 });
+        rows.Add(row with { SourceCell="Teste!C1", Series="saldos", Metric="Saldo Pagbank", Grain="snapshot", PeriodStart=new(2090,7,31), PeriodEnd=new(2090,7,31), AmountCents=13500 });
+        rows.Add(row with { SourceCell="Teste!C2", Series="saldos", Metric="Saldo C6", Grain="snapshot", PeriodStart=new(2090,8,31), PeriodEnd=new(2090,8,31), AmountCents=900 });
+        foreach (var item in rows) {
+            var json=JsonSerializer.Serialize(item);
+            await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO financial_observations(id,batch_id,source_sha256,source_cell,series,metric,state,period_start,period_end,amount_cents,payload,created_at_utc) VALUES({Guid.NewGuid()},{batch},{hash},{item.SourceCell},{item.Series},{item.Metric},{item.State},{item.PeriodStart},{item.PeriodEnd},{item.AmountCents},{json}::jsonb,{DateTimeOffset.UtcNow})");
+        }
+        var service = new FinancialHistoryService(db, new NullAuditContext(), new DashboardClock(), new ConfigurationBuilder().Build());
+        var result = await service.DashboardBalances(default);
+        Assert.Equal(57,result.General.Records); Assert.Equal(5500,result.General.ExpenseCents); Assert.Equal(2500,result.General.AmountCents);
+        Assert.Equal(13500,result.PagBank.AmountCents); Assert.Equal(new DateOnly(2090,7,31),result.PagBank.Date);
+        await tx.RollbackAsync();
+    }
+    private sealed class DashboardClock : TimeProvider { public override DateTimeOffset GetUtcNow() => new(2090,9,1,12,0,0,TimeSpan.Zero); }
     [PostgresFact] public async Task Arena_summary_reads_all_rows_not_just_first_history_page_and_filters_month()
     {
         await using var db = Database(); await db.Database.MigrateAsync();

@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../features/auth/authContext'
 import { BarArenaMetrics } from '../features/attendance/BarArenaMetrics'
-import { FinancialHistoryOverview } from '../features/finance/FinancialHistory'
+import { FinancialBalanceOverview } from '../features/finance/FinancialBalanceOverview'
+import { BankStatementOverview, FinancialHistoryOverview } from '../features/finance/FinancialHistory'
 import { ArenaHistoryOverview } from '../features/finance/ArenaHistoryOverview'
 import { useCourtSchedule } from '../features/arena/queries'
 import { useOperations, type OperationalKind } from '../features/operations/DemoDataProvider'
@@ -62,7 +63,9 @@ export function DashboardPage() {
   return <main className="operation-page arena-page dashboard">
     <Heading eyebrow={new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: 'long' }).format(new Date())} title="Visão geral" description="Sua arena em um só lugar. Veja as prioridades e abra os registros de cada resultado." action={<div className="arena-actions">{data.canRead('reservations') && <Link className="primary-link" to={`/agenda?date=${day}&view=day`}>Abrir agenda de hoje</Link>}{barHref && <Link className="secondary-link" to={barHref}>Abrir bar e caixa <span aria-hidden="true">→</span></Link>}</div>} />
     <Feedback />
+    <FinancialBalanceOverview />
     <FinancialHistoryOverview />
+    <BankStatementOverview />
     <ArenaHistoryOverview />
     {data.canRead('rentalGroups') && <section className="arena-dashboard-section" aria-labelledby="rental-groups-dashboard"><div className="arena-section-heading"><h2 id="rental-groups-dashboard">Grupos mensalistas</h2><Link to="/mensalistas">Gerenciar grupos →</Link></div><div className="arena-metric-grid"><Metric label="Grupos ativos" value={count('rentalGroups', data.rentalGroups.filter(g => g.status === 'Ativo' && g.startDate <= day && (!g.endDate || g.endDate >= day)).length)} to="/mensalistas" period="Acordos cadastrados" updated={updated} note={data.rentalGroups.length ? 'Veja integrantes, calendário e cobranças de cada turma.' : 'Cadastre os grupos e seus integrantes para acompanhar aluguel e bar.'} /></div></section>}
 

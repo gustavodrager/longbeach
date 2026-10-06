@@ -8,6 +8,7 @@ public static class FinancialHistoryEndpoints
     {
         var group=endpoints.MapGroup("/api/v1/financial-history").WithTags("Financial history").RequireAuthorization(AuthorizationPolicyCatalog.Owner);
         group.MapGet("/",(string? month,string? series,string? metric,int? page,IFinancialHistory service,CancellationToken ct)=>service.Report(month,series,metric,page??1,ct));
+        group.MapGet("/dashboard-balances",(IFinancialHistory service,CancellationToken ct)=>service.DashboardBalances(ct));
         group.MapGet("/integrations",(IFinancialHistory service,CancellationToken ct)=>service.Integrations(ct));
         group.MapGet("/arena-summary",(string? month,IFinancialHistory service,CancellationToken ct)=>service.ArenaSummary(month,ct));
         group.MapGet("/pagbank-edi",(string? date,int? page,IFinancialHistory service,CancellationToken ct)=>service.ProviderRecords(date,page??1,ct));

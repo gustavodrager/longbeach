@@ -63,6 +63,19 @@ def prepare(source):
             if row==1 or not isinstance(values[0],dt.datetime):continue
             add(s.title,row,5,'aulas','valor-escalonavel',f'Aula {values[2]}',values[5] or 'Não informado',values[0].date(),values[4],grain='day',
                 notes=json.dumps({'quantidadeAlunos':values[3],'dia':values[1]},ensure_ascii=False))
+    elif 'Planilha1' in wb.sheetnames and [wb['Planilha1'].cell(1,c).value for c in range(1,11)] == ['CODIGO DA TRANSACAO','DATA','TIPO','DESCRICAO','VALOR','Dia da Semana','Comissão?','Tipo_01','Tipo_02','Tipo_03']:
+        seen=set()
+        for row,values in enumerate(wb['Planilha1'].values,1):
+            if row==1 or not any(v is not None for v in values):continue
+            code,date,kind,description,value=values[:5]
+            if not code or code in seen or not isinstance(date,dt.datetime) or value is None or values[7] not in ('Receita','Despesa'):
+                raise ValueError('Movimento bancário sem identidade, data, valor, classificação ou com duplicidade.')
+            amount=cents(value)
+            if amount==0 or (amount>0)!=(values[7]=='Receita'):raise ValueError('Sinal e classificação bancária divergentes.')
+            seen.add(code)
+            add('Planilha1',row,5,'pagbank-conta','entradas-extrato' if amount>0 else 'saidas-extrato',description,'Informado no extrato',date.date(),value,grain='day',notes=json.dumps({'transactionCode':code,'tipo':kind,'categoria':values[8],'classificacao':values[9],'comissao':values[6]},ensure_ascii=False))
+        # Pivot subtotals are intentionally excluded: they can include off-account expenses.
+        # Such values require explicit reconciliation and an independently reviewed staging batch.
     elif '202608' in wb.sheetnames:
         s=wb['202608']
         if [s.cell(4,c).value for c in (6,7,8,9)]!=['Descrição','Valor de 202606','Valor Pago 202607','Valor Pago 202608']:

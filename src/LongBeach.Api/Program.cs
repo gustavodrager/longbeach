@@ -27,10 +27,13 @@ using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 var startupCommand = StartupCommandParser.Parse(args);
 var verifyGoogleOwners = args.Contains("--verify-google-owners", StringComparer.OrdinalIgnoreCase);
+var authorizeGoogleAccess = args.Contains("--authorize-google-access", StringComparer.OrdinalIgnoreCase);
 var provisionFirstAccess = args.Contains("--provision-first-access", StringComparer.OrdinalIgnoreCase);
 var provisionFromStdin = args.Contains("--provision-from-stdin", StringComparer.OrdinalIgnoreCase);
-if (provisionFromStdin && !provisionFirstAccess)
-    throw new InvalidOperationException("--provision-from-stdin requires --provision-first-access.");
+if (provisionFromStdin && !provisionFirstAccess && !authorizeGoogleAccess)
+    throw new InvalidOperationException("--provision-from-stdin requires a provisioning command.");
+if (authorizeGoogleAccess && (provisionFirstAccess || verifyGoogleOwners || startupCommand == StartupCommand.MigrateOnly))
+    throw new InvalidOperationException("Run Google access authorization as its own command after migrations.");
 if (provisionFirstAccess && (verifyGoogleOwners || startupCommand == StartupCommand.MigrateOnly))
     throw new InvalidOperationException("Run first-access provisioning as its own command after migrations.");
 if (verifyGoogleOwners && startupCommand == StartupCommand.MigrateOnly)
@@ -58,6 +61,19 @@ ConfigureHealthChecks(builder.Services, builder.Configuration);
 ConfigureRateLimiting(builder.Services);
 
 var app = builder.Build();
+
+if (authorizeGoogleAccess)
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var command = new GoogleAccessAuthorizer(scope.ServiceProvider.GetRequiredService<LongBeachDbContext>(),
+        scope.ServiceProvider.GetRequiredService<IPasswordHasher>(), scope.ServiceProvider.GetRequiredService<TimeProvider>());
+    var target = provisionFromStdin
+        ? new ConfigurationBuilder().AddConfiguration(app.Configuration).AddJsonStream(Console.OpenStandardInput()).Build()
+        : app.Configuration;
+    var changed = await command.RunAsync(target);
+    app.Logger.LogInformation("Google access authorization completed for one existing account: changed {Changed}; role preserved; temporary credential disabled.", changed);
+    return;
+}
 
 if (provisionFirstAccess)
 {

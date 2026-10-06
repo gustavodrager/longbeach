@@ -9,7 +9,7 @@ type Observation = { sourceCell: string; series: string; metric: string; label: 
 type Report = { month: string; months: string[]; totals: Total[]; items: { id: string; sourceName: string; sourceSha256: string; data: Observation }[]; total: number; page: number; updatedAtUtc: string }
 type Integration = { provider: string; state: string; detail: string; lastSuccessUtc: string | null; failureCode: string | null; completeThrough: string | null }
 export type HistoryPreview = { batchId: string; sourceName: string; applied: boolean; confirmationToken: string; creates: number; matches: number; totals: Total[] }
-export const seriesLabels: Record<string, string> = { consolidado: 'Resumo mensal da arena', 'consolidado-com-dividas': 'Resumo mensal com parcelas de dívidas', 'compras-detalhadas': 'Compras detalhadas', 'servicos-detalhados': 'Pagamentos de serviços', saldos: 'Saldos e compromissos em uma data', alunos: 'Controle de alunos', mensalistas: 'Controle de mensalistas', aulas: 'Controle de aulas', 'pagvendas-vendas': 'Vendas registradas no PagVendas', 'pagbank-conta': 'Extrato bancário PagBank' }
+export const seriesLabels: Record<string, string> = { consolidado: 'Resumo mensal da arena', 'consolidado-com-dividas': 'Resumo mensal com parcelas de dívidas', 'compras-detalhadas': 'Compras detalhadas', 'servicos-detalhados': 'Pagamentos de serviços', saldos: 'Saldos e compromissos em uma data', alunos: 'Controle de alunos', mensalistas: 'Controle de mensalistas', aulas: 'Controle de aulas', 'pagvendas-vendas': 'Vendas registradas no PagVendas', 'pagbank-conta': 'Extrato bancário PagBank', 'despesas-fora-pagbank': 'Despesas pagas fora do PagBank' }
 const metrics: Record<string, string> = { 'vendas-bar-bruto': 'Vendas brutas do bar', despesas: 'Despesas informadas', 'receitas-arena': 'Outras receitas da arena', 'valor-informado': 'Valor no controle', 'valor-escalonavel': 'Valor escalonável das aulas', 'vendas-informadas': 'Vendas informadas no PagVendas' }
 export const centsMoney = (value: number) => (value / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const monthLabel = (value: string) => new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(value + '-01T12:00:00Z'))
@@ -26,9 +26,33 @@ export function FinancialHistoryOverview() {
     <div className="arena-section-heading"><div><p className="arena-section-eyebrow">HISTÓRICO E CONTROLES</p><h2 id="financial-history-title">Movimentação disponível da arena</h2></div><Link className="secondary-link" to="/financeiro/historico">Abrir histórico e fontes →</Link></div>
     <p className="arena-hint">{report?.items.length ? `Último resumo disponível: ${monthLabel(report.month)}. Valores informados na planilha; confira os registros e os períodos disponíveis.` : query.isPending ? 'Carregando histórico…' : 'Aguardando a aplicação dos controles financeiros.'}</p>
     {query.isError && <p role="alert" className="arena-message arena-error">Não foi possível atualizar o histórico. Tente novamente.</p>}
-    {report && report.totals.length > 0 && <div className="arena-metric-grid">{report.totals.map(total => <Link key={`${total.series}:${total.metric}:${total.state}:${total.period}:${total.grain}`} className="arena-metric" to={`/financeiro/historico?${new URLSearchParams({ month: report.month, series: total.series, metric: total.metric })}`}><span className="arena-metric-label">{metrics[total.metric] ?? total.metric}</span><strong>{centsMoney(total.amountCents)}</strong><small>{monthLabel(report.month)} · {total.state}</small><small>{total.records} registros da fonte</small><span className="arena-link-label">Conferir origem →</span></Link>)}</div>}
+    {report && report.totals.length > 0 && <div className="arena-metric-grid">{report.totals.map(total => <Link key={`${total.series}:${total.metric}:${total.state}:${total.period}:${total.grain}`} className="arena-metric" to={`/financeiro/historico?${new URLSearchParams({ month: report.month, series: total.series, metric: total.metric })}`}><span className="arena-metric-label">{metrics[total.metric] ?? total.metric}</span><strong>{centsMoney(total.metric === 'despesas' ? Math.abs(total.amountCents) : total.amountCents)}</strong><small>{monthLabel(report.month)} · {total.state}</small><small>{total.records} registros da fonte</small><span className="arena-link-label">Conferir origem →</span></Link>)}</div>}
     {vendas.isError && <p role="alert">Não foi possível atualizar o relatório PagVendas.</p>}
     {vendas.data && vendas.data.totals.length > 0 && <div className="arena-metric-grid">{vendas.data.totals.map(total => <Link key={`${total.series}:${total.metric}:${total.state}:${total.period}:${total.grain}`} className="arena-metric" to={`/financeiro/historico?${new URLSearchParams({ month: vendas.data!.month, series: total.series })}`}><span className="arena-metric-label">{metrics[total.metric] ?? total.metric}</span><strong>{centsMoney(total.amountCents)}</strong><small>{monthLabel(total.period)} · {total.state}</small><small>{total.records} formas de pagamento na fonte</small><span className="arena-link-label">Conferir PagVendas →</span></Link>)}</div>}
+  </section>
+}
+
+export function BankStatementOverview() {
+  const { user } = useAuth()
+  const bank = useHistory(new URLSearchParams({ series: 'pagbank-conta' }))
+  const external = useHistory(new URLSearchParams({ series: 'despesas-fora-pagbank', ...(bank.data?.month ? { month: bank.data.month } : {}) }))
+  if (!user?.roles.includes('Owner')) return null
+  const rows = bank.data?.totals.filter(x => x.series === 'pagbank-conta') ?? []
+  if (!rows.length && !bank.isError) return null
+  const cards = [
+    { label: 'Entradas no extrato PagBank', series: 'pagbank-conta', metric: 'entradas-extrato', rows: rows.filter(x => x.metric === 'entradas-extrato') },
+    { label: 'Saídas no extrato PagBank', series: 'pagbank-conta', metric: 'saidas-extrato', rows: rows.filter(x => x.metric === 'saidas-extrato') },
+    { label: 'Despesas pagas fora do PagBank', series: 'despesas-fora-pagbank', metric: 'despesas', rows: external.data?.month === bank.data?.month ? external.data?.totals.filter(x => x.series === 'despesas-fora-pagbank' && x.metric === 'despesas') ?? [] : [] },
+  ]
+  return <section className="arena-dashboard-section" aria-labelledby="bank-statement-title">
+    <div className="arena-section-heading"><h2 id="bank-statement-title">Extrato bancário e despesas externas</h2></div>
+    {bank.isError && <p role="alert">Não foi possível atualizar o extrato bancário.</p>}
+    {external.isError && <p role="alert">Não foi possível atualizar as despesas externas.</p>}
+    <div className="arena-metric-grid">{cards.filter(card => card.rows.length).map(card => <Link className="arena-metric" key={card.series + card.metric} to={`/financeiro/historico?${new URLSearchParams({ series: card.series, metric: card.metric, month: bank.data!.month })}`}>
+      <span className="arena-metric-label">{card.label}</span><strong>{centsMoney(Math.abs(card.rows.reduce((sum, row) => sum + row.amountCents, 0)))}</strong>
+      <small>{monthLabel(bank.data!.month)} · {card.rows.reduce((sum, row) => sum + row.records, 0)} registros</small><span className="arena-link-label">Conferir movimentos e origem →</span>
+    </Link>)}</div>
+    <p className="arena-hint">As entradas e saídas são movimentos da conta. As despesas externas foram pagas por outro meio. Este extrato não informa o saldo final da conta nem substitui o consolidado completo da arena.</p>
   </section>
 }
 

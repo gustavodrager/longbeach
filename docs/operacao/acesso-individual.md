@@ -13,6 +13,12 @@ O provisionador mantém somente o hash da senha. Sem e-mail conhecido, usa inter
 
 ## Primeiro acesso
 
+### E-mail Google confirmado posteriormente pelo proprietário
+
+Para uma conta individual ainda pendente cujo e-mail foi autorizado explicitamente, acrescente somente esse e-mail à allowlist Google existente, preservando os demais. Execute `dotnet LongBeach.Api.dll --authorize-google-access --provision-from-stdin` com JSON privado contendo `Bootstrap.GoogleAccess.Username`, `Email` e `Role`. Não versione os alvos nem passe dados privados por argumentos que possam aparecer em logs. O comando exige Google habilitado, e-mail permitido, usuário ativo já existente e papel já concedido. Não cria usuários nem atribui permissões.
+
+O comando aceita somente a identidade provisória `.invalid`, substitui o hash da senha inicial por um segredo aleatório descartado, revoga sessões temporárias, conclui o primeiro acesso e audita `GoogleAccessAuthorized`. A conta pode então usar o fluxo Google já validado por assinatura, audiência e e-mail verificado. Repetir o mesmo alvo é idempotente; trocar uma identidade já ativada ou usar e-mail de outra conta é rejeitado. Não associe um `sub` inventado e não autentique como a pessoa para simular seu primeiro login. Execute separadamente para cada conta autorizada, usando o mesmo usuário e preservando seu histórico.
+
 A senha temporária concede uma sessão de até quinze minutos, limitada à tela de primeiro acesso, `/auth/me`, troca de senha, vinculação Google e encerramento. Nenhum papel ou permissão operacional é emitido. A API verifica também o estado e a validade da conta ao receber o JWT temporário. A renovação preserva essa limitação e não transforma uma sessão temporária em acesso completo.
 
 - **Nova senha:** confirme a senha inicial, informe e repita uma senha de pelo menos 14 caracteres, com maiúscula, minúscula, número e símbolo. As sessões temporárias são revogadas; entre novamente com usuário e nova senha.

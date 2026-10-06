@@ -6,6 +6,20 @@ import openpyxl
 spec=importlib.util.spec_from_file_location('history',Path(__file__).with_name('preparar-historico-financeiro.py'))
 history=importlib.util.module_from_spec(spec);spec.loader.exec_module(history)
 class FinancialConverterTests(unittest.TestCase):
+    def test_bank_transactions_keep_dates_and_signs_exclude_pivot_and_reject_duplicates(self):
+        import datetime
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'teste.xlsx';wb=openpyxl.Workbook();s=wb.active;s.title='Planilha1'
+            s.append(['CODIGO DA TRANSACAO','DATA','TIPO','DESCRICAO','VALOR','Dia da Semana','Comissão?','Tipo_01','Tipo_02','Tipo_03'])
+            s.append(['id-1',datetime.datetime(2026,9,1),'Vendas','Crédito',123.45,'Terça','Não','Receita','Bar','Bar'])
+            s.append(['id-2',datetime.datetime(2026,9,3),'Compra','Fornecedor',-10,'Quinta','Não','Despesa','Compras','Compras'])
+            wb.create_sheet('Planilha2').append(['Total',9999]);wb.save(path)
+            result=history.prepare(path);self.assertEqual(len(result['records']),2)
+            self.assertEqual(result['records'][1]['data']['amountCents'],-1000)
+            self.assertEqual(result['records'][1]['data']['periodStart'],'2026-09-03')
+            self.assertEqual(result['records'][1]['data']['series'],'pagbank-conta')
+            s.append(list(s.values)[1]);wb.save(path)
+            with self.assertRaises(ValueError):history.prepare(path)
     def test_preserves_cents_and_rejects_invalid_precision(self):
         self.assertEqual(history.cents(12.34),1234)
         self.assertEqual(history.cents(-12.34),-1234)
