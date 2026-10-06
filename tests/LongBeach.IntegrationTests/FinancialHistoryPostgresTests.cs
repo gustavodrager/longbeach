@@ -11,6 +11,28 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace LongBeach.IntegrationTests;
 public sealed class FinancialHistoryPostgresTests
 {
+    [PostgresFact] public async Task Arena_summary_reads_all_rows_not_just_first_history_page_and_filters_month()
+    {
+        await using var db = Database(); await db.Database.MigrateAsync();
+        await using var tx = await db.Database.BeginTransactionAsync();
+        var hash = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+        var row = new FinancialObservation("financial-observation-v1", "BRL", "Teste!G2", "alunos", "valor-informado", "Aluno teste", "Pago", new(2085,8,1), new(2085,8,31), "month", 123, "{}");
+        var batch = await Stage(db, hash, row);
+        for (var i = 0; i < 55; i++)
+        {
+            var item = row with { SourceCell = "Teste!G" + (i + 2), Label = "Aluno teste " + i, State = i == 54 ? "Não Pago" : "Pago" };
+            var json = JsonSerializer.Serialize(item);
+            await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO financial_observations(id,batch_id,source_sha256,source_cell,series,metric,state,period_start,period_end,amount_cents,payload,created_at_utc) VALUES({Guid.NewGuid()},{batch},{hash},{item.SourceCell},{item.Series},{item.Metric},{item.State},{item.PeriodStart},{item.PeriodEnd},{item.AmountCents},{json}::jsonb,{DateTimeOffset.UtcNow})");
+        }
+        var service = new FinancialHistoryService(db, new NullAuditContext(), TimeProvider.System, new ConfigurationBuilder().Build());
+        var result = await service.ArenaSummary("2085-08", default);
+        Assert.Equal(55, result.Students!.Records); Assert.Equal(54 * 123, result.Students.PaidAmountCents); Assert.Equal(1, result.Students.UnpaidRecords);
+        Assert.Contains("2085-08", result.Months); Assert.Null(result.Lessons); Assert.Null(result.Rentals);
+        Assert.Equal("2085-08", (await service.ArenaSummary(null, default)).Students!.Month);
+        Assert.Null((await service.ArenaSummary("2085-09", default)).Students);
+        await Assert.ThrowsAsync<FinancialRuleException>(() => service.ArenaSummary("invalid", default));
+        await tx.RollbackAsync();
+    }
     [PostgresFact] public async Task History_is_atomic_idempotent_audited_and_preserves_period_status()
     {
         await using var db=Database();await db.Database.MigrateAsync();

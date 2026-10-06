@@ -10,6 +10,17 @@ A aplicação exige fingerprint da conferência, transação serializable, lock 
 
 O dashboard usa a última competência do consolidado. O histórico permite mês, controle, indicador, paginação e inspeção de origem. Valores pendentes e estimados preservam seus estados; não entram em um total geral fictício de recebimentos.
 
+## Indicadores da escola e dos mensalistas
+
+O dashboard Owner consulta `GET /api/v1/financial-history/arena-summary`. A leitura calcula os indicadores sobre todas as observações aplicadas do mês, sem o limite de 50 linhas da tela de histórico. Por padrão cada controle usa sua última competência; um mês explícito não retrocede para dados antigos quando faltam registros. Os cartões mostram a competência e abrem o histórico correspondente.
+
+- Mensalidades e aluguéis pagos: somam apenas `Pago`, em centavos. Nomes pagos usam normalização de espaços/letras; não representam identidade cadastral conciliada.
+- A conferir: contam `Não Pago` e `Cobrado`, inclusive valor zero. O campo `Valor Pago` não basta para calcular inadimplência monetária, vencimento ou taxa de cobrança.
+- Horas semanais: somam os intervalos por linha de mensalista `Pago`, `Não Pago` ou `Cobrado`. `Entregou Horário` e `Revisão` ficam fora. Falta de dia/intervalo válido torna o total indisponível. A tabela agrupa dia/horário e preserva a quantidade de registros em cada situação; não deduz quadras, reservas datadas, ocupação ou receita projetada.
+- Aulas: somente detalhe diário `valor-escalonavel`, em estado `Pago` ou `Aula Ruivo`. Cancelamentos, outros estados e agregados mensais ficam fora. Participações somam as quantidades de alunos e a média divide pelas aulas incluídas; quantidades incompletas impedem total e média. Intervalos incompletos impedem total de horas. A participação não representa aluno único nem presença individual verificada.
+
+A consulta é somente leitura e não gera novas importações, reservas, cobranças ou movimentos. Os recebimentos podem estar incluídos no consolidado; não são somados a ele. Não há migration nova. Validação cobre permissões, fontes/períodos, cancelamentos, valores zero versus ausentes, horários inválidos, totais além da primeira página e comportamento do painel.
+
 ## PagBank EDI
 
 O worker usa exclusivamente GET nos quatro feeds oficiais (`transactional`, `financial`, `cashouts`, `balances`), sem sessão de navegador. A cada dez minutos tenta até sete dias, até ontem no fuso de Brasília, com releitura de dois dias e backoff exponencial limitado a seis horas. Um advisory lock evita coletores concorrentes. Credenciais ficam somente no servidor.

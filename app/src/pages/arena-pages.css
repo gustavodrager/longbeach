@@ -146,6 +146,11 @@
 .arena-page.dashboard>.page-heading .secondary-link { color:#fff; border-color:#686157; background:transparent; }
 .arena-page.dashboard>.page-heading>.arena-actions { align-self:center; flex-direction:column; align-items:stretch; flex-shrink:0; }
 .arena-dashboard-section { margin-bottom:32px; }
+.arena-history-details { margin:12px 0; padding:16px 20px; border:1px solid var(--border, #dfe5e2); border-radius:12px; }
+.arena-history-details summary { cursor:pointer; font-weight:600; }
+.arena-history-details p,.arena-history-details li { line-height:1.6; }
+.arena-history-details li+li { margin-top:8px; }
+.arena-history-details caption { text-align:left; padding:12px 0; }
 .arena-dashboard-section>.arena-section-heading { margin-top:0; }
 .arena-section-heading h2 { font-size:25px; letter-spacing:-.04em; line-height:1.2; }
 .arena-section-heading .arena-section-eyebrow { margin:0 0 8px; color:#6a5424; font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }

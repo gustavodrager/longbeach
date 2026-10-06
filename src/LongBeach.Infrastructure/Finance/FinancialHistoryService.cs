@@ -114,6 +114,32 @@ public sealed class FinancialHistoryService(LongBeachDbContext db, IAuditContext
             while(await reader.ReadAsync(ct)){using var json=JsonDocument.Parse(reader.GetString(4));items.Add(new(reader.GetGuid(0),reader.GetGuid(1),reader.GetString(2),reader.GetString(3).Trim(),FinancialHistoryRules.Parse(json.RootElement)));}
         return new(month,months,FinancialHistoryRules.Totals(items.Select(x=>x.Data)),items.Skip((page-1)*50).Take(50).ToArray(),items.Count,page,time.GetUtcNow());
     }
+    public async Task<ArenaHistorySummary> ArenaSummary(string? month, CancellationToken ct)
+    {
+        if (month is not null && !DateOnly.TryParseExact(month + "-01", "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out _)) throw new FinancialRuleException("Selecione um mês válido.");
+        const string control = """
+            ((series IN ('alunos','mensalistas') AND metric='valor-informado' AND payload->>'Grain'='month')
+             OR (series='aulas' AND metric='valor-escalonavel' AND payload->>'Grain'='day'))
+            """;
+        var months = new List<string>();
+        await using (var command = await Command("SELECT DISTINCT to_char(period_start,'YYYY-MM') AS month FROM financial_observations WHERE " + control + " ORDER BY month DESC", ct))
+        await using (var reader = await command.ExecuteReaderAsync(ct)) while (await reader.ReadAsync(ct)) months.Add(reader.GetString(0));
+        var rows = new List<FinancialObservation>();
+        // One complete month per control, independent of the history page's 50-row pagination.
+        await using (var command = await Command("WITH controls AS (SELECT * FROM financial_observations WHERE " + control + ") " + """
+            SELECT payload::text FROM controls c
+            WHERE to_char(period_start,'YYYY-MM')=COALESCE(@p0::text,
+                (SELECT to_char(MAX(period_start),'YYYY-MM') FROM controls latest WHERE latest.series=c.series))
+            """, ct, month))
+        await using (var reader = await command.ExecuteReaderAsync(ct)) while (await reader.ReadAsync(ct))
+        {
+            using var json = JsonDocument.Parse(reader.GetString(0));
+            rows.Add(FinancialHistoryRules.Parse(json.RootElement));
+        }
+        return ArenaHistoryRules.Summarize(rows, months, month, time.GetUtcNow());
+    }
+
     public async Task<IReadOnlyList<IntegrationStatus>> Integrations(CancellationToken ct)
     {
         var result=new List<IntegrationStatus>();

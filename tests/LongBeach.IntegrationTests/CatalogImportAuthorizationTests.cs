@@ -12,6 +12,7 @@ public sealed class CatalogImportAuthorizationTests
     [Theory]
     [InlineData("/")]
     [InlineData("/integrations")]
+    [InlineData("/arena-summary")]
     [InlineData("/pagbank-edi")]
     [InlineData("/imports/00000000-0000-0000-0000-000000000001")]
     public async Task Financial_history_requires_owner_before_database_access(string suffix)

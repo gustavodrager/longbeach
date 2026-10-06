@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../features/auth/authContext'
 import { BarArenaMetrics } from '../features/attendance/BarArenaMetrics'
 import { FinancialHistoryOverview } from '../features/finance/FinancialHistory'
+import { ArenaHistoryOverview } from '../features/finance/ArenaHistoryOverview'
 import { useCourtSchedule } from '../features/arena/queries'
 import { useOperations, type OperationalKind } from '../features/operations/DemoDataProvider'
 import { AreaIcon, Feedback, Field, Heading, currency, displayDate, quantity, today, useFilters, validDate, type AreaIconName } from './arenaUi'
@@ -75,6 +76,7 @@ export function DashboardPage() {
     </section>
     {valid && <BarArenaMetrics from={from} to={to} />}
     <FinancialHistoryOverview />
+    <ArenaHistoryOverview />
     <section className="arena-dashboard-section" aria-labelledby="arena-areas">
       <div className="arena-section-heading"><div><p className="arena-section-eyebrow">03 · Gerenciar a arena</p><h2 id="arena-areas">Áreas da arena</h2></div><p>Consultar, cadastrar e acompanhar</p></div>
       <div className="arena-modules">
