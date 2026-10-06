@@ -1,6 +1,7 @@
-import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Navigate, Route, Routes } from 'react-router-dom'
+import { OptionalUnsavedProvider } from './components/managementUi'
 import { AppShell } from './components/AppShell'
 import { PwaUpdatePrompt } from './components/PwaUpdatePrompt'
 import { AuthGuard } from './features/auth/AuthGuard'
@@ -72,11 +73,16 @@ const PrototypeApp = lazy(() => import('./features/prototype/PrototypeApp').then
 const ClientPage = lazy(() => import('./features/attendance/ClientPage').then(module => ({ default: module.ClientPage })))
 
 export function App() {
-  return <QueryClientProvider client={queryClient}><BrowserRouter><Routes>
+  const [router, setRouter] = useState<ReturnType<typeof createBrowserRouter> | null>(null)
+  useEffect(() => { const instance = createBrowserRouter([{ path: '*', element: <ApplicationRoutes /> }]); setRouter(instance); return () => instance.dispose() }, [])
+  return <QueryClientProvider client={queryClient}>{router ? <RouterProvider router={router} /> : <main role="status">Abrindo sua área…</main>}</QueryClientProvider>
+}
+function ApplicationRoutes() {
+  return <OptionalUnsavedProvider><Routes>
     <Route path="/prototipo/*" element={<Suspense fallback={<main className="session-loading" role="status">Abrindo protótipo…</main>}><PrototypeApp /></Suspense>} />
     <Route path="/cliente" element={<Suspense fallback={<main className="session-loading" role="status">Abrindo sua comanda…</main>}><ClientPage /></Suspense>} />
     <Route path="*" element={<OperationalRoutes />} />
-  </Routes></BrowserRouter></QueryClientProvider>
+  </Routes></OptionalUnsavedProvider>
 }
 
 function Permission({ permission, demoMode = false, children }: { permission: string; demoMode?: boolean; children: ReactNode }) {

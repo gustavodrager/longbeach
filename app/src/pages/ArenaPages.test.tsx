@@ -74,7 +74,7 @@ it('mostra recebimentos pela data paga, abre a composição e preserva período 
   await user.click(screen.getByRole('link',{name:/Mensalidade de teste/}))
   expect(await screen.findByRole('heading',{name:'Mensalidade de teste'})).toBeInTheDocument()
   expect(screen.getByTestId('route')).toHaveTextContent('dateField=paidDate')
-  await user.click(screen.getByRole('link',{name:'← Financeiro'}))
+  await user.click(screen.getByRole('link',{name:/← (Financeiro|Lançamentos)/}))
   expect(screen.getByTestId('route')).toHaveTextContent(`from=${day}`)
   expect(screen.getByTestId('route')).toHaveTextContent('status=Pago')
 })
@@ -132,7 +132,7 @@ it('cobrança criada pela reserva conserva a origem e volta ao lançamento espec
   expect(await screen.findByRole('heading',{name:'Locação · Treino de sábado'})).toBeInTheDocument()
   expect(JSON.parse(localStorage.getItem('longbeach-os-demo-v1')??'{}').financeEntries[0]).toMatchObject({sourceId:reservation.id,sourceKind:'reservations',origin:'Locações',status:'Pendente',amount:150})
   expect(screen.getByRole('link',{name:'Ver registro de origem →'})).toHaveAttribute('href',`/agenda/${reservation.id}`)
-  expect(screen.getByRole('link',{name:'← Financeiro'})).toHaveAttribute('href',expect.stringContaining(`source=${reservation.id}`))
+  expect(screen.getByRole('link',{name:/← (Financeiro|Lançamentos)/})).toHaveAttribute('href',expect.stringContaining(`source=${reservation.id}`))
 })
 
 it('recepção considera aulas na disponibilidade sem divulgar turma, professor ou alunos',async()=>{
@@ -181,7 +181,7 @@ it('despesa criada pela manutenção conserva vínculo, tipo e retorno ao servi�
   expect(await screen.findByRole('heading',{name:'Manutenção · Trocar rede da quadra'})).toBeInTheDocument()
   expect(JSON.parse(localStorage.getItem('longbeach-os-demo-v1')??'{}').financeEntries[0]).toMatchObject({sourceId:maintenance.id,sourceKind:'maintenance',origin:'Arena',direction:'Pagar',amount:90})
   expect(screen.getByRole('link',{name:'Ver registro de origem →'})).toHaveAttribute('href',`/manutencao/${maintenance.id}`)
-  await user.click(screen.getByRole('link',{name:'← Financeiro'}))
+  await user.click(screen.getByRole('link',{name:/← (Financeiro|Lançamentos)/}))
   expect(screen.getByRole('link',{name:/Manutenção · Trocar rede da quadra/})).toBeInTheDocument()
   expect(screen.getByTestId('route')).toHaveTextContent('sourceKind=maintenance')
 })

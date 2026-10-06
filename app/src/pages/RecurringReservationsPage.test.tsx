@@ -69,7 +69,7 @@ it('falha incerta e dois cliques repetem um único grupo com o mesmo corpo e pre
   expect(await screen.findByRole('heading', { name: 'Grupo semanal · Grupo semanal de teste' })).toBeInTheDocument()
   expect(screen.getAllByRole('link', { name: /ocorrência [123].*Confirmada/ })).toHaveLength(3)
   expect(screen.getByRole('link', { name: 'Ver todas as ocorrências na agenda →' })).toHaveAttribute('href', expect.stringContaining(`group=${bodies[0].operationId}`))
-  expect(screen.getByRole('link', { name: '← Agenda e recepção' })).toHaveAttribute('href', expect.stringContaining('view=list'))
+  expect(screen.getByRole('link', { name: '← Agenda' })).toHaveAttribute('href', expect.stringContaining('view=list'))
   expect(localStorage.getItem('longbeach-os-demo-v1')).toBeNull(); expect(sessionStorage.length).toBe(0)
 })
 
