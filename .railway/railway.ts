@@ -7,7 +7,7 @@ export default defineRailway(() => {
   Postgres.networking = { privateNetworkEndpoint: "postgres" };
   const postgresVolume = volume("postgres-volume", { alerts: { usage: { "100": {}, "80": {}, "95": {} } }, allowOnlineResize: true, region: "europe-west4-drams3a", sizeMB: 5000 });
   const api = service("api", {
-    source: github("gustavodrager/longbeach", { branch: "codex/saldos-pagina-inicial", commitSha: "b29dfbd97bc34bc6b22b3b130450bec17f747211" }),
+    source: github("gustavodrager/longbeach", { branch: "codex/saldos-pagina-inicial", commitSha: "ba08ce8fc7457de13152410faa5a4852da93b1ff" }),
     build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "deploy/api.Dockerfile" },
     healthcheck: "/health/ready",
     healthcheckTimeout: 300,
