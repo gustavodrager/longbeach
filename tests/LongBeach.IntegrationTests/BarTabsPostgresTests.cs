@@ -15,6 +15,18 @@ public sealed class BarTabsPostgresTests
 {
     private const string ConnectionVariable="LONG_BEACH_TEST_DATABASE_URL";
     [PostgresFact]
+    public async Task Closed_tab_remains_read_only_until_expiry_and_explicit_revocation_still_wins()
+    {
+        await using var f=await Fixture.Create();var tab=await f.Tabs.Open(new(Guid.NewGuid(),f.Location.Id),f.Actor,default);
+        var access=await f.Tabs.IssueAccess(tab.Id,new(Guid.NewGuid()),f.Actor,default);
+        await f.Tabs.Close(tab.Id,new(Guid.NewGuid()),f.Actor,default);
+        Assert.Equal("Closed",(await f.Tabs.Client(access.Token,default)).State);
+        await Assert.ThrowsAsync<BarTabAccessException>(()=>f.Tabs.Add(tab.Id,new(Guid.NewGuid(),[new(f.Product.Id,1)]),null,access.Token,default));
+        await Assert.ThrowsAsync<BarTabAccessException>(()=>f.Tabs.Pay(tab.Id,new(Guid.NewGuid(),"Pix",1,Name:"Cliente",Email:"client@example.invalid",TaxId:"12345678909"),null,access.Token,default));
+        await f.Tabs.RevokeAccess(tab.Id,new(Guid.NewGuid()),f.Actor,default);
+        await Assert.ThrowsAsync<BarTabAccessException>(()=>f.Tabs.Client(access.Token,default));
+    }
+    [PostgresFact]
     public async Task Delivery_and_mixed_partial_receipts_are_separate_and_replay_once()
     {
         await using var f=await Fixture.Create();

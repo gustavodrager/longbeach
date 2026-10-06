@@ -156,6 +156,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     Predicate = registration => registration.Tags.Contains("ready") || registration.Tags.Contains("live")
 }).AllowAnonymous();
 
+app.MapClientPortalEndpoints();
 app.MapBillingEndpoints();
 app.MapBarEndpoints();
 app.MapBarTabsEndpoints();
@@ -310,6 +311,9 @@ static void ConfigureRateLimiting(IServiceCollection services)
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 AutoReplenishment = true
             }));
+        options.AddPolicy("client-portal", context => RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? context.User.FindFirst("sub")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true }));
         options.AddPolicy("public-demo-write", context => RateLimitPartition.GetFixedWindowLimiter(
             context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             _ => new FixedWindowRateLimiterOptions

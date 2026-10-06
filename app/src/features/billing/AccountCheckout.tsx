@@ -1,3 +1,4 @@
+import { useAuth } from '../auth/authContext'
 import { useRef, useState } from 'react'
 import type { Account, Config, Payment } from './api'
 import { post, date } from './api'
@@ -5,9 +6,10 @@ import { CardFields, emptyCard } from './CardFields'
 import { encryptCard } from './card'
 import { money } from '../attendance/api'
 export function AccountCheckout({ account, config, base, resume, subscription = false, subscriptionOperationId, done }: { account: Account; config: Config; base: string; resume?: Payment; subscription?: boolean; subscriptionOperationId?: string; done: () => Promise<unknown> }) {
+  const { user } = useAuth()
   const [method, setMethod] = useState(resume?.method ?? (subscription || !config.pixEnabled ? 'CreditCard' : 'Pix'))
   const [card, setCard] = useState(emptyCard); const [busy, setBusy] = useState(false); const [error, setError] = useState('')
-  const [name, setName] = useState(''); const [email, setEmail] = useState(''); const [taxId, setTaxId] = useState(''); const [phone, setPhone] = useState(''); const [consent, setConsent] = useState(false)
+  const [name, setName] = useState(user?.name ?? ''); const [email, setEmail] = useState(user?.email ?? ''); const [taxId, setTaxId] = useState(''); const [phone, setPhone] = useState(''); const [consent, setConsent] = useState(false)
   const [amount, setAmount] = useState(String(resume?.amount ?? account.payable)); const [started, setStarted] = useState(false)
   const operation = useRef(resume?.operationId ?? subscriptionOperationId ?? crypto.randomUUID())
   const total = account.kind === 'Bar' ? Number(amount.replace(',', '.')) : account.payable

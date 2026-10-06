@@ -277,7 +277,6 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         var tab = await Lock(id, ct); var totals = await Totals(id, ct);
         var unfinished = await db.Set<BarTabItem>().AnyAsync(x => x.TabId == id && (x.State == "Requested" || x.State == "Accepted"), ct) || await db.Set<BarTabRefund>().AnyAsync(x => x.TabId == id && x.State == "Pending", ct);
         tab.Close(totals.Due, totals.Pending, unfinished, time.GetUtcNow());
-        foreach (var access in await db.Set<BarTabAccess>().Where(x => x.TabId == id && !x.Revoked).ToListAsync(ct)) access.Revoke();
         db.Add(new BarTabHistory(id, "Closed", actor)); await db.SaveChangesAsync(ct); return await Public(tab, false, false, ct);
     }, ct);
     private sealed record AccessReceipt(Guid Id, Guid TabId, Guid OperationId, DateTimeOffset ExpiresAtUtc);
@@ -296,7 +295,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         }, ct);
         return new(id, AccessToken(receipt), receipt.ExpiresAtUtc);
     }
-    public async Task<TabResponse> Client(string token, CancellationToken ct) => await Public(await Access(token, ct), false, true, ct);
+    public async Task<TabResponse> Client(string token, CancellationToken ct) => await Public(await Access(token, ct, readOnly: true), false, true, ct);
     public async Task<IReadOnlyList<TabCatalogProduct>> ClientCatalog(string token, CancellationToken ct) => await Catalog((await Access(token, ct)).LocationId, ct);
     public async Task<TabResponse> RevokeAccess(Guid id, TabActionInput input, Guid actor, CancellationToken ct) => await Run(input.OperationId, Hash(new { action = "revokeAccess", id, input, actor }), async () =>
     {
@@ -342,7 +341,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         if (actor is not null && actor != Guid.Empty) return actor.Value.ToString();
         var tab = await Access(token ?? "", ct); if (tab.Id != id) throw new BarTabAccessException(BarTabAccessFailure.Forbidden, "Este acesso não permite operar outra comanda."); return HashText(token!);
     }
-    private async Task<BarTab> Access(string token, CancellationToken ct)
+    private async Task<BarTab> Access(string token, CancellationToken ct, bool readOnly = false)
     {
         if (token.Length is < 32 or > 200) throw new BarTabAccessException(BarTabAccessFailure.Invalid, "Peça um novo acesso à equipe.");
         var hash = HashText(token);
@@ -350,7 +349,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             ?? throw new BarTabAccessException(BarTabAccessFailure.Invalid, "Acesso inválido. Peça um novo acesso à equipe.");
         if (access.Revoked || access.ExpiresAtUtc <= time.GetUtcNow()) throw new BarTabAccessException(BarTabAccessFailure.ExpiredOrRevoked, "Acesso expirado ou revogado. Peça um novo acesso à equipe.");
         var tab = await db.Set<BarTab>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == access.TabId, ct);
-        if (tab is null || tab.State != "Open") throw new BarTabAccessException(BarTabAccessFailure.Closed, "Esta comanda foi encerrada. Peça um novo acesso à equipe.");
+        if (tab is null || (tab.State != "Open" && !(readOnly && tab.State == "Closed"))) throw new BarTabAccessException(BarTabAccessFailure.Closed, "Esta comanda foi encerrada. Peça um novo acesso à equipe.");
         return tab;
     }
     private string AccessToken(AccessReceipt receipt)

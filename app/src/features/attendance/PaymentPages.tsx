@@ -1,3 +1,4 @@
+import { CopyPix } from '../../components/CopyPix'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CardFields, emptyCard } from '../billing/CardFields'
@@ -14,7 +15,7 @@ import { dateTime, isOpen, money, parseAmount, paymentLabels, postBar, useBarCom
 export function PixDetails({ payment, busy, refresh }: { payment: TabPayment; busy: boolean; refresh: () => void }) {
   const pix = payment.method === 'Pix'; const method = paymentLabels[payment.method] ?? 'Pagamento'
   const title = payment.state === 'Approved' ? `${method} confirmado` : payment.state === 'Pending' ? pix ? 'Esperando o Pix' : 'Esperando confirmação' : `${method} não confirmado`
-  return <section className="ux-panel ux-payment-state"><h2>{title}</h2><PaymentStatus payment={payment} /><p className="ux-amount">{money(payment.amount)}</p>{pix && payment.state === 'Pending' && <><p>A confirmação virá do provedor. Aguarde antes de cobrar novamente.</p>{payment.qrImageUrl && <img className="lb-pix-qr" src={payment.qrImageUrl} alt="QR Code para pagar com Pix" referrerPolicy="no-referrer" />}{payment.pixText && <label className="ux-field">Pix copia e cola<textarea readOnly value={payment.pixText} rows={4} onFocus={event => event.currentTarget.select()} /></label>}<p className="ux-note">Válido até {dateTime(payment.expiresAtUtc)}</p></>}{(pix || payment.method === 'CreditCard') && <button className="ux-button secondary" disabled={busy} onClick={refresh}><Icon name="clock" />Consultar confirmação</button>}</section>
+  return <section className="ux-panel ux-payment-state"><h2>{title}</h2><PaymentStatus payment={payment} /><p className="ux-amount">{money(payment.amount)}</p>{pix && payment.state === 'Pending' && <><p>Estamos aguardando a confirmação do pagamento. Você pode abrir seu banco e voltar a esta página. Não pague novamente.</p>{payment.qrImageUrl && <img className="lb-pix-qr" src={payment.qrImageUrl} alt="QR Code para pagar com Pix" referrerPolicy="no-referrer" />}{payment.pixText && <CopyPix code={payment.pixText} />}<p className="ux-note">Válido até {dateTime(payment.expiresAtUtc)}</p></>}{(pix || payment.method === 'CreditCard') && <button className="ux-button secondary" disabled={busy} onClick={refresh}><Icon name="clock" />Consultar confirmação</button>}</section>
 }
 
 export function ReceivePage() {
