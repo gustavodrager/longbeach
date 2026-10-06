@@ -260,3 +260,18 @@ API e web publicadas no commit `5aa19ed6ef566181dd47626d9313fbdacc32220c`, branc
 Pelo cadastro autenticado oficial foi salva uma única quadra com os dias úteis e o horário de funcionamento confirmados pelo responsável, mantendo a conferência da agenda pendente. A leitura após navegar/recarregar preservou o cadastro; a agenda calculou 18 horas de funcionamento em um dia útil e fechamento no sábado, sem apresentar capacidade como tempo livre confirmado. Nenhuma reserva ou aula foi criada a partir de dados históricos. A auditoria e o bloqueio de gravações fora do funcionamento foram cobertos pelos testes PostgreSQL.
 
 Mantenha uma revisão da API compatível com `24:00` e `operatingDays` para esses registros. Os deployments anteriores são API `9944fe39-b009-4371-8bf6-5742bf57c687` e web `ad4c9880-96b3-40f5-9c11-17cb7c19e377`; não reverta a semântica da agenda nem remova seus campos sem uma correção direcionada. Prefira corrigir para frente e preservar os cadastros e a auditoria.
+
+
+## Grade atual de aulas — 2026-10-06
+
+Publicação autorizada na conversa operacional, isolada no projeto Long Beach OS. API e web foram fixadas em `778c580517bc1240d7499ac95366f4c7dfa9805f`, branch `codex/grade-aulas-atual`, após CI `37457110200` aprovado. PR de revisão: https://github.com/gustavodrager/longbeach/pull/12.
+
+- API: deployment `bb0ce23b-07cf-4cc5-9f46-0e310179775f`, SUCCESS; `/health/ready` respondeu `Healthy`.
+- Web: deployment `60877a90-93a7-4b78-b378-ddc17239bd36`, SUCCESS; `/healthz` respondeu `ok`.
+- As duas alterações de fonte passaram por revisão do patch; nenhuma variável, domínio, volume, banco ou serviço auxiliar foi alterado. Snapshots foram reconciliados após cada mudança; plano final `No changes.`.
+- Validação local: 130 testes unitários, 156 de integração PostgreSQL e 157 frontend; builds .NET e PWA aprovados. O CI também concluiu backend e frontend com sucesso.
+- Depois de atualizar a PWA no navegador autenticado, um lote conciliado criou 1 professor, 6 turmas e 29 matrículas, vinculando 24 alunos existentes. A sexta-feira ficou com uma única turma 17h–18h, capacidade 6, ocupação 6/6. A gestão confirmou o professor atual e a modalidade; dados pessoais e pacotes ficam fora do Git.
+- Escola, detalhe da sexta, Agenda e dashboard foram conferidos na produção. O dashboard mostrou 6 turmas, 6 horas semanais, 29/36 vagas ocupadas, 7 vagas livres e 24 alunos únicos. Equipe mostrou acordo financeiro a combinar, sem registrar zero ou gerar despesas.
+- A origem original e os pacotes rejeitados na conferência permanecem preservados; somente o lote conciliado foi aplicado. Nenhuma reserva, cobrança ou presença foi criada. A agenda completa da quadra continua pendente enquanto os aluguéis e bloqueios atuais não forem confirmados.
+
+Procedimento e limites de reversão: [Importação da grade de aulas](importacao-grade-aulas.md). Não voltar a versões que desconhecem valores financeiros nulos ou início de grade após aplicar os registros.

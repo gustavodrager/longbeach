@@ -7,7 +7,7 @@ O pacote operacional cria professores, turmas e matrículas a partir de uma grad
 1. Ler a grade e guardar hash SHA-256, aba, linhas e nomes originais fora do Git.
 2. Conciliar os nomes com os alunos existentes. Registrar os aliases usados no pacote; nomes ambíguos exigem conferência. O importador não cria nem renomeia alunos.
 3. Resolver horários repetidos e capacidade com a gestão. Preservar a informação original e a correção em cada linha de staging.
-4. Preparar registros `reference-data` com `data.schema = longbeach.class-grade-operations.v1`, `data.kind` (`team`, `classes` ou `enrollments`) e `data.body`. IDs estáveis são derivados da operação para que o reenvio não crie duplicatas. O pacote mantém `sourceRows` e `userConfirmation`.
+4. Preparar registros `reference-data` com `data.schema = longbeach.class-grade-operations.v1`, `data.kind` (`team`, `classes` ou `enrollments`) e `data.body`. IDs estáveis são derivados da operação para que o reenvio não crie duplicatas. O pacote mantém `sourceSheet`, `sourceRows` e `userConfirmation`. Registros derivados (professor, turma e matrícula) usam posições únicas na grade operacional conciliada, enquanto esses campos preservam a aba e as linhas da planilha original. Validar cada referência como UUID e remover parâmetros de navegação dos links usados na conciliação.
 5. Enviar em Importações. Usar **Conferir grade de aulas** e inspecionar os vínculos, horários e vagas antes de aplicar. O lote anterior de leitura da planilha permanece como fonte de conferência, sem gerar lançamentos duplicados.
 
 ## Aplicação
