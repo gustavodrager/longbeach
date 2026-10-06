@@ -34,7 +34,9 @@ public sealed class BarPostgresTests
         await Assert.ThrowsAsync<BarRuleException>(()=>service.CorrectPaymentReference(id,new PurchasePaymentReferenceInput("Cash","Stale",saved.Version),default));
         Assert.Equal(1,await db.Set<LongBeach.Domain.Purchases.PurchaseReceipt>().CountAsync(x=>x.PurchaseId==id));
         Assert.Equal(24m,(await db.Set<StockBalance>().SingleAsync(x=>x.ProductId==managed.Product.Id&&x.LocationId==location.Id)).Quantity);
-        Assert.True(await db.AuditLogs.AnyAsync(x=>x.Resource=="Purchase"&&x.ResourceId==id.ToString()&&x.Action=="Modified"&&x.MetadataJson.Contains("AccountReference")));
+        var audits=await db.AuditLogs.Where(x=>x.Resource=="Purchase"&&x.ResourceId==id.ToString()&&x.Action=="Modified").Select(x=>x.MetadataJson).ToListAsync();
+        var reference=audits.Select(x=>JsonSerializer.Deserialize<JsonElement>(x)).Single(x=>x.TryGetProperty("AccountReference",out _)).GetProperty("AccountReference");
+        Assert.Equal("Owner test",reference.GetProperty("Before").GetString());Assert.Equal("Arena account",reference.GetProperty("After").GetString());
     }
     [PostgresFact]
     public async Task Physical_count_manual_sale_receipt_and_refund_preserve_ledger_and_idempotency()
