@@ -1,3 +1,4 @@
+import type { RentalGroup, RentalAttendance } from './rentals'
 import type { OperationalData, OperationalKind } from '../operations/DemoDataProvider'
 import type { ArenaClass, Court, Enrollment, FinanceEntry, Presence, Reservation } from './types'
 
@@ -7,6 +8,23 @@ const overlaps = (a: { startTime: string; endTime: string }, b: { startTime: str
 /** Local demonstration mirrors the critical server rules; production always uses server validation. */
 export function validateArenaRecord(kind: OperationalKind, input: { id: string }, data: OperationalData): string | null {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+  if (kind === 'rentalMonths') return 'Gere a competência na área de mensalistas conectada à arena.'
+  if (kind === 'rentalGroups') {
+    const group = input as RentalGroup, court = data.courts.find(c => c.id === group.courtId)
+    if (!court || !opensOn(court, group.weekDay) || !validTime(group.startTime) || !validTime(group.endTime, true) || group.startTime >= group.endTime || group.startTime < court.openingTime || group.endTime > court.closingTime) return 'Confira o dia e o horário dentro do funcionamento da quadra.'
+    if (!group.name.trim() || !group.startDate || group.endDate && group.endDate < group.startDate) return 'Confira o nome e as datas do acordo.'
+    if (group.members.some(m => !m.name.trim()) || new Set(group.members.map(m => m.name.trim().toLocaleLowerCase('pt-BR'))).size !== group.members.length) return 'Confira os nomes de todos os integrantes, sem repetir pessoas.'
+    const active = group.members.filter(m => m.status === 'Ativo')
+    if (!active.some(m => m.id === group.organizerId) || group.backupId && (!active.some(m => m.id === group.backupId) || group.backupId === group.organizerId)) return 'Escolha um responsável ativo e um suplente diferente.'
+    if (active.length > group.capacity || group.capacity < 1 || group.capacity > 50) return 'Confira a quantidade prevista de integrantes.'
+    if (data.rentalGroups.find(g => g.id === group.id)?.members.some(m => !group.members.some(n => n.id === m.id))) return 'Marque integrantes como inativos para preservar o histórico.'
+  }
+  if (kind === 'rentalAttendances') {
+    const presence = input as RentalAttendance, reservation = data.reservations.find(r => r.id === presence.reservationId)
+    if (!reservation || reservation.rentalGroupId !== presence.rentalGroupId || reservation.status === 'Cancelada' || reservation.date > today) return 'Escolha um encontro válido, na data de hoje ou anterior.'
+    if (!data.rentalGroups.find(g => g.id === presence.rentalGroupId)?.members.some(m => m.id === presence.memberId)) return 'O integrante não pertence ao grupo.'
+    if (data.rentalAttendances.some(p => p.id !== presence.id && p.reservationId === presence.reservationId && p.memberId === presence.memberId)) return 'A presença já existe. Edite o registro.'
+  }
   if (kind === 'classes' || kind === 'reservations') {
     const record = input as ArenaClass | Reservation
     const court = data.courts.find(row => row.id === record.courtId)

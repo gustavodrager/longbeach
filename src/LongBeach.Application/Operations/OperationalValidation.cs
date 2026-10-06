@@ -20,6 +20,9 @@ public static class OperationalValidation
             ["enrollments"] = (SystemPermissions.StudentsRead, SystemPermissions.StudentsWrite),
             ["presences"] = (SystemPermissions.StudentsRead, SystemPermissions.StudentsWrite),
             ["financeEntries"] = (SystemPermissions.FinanceRead, SystemPermissions.FinanceWrite),
+            ["rentalGroups"] = (SystemPermissions.ProjectsRead, SystemPermissions.ProjectsWrite),
+            ["rentalMonths"] = (SystemPermissions.ProjectsRead, SystemPermissions.ProjectsWrite),
+            ["rentalAttendances"] = (SystemPermissions.ProjectsRead, SystemPermissions.ProjectsWrite),
             ["maintenance"] = (SystemPermissions.ProjectsRead, SystemPermissions.ProjectsWrite)
         };
     public static readonly HashSet<string> LegacyKinds = ["students", "team", "inventory", "projects"];
@@ -48,6 +51,9 @@ public static class OperationalValidation
         var others = Rows(kind).Where(row => Id(row) != id).ToArray();
         switch (kind)
         {
+            case "rentalGroups": return RentalGroupRules.ValidateGroup(body, records);
+            case "rentalAttendances": return RentalGroupRules.ValidateAttendance(body, records, today);
+            case "rentalMonths": return "Gere a competência pela área de mensalistas.";
             case "students":
                 if (!Money(body, "monthlyAmount")) return "Confira o valor da mensalidade.";
                 break;
@@ -128,7 +134,14 @@ public static class OperationalValidation
                 if (!string.IsNullOrEmpty(Text(body, "sourceId")))
                 {
                     var sourceKind = Text(body, "sourceKind");
-                    if (!new[] { "enrollments", "reservations", "projects", "maintenance" }.Contains(sourceKind) || !Exists(sourceKind, "sourceId")) return "O lançamento deve apontar para um registro de origem existente.";
+                    if (!new[] { "enrollments", "reservations", "projects", "maintenance", "rentalMonths" }.Contains(sourceKind) || !Exists(sourceKind, "sourceId")) return "O lançamento deve apontar para um registro de origem existente.";
+                    if (sourceKind == "reservations" && Rows("reservations").Any(r => Id(r) == Id(body, "sourceId") && RentalGroupRules.Id(r, "rentalGroupId") != Guid.Empty)) return "Este encontro pertence a um mensalista. Use a competência do grupo como origem da cobrança.";
+                    if (sourceKind == "rentalMonths")
+                    {
+                        var source = Rows("rentalMonths").Single(r => Id(r) == Id(body, "sourceId"));
+                        if (Text(body, "origin") != "Locações" || Text(body, "direction") != "Receber" || Text(body, "month") != Text(source, "month")) return "A cobrança do mensalista deve ter origem Locações e a competência do grupo.";
+                        if (Text(body, "status") != "Cancelado" && others.Any(r => Text(r, "sourceKind") == "rentalMonths" && Id(r, "sourceId") == Id(body, "sourceId") && Text(r, "status") != "Cancelado")) return "Já existe uma cobrança ativa para este grupo e mês.";
+                    }
                     if (sourceKind == "enrollments")
                     {
                         if (Text(body, "origin") != "Escola" || Text(body, "direction") != "Receber" || !DateOnly.TryParseExact(Text(body, "month") + "-01", "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)) return "A mensalidade deve ter origem Escola e competência no formato ano-mês.";

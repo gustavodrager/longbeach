@@ -50,6 +50,7 @@ export function DashboardPage() {
   }, 0)
   const modules: [string, string, string, OperationalKind, AreaIconName][] = [
     ['Agenda e recepção', 'Quadras, reservas e chegada de clientes.', '/agenda', 'reservations', 'agenda'],
+    ['Mensalistas', 'Integrantes, encontros, mensalidades e consumo do grupo.', '/mensalistas', 'rentalGroups', 'team'],
     ['Escola', 'Alunos, turmas, matrículas e presença.', '/escola', 'classes', 'school'],
     ['Financeiro operacional', 'Contas, recebimentos e despesas.', '/financeiro', 'financeEntries', 'finance'],
     ['Equipe', 'Pessoas, funções e acordos de pagamento.', '/equipe', 'team', 'team'],
@@ -63,6 +64,8 @@ export function DashboardPage() {
     <Feedback />
     <FinancialHistoryOverview />
     <ArenaHistoryOverview />
+    {data.canRead('rentalGroups') && <section className="arena-dashboard-section" aria-labelledby="rental-groups-dashboard"><div className="arena-section-heading"><h2 id="rental-groups-dashboard">Grupos mensalistas</h2><Link to="/mensalistas">Gerenciar grupos →</Link></div><div className="arena-metric-grid"><Metric label="Grupos ativos" value={count('rentalGroups', data.rentalGroups.filter(g => g.status === 'Ativo' && g.startDate <= day && (!g.endDate || g.endDate >= day)).length)} to="/mensalistas" period="Acordos cadastrados" updated={updated} note={data.rentalGroups.length ? 'Veja integrantes, calendário e cobranças de cada turma.' : 'Cadastre os grupos e seus integrantes para acompanhar aluguel e bar.'} /></div></section>}
+
     {readable('classes') && activeClasses.length > 0 && <section className="arena-dashboard-section" aria-labelledby="current-school-grade">
       <div className="arena-section-heading"><div><p className="arena-section-eyebrow">Escola · cadastros atuais</p><h2 id="current-school-grade">Grade de aulas atual</h2></div></div>
       <div className="arena-metric-grid">

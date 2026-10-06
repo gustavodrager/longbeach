@@ -32,6 +32,8 @@ const ProjectDetailsPage = lazy(() => import('./pages/OperationsPages').then(mod
 const ImportPage = lazy(() => import('./pages/ImportPage').then(module => ({ default: module.ImportPage })))
 import { useAuth } from './features/auth/authContext'
 import { operationalPermissions, type OperationalKind } from './features/operations/DemoDataProvider'
+const RentalGroupsPage = lazy(() => import('./pages/RentalGroupsPage').then(module => ({ default: module.RentalGroupsPage })))
+const RentalGroupPage = lazy(() => import('./pages/RentalGroupsPage').then(module => ({ default: module.RentalGroupPage })))
 const CourtsPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.CourtsPage })))
 const AgendaPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.AgendaPage })))
 const RecurringReservationsPage = lazy(() => import('./pages/RecurringReservationsPage').then(module => ({ default: module.RecurringReservationsPage })))
@@ -102,6 +104,8 @@ function OperationalRoutes() {
     <Route path="estoque/:itemId" element={arena('inventory', <InventoryDetailsPage />)} />
     <Route path="projetos" element={arena('projects', <ProjectsPage />)} />
     <Route path="projetos/:projectId" element={arena('projects', <ProjectDetailsPage />)} />
+    <Route path="mensalistas" element={arena('rentalGroups', <RentalGroupsPage />)} />
+    <Route path="mensalistas/:groupId" element={arena('rentalGroups', <RentalGroupPage />)} />
     <Route path="quadras" element={arena('courts', <CourtsPage />)} />
     <Route path="agenda" element={arena('reservations', <AgendaPage />)} />
     <Route path="agenda/recorrentes/novo" element={arena('reservations', <RecurringReservationsPage />)} />

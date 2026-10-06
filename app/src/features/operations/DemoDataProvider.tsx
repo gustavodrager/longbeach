@@ -1,3 +1,4 @@
+import type { RentalGroup, RentalMonth, RentalAttendance } from '../arena/rentals'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { apiFetch, ApiError } from '../../lib/http'
 import { validateArenaRecord } from '../arena/validation'
@@ -29,6 +30,7 @@ type New<T> = Omit<T, 'id'>
 export type OperationalData = {
   students: Student[]; team: TeamMember[]; inventory: InventoryItem[]; projects: ArenaProject[]
   courts: Court[]; reservations: Reservation[]; classes: ArenaClass[]; enrollments: Enrollment[]
+  rentalGroups: RentalGroup[]; rentalMonths: RentalMonth[]; rentalAttendances: RentalAttendance[]
   presences: Presence[]; financeEntries: FinanceEntry[]; maintenance: Maintenance[]
 }
 export type OperationalKind = keyof OperationalData
@@ -38,6 +40,7 @@ export const operationalPermissions: Record<OperationalKind, { read: string; wri
   courts: { read: 'projects:read', write: 'projects:write' }, reservations: { read: 'projects:read', write: 'projects:write' },
   classes: { read: 'students:read', write: 'students:write' }, enrollments: { read: 'students:read', write: 'students:write' },
   presences: { read: 'students:read', write: 'students:write' }, financeEntries: { read: 'finance:read', write: 'finance:write' },
+  rentalGroups: { read: 'projects:read', write: 'projects:write' }, rentalMonths: { read: 'projects:read', write: 'projects:write' }, rentalAttendances: { read: 'projects:read', write: 'projects:write' },
   maintenance: { read: 'projects:read', write: 'projects:write' },
 }
 type Operations = OperationalData & {
@@ -45,6 +48,8 @@ type Operations = OperationalData & {
   saving: boolean; dataUpdatedAt: string | null; refreshFailed: boolean
   canRead: (kind: OperationalKind) => boolean; canWrite: (kind: OperationalKind) => boolean
   reload: () => Promise<void>
+  saveRentalGroup: (value: New<RentalGroup>, id?: string) => Promise<string>
+  saveRentalAttendance: (value: New<RentalAttendance>, id?: string) => Promise<string>
   saveStudent: (value: New<Student>, id?: string) => Promise<string>
   saveTeamMember: (value: New<TeamMember>, id?: string) => Promise<string>
   saveInventoryItem: (value: New<InventoryItem>, id?: string) => Promise<string>
@@ -62,7 +67,7 @@ type Operations = OperationalData & {
 const Context = createContext<Operations | null>(null)
 const storageKey = 'longbeach-os-demo-v1'
 const kinds = Object.keys(operationalPermissions) as OperationalKind[]
-const empty = (): OperationalData => ({ students: [], team: [], inventory: [], projects: [], courts: [], reservations: [], classes: [], enrollments: [], presences: [], financeEntries: [], maintenance: [] })
+const empty = (): OperationalData => ({ students: [], team: [], inventory: [], projects: [], courts: [], reservations: [], classes: [], enrollments: [], presences: [], rentalGroups: [], rentalMonths: [], rentalAttendances: [], financeEntries: [], maintenance: [] })
 function readDemo(): OperationalData {
   try {
     const value = JSON.parse(localStorage.getItem(storageKey) ?? '{}') as Partial<OperationalData>
@@ -236,6 +241,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
   }, [enabled, demoMode, user, canWrite, remote, owner])
   const value = useMemo<Operations>(() => ({
     ...data, persistenceStatus, persistenceMessage, saving, dataUpdatedAt, refreshFailed, canRead, canWrite, reload,
+    saveRentalGroup: (v,id) => save('rentalGroups',v,id), saveRentalAttendance: (v,id) => save('rentalAttendances',v,id),
     saveStudent: (v,id) => save('students',v,id), saveTeamMember: (v,id) => save('team',v,id),
     saveInventoryItem: (v,id) => save('inventory',v,id), saveProject: (v,id) => save('projects',v,id),
     saveCourt: (v,id) => save('courts',v,id), saveReservation: (v,id) => save('reservations',v,id),
