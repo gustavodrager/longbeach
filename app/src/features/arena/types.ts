@@ -1,4 +1,4 @@
-export type Court = { id: string; version?: number; costsVisible?: boolean; name: string; sport: string; status: 'Disponível' | 'Manutenção'; openingTime: string; closingTime: string; operatingDays?: number[]; scheduleConfirmed?: boolean }
+export type Court = { id: string; version?: number; costsVisible?: boolean; name: string; sport: string; status: 'Disponível' | 'Manutenção'; openingTime: string; closingTime: string; operatingDays?: number[]; scheduleConfirmed?: boolean; hourlyRentalAmount?: number | null; weekendPackageAmount?: number | null; weekendPackageHours?: number | null; weekendPackageLatestEndTime?: string | null }
 export type Reservation = {
   id: string; version?: number; costsVisible?: boolean; name: string; courtId: string; date: string; startTime: string; endTime: string
   customerName: string; phone: string; amount: number; status: 'Confirmada' | 'Chegou' | 'Concluída' | 'Cancelada' | 'Bloqueio'; notes: string

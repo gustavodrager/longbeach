@@ -129,7 +129,7 @@ export function useRecordForm<T extends { id: string }>(records: T[], blank: () 
   const close = () => { const next = new URLSearchParams(params); next.delete('acao'); next.delete('registro'); setForm(null); setParams(next, { replace: true, preventScrollReset: true }) }
   return { form, setForm, editId, open, close }
 }
-const listPaths = new Set(['/', '/agenda', '/mensalistas', '/escola', '/alunos', '/financeiro', '/financeiro/historico', '/equipe', '/estoque', '/projetos', '/manutencao', '/quadras', '/escola/matriculas', '/escola/presencas', '/bar/produtos', '/bar/estoque', '/bar/compras', '/bar/vendas', '/bar/caixa', '/bar/inventario', '/bar/receitas', '/bar/indicadores', '/atendimento/comandas'])
+const listPaths = new Set(['/', '/agenda', '/mensalistas', '/escola', '/alunos', '/financeiro', '/financeiro/historico', '/financeiro/controle-mensal', '/equipe', '/estoque', '/projetos', '/manutencao', '/quadras', '/escola/matriculas', '/escola/presencas', '/bar/produtos', '/bar/estoque', '/bar/compras', '/bar/vendas', '/bar/caixa', '/bar/inventario', '/bar/receitas', '/bar/indicadores', '/atendimento/comandas'])
 export function NavigationMemory() {
   const location = useLocation(); const type = useNavigationType(); const positions = useRef(new Map<string, number>())
   const previous = useRef('')

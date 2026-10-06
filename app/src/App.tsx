@@ -8,6 +8,7 @@ import { AuthGuard } from './features/auth/AuthGuard'
 import { AuthProvider } from './features/auth/AuthProvider'
 import { DashboardPage } from './pages/DashboardPage'
 import { FinancialHistoryPage } from './features/finance/FinancialHistory'
+const MonthlyControlPage = lazy(() => import('./features/finance/MonthlyControlPage').then(module => ({ default: module.MonthlyControlPage })))
 import { LoginPage } from './pages/LoginPage'
 import { FirstAccessPage } from './pages/FirstAccessPage'
 const BarLayout = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarLayout })))
@@ -102,6 +103,7 @@ function OperationalRoutes() {
     <Route index element={<HomePage demoMode={demoMode} />} />
     <Route path="conta" element={<AccountPage />} />
     <Route path="financeiro/historico" element={<FinancialHistoryPage />} />
+    <Route path="financeiro/controle-mensal" element={<MonthlyControlPage />} />
     <Route path="alunos" element={arena('students', <StudentsPage />)} />
     <Route path="alunos/:studentId" element={arena('students', <StudentDetailsPage />)} />
     <Route path="equipe" element={arena('team', <TeamPage />)} />

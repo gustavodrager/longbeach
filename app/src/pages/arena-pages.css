@@ -137,14 +137,9 @@
 .arena-slot>span>strong { font-size:18px; }
 .arena-slot-class { background:#fcf4df; border-left:4px solid #d1ad64; }
 .arena-slot>.status-pill { justify-self:end; }
-.arena-page.dashboard>.page-heading { padding:32px; background:#171717; color:#fff; border:0; border-radius:20px; margin-bottom:28px; position:relative; overflow:hidden; }
-.arena-page.dashboard>.page-heading::before { content:''; position:absolute; left:0; top:0; bottom:0; width:6px; background:#f5be3d; }
-.arena-page.dashboard>.page-heading .eyebrow { color:#f5be3d; }
-.arena-page.dashboard>.page-heading h1 { color:#f2e8d8; }
-.arena-page.dashboard>.page-heading>div>p:last-child { color:#e7ddcd; }
-.arena-page.dashboard>.page-heading .primary-link { background:#f5be3d; color:#171717; border-color:#f5be3d; }
-.arena-page.dashboard>.page-heading .secondary-link { color:#fff; border-color:#686157; background:transparent; }
-.arena-page.dashboard>.page-heading>.arena-actions { align-self:center; flex-direction:column; align-items:stretch; flex-shrink:0; }
+.dashboard-heading { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px 24px; margin:0 0 24px; }
+.dashboard-heading h1 { margin:0; font-size:clamp(28px,3vw,34px); line-height:1.2; }
+.dashboard-heading time { color:var(--muted,#696354); font-size:14px; }
 .arena-dashboard-section { margin-bottom:32px; }
 .arena-history-details { margin:12px 0; padding:16px 20px; border:1px solid var(--border, #dfe5e2); border-radius:12px; }
 .arena-history-details summary { cursor:pointer; font-weight:600; }
@@ -175,14 +170,10 @@
 .arena-area-icon { display:inline-grid; place-items:center; width:44px; height:44px; border-radius:12px; background:#f2e8d8; color:#171717; }
 .arena-area-icon svg { width:24px; height:24px; }
 .arena-page a:focus-visible,.arena-page button:focus-visible,.arena-page input:focus-visible,.arena-page select:focus-visible,.arena-page textarea:focus-visible { outline:3px solid #171717; outline-offset:3px; }
-.arena-page.dashboard>.page-heading a:focus-visible { outline-color:#f5be3d; }
 @media(min-width:901px) { .arena-dashboard-section:has(#arena-attention)>.arena-metric-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media(max-width:1000px) { .arena-page .record-row:has(>.pay-summary) { grid-template-columns:auto minmax(0,1fr) auto auto; } .arena-page .record-row:has(>.pay-summary)>.arena-record-actions { grid-column:2/-1; } }
 @media(max-width:700px) {
   .arena-page .page-heading { padding-bottom:20px; }
-  .arena-page.dashboard>.page-heading { padding:26px 22px; }
-  .arena-page.dashboard>.page-heading>.arena-actions { flex-direction:column; align-self:stretch; }
-  .arena-page.dashboard>.page-heading>.arena-actions>a { flex:1; }
   .arena-toolbar { padding:16px; gap:14px; }
   .arena-page .record-row,.arena-page .record-row:has(>.record-avatar),.arena-page .record-row:has(>.pay-summary) { display:flex; flex-wrap:wrap; gap:12px; }
   .arena-page .record-main { flex:1; min-width:180px; }

@@ -14,7 +14,7 @@ export const managementNavigation: NavigationGroup[] = [
     { label: 'Matrículas', href: '/escola/matriculas', kind: 'enrollments' }, { label: 'Presenças', href: '/escola/presencas', kind: 'presences' },
   ] },
   { label: 'Financeiro', icon: 'wallet', href: '/financeiro', children: [
-    { label: 'Lançamentos', href: '/financeiro', kind: 'financeEntries' }, { label: 'Histórico', href: '/financeiro/historico', owner: true },
+    { label: 'Lançamentos', href: '/financeiro', kind: 'financeEntries' }, { label: 'Controle mensal', href: '/financeiro/controle-mensal', owner: true }, { label: 'Histórico', href: '/financeiro/historico', owner: true },
   ] },
   { label: 'Bar', icon: 'bar', href: '/bar/indicadores', children: [
     { label: 'Resumo', href: '/bar/indicadores', permission: 'bar:finance:read' },
