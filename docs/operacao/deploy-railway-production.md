@@ -1,5 +1,17 @@
 # Deploy de Production no Railway
 
+## Consolidado mensal conciliado e referência de compras — 2026-10-06
+
+API e web fixadas em `ba08ce8fc7457de13152410faa5a4852da93b1ff`, branch `codex/saldos-pagina-inicial`. CI `37513023940` aprovado: 139 testes unitários, 164 de integração PostgreSQL, 178 frontend, 11 de conversores e builds API/PWA. Nenhuma migration nova.
+
+API `afe4dc01-19b4-435a-90f7-ec27b999fac2` publicada primeiro, web `aacd2efb-f84b-497a-ae38-96f377798f83` depois, ambas `SUCCESS`; health checks responderam `Healthy`/`ok`. Fonte oficial, armazenamento PostgreSQL e modo demo desabilitado conferidos. Cada patch alterou apenas o commit do serviço esperado; snapshots sincronizados e planos sem diferenças. O snapshot final deduplicou a fonte comum de API/web; os serviços auxiliares conservam a fonte anterior.
+
+Em produção, o pacote explicitamente conciliado do mês foi aplicado com dois totais e releitura de zero novos/dois existentes. O Chrome confirmou déficit, receitas, despesas e fonte PDF do saldo bancário independentemente, depois de atualizar a PWA. A compra autorizada e o recebimento foram registrados pelo fluxo normal, com uma única despesa operacional e referência do proprietário que adiantou recursos. Não foi efetuado pagamento ou compensação. Arquivos, valores, identidades e evidências ficam em armazenamento local privado.
+
+A ficha de compra exibe fornecedor, data, forma informada, referência de acerto e quantidades recebidas. Conferida em 360, 390, 768 e 1440 px, sem rolagem horizontal da página. As verificações após publicação foram de leitura, separadas das importações e registros reais autorizados.
+
+Rollback disponível: API `80d655a8-831c-4247-aea0-2f8eca1e2cdb` (`b29dfbd`) e web `e386c019-7e3d-4e77-b413-42139ba220b3` (`b1442f4`). Preserve os dados aplicados. A API anterior não calcula o novo modelo de consolidado com receita total: retorna indisponibilidade em vez de somar valores incorretos. Prefira manter a API atual e corrigir para frente; uma reversão só da interface preserva os registros, mas oculta a referência de quem pagou na listagem de compras.
+
 ## Promoção de saldos e acesso Google — 2026-10-06
 
 Runtime de API e web fixado em `ee43f5cf4e7f414af8e82cf32e69940ad01813f7`, branch `codex/saldos-pagina-inicial`. CI `37473848182` aprovado (backend, conversores e frontend). API publicada primeiro, web depois. Health checks oficiais responderam normalmente e os cartões, períodos, despesas positivas e origem dos registros foram conferidos no Chrome.
