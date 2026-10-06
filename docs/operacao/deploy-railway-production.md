@@ -1,5 +1,19 @@
 # Deploy de Production no Railway
 
+## Pagamentos e área do cliente — 2026-10-06
+
+Publicação autorizada pelo proprietário nesta sessão. PR #15 aplicado em `codex/saldos-pagina-inicial` (merge `106da34b01453da88dcdb6b04a5b8cee2a92b4ba`). API e web fixadas na revisão validada `12281ec8a29f2fff1bf6dee7b0104393129e85f1`, branch `codex/longbeach-payments`. A revisão inclui o portal do PR #16 e preserva o controle mensal integrado durante a preparação; o conflito do menu foi conciliado mantendo Recebimentos e Controle mensal.
+
+CI [37530868604](https://github.com/gustavodrager/longbeach/actions/runs/37530868604) aprovado: 161 testes unitários, 208 de integração PostgreSQL e 200 da interface, além dos conversores e builds. API publicada primeiro, deployment `d61045f2-4e33-495f-a703-a654a35cb429`; web depois, `023e0ca8-cb91-473c-9bb9-488858422403`. Ambos terminaram `SUCCESS`. Cada patch de Production foi revisado antes da aplicação e alterou somente a fonte do serviço correspondente.
+
+O pre-deploy único aplicou `20261006194848_UnifiedBilling` e `20261006195814_BillingProviderOrders`, com confirmação de sucesso nos logs às 21:07 UTC. Readiness/liveness da API e health da web responderam 200; endpoints de contas exigiram autenticação (401 sem sessão). CORS permitiu a origem oficial com credenciais e não permitiu a antiga origem de preview. Fonte oficial da web, PostgreSQL, modo demo desabilitado e configurações públicas de autenticação foram conferidos. Snapshots foram importados e registrados por etapa; planos sem diferenças e nenhum patch pendente ao final.
+
+Nenhuma variável de credencial ou habilitação PagBank está configurada na API. Novos pagamentos pela área de contas, crédito integrado, recorrência e EDI permanecem desabilitados pelos padrões da aplicação. Publicar as telas não comprova homologação nem libera recebimentos reais. Configuração, habilitação e teste real seguem [pagamentos unificados](../bar/pagamentos-unificados.md). Não foram criados vínculos de alunos por inferência, cobranças de teste ou movimentações financeiras em produção.
+
+A revisão visual e o smoke autenticado desta sessão não foram realizados: o navegador recusou acesso porque não conseguiu verificar a política de segurança administrativa. As verificações acima são de CI, configuração, logs e endpoints públicos; não equivalem ao aceite visual ou à homologação com clientes.
+
+Rollback de aplicação: API anterior `16af4d6f-fadd-4189-b17d-5c5bde8f751c` e web anterior `9c0ccfac-b34e-4970-b20c-58b85b7aedd6`, ambas em `08e3e9c96b3542d3b48c182b161e38c972a5ba57`. Preservar as migrations e os registros financeiros. Depois de iniciar pagamentos reais, preferir desligar novas operações e manter consulta/recuperação na versão compatível; não reverter o banco. Serviços auxiliares, domínios e legado permaneceram inalterados.
+
 ## Consolidado mensal conciliado e referência de compras — 2026-10-06
 
 API e web fixadas em `ba08ce8fc7457de13152410faa5a4852da93b1ff`, branch `codex/saldos-pagina-inicial`. CI `37513023940` aprovado: 139 testes unitários, 164 de integração PostgreSQL, 178 frontend, 11 de conversores e builds API/PWA. Nenhuma migration nova.
