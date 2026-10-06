@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 namespace LongBeach.Infrastructure.Finance;
 
-public sealed class FinancialHistoryService(LongBeachDbContext db, IAuditContext audit, TimeProvider time, IConfiguration config) : IFinancialHistory
+public sealed partial class FinancialHistoryService(LongBeachDbContext db, IAuditContext audit, TimeProvider time, IConfiguration config) : IFinancialHistory
 {
     private sealed record Plan(string Name, string Hash, string Status, FinancialObservation[] Items, int Matches);
     private async Task<Plan> Read(Guid batchId, CancellationToken ct)
@@ -136,7 +136,16 @@ public sealed class FinancialHistoryService(LongBeachDbContext db, IAuditContext
             using var json = JsonDocument.Parse(reader.GetString(4));
             rows.Add(new(reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), reader.GetString(3).Trim(), FinancialHistoryRules.Parse(json.RootElement)));
         }
-        return DashboardBalanceRules.Summarize(rows, today);
+        var result = DashboardBalanceRules.Summarize(rows, today);
+        var reviewed = await db.OperationalRecords.AsNoTracking().Where(x => x.Kind == MonthlyControlRules.Kind && x.Name.CompareTo(today.ToString("yyyy-MM")) <= 0)
+            .OrderByDescending(x => x.Name).Select(x => x.Payload).FirstOrDefaultAsync(ct);
+        if (reviewed is not null)
+        {
+            var control = JsonSerializer.Deserialize<MonthlyControlDocument>(reviewed, MonthlyJson)!;
+            if (result.General.Month is null || string.CompareOrdinal(control.Month, result.General.Month) >= 0)
+                result = result with { General = MonthlyControlRules.Balance(control) };
+        }
+        return result;
     }
 
     public async Task<ArenaHistorySummary> ArenaSummary(string? month, CancellationToken ct)

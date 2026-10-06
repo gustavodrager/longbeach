@@ -12,6 +12,7 @@ public sealed class CatalogImportAuthorizationTests
     [Theory]
     [InlineData("/")]
     [InlineData("/integrations")]
+    [InlineData("/monthly-controls")]
     [InlineData("/arena-summary")]
     [InlineData("/pagbank-edi")]
     [InlineData("/imports/00000000-0000-0000-0000-000000000001")]
@@ -24,6 +25,7 @@ public sealed class CatalogImportAuthorizationTests
         var token = new JwtSecurityToken("LongBeach.Tests", "LongBeach.Tests.Client", [new Claim("sub", Guid.NewGuid().ToString()), new Claim(ClaimTypes.Role, "Operations")], DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.AddMinutes(5), credentials);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", new JwtSecurityTokenHandler().WriteToken(token));
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,(await client.PutAsync("/api/v1/financial-history/monthly-controls/2026-09", new StringContent("{\"version\":0,\"lines\":[],\"notes\":\"\"}",Encoding.UTF8,"application/json"))).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsync("/api/v1/financial-history/imports/00000000-0000-0000-0000-000000000001/apply",new StringContent("{\"confirmationToken\":\"test\"}",Encoding.UTF8,"application/json"))).StatusCode);
     }
 

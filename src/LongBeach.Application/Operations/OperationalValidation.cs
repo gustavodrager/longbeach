@@ -67,6 +67,12 @@ public static class OperationalValidation
                 if (Number(body, "quantity") < 0 || Number(body, "minimum") < 0 || !Money(body, "unitCost")) return "Quantidade, mínimo e custo devem ser positivos ou zero.";
                 break;
             case "courts":
+                foreach (var priceField in new[] { "hourlyRentalAmount", "weekendPackageAmount", "weekendPackageHours" })
+                    if (body.TryGetProperty(priceField, out _) && !OptionalMoney(body, priceField)) return "Confira os valores dos serviços de aluguel.";
+                if (Number(body, "weekendPackageAmount") >= 0 && (Number(body, "weekendPackageHours") is < 1 or > 24)) return "Informe a duração do pacote de fim de semana, entre 1 e 24 horas.";
+                if (body.TryGetProperty("weekendPackageLatestEndTime", out var checkout) && checkout.ValueKind != JsonValueKind.Null &&
+                    (!CourtHours.TryMinute(Text(body, "weekendPackageLatestEndTime"), true, out var latestEnd) || latestEnd <= 0 || Number(body, "weekendPackageHours") * 60 > latestEnd))
+                    return "Confira o limite de saída e a duração do pacote de fim de semana.";
                 if (!Status(body, "Disponível", "Manutenção") || !Time(body, "openingTime", out var open) || !Time(body, "closingTime", out var close) || open >= close) return "Confira o estado e os horários de funcionamento da quadra.";
                 if (!CourtHours.ValidDays(body)) return "Escolha os dias de funcionamento da quadra, sem repetir dias.";
                 if (body.TryGetProperty("scheduleConfirmed", out var confirmed) && confirmed.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) return "Informe se a agenda atual foi conferida.";
