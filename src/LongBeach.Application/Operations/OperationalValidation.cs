@@ -27,7 +27,7 @@ public static class OperationalValidation
     public static string Text(JsonElement body, string field) => body.TryGetProperty(field, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : "";
     private static decimal Number(JsonElement body, string field) => body.TryGetProperty(field, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetDecimal(out var number) ? number : -1;
     private static bool Date(JsonElement body, string field, out DateOnly date) => DateOnly.TryParseExact(Text(body, field), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
-    private static bool Time(JsonElement body, string field, out TimeOnly time) => TimeOnly.TryParseExact(Text(body, field), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out time);
+    private static bool Time(JsonElement body, string field, out int time) => CourtHours.TryMinute(Text(body, field), field is "closingTime" or "endTime", out time);
     private static bool Status(JsonElement body, params string[] states) => states.Contains(Text(body, "status"), StringComparer.Ordinal);
     private static bool Overlaps(JsonElement first, JsonElement second) => Time(first, "startTime", out var a) && Time(first, "endTime", out var b) && Time(second, "startTime", out var c) && Time(second, "endTime", out var d) && a < d && c < b;
     private static Guid Id(JsonElement body, string field = "id") => Guid.TryParse(Text(body, field), out var id) ? id : Guid.Empty;
@@ -59,8 +59,14 @@ public static class OperationalValidation
                 break;
             case "courts":
                 if (!Status(body, "Disponível", "Manutenção") || !Time(body, "openingTime", out var open) || !Time(body, "closingTime", out var close) || open >= close) return "Confira o estado e os horários de funcionamento da quadra.";
+                if (!CourtHours.ValidDays(body)) return "Escolha os dias de funcionamento da quadra, sem repetir dias.";
+                if (body.TryGetProperty("scheduleConfirmed", out var confirmed) && confirmed.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) return "Informe se a agenda atual foi conferida.";
                 foreach (var booking in Rows("reservations").Where(row => Id(row, "courtId") == id && Text(row, "status") != "Cancelada" && Date(row, "date", out var day) && day >= today).Concat(Rows("classes").Where(row => Id(row, "courtId") == id && Text(row, "status") == "Ativa")))
+                {
                     if (Time(booking, "startTime", out var start) && Time(booking, "endTime", out var end) && (start < open || end > close)) return "O novo horário da quadra não comporta suas reservas ou aulas. Ajuste a agenda primeiro.";
+                    var bookingDay = Date(booking, "date", out var bookedDate) ? (int)bookedDate.DayOfWeek : (int)Number(booking, "weekDay");
+                    if (!CourtHours.OpensOn(body, bookingDay)) return "Os dias de funcionamento não comportam suas reservas ou aulas. Ajuste a agenda primeiro.";
+                }
                 break;
             case "reservations":
             case "classes":
@@ -71,6 +77,7 @@ public static class OperationalValidation
                 {
                     if (!Date(body, "date", out var date) || !Money(body, "amount") || !Status(body, "Confirmada", "Chegou", "Concluída", "Cancelada", "Bloqueio")) return "Confira a data, o valor e o estado da reserva.";
                     if (Text(body, "status") == "Cancelada") break;
+                    if (!CourtHours.OpensOn(court, (int)date.DayOfWeek)) return "A quadra não funciona neste dia da semana.";
                     if (date > today && Status(body, "Chegou", "Concluída")) return "A chegada ou conclusão só pode ser registrada na data da reserva ou depois dela.";
                     if (Text(court, "status") != "Disponível") return "Esta quadra está em manutenção.";
                     if (others.Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "date") == Text(body, "date") && Text(row, "status") != "Cancelada" && Overlaps(row, body)) || Rows("classes").Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "status") == "Ativa" && Number(row, "weekDay") == (int)date.DayOfWeek && Overlaps(row, body))) return "Este horário já está ocupado por uma reserva ou aula nesta quadra.";
@@ -86,6 +93,7 @@ public static class OperationalValidation
                     if (students.Distinct().Count() != students.Length || students.Any(student => student == Guid.Empty || !Rows("students").Any(row => Id(row) == student))) return "A turma contém alunos inválidos ou repetidos.";
                     if (Rows("enrollments").Count(row => Id(row, "classId") == id && Text(row, "status") == "Ativa") > capacity) return "A capacidade não pode ficar abaixo do número de matrículas ativas.";
                     if (Text(body, "status") != "Ativa") break;
+                    if (!CourtHours.OpensOn(court, (int)weekday)) return "A quadra não funciona neste dia da semana.";
                     if (Text(court, "status") != "Disponível") return "Esta quadra está em manutenção.";
                     if (others.Any(row => Id(row, "courtId") == Id(body, "courtId") && Number(row, "weekDay") == weekday && Text(row, "status") == "Ativa" && Overlaps(row, body)) || Rows("reservations").Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "status") != "Cancelada" && Date(row, "date", out var day) && day >= today && (int)day.DayOfWeek == weekday && Overlaps(row, body))) return "A aula conflita com uma reserva ou turma nesta quadra.";
                 }

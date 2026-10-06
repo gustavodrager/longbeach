@@ -63,7 +63,7 @@ export function RecurringReservationsPage() {
         </Group>
         <Group title="2. Horário semanal">
           <Field label="Começa às" required type="time" value={form.startTime} onChange={startTime => setForm({ ...form, startTime })} />
-          <Field label="Termina às" required type="time" value={form.endTime} onChange={endTime => setForm({ ...form, endTime })} />
+          <Field label="Termina às" required type="end-time" placeholder="HH:mm ou 24:00" value={form.endTime} onChange={endTime => setForm({ ...form, endTime })} />
         </Group>
         <details className="arena-extra-fields"><summary>Cliente, valor e observações (opcionais)</summary><div className="field-grid">
           <Field label="Nome do cliente ou responsável" value={form.customerName} onChange={customerName => setForm({ ...form, customerName })} />

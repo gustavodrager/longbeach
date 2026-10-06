@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthContext, type AuthContextValue } from '../features/auth/authContext'
 import { DemoDataProvider } from '../features/operations/DemoDataProvider'
 import type { AuthUser } from '../features/auth/types'
-import { AgendaPage, FinanceDetailsPage, FinancePage, MaintenanceDetailsPage, ReservationDetailsPage } from './ArenaPages'
+import { CourtsPage, AgendaPage, FinanceDetailsPage, FinancePage, MaintenanceDetailsPage, ReservationDetailsPage } from './ArenaPages'
 import { DashboardPage } from './DashboardPage'
 import { ProjectDetailsPage, TeamDetailsPage } from './OperationsPages'
 import { today } from './arenaUi'
@@ -16,7 +16,7 @@ function RouteState(){const location=useLocation();return <output data-testid="r
 function start(path:string,demoMode=true,user:AuthUser=owner){
   const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{}, completeFirstAccessWithGoogle: async () => {}}
   const query=new QueryClient({defaultOptions:{queries:{retry:false}}})
-  return render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><DemoDataProvider enabled demoMode={demoMode}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<DashboardPage />} /><Route path="/agenda" element={<AgendaPage />} /><Route path="/agenda/:reservationId" element={<ReservationDetailsPage />} /><Route path="/financeiro" element={<FinancePage />} /><Route path="/financeiro/:entryId" element={<FinanceDetailsPage />} /><Route path="/equipe/:memberId" element={<TeamDetailsPage />} /><Route path="/projetos/:projectId" element={<ProjectDetailsPage />} /><Route path="/manutencao/:maintenanceId" element={<MaintenanceDetailsPage />} /></Routes></MemoryRouter></DemoDataProvider></AuthContext.Provider></QueryClientProvider>)
+  return render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><DemoDataProvider enabled demoMode={demoMode}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<DashboardPage />} /><Route path="/quadras" element={<CourtsPage />} /><Route path="/agenda" element={<AgendaPage />} /><Route path="/agenda/:reservationId" element={<ReservationDetailsPage />} /><Route path="/financeiro" element={<FinancePage />} /><Route path="/financeiro/:entryId" element={<FinanceDetailsPage />} /><Route path="/equipe/:memberId" element={<TeamDetailsPage />} /><Route path="/projetos/:projectId" element={<ProjectDetailsPage />} /><Route path="/manutencao/:maintenanceId" element={<MaintenanceDetailsPage />} /></Routes></MemoryRouter></DemoDataProvider></AuthContext.Provider></QueryClientProvider>)
 }
 const court={id:'22222222-2222-2222-2222-222222222222',name:'Quadra 1',sport:'Futevôlei',status:'Disponível',openingTime:'07:00',closingTime:'23:00'}
 beforeEach(()=>{localStorage.clear();sessionStorage.clear();vi.stubEnv('VITE_DEMO_MODE','true');vi.stubEnv('VITE_OPERATIONAL_STORAGE','local')})
@@ -194,4 +194,36 @@ it('remover ou renomear uma tarefa não transfere identidade nem conclusão para
   expect(tasks[1]).toMatchObject({title:'Liberar quadra',done:false})
   expect(tasks[1].id).not.toBe(project.tasks[0].id)
   expect(tasks[1].id).not.toBe(project.tasks[1].id)
+})
+
+
+it('salva dias úteis até meia-noite mantendo a conferência da agenda pendente', async () => {
+  start('/quadras')
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', {name:'+ Adicionar quadra'}))
+  await user.type(screen.getByLabelText('Nome da quadra'), 'Quadra principal')
+  fireEvent.change(screen.getByLabelText('Abre às'), {target:{value:'06:00'}})
+  fireEvent.change(screen.getByLabelText('Fecha às'), {target:{value:'24:00'}})
+  await user.click(screen.getByLabelText('Sábado'))
+  await user.click(screen.getByLabelText('Domingo'))
+  await user.click(screen.getByRole('button', {name:'Salvar quadra'}))
+  expect(await screen.findByText('Quadra principal')).toBeInTheDocument()
+  const saved = JSON.parse(localStorage.getItem('longbeach-os-demo-v1')??'{}').courts
+  expect(saved).toHaveLength(1)
+  expect(saved[0]).toMatchObject({openingTime:'06:00',closingTime:'24:00',operatingDays:[1,2,3,4,5],scheduleConfirmed:false})
+  expect(screen.getByText('Agenda atual aguardando conferência')).toBeInTheDocument()
+})
+
+it('distingue horas de funcionamento de horas livres com agenda não conferida', async () => {
+  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[{...court,openingTime:'06:00',closingTime:'24:00',operatingDays:[1,2,3,4,5],scheduleConfirmed:false}]}))
+  start('/agenda?date=2026-10-06')
+  expect(await screen.findByText('18 h de funcionamento · horas livres aguardam conferência da agenda')).toBeInTheDocument()
+  expect(screen.queryByText(/18 h disponíveis/)).not.toBeInTheDocument()
+})
+
+it('mostra fechamento no sábado sem atribuir capacidade livre à quadra', async () => {
+  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[{...court,openingTime:'06:00',closingTime:'24:00',operatingDays:[1,2,3,4,5]}]}))
+  start('/agenda?date=2026-10-10')
+  expect(await screen.findByText('Fechada neste dia da semana')).toBeInTheDocument()
+  expect(screen.queryByText(/18 h disponíveis/)).not.toBeInTheDocument()
 })

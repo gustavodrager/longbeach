@@ -1,6 +1,8 @@
 import type { OperationalData, OperationalKind } from '../operations/DemoDataProvider'
 import type { ArenaClass, Court, Enrollment, FinanceEntry, Presence, Reservation } from './types'
 
+const validTime = (time: string, end = false) => /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(time) || end && time === '24:00'
+const opensOn = (court: Court, day: number) => (court.operatingDays ?? [0,1,2,3,4,5,6]).includes(day)
 const overlaps = (a: { startTime: string; endTime: string }, b: { startTime: string; endTime: string }) => a.startTime < b.endTime && b.startTime < a.endTime
 /** Local demonstration mirrors the critical server rules; production always uses server validation. */
 export function validateArenaRecord(kind: OperationalKind, input: { id: string }, data: OperationalData): string | null {
@@ -9,11 +11,12 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
     const record = input as ArenaClass | Reservation
     const court = data.courts.find(row => row.id === record.courtId)
     if (!court) return 'Escolha uma quadra cadastrada.'
-    if (!record.startTime || !record.endTime || record.startTime >= record.endTime || record.startTime < court.openingTime || record.endTime > court.closingTime) return 'O horário deve ficar dentro do funcionamento da quadra, com término depois do início.'
+    if (!validTime(record.startTime) || !validTime(record.endTime, true) || record.startTime >= record.endTime || record.startTime < court.openingTime || record.endTime > court.closingTime) return 'O horário deve ficar dentro do funcionamento da quadra, com término depois do início.'
     if (record.status !== 'Cancelada' && record.status !== 'Pausada' && record.status !== 'Encerrada') {
       if (court.status !== 'Disponível') return 'Esta quadra está em manutenção.'
       if (kind === 'reservations' && (record as Reservation).date > today && (record.status === 'Chegou' || record.status === 'Concluída')) return 'A chegada ou conclusão só pode ser registrada na data da reserva ou depois dela.'
       const weekday = kind === 'classes' ? (record as ArenaClass).weekDay : new Date(`${(record as Reservation).date}T12:00:00`).getDay()
+      if (!opensOn(court, weekday)) return 'A quadra não funciona neste dia da semana.'
       if (data.classes.some(row => row.id !== record.id && row.courtId === record.courtId && row.status === 'Ativa' && row.weekDay === weekday && overlaps(row, record)) || data.reservations.some(row => row.id !== record.id && row.courtId === record.courtId && row.status !== 'Cancelada' && (kind === 'reservations' ? row.date === (record as Reservation).date : row.date >= today && new Date(`${row.date}T12:00:00`).getDay() === weekday) && overlaps(row, record))) return 'Este horário já está ocupado por uma reserva ou aula nesta quadra.'
     }
     if (kind === 'classes') {
@@ -25,7 +28,10 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
   }
   if (kind === 'courts') {
     const court = input as Court
-    if (!court.openingTime || !court.closingTime || court.openingTime >= court.closingTime) return 'Confira os horários de funcionamento da quadra.'
+    if (!validTime(court.openingTime) || !validTime(court.closingTime, true) || court.openingTime >= court.closingTime) return 'Confira os horários de funcionamento da quadra.'
+    if (court.operatingDays && (!court.operatingDays.length || court.operatingDays.length > 7 || new Set(court.operatingDays).size !== court.operatingDays.length || court.operatingDays.some(day => !Number.isInteger(day) || day < 0 || day > 6))) return 'Escolha os dias de funcionamento da quadra, sem repetir dias.'
+    const bookings = [...data.reservations.filter(row => row.courtId === court.id && row.status !== 'Cancelada' && row.date >= today).map(row => ({...row, weekDay: new Date(`${row.date}T12:00:00`).getDay()})), ...data.classes.filter(row => row.courtId === court.id && row.status === 'Ativa')]
+    if (bookings.some(row => !opensOn(court, row.weekDay) || row.startTime < court.openingTime || row.endTime > court.closingTime)) return 'O funcionamento não comporta suas reservas ou aulas. Ajuste a agenda primeiro.'
   }
   if (kind === 'enrollments') {
     const enrollment = input as Enrollment

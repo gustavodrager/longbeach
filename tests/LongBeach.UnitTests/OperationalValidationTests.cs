@@ -18,6 +18,43 @@ public sealed class OperationalValidationTests
         ["classes"] = [Json(new { id = ClassId, name = "Turma", courtId = CourtId, weekDay = 1, startTime = "18:00", endTime = "19:00", status = "Ativa", capacity = 1 })]
     };
     private static readonly DateOnly Today = new(2026, 10, 4);
+    [Theory]
+    [InlineData("06:00", "24:00", true)]
+    [InlineData("24:00", "24:00", false)]
+    [InlineData("06:00", "24:01", false)]
+    [InlineData("06:00", "00:00", false)]
+    public void Midnight_is_only_valid_as_the_end_of_the_day(string opens, string closes, bool valid)
+    {
+        var record = Json(new { id = CourtId, name = "Quadra", status = "Disponível", openingTime = opens, closingTime = closes, operatingDays = new[] { 1, 2, 3, 4, 5 } });
+        Assert.Equal(valid, OperationalValidation.Validate("courts", CourtId, record, Records(), Today) is null);
+    }
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("[1,1]")]
+    [InlineData("[7]")]
+    [InlineData("[1.5]")]
+    [InlineData("[\"1\"]")]
+    [InlineData("null")]
+    public void Invalid_operating_days_are_rejected_without_throwing(string days)
+    {
+        using var document = JsonDocument.Parse($$"""{"id":"{{CourtId}}","name":"Quadra","status":"Disponível","openingTime":"06:00","closingTime":"24:00","operatingDays":{{days}}} """);
+        Assert.Contains("dias", OperationalValidation.Validate("courts", CourtId, document.RootElement, Records(), Today));
+    }
+    [Fact]
+    public void Closed_days_block_reservations_classes_and_changes_that_strand_bookings()
+    {
+        var records = Records();
+        var court = Json(new { id = CourtId, name = "Quadra", status = "Disponível", openingTime = "06:00", closingTime = "24:00", operatingDays = new[] { 1, 2, 3, 4, 5 } });
+        records["courts"] = [court];
+        var id = Guid.NewGuid();
+        var saturday = Json(new { id, name = "Reserva", courtId = CourtId, date = "2026-10-10", startTime = "23:00", endTime = "24:00", amount = 80, status = "Confirmada" });
+        Assert.Contains("não funciona", OperationalValidation.Validate("reservations", id, saturday, records, Today));
+        var lesson = Json(new { id, name = "Aula", courtId = CourtId, teacherId = TeacherId, weekDay = 6, startTime = "23:00", endTime = "24:00", capacity = 8, studentIds = Array.Empty<Guid>(), status = "Ativa" });
+        Assert.Contains("não funciona", OperationalValidation.Validate("classes", id, lesson, records, Today));
+        records["reservations"] = [saturday];
+        Assert.Contains("dias de funcionamento", OperationalValidation.Validate("courts", CourtId, court, records, Today));
+    }
+
     [Fact]
     public void Reservation_uses_same_capacity_as_weekly_classes()
     {
