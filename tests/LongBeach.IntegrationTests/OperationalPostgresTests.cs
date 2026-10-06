@@ -19,6 +19,42 @@ namespace LongBeach.IntegrationTests;
 public sealed class OperationalPostgresTests
 {
     [PostgresFact]
+    public async Task Weekday_court_persists_midnight_and_does_not_report_unknown_agenda_as_free()
+    {
+        await using var factory = Factory(); using var client = factory.CreateClient();
+        await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Owner");
+        var id = Guid.NewGuid(); var path = $"/api/v1/operations/courts/{id}";
+        var input = new { id, name = "Quadra dias úteis", status = "Disponível", openingTime = "06:00", closingTime = "24:00", operatingDays = new[] { 1, 2, 3, 4, 5 }, scheduleConfirmed = false };
+        var created = await client.PutAsJsonAsync(path, input);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var saved = await Read(created);
+        async Task<JsonElement> Day(string date)
+        {
+            var schedule = await client.GetFromJsonAsync<JsonElement>($"/api/v1/operations/courts/schedule?date={date}");
+            return schedule.GetProperty("courts").EnumerateArray().Single(row => row.GetProperty("courtId").GetGuid() == id);
+        }
+        var friday = await Day("2026-10-09");
+        Assert.Equal(1080, friday.GetProperty("operatingMinutes").GetInt32());
+        Assert.Equal(JsonValueKind.Null, friday.GetProperty("availableMinutes").ValueKind);
+        var saturday = await Day("2026-10-10");
+        Assert.True(saturday.GetProperty("closedForDay").GetBoolean());
+        Assert.Equal(0, saturday.GetProperty("availableMinutes").GetInt32());
+        async Task<HttpResponseMessage> Reserve(string date)
+        {
+            var booking = Guid.NewGuid();
+            return await client.PutAsJsonAsync($"/api/v1/operations/reservations/{booking}", new { id = booking, name = "Última hora", courtId = id, date, startTime = "23:00", endTime = "24:00", status = "Confirmada", amount = 80 });
+        }
+        Assert.Equal(HttpStatusCode.Created, (await Reserve("2026-10-09")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await Reserve("2026-10-10")).StatusCode);
+        var edit = JsonNode.Parse(saved.GetRawText())!.AsObject(); edit["scheduleConfirmed"] = true;
+        Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync(path, edit)).StatusCode);
+        Assert.Equal(1020, (await Day("2026-10-09")).GetProperty("availableMinutes").GetInt32());
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+        Assert.Equal(2, await db.AuditLogs.CountAsync(row => row.ResourceId == id.ToString()));
+    }
+
+    [PostgresFact]
     public async Task Acknowledged_edits_replay_once_reject_stale_versions_and_preserve_restricted_salary()
     {
         await using var factory = Factory(); using var client = factory.CreateClient();

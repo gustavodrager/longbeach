@@ -4,6 +4,35 @@ using LongBeach.Application.Operations;
 namespace LongBeach.UnitTests;
 public sealed class CourtScheduleTests
 {
+    [Theory]
+    [InlineData("2026-10-05", true, 1080, 1080)]
+    [InlineData("2026-10-09", true, 1080, 1080)]
+    [InlineData("2026-10-10", true, 0, 0)]
+    [InlineData("2026-10-11", true, 0, 0)]
+    [InlineData("2026-10-06", false, 1080, null)]
+    public void Weekday_hours_and_unconfirmed_agenda_are_distinct(string date, bool confirmed, int operating, int? available)
+    {
+        var records = new Dictionary<string, JsonElement[]> { ["courts"] = [JsonSerializer.SerializeToElement(new { id = Guid.NewGuid(), openingTime = "06:00", closingTime = "24:00", status = "Disponível", operatingDays = new[] { 1, 2, 3, 4, 5 }, scheduleConfirmed = confirmed })] };
+        var row = Assert.Single(CourtScheduleQuery.Build(DateOnly.Parse(date), DateTimeOffset.UtcNow, records, true).Courts);
+        Assert.Equal(operating, row.OperatingMinutes);
+        Assert.Equal(available, row.AvailableMinutes);
+        Assert.Equal(operating == 0, row.ClosedForDay);
+        Assert.Equal(!confirmed, row.SchedulePending);
+    }
+
+    [Fact]
+    public void Final_hour_ends_at_midnight_of_the_selected_day()
+    {
+        var id = Guid.NewGuid();
+        var records = new Dictionary<string, JsonElement[]>
+        {
+            ["courts"] = [JsonSerializer.SerializeToElement(new { id, openingTime = "06:00", closingTime = "24:00", status = "Disponível" })],
+            ["reservations"] = [JsonSerializer.SerializeToElement(new { id = Guid.NewGuid(), courtId = id, date = "2026-10-05", startTime = "23:00", endTime = "24:00", status = "Confirmada" })]
+        };
+        var row = Assert.Single(CourtScheduleQuery.Build(new(2026, 10, 5), DateTimeOffset.UtcNow, records, true).Courts);
+        Assert.Equal(60, row.ReservedMinutes); Assert.Equal(1020, row.AvailableMinutes);
+    }
+
     [Fact]
     public void Reception_capacity_includes_classes_without_disclosing_their_records_or_people()
     {

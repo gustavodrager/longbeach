@@ -201,3 +201,6 @@
   .arena-page .summary-row { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .arena-page .summary-row strong { font-size:22px; overflow-wrap:anywhere; }
 }
+
+.arena-check { display: flex; align-items: center; gap: .6rem; }
+.arena-check input { width: 1.15rem; height: 1.15rem; accent-color: var(--accent, #f9bf32); }

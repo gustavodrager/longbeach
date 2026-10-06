@@ -1,4 +1,4 @@
-export type Court = { id: string; version?: number; costsVisible?: boolean; name: string; sport: string; status: 'Disponível' | 'Manutenção'; openingTime: string; closingTime: string }
+export type Court = { id: string; version?: number; costsVisible?: boolean; name: string; sport: string; status: 'Disponível' | 'Manutenção'; openingTime: string; closingTime: string; operatingDays?: number[]; scheduleConfirmed?: boolean }
 export type Reservation = {
   id: string; version?: number; costsVisible?: boolean; name: string; courtId: string; date: string; startTime: string; endTime: string
   customerName: string; phone: string; amount: number; status: 'Confirmada' | 'Chegou' | 'Concluída' | 'Cancelada' | 'Bloqueio'; notes: string
@@ -26,5 +26,5 @@ export type Maintenance = {
 }
 
 export type CourtScheduleBlock = { source: 'Aula' | 'Reserva' | 'Bloqueio'; startTime: string; endTime: string; sourceId: string | null }
-export type CourtScheduleRow = { courtId: string; openingTime: string; closingTime: string; availableMinutes: number; reservedMinutes: number; classMinutes: number; closedForMaintenance: boolean; hasConflict: boolean; blocks: CourtScheduleBlock[] }
+export type CourtScheduleRow = { courtId: string; openingTime: string; closingTime: string; availableMinutes: number | null; operatingMinutes?: number; closedForDay?: boolean; schedulePending?: boolean; reservedMinutes: number; classMinutes: number; closedForMaintenance: boolean; hasConflict: boolean; blocks: CourtScheduleBlock[] }
 export type CourtSchedule = { date: string; updatedAtUtc: string; courts: CourtScheduleRow[] }

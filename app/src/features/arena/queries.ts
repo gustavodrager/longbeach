@@ -28,7 +28,9 @@ export function useCourtSchedule(date: string) {
         for (const block of blocks) { const start = Math.max(begin, minute(block.startTime)), finish = Math.min(end, minute(block.endTime)); used += Math.max(0, finish - Math.max(cursor,start)); cursor = Math.max(cursor,finish) }
         const reservedMinutes = blocks.filter(block => block.source !== 'Aula').reduce((sum,block) => sum + Math.max(0, Math.min(end,minute(block.endTime))-Math.max(begin,minute(block.startTime))),0)
         const classMinutes = blocks.filter(block => block.source === 'Aula').reduce((sum,block) => sum + Math.max(0, Math.min(end,minute(block.endTime))-Math.max(begin,minute(block.startTime))),0)
-        return { courtId: court.id, openingTime: court.openingTime, closingTime: court.closingTime, availableMinutes: court.status === 'Manutenção' ? 0 : Math.max(0,end-begin-used), reservedMinutes, classMinutes, closedForMaintenance: court.status === 'Manutenção', hasConflict: reservedMinutes+classMinutes>used, blocks }
+        const closedForDay = !(court.operatingDays ?? [0,1,2,3,4,5,6]).includes(weekday)
+        const closed = closedForDay || court.status === 'Manutenção'
+        return { closedForDay, operatingMinutes: closed ? 0 : end-begin, schedulePending: court.scheduleConfirmed === false, courtId: court.id, openingTime: court.openingTime, closingTime: court.closingTime, availableMinutes: closed ? 0 : court.scheduleConfirmed === false ? null : Math.max(0,end-begin-used), reservedMinutes, classMinutes, closedForMaintenance: court.status === 'Manutenção', hasConflict: reservedMinutes+classMinutes>used || closedForDay && blocks.length>0, blocks }
       }) }
     },
   })

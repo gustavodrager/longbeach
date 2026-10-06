@@ -35,3 +35,11 @@ Referência: [validação de ID tokens do Google](https://developers.google.com/
 Os controles financeiros e de escola/quadras aparecem no início do painel, identificados pelo mês de origem. Cartões operacionais sem nenhum cadastro ficam indisponíveis e indicam o dado necessário. Com registros carregados, uma contagem zero após aplicar o filtro continua sendo exibida como zero. Uma lista vazia de quadras não representa zero horas livres; o cálculo exige cadastro e horário de funcionamento de todas as quadras consultadas.
 
 Pagamentos mensais não viram contas vencidas ou reservas atuais automaticamente. A grade histórica precisa de confirmação de vigência e identificação das quadras antes de gerar agenda operacional. Estoque esportivo, projetos e manutenção exigem seus próprios cadastros.
+
+### Funcionamento das quadras
+
+O cadastro aceita `operatingDays` (0 = domingo até 6 = sábado) e fechamento `24:00`, que representa o fim da data selecionada. Abertura e início de reserva/aula ficam entre `00:00` e `23:59`; somente os horários de término aceitam `24:00`. Reservas e turmas ativas fora dos dias cadastrados são rejeitadas, inclusive em grupos semanais. Alterar os dias não pode deixar reservas futuras ou turmas ativas fora do funcionamento.
+
+Uma quadra nova inicia com `scheduleConfirmed=false`. O cadastro e a agenda mostram suas horas de funcionamento, mas a disponibilidade retorna `null` até o responsável conferir as reservas e aulas atuais e marcar **Agenda atual conferida**. Dias sem funcionamento e manutenção continuam com zero horas disponíveis. Registros anteriores sem os novos campos preservam seu contrato: funcionamento diário e agenda já conferida. Os campos são aditivos no registro operacional e dispensam migration.
+
+Publique API e web compatíveis antes de cadastrar horários até `24:00`. Depois disso, mantenha uma API que reconheça os dias e a meia-noite; uma revisão anterior não pode ser usada para gravar ou calcular essa agenda. Para correções, prefira avançar a versão preservando os registros e sua auditoria.
