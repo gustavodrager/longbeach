@@ -1,5 +1,17 @@
 # Deploy de Production no Railway
 
+## Separação de despesas fixas e variáveis — 2026-10-07
+
+API e web promovidas no artefato `4c220504315031587e38fb9d07d148fa6c36e44f`, branch `codex/saldos-pagina-inicial`, após CI [37565416405](https://github.com/gustavodrager/longbeach/actions/runs/37565416405) aprovado: 162 testes unitários, 208 de integração PostgreSQL e 205 frontend, conversores e builds. Nenhuma migration ou alteração de dados nesta entrega.
+
+- API: `d5414e99-04d2-42e5-ace0-6ed901e40695`, SUCCESS, readiness `Healthy`.
+- Web: `020b841f-19aa-4f9a-96dd-d60d0a278fc0`, SUCCESS, health `ok`.
+- Patches revisados alteraram apenas branch e commit do serviço esperado, primeiro API e depois web. Configurações públicas, snapshots e planos sem diferenças conferidos. Serviços auxiliares preservados.
+- Prévia com dados fictícios: lista filtrada, edição/salvamento e retorno preservando o grupo, navegação por teclado com foco visível, sem rolagem horizontal em 360, 390, 768 e 1440 px. Console do fluxo sem erros.
+- Produção autenticada: PWA atualizado pelo aviso; quatro totais do dashboard conferidos contra os grupos do controle mensal, incluindo despesa com valor zero. Links de fixas, variáveis, parcelas e acertos mostraram somente as classificações esperadas. Totais e resultado mensal preservados. Nenhuma movimentação real criada durante a validação. Evidência visual privada mantida fora do Git.
+
+Rollback compatível: artefato anterior `12281ec8a29f2fff1bf6dee7b0104393129e85f1`, branch `codex/longbeach-payments`, API `d61045f2-4e33-495f-a703-a654a35cb429` e web `023e0ca8-cb91-473c-9bb9-488858422403`. O novo campo de leitura é opcional, sem mudança de gravação ou schema. Preservar migrations e dados de pagamentos já existentes.
+
 ## Pagamentos e área do cliente — 2026-10-06
 
 Publicação autorizada pelo proprietário nesta sessão. PR #15 aplicado em `codex/saldos-pagina-inicial` (merge `106da34b01453da88dcdb6b04a5b8cee2a92b4ba`). API e web fixadas na revisão validada `12281ec8a29f2fff1bf6dee7b0104393129e85f1`, branch `codex/longbeach-payments`. A revisão inclui o portal do PR #16 e preserva o controle mensal integrado durante a preparação; o conflito do menu foi conciliado mantendo Recebimentos e Controle mensal.
