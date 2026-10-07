@@ -185,7 +185,8 @@ public sealed partial class FinancialHistoryService(LongBeachDbContext db, IAudi
         var configured=enabled && !string.IsNullOrWhiteSpace(config["Integrations:PagBankEdi:User"]) && config["Integrations:PagBankEdi:User"]!.All(char.IsAsciiDigit)
             && !string.IsNullOrWhiteSpace(config["Integrations:PagBankEdi:Token"])
             && DateOnly.TryParseExact(config["Integrations:PagBankEdi:StartDate"],"yyyy-MM-dd",System.Globalization.CultureInfo.InvariantCulture,System.Globalization.DateTimeStyles.None,out var start) && start>=new DateOnly(2000,1,1);
-        result.Add(new("PagBank EDI",!configured?"Aguardando configuração":failure is not null?"Requer atenção":last is null?"Aguardando primeira leitura":"Automático",
+        var yesterday=DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime.AddHours(-3)).AddDays(-1);
+        result.Add(new("PagBank EDI",!configured?"Aguardando configuração":failure is not null?"Requer atenção":last is null?"Aguardando primeira leitura":time.GetUtcNow()-last.Value>TimeSpan.FromHours(26)?"Coleta atrasada":complete is null||complete<yesterday?"Atualizando histórico":"Automático",
             "Vendas, liquidações e saldos em D+1. Documentos originais preservados; classificação financeira depende de conciliação.",last,failure,complete));
         result.Add(new("PagVendas","Exportação disponível","Histórico por exportação. API administrativa sem autenticação de navegador ainda não confirmada.",null,null,null));
         return result;

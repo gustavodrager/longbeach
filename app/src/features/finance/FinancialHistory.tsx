@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { EdiReprocessForm } from './EdiReprocessForm'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../../lib/http'
@@ -85,6 +86,7 @@ function PagBankDocuments() {
   const query = useQuery({ queryKey: ['pagbank-documents', user?.id, date, page], queryFn: () => apiFetch<ProviderReport>(`/api/v1/financial-history/pagbank-edi?${new URLSearchParams({ ...(date ? { date } : {}), page: String(page) })}`), enabled: Boolean(user?.roles.includes('Owner')), refetchInterval: 60_000 })
   const report = query.data
   return <section className="foundation-card"><h2>Movimentos originais da API PagBank</h2><p>Documentos completos de vendas, liquidações, transferências e saldos. Os eventos permanecem separados; consulte os valores e códigos originais de cada movimento.</p>
+    <EdiReprocessForm />
     {query.isPending && <p role="status">Consultando documentos…</p>}{query.isError && <p role="alert">Não foi possível consultar os documentos PagBank.</p>}
     {report && <>{report.dates.length ? <label className="arena-field">Data da API<select value={date || report.date || ''} onChange={e => { setDate(e.target.value); setPage(1) }}>{report.dates.map(day => <option key={day} value={day}>{day.split('-').reverse().join('/')}</option>)}</select></label> : <p>Aguardando a primeira coleta com credenciais EDI.</p>}
       <p>{report.total} movimentos nesta data.</p>{report.items.map((item, index) => <details key={`${item.movement}:${item.sourcePage}:${index}`}><summary>{item.movement} · {item.date} · movimento {(page - 1) * 50 + index + 1}</summary><div className="table-scroll"><table><tbody>{Object.entries(item.data).map(([key, value]) => <tr key={key}><th>{key.replaceAll('_', ' ')}</th><td>{typeof value === 'object' ? JSON.stringify(value) : String(value ?? 'Não informado')}</td></tr>)}</tbody></table></div><p>Página de origem {item.sourcePage} · SHA-256: <code>{item.sourceSha256}</code></p></details>)}
