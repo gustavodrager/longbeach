@@ -31,7 +31,7 @@ public sealed class PagBankEdiWorker(IServiceScopeFactory scopes,IHttpClientFact
             try { await Run(merchant,token,start,ct); }
             catch(Exception e) when(!ct.IsCancellationRequested)
             {
-                var code=e is FinancialRuleException rule ? rule.Message : e is HttpRequestException ? "EDI_NETWORK" : e is TaskCanceledException ? "EDI_TIMEOUT" : "EDI_INTERNAL";
+                var code=e is FinancialRuleException rule ? rule.Message : e is HttpRequestException ? "EDI_NETWORK" : e is OperationCanceledException ? "EDI_TIMEOUT" : e is JsonException ? "EDI_SCHEMA" : "EDI_INTERNAL";
                 logger.LogWarning("PagBank EDI collection deferred: {FailureCode}",code);
                 await RecordFailure(code,ct);
             }
