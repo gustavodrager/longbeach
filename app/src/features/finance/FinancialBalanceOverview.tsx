@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/authContext'
 import { apiFetch } from '../../lib/http'
 import { centsMoney } from './FinancialHistory'
+import { ExpenseComposition } from './ExpenseComposition'
+import type { ExpenseBreakdown } from './monthlyExpenses'
 
 type Balances = {
   pagBank: { amountCents: number | null; date: string | null; sourceName: string | null; sourceCell: string | null; metric: string | null; issue: string | null }
-  general: { month: string | null; amountCents: number | null; incomeCents: number | null; expenseCents: number | null; records: number; sources: string[]; issue: string | null; basis?: string; estimated?: boolean; estimatedExpenseCents?: number }
+  general: { month: string | null; amountCents: number | null; incomeCents: number | null; expenseCents: number | null; records: number; sources: string[]; issue: string | null; basis?: string; estimated?: boolean; estimatedExpenseCents?: number; expensesByType?: ExpenseBreakdown | null }
 }
 const monthLabel = (month: string) => new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${month}-01T12:00:00Z`))
 export function FinancialBalanceOverview() {
@@ -42,6 +44,7 @@ export function FinancialBalanceOverview() {
         <Link className="arena-metric" to={generalHref}><span className="arena-metric-label">Despesas{general.estimated ? ' previstas' : ''} do mês</span><strong>{centsMoney(general.expenseCents)}</strong><small>{general.estimated ? `${centsMoney(general.estimatedExpenseCents ?? 0)} estimados` : monthLabel(general.month!)}</small></Link>
       </>}
     </div>
+    {!query.isError && reviewed && general?.month && general.expensesByType && <ExpenseComposition totals={general.expensesByType} month={general.month} />}
     {!reviewed && general?.incomeCents != null && general.expenseCents != null && <details className="arena-hint"><summary>Como o saldo geral é calculado</summary><p>Receitas informadas no consolidado: {centsMoney(general.incomeCents)}. Despesas líquidas do consolidado: {centsMoney(general.expenseCents)}. Resultado: {centsMoney(general.amountCents!)}.</p><p>{general.records} registros do mesmo mês. Movimentos bancários, despesas externas e demais controles ficam disponíveis no histórico, sem serem somados novamente ao consolidado.</p></details>}
   </section>
 }

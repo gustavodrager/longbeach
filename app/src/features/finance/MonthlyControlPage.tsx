@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/authContext'
 import { apiFetch } from '../../lib/http'
 import { Disclosure, EditorPanel, RecordTable, useUnsavedChanges } from '../../components/managementUi'
 import { Field, Notes, SaveRow, today } from '../../pages/arenaUi'
 import { centsMoney } from './FinancialHistory'
+import { ExpenseComposition } from './ExpenseComposition'
+import { expenseBreakdown, expenseGroups, matchesControlGroup } from './monthlyExpenses'
 
 export type ControlLine = { id: string; label: string; direction: 'Receita' | 'Despesa'; category: 'Operação' | 'Fixa' | 'Variável' | 'Parcela' | 'Acerto'; costCenter: 'Arena' | 'Bar' | 'Escola' | 'Locações'; amountCents: number; basis: 'Informado' | 'Estimado'; source: string; sourceMonth: string | null }
 export type MonthlyControl = { month: string; version: number; lines: ControlLine[]; notes: string; updatedAtUtc?: string }
@@ -33,14 +35,19 @@ export function MonthlyControlPage() {
   const [staged, setStaged] = useState<MonthlyControl | null>(null); const [source, setSource] = useState<ControlLine | null>(null)
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState('')
   const control = query.data?.control; const month = query.data?.month ?? selected ?? today().slice(0, 7)
+  const requestedGroup = params.get('grupo') ?? 'todos'
+  const group = requestedGroup === 'receitas' || expenseGroups.some(item => item.key === requestedGroup) ? requestedGroup : 'todos'
+  const visibleLines = control?.lines.filter(line => matchesControlGroup(line, group)) ?? []
+  const listTitle = group === 'receitas' ? 'Receitas' : expenseGroups.find(item => item.key === group)?.label ?? 'Todos os valores'
+  const changeMonth = (value: string) => { if (!value) return; const next = new URLSearchParams(params); next.set('month', value); next.delete('acao'); next.delete('registro'); setParams(next); setNotice('') }
   const action = params.get('acao'); const recordId = params.get('registro'); const hydrated = useRef('')
   useEffect(() => {
     if (action !== 'editar' && action !== 'novo') { hydrated.current = ''; setEdit(null); return }
     const key = `${month}:${action}:${recordId}`
     if (!control || hydrated.current === key) return
-    const line = action === 'editar' ? control.lines.find(item => item.id === recordId) : { id: recordId ?? crypto.randomUUID(), label: '', direction: 'Despesa', category: 'Fixa', costCenter: 'Arena', amountCents: 0, basis: 'Informado', source: '', sourceMonth: month } as ControlLine
+    const line = action === 'editar' ? control.lines.find(item => item.id === recordId) : { id: recordId ?? crypto.randomUUID(), label: '', direction: group === 'receitas' ? 'Receita' : 'Despesa', category: group === 'receitas' ? 'Operação' : expenseGroups.find(item => item.key === group)?.category ?? 'Fixa', costCenter: 'Arena', amountCents: 0, basis: 'Informado', source: '', sourceMonth: month } as ControlLine
     if (line) { hydrated.current = key; setEdit({ base: structuredClone(control), line: { ...line } }) }
-  }, [action, recordId, control, month])
+  }, [action, recordId, control, month, group])
   const close = () => { setStaged(null); setError(''); const next = new URLSearchParams(params); next.delete('acao'); next.delete('registro'); setParams(next, { replace: true, preventScrollReset: true }) }
   const open = (line?: ControlLine) => {
     if (!control) return
@@ -51,7 +58,7 @@ export function MonthlyControlPage() {
     setBusy(true); setError('')
     try {
       await apiFetch(`/api/v1/financial-history/monthly-controls/${next.month}`, { method: 'PUT', body: JSON.stringify({ version: next.version, lines: next.lines, notes: next.notes }) })
-      guard.markSaved(); close(); setNotice('Controle atualizado.'); const search = new URLSearchParams({ month: next.month }); setParams(search, { replace: true })
+      guard.markSaved(); close(); setNotice('Controle atualizado.'); const search = new URLSearchParams(params); search.set('month', next.month); search.delete('acao'); search.delete('registro'); setParams(search, { replace: true, preventScrollReset: true })
       await Promise.all([cache.invalidateQueries({ queryKey: ['monthly-control'] }), cache.invalidateQueries({ queryKey: ['dashboard-balances'] })])
     } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível salvar o controle.') } finally { setBusy(false) }
   }
@@ -68,12 +75,15 @@ export function MonthlyControlPage() {
   if (!owner) return <main className="operation-page arena-page"><h1>Controle mensal</h1><p role="alert">Disponível apenas para os proprietários.</p></main>
   return <main className="operation-page arena-page">
     <header className="page-heading"><div><h1>Controle mensal</h1></div>{control && <button className="primary-button" onClick={() => open()}>Adicionar valor</button>}</header>
-    <div className="compact-filters"><Field label="Competência" type="month" value={selected ?? month} onChange={value => { if (value) { setParams({ month: value }); setNotice('') } }} />{Boolean(query.data?.months.length) && <Field label="Meses registrados" value={month} onChange={value => setParams({ month: value })} options={[...new Set([month, ...query.data!.months])].sort().reverse().map(value => ({ value, label: monthLabel(value) }))} />}</div>
+    <div className="compact-filters"><Field label="Competência" type="month" value={selected ?? month} onChange={changeMonth} />{Boolean(query.data?.months.length) && <Field label="Meses registrados" value={month} onChange={changeMonth} options={[...new Set([month, ...query.data!.months])].sort().reverse().map(value => ({ value, label: monthLabel(value) }))} />}</div>
     {query.isPending && <p role="status">Carregando controle…</p>}{query.isError && <p role="alert">Não foi possível carregar. <button onClick={() => void query.refetch()}>Tentar novamente</button></p>}
     {error && !edit && !staged && <p role="alert" className="arena-message arena-error">{error}</p>}{notice && <p role="status">{notice}</p>}
     {control ? <><ValueCards control={control} />
-      <p className="arena-hint">Valores estimados ficam identificados até a conferência.</p>
-      <RecordTable label="Receitas e despesas do mês" columns={['Descrição', 'Área', 'Tipo', 'Valor', 'Base', 'Ações']} rows={control.lines.map(line => ({ key: line.id, cells: [line.label, line.costCenter, `${line.direction} · ${line.category}`, centsMoney(line.amountCents), line.basis === 'Estimado' ? `Estimativa · ${line.sourceMonth ? monthLabel(line.sourceMonth) : 'Referência pendente'}` : 'Informado', <span className="arena-record-actions"><button type="button" aria-label={`Editar ${line.label}`} onClick={() => open(line)}>Editar</button><button type="button" aria-label={`Ver origem de ${line.label}`} onClick={() => setSource(line)}>Origem</button></span>] }))} />
+      <ExpenseComposition totals={expenseBreakdown(control.lines)} month={month} activeGroup={group} showOther={control.lines.some(line => matchesControlGroup(line, 'outras'))} />
+      {control.lines.some(line => line.basis === 'Estimado') && <p className="arena-hint">Valores estimados ficam identificados até a conferência.</p>}
+      <nav className="monthly-group-links" aria-label="Outros valores do mês"><Link to={`?${new URLSearchParams({ month })}`} preventScrollReset aria-current={group === 'todos' ? 'page' : undefined}>Todos os valores</Link><Link to={`?${new URLSearchParams({ month, grupo: 'receitas' })}`} preventScrollReset aria-current={group === 'receitas' ? 'page' : undefined}>Receitas</Link></nav>
+      <div className="monthly-list-heading"><h2>{listTitle}</h2><p>{visibleLines.length} {visibleLines.length === 1 ? 'registro' : 'registros'}{group !== 'todos' ? ` · ${centsMoney(visibleLines.reduce((sum, line) => sum + line.amountCents, 0))}` : ''}</p></div>
+      {visibleLines.length ? <RecordTable label="Receitas e despesas do mês" columns={['Descrição', 'Área', 'Tipo', 'Valor', 'Base', 'Ações']} rows={visibleLines.map(line => ({ key: line.id, cells: [line.label, line.costCenter, `${line.direction} · ${line.category}`, centsMoney(line.amountCents), line.basis === 'Estimado' ? `Estimativa · ${line.sourceMonth ? monthLabel(line.sourceMonth) : 'Referência pendente'}` : 'Informado', <span className="arena-record-actions"><button type="button" aria-label={`Editar ${line.label}`} onClick={() => open(line)}>Editar</button><button type="button" aria-label={`Ver origem de ${line.label}`} onClick={() => setSource(line)}>Origem</button></span>] }))} /> : <p>Nenhum registro neste grupo para {monthLabel(month)}.</p>}
       <Disclosure title="Conferência do mês"><p className="detail-notes">{control.notes}</p><p>Atualizado: {control.updatedAtUtc ? new Date(control.updatedAtUtc).toLocaleString('pt-BR') : 'A confirmar'}</p><p>Este controle reúne o resultado mensal. Os pagamentos e saldos bancários mantêm seus registros de origem.</p></Disclosure>
     </> : !query.isPending && !query.isError && <p>Nenhum controle registrado nesta competência.</p>}
     <Disclosure title="Importar revisão"><label className="operation-field">Arquivo de revisão<input type="file" accept=".json,application/json" onChange={event => void importReview(event)} /></label><p className="arena-hint">Os valores são apresentados para conferência antes de salvar.</p></Disclosure>
@@ -90,7 +100,7 @@ function LineForm({ initial, month, busy, error, submit, cancel }: { initial: Co
     <Field label="Descrição" required value={line.label} onChange={v => update('label', v)} />
     <Field label="Valor (R$)" required type="number" min={0} step="0.01" value={amount} onChange={setAmount} />
     <Field label="Movimento" value={line.direction} onChange={v => update('direction', v)} options={['Receita', 'Despesa']} />
-    <Field label="Tipo" value={line.category} onChange={v => update('category', v)} options={['Operação', 'Fixa', 'Variável', 'Parcela', 'Acerto']} />
+    <Field label="Tipo" value={line.category} onChange={v => update('category', v)} options={[{ value: 'Operação', label: 'Operação / outras' }, { value: 'Fixa', label: 'Despesa fixa' }, { value: 'Variável', label: 'Despesa variável' }, { value: 'Parcela', label: 'Parcela' }, { value: 'Acerto', label: 'Acerto / devolução' }]} />
     <Field label="Área" value={line.costCenter} onChange={v => update('costCenter', v)} options={['Arena', 'Bar', 'Escola', 'Locações']} />
     <Field label="Base do valor" value={line.basis} onChange={v => update('basis', v)} options={['Informado', 'Estimado']} />
     <Field label="Mês de referência" type="month" required={line.basis === 'Estimado'} value={line.sourceMonth ?? ''} onChange={v => update('sourceMonth', v || null)} />

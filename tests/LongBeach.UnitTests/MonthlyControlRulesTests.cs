@@ -4,6 +4,19 @@ namespace LongBeach.UnitTests;
 
 public sealed class MonthlyControlRulesTests
 {
+    [Fact] public void Expense_groups_reconcile_without_counting_income_or_mixing_debt_and_adjustments()
+    {
+        var lines = new[] { Line("Receita", 20000) with { Category = "Fixa" },
+            Line("Despesa", 2000) with { Category = "Fixa" }, Line("Despesa", 1000, "Estimado") with { Category = "Fixa" },
+            Line("Despesa", 500) with { Category = "Variável" }, Line("Despesa", 600) with { Category = "Parcela" },
+            Line("Despesa", 700) with { Category = "Acerto" }, Line("Despesa", 0) with { Category = "Variável" }, Line("Despesa", 800) };
+        var result = MonthlyControlRules.Balance(new("2026-09", 1, lines, "Teste", DateTimeOffset.UtcNow));
+        var groups = Assert.IsType<MonthlyExpenseBreakdown>(result.ExpensesByType);
+        Assert.Equal(new MonthlyExpenseBreakdown(3000, 500, 600, 700, 800), groups);
+        Assert.Equal(result.ExpenseCents, groups.FixedCents + groups.VariableCents + groups.InstallmentCents + groups.AdjustmentCents + groups.OtherCents);
+        Assert.Equal(14400, result.AmountCents);
+        Assert.Equal(new MonthlyExpenseBreakdown(0, 0, 0, 0, 0), MonthlyControlRules.ExpenseBreakdown([Line("Despesa", 0)]));
+    }
     private static MonthlyControlLine Line(string direction, long amount, string basis = "Informado") =>
         new(Guid.NewGuid().ToString(), "Referência de teste", direction, "Operação", "Arena", amount, basis, "Fonte de teste", "2026-08");
     [Fact] public void Estimates_are_identified_and_expenses_remain_positive_while_deficit_is_negative()

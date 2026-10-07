@@ -52,6 +52,7 @@ public sealed class FinancialHistoryPostgresTests
         var service = new FinancialHistoryService(db, new NullAuditContext(), new DashboardClock(), new ConfigurationBuilder().Build());
         var result = await service.DashboardBalances(default);
         Assert.Equal(57,result.General.Records); Assert.Equal(5500,result.General.ExpenseCents); Assert.Equal(2500,result.General.AmountCents);
+        Assert.Null(result.General.ExpensesByType);
         Assert.Equal(13500,result.PagBank.AmountCents); Assert.Equal(new DateOnly(2090,7,31),result.PagBank.Date);
         var review = new MonthlyControlDocument("2090-08", 1,
             [new(Guid.NewGuid().ToString(),"Receita teste","Receita","Operação","Arena",20000,"Informado","Fonte teste","2090-08"),
@@ -61,6 +62,7 @@ public sealed class FinancialHistoryPostgresTests
         var reviewed = await service.DashboardBalances(default);
         Assert.Equal(-2000,reviewed.General.AmountCents); Assert.Equal(22000,reviewed.General.EstimatedExpenseCents);
         Assert.Equal(13500,reviewed.PagBank.AmountCents); Assert.Equal("revisado",reviewed.General.Basis);
+        Assert.Equal(new MonthlyExpenseBreakdown(22000, 0, 0, 0, 0), reviewed.General.ExpensesByType);
         await tx.RollbackAsync();
     }
     private sealed class DashboardClock : TimeProvider { public override DateTimeOffset GetUtcNow() => new(2090,9,1,12,0,0,TimeSpan.Zero); }

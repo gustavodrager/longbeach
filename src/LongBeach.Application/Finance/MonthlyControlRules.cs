@@ -54,7 +54,15 @@ public static class MonthlyControlRules
         return new(control.Month, totals.ResultCents, totals.IncomeCents, totals.ExpenseCents,
             control.Lines.Length, ["Controle mensal revisado"],
             totals.EstimatedRecords > 0 ? "Inclui valores estimados. Confira o controle mensal." : "Totais informados; conciliação individual no controle mensal.",
-            "revisado", totals.EstimatedRecords > 0, totals.EstimatedExpenseCents);
+            "revisado", totals.EstimatedRecords > 0, totals.EstimatedExpenseCents, ExpenseBreakdown(control.Lines));
+    }
+
+    public static MonthlyExpenseBreakdown ExpenseBreakdown(IEnumerable<MonthlyControlLine> lines)
+    {
+        var expenses = lines.Where(x => x.Direction == "Despesa").ToArray();
+        long Sum(string category) => expenses.Where(x => x.Category == category).Sum(x => x.AmountCents);
+        return new(Sum("Fixa"), Sum("Variável"), Sum("Parcela"), Sum("Acerto"),
+            expenses.Where(x => x.Category is not ("Fixa" or "Variável" or "Parcela" or "Acerto")).Sum(x => x.AmountCents));
     }
 }
 

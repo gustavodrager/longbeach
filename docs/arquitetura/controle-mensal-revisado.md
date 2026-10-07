@@ -25,3 +25,9 @@ No Chrome autenticado, após aceitar a atualização da PWA, foi aplicada a revi
 O cabeçalho compacto e a visão financeira foram conferidos em produção em 360, 390, 768 e 1440 px sem rolagem horizontal da página. Edição com conflito, link direto, autorização e persistência foram verificadas nos testes locais/CI. O fluxo de edição no celular também foi exercitado com dados fictícios.
 
 A publicação conjunta inclui migrations do módulo de pagamentos. Qualquer rollback da API deve obedecer também ao runbook de pagamentos unificados, preservando registros e reconciliação; não basta aplicar a orientação isolada deste incremento.
+
+## Separação de despesas por tipo
+
+O dashboard revisado inclui `expensesByType` com somas independentes de `Fixa`, `Variável`, `Parcela` e `Acerto`; despesas com outra classificação permanecem em `otherCents`. Somente linhas de direção `Despesa` entram nesses totais. A soma dos cinco grupos reconcilia com `ExpenseCents`, sem mudar o resultado mensal, registros, origem ou valores. Consolidados históricos sem composição retornam `null`, sem classificação presumida.
+
+Na interface, os grupos são links compactos para o controle da mesma competência, filtrado por `grupo=fixas|variaveis|parcelas|acertos|outras`. Receitas e todos os valores continuam acessíveis. O grupo permanece ao editar, salvar e trocar a competência; o cadastro inicia com a classificação selecionada. Valores zero continuam visíveis. A indicação de estimativa aparece somente quando há linhas estimadas. Nenhuma migration ou reclassificação em lote é necessária.
