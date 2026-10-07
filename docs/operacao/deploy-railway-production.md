@@ -325,3 +325,17 @@ Publicação autorizada na conversa operacional, isolada no projeto Long Beach O
 - A origem original e os pacotes rejeitados na conferência permanecem preservados; somente o lote conciliado foi aplicado. Nenhuma reserva, cobrança ou presença foi criada. A agenda completa da quadra continua pendente enquanto os aluguéis e bloqueios atuais não forem confirmados.
 
 Procedimento e limites de reversão: [Importação da grade de aulas](importacao-grade-aulas.md). Não voltar a versões que desconhecem valores financeiros nulos ou início de grade após aplicar os registros.
+
+## Preparação operacional do EDI — 2026-10-07
+
+API e web promovidas, nessa ordem, para `a9b615a5cb4a9269c0ce7c6bf81d5ebdd0e76e60`, branch `codex/edi-operacao-20261007`. A publicação foi autorizada na conversa operacional. PR de implementação: https://github.com/gustavodrager/longbeach/pull/18, integrado à branch de trabalho `codex/saldos-pagina-inicial`.
+
+- API: `5612a486-33a5-4b5f-b50c-0f56703a1f71`, `SUCCESS`; `/health/live` e `/health/ready` responderam `200 Healthy`. O pre-deploy controlado confirmou banco atualizado, sem novas migrations.
+- Web: `adda5137-5604-4aa4-bf93-59462cba4e02`, `SUCCESS`; `/` e `/healthz` responderam `200`. Os dois serviços permanecem fixados no commit validado.
+- CI `37695242404` aprovado: 162 testes unitários, 213 de integração PostgreSQL e 208 frontend (583 testes da aplicação), além de conversores e builds. Inclui falha após dia concluído, timeout no corpo, repetição idempotente, autorização, auditoria, versão substituída e concorrência com conciliação.
+- Consulta de integrações, documentos EDI e POST de reconsulta retornaram `401` sem sessão. A origem oficial recebeu CORS com credenciais; a origem de preview não recebeu permissão. A conferência visual autenticada não foi repetida nesta promoção; não considerar o smoke HTTP como prova desse fluxo.
+- Somente branch/commit dos serviços oficiais foram alterados. Snapshots foram registrados após cada promoção, com plano sem diferenças. Variáveis, serviços auxiliares, domínios e volumes foram preservados.
+
+O responsável confirmou que recebeu USER e token EDI no portal PagBank. Na conferência final, o serviço `api` ainda não tinha variáveis EDI; o coletor continua desabilitado por padrão. Nenhuma consulta real ao EDI foi executada nesta entrega. A ativação depende de cadastro seguro das credenciais e confirmação da data inicial, seguidos da primeira coleta e comparação com o extrato oficial. Não registrar credenciais, documentos reais nem dados pessoais neste runbook. Procedimento: [Histórico financeiro e integrações](../arquitetura/historico-financeiro-integracoes.md#pagbank-edi).
+
+Rollback da aplicação: API `d5414e99-04d2-42e5-ace0-6ed901e40695` e web `020b841f-19aa-4f9a-96dd-d60d0a278fc0`, ambas em `4c220504315031587e38fb9d07d148fa6c36e44f`. Preserve documentos, versões e cursores; se o EDI já tiver sido ativado, desabilite a coleta antes de retornar ao coletor anterior. Depois, registre novamente as fontes fixadas e confirme plano sem diferenças.
