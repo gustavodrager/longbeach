@@ -96,6 +96,17 @@ public sealed class BillingPostgresTests
         var hash = new string('a', 32) + document.ToString("N");
         await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO provider_documents(id,provider,movement,movement_date,page_number,source_sha256,payload,validated,fetched_at_utc) VALUES({document},'pagbank-edi','financial',{day},1,{hash},{payload}::jsonb,true,{DateTimeOffset.UtcNow})");
         var candidates = JsonSerializer.SerializeToElement(await service.SettlementCandidates(default)); Assert.Contains(candidates.GetProperty("records").EnumerateArray(), x => x.GetProperty("externalId").GetString() == external);
+        var stale=Guid.NewGuid();var staleHash=new string('b',32)+stale.ToString("N");
+        await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO provider_documents(id,provider,movement,movement_date,page_number,source_sha256,payload,validated,fetched_at_utc) VALUES({stale},'pagbank-edi','financial',{day},1,{staleHash},{payload}::jsonb,true,{DateTimeOffset.UtcNow.AddDays(-1)})");
+        await Assert.ThrowsAsync<BarRuleException>(()=>service.Settle(seed.Account,new(payment.Id,stale,external,"Documento substituído"),seed.User,default));
+        candidates=JsonSerializer.SerializeToElement(await service.SettlementCandidates(default));
+        Assert.DoesNotContain(candidates.GetProperty("records").EnumerateArray(),x=>x.GetProperty("documentId").GetGuid()==stale);
+        await using(var collectorDb=Database())
+        await using(var collectorTx=await collectorDb.Database.BeginTransactionAsync())
+        {
+            await collectorDb.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(19771007)");
+            await Assert.ThrowsAsync<BarRuleException>(()=>service.Settle(seed.Account,new(payment.Id,document,external,"Coleta concorrente"),seed.User,default));
+        }
         var input = new SettlementInput(payment.Id, document, external, "Conferido por transação no extrato"); await service.Settle(seed.Account, input, seed.User, default); await service.Settle(seed.Account, input, seed.User, default);
         Assert.Equal(1, await db.Set<BillingSettlement>().CountAsync(x => x.PaymentId == payment.Id)); Assert.Equal(1, await db.Set<BillingPayment>().CountAsync(x => x.AccountId == seed.Account)); Assert.Equal(100, (await service.Account(seed.Account, seed.User, default)).Paid);
     }

@@ -48,7 +48,9 @@ public static class DependencyInjection
         services.AddScoped<LongBeach.Application.Finance.IFinancialHistory, LongBeach.Infrastructure.Finance.FinancialHistoryService>();
         services.AddHttpClient("PagBankEdi", client => client.Timeout = TimeSpan.FromSeconds(45))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
-        services.AddHostedService<LongBeach.Infrastructure.Finance.PagBankEdiWorker>();
+        services.AddSingleton<LongBeach.Infrastructure.Finance.PagBankEdiWorker>();
+        services.AddSingleton<LongBeach.Application.Finance.IPagBankEdiCollection>(sp => sp.GetRequiredService<LongBeach.Infrastructure.Finance.PagBankEdiWorker>());
+        services.AddHostedService(sp => sp.GetRequiredService<LongBeach.Infrastructure.Finance.PagBankEdiWorker>());
         services.AddSingleton<LongBeach.Infrastructure.Payments.PagBankWebhookKeys>();
         services.AddHttpClient<LongBeach.Application.Bar.IPaymentGateway, LongBeach.Infrastructure.Payments.PagBankPaymentGateway>(client => client.Timeout = TimeSpan.FromSeconds(20))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });

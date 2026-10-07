@@ -39,9 +39,9 @@ A consulta é somente leitura e não gera novas importações, reservas, cobran�
 
 ## PagBank EDI
 
-O worker usa exclusivamente GET nos quatro feeds oficiais (`transactional`, `financial`, `cashouts`, `balances`), sem sessão de navegador. A cada dez minutos tenta até sete dias, até ontem no fuso de Brasília, com releitura de dois dias e backoff exponencial limitado a seis horas. Um advisory lock evita coletores concorrentes. Credenciais ficam somente no servidor.
+O worker usa exclusivamente GET nos quatro feeds oficiais (`transactional`, `financial`, `cashouts`, `balances`), sem sessão de navegador. A cada dez minutos tenta até sete dias, até ontem no fuso de Brasília, com releitura de dois dias e backoff exponencial limitado a seis horas. Um advisory lock por dia evita gravações concorrentes, inclusive com conciliação. O limite de 45 segundos cobre também o corpo da resposta; falha ao registrar o erro no banco não encerra o coletor. Credenciais ficam somente no servidor.
 
-Só confirma uma coleta após validar `VALIDADO=true`, estabelecimento, todas as páginas, contagem e os quatro feeds. Falha reverte a coleta e conserva o cursor anterior. Documentos originais e versões são preservados, com hash; leituras repetidas não duplicam páginas. O relatório Owner mostra a versão mais recente completa de cada feed, incluindo todos os campos e valores originais, sem somar transação e liquidação do mesmo recebível.
+Só confirma uma coleta após validar `VALIDADO=true`, estabelecimento, todas as páginas, contagem e os quatro feeds. Cada dia é confirmado em uma transação própria: falha reverte somente o dia incompleto e conserva os dias já concluídos. Documentos originais e versões são preservados, com hash; leituras repetidas não duplicam páginas. O relatório Owner mostra a versão mais recente completa de cada feed, incluindo todos os campos e valores originais, sem somar transação e liquidação do mesmo recebível.
 
 Configuração no serviço `api`, separada do token de pagamentos:
 
@@ -55,6 +55,18 @@ A opção é desabilitada por padrão. O painel distingue configuração pendent
 As novas ativações são solicitadas pelo próprio cliente no portal oficial. Não há Sandbox EDI. A primeira leitura real exige credencial autorizada, conferência de cobertura e acompanhamento do painel. A coleta histórica não implica autorização de pagamentos.
 
 Fontes oficiais: [guia EDI](https://developer.pagbank.com.br/docs/edi), [API e integralidade](https://developer.pagbank.com.br/docs/api-do-extrato-edi), [autenticação Basic](https://developer.pagbank.com.br/v1/reference/api-de-conciliacao-introducao).
+
+### Reconsulta e acompanhamento
+
+O Owner pode abrir **Financeiro → Histórico → Documentos originais do PagBank → Consultar novamente um período do PagBank**. A ação exige motivo e período de até sete dias, terminando no máximo ontem no fuso de Brasília. `POST /api/v1/financial-history/pagbank-edi/reprocess` obtém o responsável da sessão, exige o EDI habilitado e não aceita credenciais no corpo. Cada dia concluído registra `ProviderDocumentsReprocessed`; a operação não avança o cursor diário nem limpa uma falha da coleta automática. Se a conexão for interrompida, os dias concluídos permanecem salvos e a mesma consulta pode ser repetida. Um período maior deve ser dividido em blocos.
+
+Depois de iniciada a coleta, diminuir `StartDate` não retrocede o cursor. Use a reconsulta para lacunas anteriores. Documentos com conteúdo alterado conservam a versão anterior. A conciliação lista apenas a última coleta completa por data/feed e rejeita versões substituídas, sob o mesmo lock do coletor. A seleção continua limitada aos cem documentos mais recentes e a liquidações simples; não é uma conciliação automática por identificador.
+
+O painel distingue atualização histórica em andamento de leitura atual. Uma última leitura bem-sucedida há mais de 26 horas aparece como **Coleta atrasada**, mesmo sem erro registrado. Falhas informadas continuam como **Requer atenção**. A reconsulta manual não mascara o atraso da rotina automática.
+
+Para ativar, cadastrar USER e token específico no serviço `api` do projeto `longbeach-os` (token selado), confirmar com o proprietário `StartDate`, revisar a configuração e promover a revisão testada. A configuração no portal PagBank não equivale a variáveis já cadastradas no servidor. Primeiro conferir uma amostra real dos quatro feeds, incluindo dias vazios, e comparar valores/códigos com o extrato oficial. Não solicitar token pelo chat nem versionar respostas reais. A habilitação do EDI independe dos pagamentos.
+
+Os testes cobrem preservação de dias anteriores após falha, timeout durante o corpo, liberação do lock, reconsulta auditada sem avanço do cursor, repetição sem duplicação, versão substituída na conciliação, atraso e autorização Owner. Permanecem pendentes da amostra real o mapeamento entre identificadores de Pedidos/Recorrência e EDI, a abrangência da conta e a classificação de antecipações/estornos. A importação EDI não alimenta automaticamente o saldo da página inicial nem resolve a conciliação de vendas da maquininha.
 
 ## PagVendas
 
