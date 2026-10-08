@@ -29,6 +29,15 @@ public sealed partial class FinancialHistoryService
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(724031904)", ct);
         var record = await db.OperationalRecords.SingleOrDefaultAsync(x => x.Kind == MonthlyControlRules.Kind && x.Name == month, ct);
         var existing = record is null ? null : JsonSerializer.Deserialize<MonthlyControlDocument>(record.Payload, MonthlyJson)!;
+        // Clients predating unit classification must not erase reviewed classifications.
+        input = input with { Lines = input.Lines.Select(line =>
+        {
+            var previous = existing?.Lines.SingleOrDefault(x => x.Id == line.Id);
+            return line.AllocationScope is null && line.BusinessUnitId is null && previous is not null
+                ? line with { AllocationScope = previous.AllocationScope, BusinessUnitId = previous.BusinessUnitId }
+                : line;
+        }).ToArray() };
+        MonthlyControlRules.Validate(month, input);
         if (existing is not null && existing.Notes == input.Notes && existing.Lines.SequenceEqual(input.Lines)) return existing;
         if (input.Version != (existing?.Version ?? 0))
             throw new MonthlyControlConflictException("Este controle mudou. Atualize a página e confira os valores antes de salvar.");

@@ -22,6 +22,8 @@ public static class MonthlyControlRules
             throw new FinancialRuleException("Há linhas sem identificação ou repetidas no controle.");
         foreach (var line in input.Lines)
         {
+            var allocationError = BusinessAllocationRules.Validate(line.CostCenter, line.AllocationScope, line.BusinessUnitId);
+            if (allocationError is not null) throw new FinancialRuleException(allocationError);
             if (!Guid.TryParse(line.Id, out var id) || id == Guid.Empty || string.IsNullOrWhiteSpace(line.Label) || line.Label.Length > 160 ||
                 line.Direction is not ("Receita" or "Despesa") || line.Category is not ("Operação" or "Fixa" or "Variável" or "Parcela" or "Acerto") ||
                 line.CostCenter is not ("Arena" or "Bar" or "Escola" or "Locações") || line.AmountCents is < 0 or > 99999999999 ||

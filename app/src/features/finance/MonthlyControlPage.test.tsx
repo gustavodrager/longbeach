@@ -66,3 +66,22 @@ it('mostra grupo vazio e inicia novo valor com a classificação selecionada',as
   await user.click(screen.getByRole('button',{name:'Adicionar valor'}))
   expect(await screen.findByLabelText('Tipo')).toHaveValue('Parcela')
 })
+
+it('revisa unidade e filtra linhas sem alterar o total mensal nem ratear despesas',async()=>{
+  let saved:MonthlyControl=structuredClone(control)
+  const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async (_input,init)=>{
+    if(init?.method==='PUT')saved={...saved,...JSON.parse(String(init.body)),version:saved.version+1}
+    return new Response(JSON.stringify(init?.method==='PUT'?saved:{month:'2026-09',months:['2026-09'],control:saved}))
+  })
+  const user=userEvent.setup();wrap()
+  await user.click(await screen.findByRole('button',{name:'Editar Energia teste'}))
+  await user.selectOptions(screen.getByLabelText('Unidade de negócio / destinação'),'shared')
+  await user.click(screen.getByRole('button',{name:'Salvar valor'}))
+  await screen.findByText('Controle atualizado.')
+  const input=JSON.parse(String(fetch.mock.calls.find(([,init])=>init?.method==='PUT')![1]!.body))
+  expect(input.lines[1]).toMatchObject({allocationScope:'Shared',businessUnitId:null,amountCents:14000})
+  await user.selectOptions(await screen.findByLabelText('Unidade / destinação'),'shared')
+  expect(screen.getByRole('button',{name:'Editar Energia teste'})).toBeInTheDocument()
+  expect(screen.queryByRole('button',{name:'Editar Receita teste'})).not.toBeInTheDocument()
+  expect(screen.getByText('-R$ 40,00')).toBeInTheDocument()
+})

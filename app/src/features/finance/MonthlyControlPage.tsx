@@ -1,3 +1,5 @@
+import { allocationChoice, allocationFields, allocationLabel, allocationOptions, type BusinessAllocation } from './businessUnits'
+import { BusinessAllocationField } from './BusinessAllocationField'
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -9,7 +11,7 @@ import { centsMoney } from './FinancialHistory'
 import { ExpenseComposition } from './ExpenseComposition'
 import { expenseBreakdown, expenseGroups, matchesControlGroup } from './monthlyExpenses'
 
-export type ControlLine = { id: string; label: string; direction: 'Receita' | 'Despesa'; category: 'Operação' | 'Fixa' | 'Variável' | 'Parcela' | 'Acerto'; costCenter: 'Arena' | 'Bar' | 'Escola' | 'Locações'; amountCents: number; basis: 'Informado' | 'Estimado'; source: string; sourceMonth: string | null }
+export type ControlLine = BusinessAllocation & { id: string; label: string; direction: 'Receita' | 'Despesa'; category: 'Operação' | 'Fixa' | 'Variável' | 'Parcela' | 'Acerto'; costCenter: 'Arena' | 'Bar' | 'Escola' | 'Locações'; amountCents: number; basis: 'Informado' | 'Estimado'; source: string; sourceMonth: string | null }
 export type MonthlyControl = { month: string; version: number; lines: ControlLine[]; notes: string; updatedAtUtc?: string }
 type Report = { month: string; months: string[]; control: MonthlyControl | null }
 const monthLabel = (month: string) => new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(month + '-01T12:00:00Z'))
@@ -37,7 +39,7 @@ export function MonthlyControlPage() {
   const control = query.data?.control; const month = query.data?.month ?? selected ?? today().slice(0, 7)
   const requestedGroup = params.get('grupo') ?? 'todos'
   const group = requestedGroup === 'receitas' || expenseGroups.some(item => item.key === requestedGroup) ? requestedGroup : 'todos'
-  const visibleLines = control?.lines.filter(line => matchesControlGroup(line, group)) ?? []
+  const visibleLines = control?.lines.filter(line => matchesControlGroup(line, group) && (!params.get('unit') || allocationChoice(line.costCenter,line) === params.get('unit'))) ?? []
   const listTitle = group === 'receitas' ? 'Receitas' : expenseGroups.find(item => item.key === group)?.label ?? 'Todos os valores'
   const changeMonth = (value: string) => { if (!value) return; const next = new URLSearchParams(params); next.set('month', value); next.delete('acao'); next.delete('registro'); setParams(next); setNotice('') }
   const action = params.get('acao'); const recordId = params.get('registro'); const hydrated = useRef('')
@@ -79,11 +81,11 @@ export function MonthlyControlPage() {
     {query.isPending && <p role="status">Carregando controle…</p>}{query.isError && <p role="alert">Não foi possível carregar. <button onClick={() => void query.refetch()}>Tentar novamente</button></p>}
     {error && !edit && !staged && <p role="alert" className="arena-message arena-error">{error}</p>}{notice && <p role="status">{notice}</p>}
     {control ? <><ValueCards control={control} />
-      <ExpenseComposition totals={expenseBreakdown(control.lines)} month={month} activeGroup={group} showOther={control.lines.some(line => matchesControlGroup(line, 'outras'))} />
+      <ExpenseComposition totals={expenseBreakdown(control.lines)} month={month} activeGroup={group} unit={params.get('unit')??undefined} showOther={control.lines.some(line => matchesControlGroup(line, 'outras'))} />
       {control.lines.some(line => line.basis === 'Estimado') && <p className="arena-hint">Valores estimados ficam identificados até a conferência.</p>}
-      <nav className="monthly-group-links" aria-label="Outros valores do mês"><Link to={`?${new URLSearchParams({ month })}`} preventScrollReset aria-current={group === 'todos' ? 'page' : undefined}>Todos os valores</Link><Link to={`?${new URLSearchParams({ month, grupo: 'receitas' })}`} preventScrollReset aria-current={group === 'receitas' ? 'page' : undefined}>Receitas</Link></nav>
-      <div className="monthly-list-heading"><h2>{listTitle}</h2><p>{visibleLines.length} {visibleLines.length === 1 ? 'registro' : 'registros'}{group !== 'todos' ? ` · ${centsMoney(visibleLines.reduce((sum, line) => sum + line.amountCents, 0))}` : ''}</p></div>
-      {visibleLines.length ? <RecordTable label="Receitas e despesas do mês" columns={['Descrição', 'Área', 'Tipo', 'Valor', 'Base', 'Ações']} rows={visibleLines.map(line => ({ key: line.id, cells: [line.label, line.costCenter, `${line.direction} · ${line.category}`, centsMoney(line.amountCents), line.basis === 'Estimado' ? `Estimativa · ${line.sourceMonth ? monthLabel(line.sourceMonth) : 'Referência pendente'}` : 'Informado', <span className="arena-record-actions"><button type="button" aria-label={`Editar ${line.label}`} onClick={() => open(line)}>Editar</button><button type="button" aria-label={`Ver origem de ${line.label}`} onClick={() => setSource(line)}>Origem</button></span>] }))} /> : <p>Nenhum registro neste grupo para {monthLabel(month)}.</p>}
+      <nav className="monthly-group-links" aria-label="Outros valores do mês"><Link to={`?${new URLSearchParams({ month, ...(params.get('unit') ? {unit:params.get('unit')!} : {}) })}`} preventScrollReset aria-current={group === 'todos' ? 'page' : undefined}>Todos os valores</Link><Link to={`?${new URLSearchParams({ month, grupo: 'receitas', ...(params.get('unit') ? {unit:params.get('unit')!} : {}) })}`} preventScrollReset aria-current={group === 'receitas' ? 'page' : undefined}>Receitas</Link></nav>
+      <Field label="Unidade / destinação" value={params.get('unit')??''} onChange={value=>{const next=new URLSearchParams(params);if(value)next.set('unit',value);else next.delete('unit');setParams(next)}} options={[{value:'',label:'Todas · inclui compartilhados e a classificar'},...allocationOptions]} /><p className="arena-hint">O filtro abaixo seleciona os registros. Os indicadores acima mostram o mês completo. Compartilhados ainda não foram rateados; a classificação não altera valores nem confirma pagamentos.</p><div className="monthly-list-heading"><h2>{listTitle}</h2><p>{visibleLines.length} {visibleLines.length === 1 ? 'registro' : 'registros'}{group !== 'todos' ? ` · ${centsMoney(visibleLines.reduce((sum, line) => sum + line.amountCents, 0))}` : ''}</p></div>
+      {visibleLines.length ? <RecordTable label="Receitas e despesas do mês" columns={['Descrição', 'Área', 'Unidade / destinação', 'Tipo', 'Valor', 'Base', 'Ações']} rows={visibleLines.map(line => ({ key: line.id, cells: [line.label, line.costCenter, allocationLabel(line.costCenter,line), `${line.direction} · ${line.category}`, centsMoney(line.amountCents), line.basis === 'Estimado' ? `Estimativa · ${line.sourceMonth ? monthLabel(line.sourceMonth) : 'Referência pendente'}` : 'Informado', <span className="arena-record-actions"><button type="button" aria-label={`Editar ${line.label}`} onClick={() => open(line)}>Editar</button><button type="button" aria-label={`Ver origem de ${line.label}`} onClick={() => setSource(line)}>Origem</button></span>] }))} /> : <p>Nenhum registro neste grupo para {monthLabel(month)}.</p>}
       <Disclosure title="Conferência do mês"><p className="detail-notes">{control.notes}</p><p>Atualizado: {control.updatedAtUtc ? new Date(control.updatedAtUtc).toLocaleString('pt-BR') : 'A confirmar'}</p><p>Este controle reúne o resultado mensal. Os pagamentos e saldos bancários mantêm seus registros de origem.</p></Disclosure>
     </> : !query.isPending && !query.isError && <p>Nenhum controle registrado nesta competência.</p>}
     <Disclosure title="Importar revisão"><label className="operation-field">Arquivo de revisão<input type="file" accept=".json,application/json" onChange={event => void importReview(event)} /></label><p className="arena-hint">Os valores são apresentados para conferência antes de salvar.</p></Disclosure>
@@ -95,13 +97,14 @@ export function MonthlyControlPage() {
 function LineForm({ initial, month, busy, error, submit, cancel }: { initial: ControlLine; month: string; busy: boolean; error: string; submit: (line: ControlLine) => void; cancel: () => void }) {
   const [line, setLine] = useState(initial); const [amount, setAmount] = useState((initial.amountCents / 100).toFixed(2))
   const update = (key: keyof ControlLine, value: string | null) => setLine(current => ({ ...current, [key]: value }))
-  const send = (event: FormEvent) => { event.preventDefault(); const numeric = Number(amount); if (Number.isFinite(numeric)) submit({ ...line, amountCents: Math.round(numeric * 100) }) }
+  const send = (event: FormEvent) => { event.preventDefault(); const numeric = Number(amount); if (Number.isFinite(numeric)) submit({ ...line, ...allocationFields(allocationChoice(line.costCenter,line)), amountCents: Math.round(numeric * 100) }) }
   return <form onSubmit={send}>{error && <p role="alert">{error}</p>}<div className="field-grid">
     <Field label="Descrição" required value={line.label} onChange={v => update('label', v)} />
     <Field label="Valor (R$)" required type="number" min={0} step="0.01" value={amount} onChange={setAmount} />
     <Field label="Movimento" value={line.direction} onChange={v => update('direction', v)} options={['Receita', 'Despesa']} />
     <Field label="Tipo" value={line.category} onChange={v => update('category', v)} options={[{ value: 'Operação', label: 'Operação / outras' }, { value: 'Fixa', label: 'Despesa fixa' }, { value: 'Variável', label: 'Despesa variável' }, { value: 'Parcela', label: 'Parcela' }, { value: 'Acerto', label: 'Acerto / devolução' }]} />
-    <Field label="Área" value={line.costCenter} onChange={v => update('costCenter', v)} options={['Arena', 'Bar', 'Escola', 'Locações']} />
+    <Field label="Área" value={line.costCenter} onChange={v => setLine(current=>({...current,costCenter:v as ControlLine['costCenter'],...allocationFields(allocationChoice(v,{}))}))} options={['Arena', 'Bar', 'Escola', 'Locações']} />
+    <BusinessAllocationField origin={line.costCenter} value={line} onChange={value=>setLine(current=>({...current,...value}))} />
     <Field label="Base do valor" value={line.basis} onChange={v => update('basis', v)} options={['Informado', 'Estimado']} />
     <Field label="Mês de referência" type="month" required={line.basis === 'Estimado'} value={line.sourceMonth ?? ''} onChange={v => update('sourceMonth', v || null)} />
     <Notes label="Origem e motivo da alteração" value={line.source} onChange={v => update('source', v)} />

@@ -1,7 +1,8 @@
 namespace LongBeach.Contracts.Finance;
 
 public sealed record MonthlyControlLine(string Id, string Label, string Direction, string Category,
-    string CostCenter, long AmountCents, string Basis, string Source, string? SourceMonth);
+    string CostCenter, long AmountCents, string Basis, string Source, string? SourceMonth,
+    string? AllocationScope = null, string? BusinessUnitId = null);
 public sealed record MonthlyControlInput(int Version, MonthlyControlLine[] Lines, string Notes);
 public sealed record MonthlyControlDocument(string Month, int Version, MonthlyControlLine[] Lines,
     string Notes, DateTimeOffset UpdatedAtUtc);

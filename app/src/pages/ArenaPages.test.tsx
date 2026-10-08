@@ -237,3 +237,33 @@ it('mostra fechamento no sábado sem atribuir capacidade livre à quadra', async
   expect(await screen.findByText('Fechada neste dia da semana')).toBeInTheDocument()
   expect(screen.queryByText(/18 h disponíveis/)).not.toBeInTheDocument()
 })
+
+it('filtra financeiro por unidade sem atribuir Arena automaticamente à Quadra',async()=>{
+  const row={direction:'Receber',amount:100,dueDate:today(),status:'Pendente',paidDate:'',notes:''}
+  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({financeEntries:[
+    {...row,id:'bar-test',name:'Venda teste unidade',origin:'Bar'},
+    {...row,id:'court-test',name:'Aula teste unidade',origin:'Escola'},
+    {...row,id:'pending-test',name:'Referência indefinida',origin:'Arena'},
+  ]}))
+  const user=userEvent.setup();start('/financeiro?range=all&unit=quadra')
+  expect(await screen.findByText('Aula teste unidade')).toBeInTheDocument()
+  expect(screen.queryByText('Venda teste unidade')).not.toBeInTheDocument()
+  expect(screen.queryByText('Referência indefinida')).not.toBeInTheDocument()
+  await user.selectOptions(screen.getByLabelText('Unidade / destinação'),'unclassified')
+  expect(await screen.findByText('Referência indefinida')).toBeInTheDocument()
+  expect(screen.queryByText('Aula teste unidade')).not.toBeInTheDocument()
+})
+
+it('salva destinação compartilhada sem transformar o custo em duas despesas',async()=>{
+  const user=userEvent.setup();start('/financeiro/novo')
+  await user.type(screen.getByLabelText('Descrição do lançamento'),'Limpeza compartilhada')
+  await user.selectOptions(screen.getByLabelText('Tipo'),'Pagar')
+  await user.selectOptions(screen.getByLabelText('Unidade de negócio / destinação'),'shared')
+  await user.clear(screen.getByLabelText('Valor (R$)'));await user.type(screen.getByLabelText('Valor (R$)'),'100')
+  await user.click(screen.getByRole('button',{name:'Salvar lançamento'}))
+  await waitFor(()=>{
+    const saved=JSON.parse(localStorage.getItem('longbeach-os-demo-v1')!).financeEntries
+    expect(saved).toHaveLength(1)
+    expect(saved[0]).toMatchObject({amount:100,allocationScope:'Shared',businessUnitId:null,status:'Pendente'})
+  })
+})
