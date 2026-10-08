@@ -28,15 +28,28 @@ public sealed class PagBankGatewayTests
         Assert.Equal(operationId.ToString(),handler.Idempotency);Assert.Equal("10.00",(fetched.Amount/100m).ToString("0.00",System.Globalization.CultureInfo.InvariantCulture));
         Assert.Equal(paymentId.ToString(),fetched.Reference);Assert.Equal("PIX",handler.PaymentType);Assert.Equal(2,handler.Calls);
     }
+    [Fact]
+    public async Task Card_order_includes_item_matching_the_charge_amount()
+    {
+        var paymentId=Guid.NewGuid();var operationId=Guid.NewGuid();var handler=new ProviderHandler(paymentId.ToString());
+        var config=Config(new Dictionary<string,string?>{["Payments:PagBank:Enabled"]="true",["Payments:PagBank:CardEnabled"]="true",["Payments:PagBank:Token"]="test-token",["Payments:PagBank:WebhookUrl"]="https://longbeach.test/api/v1/integrations/pagbank/webhook"});
+        var gateway=new PagBankPaymentGateway(new HttpClient(handler),config);
+        await gateway.CreateCard(paymentId,operationId,10,new PixCustomer("Pagador teste","card@longbeach.test","12345678909"),"encrypted-test-card",default);
+        Assert.Equal("CREDIT_CARD",handler.PaymentType);Assert.Equal(operationId.ToString(),handler.Idempotency);
+        using var body=JsonDocument.Parse(handler.Body!);var item=Assert.Single(body.RootElement.GetProperty("items").EnumerateArray());
+        Assert.Equal(paymentId.ToString(),item.GetProperty("reference_id").GetString());Assert.Equal(1,item.GetProperty("quantity").GetInt32());
+        var charge=body.RootElement.GetProperty("charges")[0];Assert.Equal(charge.GetProperty("amount").GetProperty("value").GetInt64(),item.GetProperty("unit_amount").GetInt64());
+        var card=charge.GetProperty("payment_method").GetProperty("card");Assert.Equal("encrypted-test-card",card.GetProperty("encrypted").GetString());Assert.False(card.GetProperty("store").GetBoolean());
+    }
     private sealed class ProviderHandler(string reference):HttpMessageHandler
     {
-        public int Calls;public string? Idempotency;public string? PaymentType;
+        public int Calls;public string? Idempotency;public string? PaymentType;public string? Body;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)
         {
             Calls++;
             Assert.Contains("LongBeachOS/1.0",request.Headers.UserAgent.ToString());
             Assert.Contains(request.Headers.Accept,x=>x.MediaType=="application/json");
-            if(request.Method==HttpMethod.Post){Idempotency=request.Headers.GetValues("x-idempotency-key").Single();using var doc=JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));var charge=doc.RootElement.GetProperty("charges")[0];PaymentType=charge.GetProperty("payment_method").GetProperty("type").GetString();Assert.Equal(1000,charge.GetProperty("amount").GetProperty("value").GetInt32());}
+            if(request.Method==HttpMethod.Post){Idempotency=request.Headers.GetValues("x-idempotency-key").Single();Body=await request.Content!.ReadAsStringAsync(ct);using var doc=JsonDocument.Parse(Body);var charge=doc.RootElement.GetProperty("charges")[0];PaymentType=charge.GetProperty("payment_method").GetProperty("type").GetString();Assert.Equal(1000,charge.GetProperty("amount").GetProperty("value").GetInt32());}
             var json=JsonSerializer.Serialize(new{id="ORDE_TEST",charges=new[]{new{id="CHAR_TEST",reference_id=reference,status="WAITING",amount=new{value=1000,currency="BRL",summary=new{refunded=0}},qr_code=new{text="pix-test"}}}});
             return new HttpResponseMessage(HttpStatusCode.OK){Content=new StringContent(json,Encoding.UTF8,"application/json")};
         }
