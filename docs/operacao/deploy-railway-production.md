@@ -1,5 +1,22 @@
 # Deploy de Production no Railway
 
+## Correção PagBank e publicação após envio da homologação — 2026-10-08
+
+Publicação autorizada pelo proprietário na conversa operacional. PR [#20](https://github.com/gustavodrager/longbeach/pull/20) integrado em `codex/saldos-pagina-inicial`; API e web fixadas no artefato validado `99f81448b83a4d54e725d456b00d128db92c61cc`, branch `codex/pagbank-homologacao-20261007`. A correção inclui os itens exigidos pelo PagBank no pedido de cartão. Nenhuma migration nova nesta revisão.
+
+- API: `736e0d80-f7a7-43a3-a740-5a3437771cd0`, `SUCCESS` às 12:18 UTC; digest `sha256:1262422f1ab30329952a1c019157ecba68023fbc252be0f9e160a9f4f284bc8f`.
+- Web: `435ccc54-8324-4ac7-a2f5-e04fee425c1f`, `SUCCESS` às 12:31 UTC; digest `sha256:e9c9735d2fbd6b1ec73876618acf4494f474bdf6016becfbc5158422a6dd108f`.
+- CI [37715620674](https://github.com/gustavodrager/longbeach/actions/runs/37715620674) aprovado: 163 testes unitários, 213 de integração PostgreSQL e 208 frontend (584 testes da aplicação), além de conversores e builds.
+- API publicada e validada antes da web. `/health/live`, `/health/ready`, `/` e `/healthz` responderam `200`; endpoints de contas pessoais, contas administrativas, integrações e documentos EDI responderam `401` sem sessão. CORS autorizou a origem oficial com credenciais e não autorizou o preview.
+- No navegador autenticado, a atualização da PWA preservou a sessão; dashboard e Recebimentos carregaram. A conferência visual mostrou Conta do Bar e Conta da Quadra, ambas sem contas vinculadas na seleção. Nenhuma cobrança, pagamento ou alteração de dados financeiros foi realizada nesse smoke.
+- Cada patch mudou somente branch e commit do serviço oficial correspondente. Snapshots importados e registrados por etapa; planos sem diferenças. Os seis serviços ficaram online, sem falhas recentes nem trabalho pendente. Variáveis, domínios, banco, volumes e serviços auxiliares foram preservados.
+
+Antes desta publicação, a API já tinha `Integrations__PagBankEdi__Enabled=true`, USER e token EDI cadastrados. O snapshot passou a preservar essas três variáveis, sem versionar seus valores. Isso atualiza o diagnóstico da entrega de 2026-10-07: a coleta está habilitada na configuração, mas sua execução e conciliação reais não foram validadas nesta publicação.
+
+As flags de novas cobranças, PagBank, cartão integrado e assinaturas continuam ausentes e desabilitadas pelos padrões da aplicação. O envio do formulário de homologação foi confirmado pelo Pipefy na etapa anterior; aprovação do PagBank ainda não comprovada. Publicar esta versão não habilita recebimentos reais nem encerra as pendências de homologação.
+
+Rollback compatível da aplicação: API `79e9d4dd-2f45-4905-8ecc-2e6946cac81f` e web `adda5137-5604-4aa4-bf93-59462cba4e02`, em `a9b615a5cb4a9269c0ce7c6bf81d5ebdd0e76e60`. Preserve dados, credenciais e configuração EDI existentes. Após reversão, reconcilie a fonte fixada no snapshot e confirme plano sem diferenças.
+
 ## Separação de despesas fixas e variáveis — 2026-10-07
 
 API e web promovidas no artefato `4c220504315031587e38fb9d07d148fa6c36e44f`, branch `codex/saldos-pagina-inicial`, após CI [37565416405](https://github.com/gustavodrager/longbeach/actions/runs/37565416405) aprovado: 162 testes unitários, 208 de integração PostgreSQL e 205 frontend, conversores e builds. Nenhuma migration ou alteração de dados nesta entrega.
