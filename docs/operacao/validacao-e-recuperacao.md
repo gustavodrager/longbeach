@@ -12,7 +12,7 @@ Registrar data/hora, competência, release, resultado agregado e responsável pe
 
 ## PagBank e EDI
 
-Novas cobranças integradas permanecem desabilitadas até o aceite. A coleta EDI é independente dos pagamentos. Em 08/10, a consulta de nomes de variáveis no Railway confirmou ausência de `Integrations__PagBankEdi__StartDate`; o worker exige data explícita e a tela de integrações informa configuração pendente. Confirmar com o proprietário o período antes de habilitar a execução.
+Novas cobranças integradas permanecem desabilitadas até o aceite. A coleta EDI é independente dos pagamentos. Em 08/10, a consulta de nomes de variáveis no Railway confirmou ausência de `Integrations__PagBankEdi__StartDate`; o worker exige data explícita. Na publicação das 19h21, o log também confirmou falha na validação local de credenciais (`PagBank EDI requires merchant credentials.`): verificar User numérico e Token não vazio por canal seguro. A presença dos nomes das variáveis não comprova valores válidos; não houve evidência de chamada ao provedor nesta inicialização. Confirmar com o proprietário o período antes de habilitar a execução.
 
 Após a configuração controlada, verificar: primeira leitura completa dos quatro movimentos, avanço de `complete_through`, ausência de falha persistente, repetição sem duplicação e conciliação de uma amostra com a fonte. Não concluir sucesso apenas com serviço online. PagBank precisa comprovar aprovação de homologação, retomada de operação incerta, estorno e notificação autenticada; consultar o [runbook de pagamentos](../bar/pagamentos-unificados.md).
 
@@ -27,9 +27,11 @@ O resultado desse teste comprova restauração sintética da versão; **não com
 - Railway: seis serviços online, nenhuma alteração pendente e nenhuma falha de implantação nas oito horas consultadas.
 - API: tracing Railway desabilitado; outras ferramentas de alertas não foram confirmadas.
 - Banco: imagem PostgreSQL 18, volume próprio e nenhum proxy TCP público configurado.
-- A consulta administrativa via SSH não pôde iniciar: não há chave SSH no agente local nem em `~/.ssh`. Não foi criada chave, aberto proxy ou alterado acesso.
+- A consulta administrativa via SSH não pôde iniciar por falta de identidade confiável do servidor no ambiente local. Foi registrada uma chave de acesso temporária em agente isolado; a conexão parou antes de qualquer consulta e a chave foi revogada e apagada. A revisão automática rejeitou aceitar a primeira chave do servidor sem fingerprint verificada. Não foi aberto proxy público. Retomar somente com identidade do servidor confirmada por fonte confiável.
 - A auditoria de dados reais e a recuperação de backup de produção permanecem pendentes de acesso e evidência. Nenhum dado operacional foi alterado por esta rodada.
 
-## Próxima promoção
+## Promoção de 08/10/2026 e validação restante
 
-Revisar a alteração e exigir sucesso dos testes nos dois PostgreSQL e do frontend. Publicar API por commit identificado, com aprovação do environment conforme AGENTS.md; esta entrega não exige nova migration nem alteração de contrato HTTP. Conferir a agenda diária e atualizar o manifesto somente depois de confirmar a versão realmente em execução. Rollback dessa consulta é compatível com o mesmo banco e não exige remoção de dados.
+A API `47c233f` foi publicada após autorização explícita do proprietário, CI aprovada e revisão do patch limitado à branch e commit da API. Deployment `a26c4f35-eebd-4e98-bf8f-e1b201034e83` concluído com sucesso: `/health/ready` 200, uma réplica online, banco já atualizado e configuração Railway sem divergência. Web e demais serviços preservados. Rollback: API `99f8144`, deployment `736e0d80-f7a7-43a3-a740-5a3437771cd0`, compatível com o mesmo banco.
+
+A conferência da agenda autenticada em produção permanece pendente, pois a inspeção visual está impedida pela verificação de segurança do navegador. A consulta foi validada nos testes de integração; o health check não comprova a reconciliação dos dados reais. Os logs também registram avisos de Data Protection sobre chaves no filesystem efêmero e ausência de encryptor XML; avaliar o uso efetivo de dados protegidos antes de definir persistência, sem confundir esses avisos com falha do deployment.

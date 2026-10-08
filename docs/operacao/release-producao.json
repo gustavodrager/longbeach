@@ -1,21 +1,52 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "observedOn": "2026-10-08",
   "timezone": "America/Sao_Paulo",
   "repository": "gustavodrager/longbeach",
   "projectId": "b88a93d7-6964-4ac5-9590-7cef49598cf0",
   "environmentId": "e32774e4-b03e-4a1f-bae7-3e79263f76d9",
-  "commit": "99f81448b83a4d54e725d456b00d128db92c61cc",
-  "branch": "codex/pagbank-homologacao-20261007",
-  "ciRun": "37715620674",
   "services": {
-    "api": { "id": "10712f6a-4c60-406a-96c5-5175aabacac9", "deploymentId": "736e0d80-f7a7-43a3-a740-5a3437771cd0", "rollbackDeploymentId": "79e9d4dd-2f45-4905-8ecc-2e6946cac81f" },
-    "web": { "id": "12a5aa01-1a87-4899-8a58-653457c0a4cf", "deploymentId": "435ccc54-8324-4ac7-a2f5-e04fee425c1f", "rollbackDeploymentId": "adda5137-5604-4aa4-bf93-59462cba4e02" }
+    "api": {
+      "id": "10712f6a-4c60-406a-96c5-5175aabacac9",
+      "deploymentId": "a26c4f35-eebd-4e98-bf8f-e1b201034e83",
+      "rollbackDeploymentId": "736e0d80-f7a7-43a3-a740-5a3437771cd0",
+      "commit": "47c233f149b97f7bfaaa8aa5ca24911dd39d3794",
+      "branch": "codex/consolidacao-operacional-20261008",
+      "ciRun": "37830893160",
+      "rollbackCommit": "99f81448b83a4d54e725d456b00d128db92c61cc",
+      "imageDigest": "sha256:ed46223619c6d9d0ba168098917549b0f1cc8d08618776cfc14798965fa3267e",
+      "readyCheck": {
+        "path": "/health/ready",
+        "status": 200,
+        "observedAtUtc": "2026-10-08T22:21:00.605844251Z"
+      },
+      "databaseMigrationResult": "already-up-to-date"
+    },
+    "web": {
+      "id": "12a5aa01-1a87-4899-8a58-653457c0a4cf",
+      "deploymentId": "435ccc54-8324-4ac7-a2f5-e04fee425c1f",
+      "rollbackDeploymentId": "adda5137-5604-4aa4-bf93-59462cba4e02",
+      "commit": "99f81448b83a4d54e725d456b00d128db92c61cc",
+      "branch": "codex/pagbank-homologacao-20261007",
+      "ciRun": "37715620674"
+    }
   },
   "postgresImage": "ghcr.io/railwayapp-templates/postgres-ssl:18",
   "paymentActivation": "disabled-by-default-flags-absent",
   "pagbankApproval": "not-evidenced",
-  "edi": { "enabledAccordingToReleaseRecord": true, "credentialVariablesPresent": true, "startDateVariablePresent": false, "automaticCollectionReady": false },
+  "edi": {
+    "enabledAccordingToReleaseRecord": true,
+    "credentialVariablesPresent": true,
+    "startDateVariablePresent": false,
+    "automaticCollectionReady": false,
+    "credentialValidation": "failed-local-precheck-at-startup",
+    "startupWarning": "PagBank EDI requires merchant credentials."
+  },
   "productionRestoreEvidence": "not-verified",
-  "railwayTracingEnabled": false
+  "railwayTracingEnabled": false,
+  "verificationLimits": [
+    "Authenticated daily schedule not verified in production; browser security check unavailable.",
+    "Production data audit awaits verified SSH host identity.",
+    "Production backup restoration not verified."
+  ]
 }

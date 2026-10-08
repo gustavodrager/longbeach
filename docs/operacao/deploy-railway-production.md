@@ -356,3 +356,12 @@ API e web promovidas, nessa ordem, para `a9b615a5cb4a9269c0ce7c6bf81d5ebdd0e76e6
 O responsável confirmou que recebeu USER e token EDI no portal PagBank. Na conferência final, o serviço `api` ainda não tinha variáveis EDI; o coletor continua desabilitado por padrão. Nenhuma consulta real ao EDI foi executada nesta entrega. A ativação depende de cadastro seguro das credenciais e confirmação da data inicial, seguidos da primeira coleta e comparação com o extrato oficial. Não registrar credenciais, documentos reais nem dados pessoais neste runbook. Procedimento: [Histórico financeiro e integrações](../arquitetura/historico-financeiro-integracoes.md#pagbank-edi).
 
 Rollback da aplicação: API `d5414e99-04d2-42e5-ace0-6ed901e40695` e web `020b841f-19aa-4f9a-96dd-d60d0a278fc0`, ambas em `4c220504315031587e38fb9d07d148fa6c36e44f`. Preserve documentos, versões e cursores; se o EDI já tiver sido ativado, desabilite a coleta antes de retornar ao coletor anterior. Depois, registre novamente as fontes fixadas e confirme plano sem diferenças.
+
+
+## Publicação da consulta diária da agenda — 08/10/2026, 19h21
+
+Com autorização explícita do proprietário nesta conversa, a API foi fixada na branch `codex/consolidacao-operacional-20261008`, commit `47c233f149b97f7bfaaa8aa5ca24911dd39d3794`. A CI `37830893160` passou em PostgreSQL 17 e 18 e no frontend. O patch aprovado no Railway continha apenas branch e commit da API.
+
+Deployment `a26c4f35-eebd-4e98-bf8f-e1b201034e83` concluído com sucesso, imagem `sha256:ed46223619c6d9d0ba168098917549b0f1cc8d08618776cfc14798965fa3267e`, uma réplica online. O pre-deploy confirmou que nenhuma migration precisava ser aplicada; `/health/ready` respondeu 200 às 22:21:00 UTC. `railway config plan --detailed-exit-code` confirmou snapshot sem divergência. Web permanece no deployment `435ccc54-8324-4ac7-a2f5-e04fee425c1f`, commit `99f8144`.
+
+Rollback da API: branch `codex/pagbank-homologacao-20261007`, commit `99f81448b83a4d54e725d456b00d128db92c61cc`, deployment `736e0d80-f7a7-43a3-a740-5a3437771cd0`; não exige remoção de dados. A agenda autenticada não foi conferida em produção por indisponibilidade da verificação de segurança do navegador. O log EDI mostrou falha na validação local de credenciais; StartDate também permanece ausente. Não ativar coleta apenas preenchendo a data. A auditoria real aguarda identidade SSH verificada; a restauração real de backup ainda não foi comprovada.

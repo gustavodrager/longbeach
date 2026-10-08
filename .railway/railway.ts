@@ -2,13 +2,14 @@ import { defineRailway, github, postgres, preserve, project, service, volume } f
 
 export default defineRailway(() => {
   const longbeach = github("gustavodrager/longbeach", { branch: "codex/pagbank-homologacao-20261007", commitSha: "99f81448b83a4d54e725d456b00d128db92c61cc" });
+  const longbeachApi = github("gustavodrager/longbeach", { branch: "codex/consolidacao-operacional-20261008", commitSha: "47c233f149b97f7bfaaa8aa5ca24911dd39d3794" });
   const longbeach2 = github("gustavodrager/longbeach");
 
   const Postgres = postgres("Postgres", { region: "europe-west4-drams3a" });
   Postgres.networking = { privateNetworkEndpoint: "postgres" };
   const postgresVolume = volume("postgres-volume", { alerts: { usage: { "100": {}, "80": {}, "95": {} } }, allowOnlineResize: true, region: "europe-west4-drams3a", sizeMB: 5000 });
   const api = service("api", {
-    source: longbeach,
+    source: longbeachApi,
     build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "deploy/api.Dockerfile" },
     healthcheck: "/health/ready",
     healthcheckTimeout: 300,
