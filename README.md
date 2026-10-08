@@ -2,6 +2,8 @@
 
 Base standalone para a operação da Long Beach Arena. O produto reúne uma API .NET, uma aplicação React/PWA, clientes móveis Capacitor e um PostgreSQL exclusivo.
 
+Para a implantação e as funcionalidades vigentes, comece pelo [estado atual do sistema](docs/operacao/estado-atual.md) e pelo [manifesto da release de produção](docs/operacao/release-producao.json). As seções de bootstrap abaixo descrevem a fundação e não substituem esse inventário.
+
 O projeto não compartilha código, banco, API, autenticação, migrations, storage ou deploy com outros produtos. O painel legado continua independente durante a transição.
 
 ## Estrutura

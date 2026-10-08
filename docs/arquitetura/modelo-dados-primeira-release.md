@@ -1,5 +1,7 @@
 # Modelo de dados da primeira release
 
+> Referência da fundação, preservada como histórico de intenção. O inventário implementado e a implantação vigente estão em [Estado atual](../operacao/estado-atual.md). Agenda, mensalistas e cobranças já possuem implementação; não interpretar o roadmap abaixo como lista atual de funcionalidades ausentes.
+
 ## Escopo
 
 A primeira release técnica reúne a fundação standalone e a menor fatia operacional necessária para migrar com segurança os dados que já recebem escrita. Ela não implementa ainda toda a Escola, Agenda, Financeiro ou Infraestrutura previstas no roadmap.

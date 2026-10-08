@@ -36,7 +36,7 @@ public static class OperationalEndpoints
             if (!Allowed(http, kind, false, publicDemo)) return Denied(http);
             if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var day))
                 return Results.BadRequest(new { message = "Informe a data da agenda no formato ano-mês-dia." });
-            var records = await db.OperationalRecords.AsNoTracking().Where(row => row.Kind == "courts" || row.Kind == "reservations" || row.Kind == "classes").ToListAsync(ct);
+            var records = await LongBeach.Infrastructure.Operations.CourtScheduleRecords.Load(db, day, ct);
             var snapshot = records.GroupBy(row => row.Kind).ToDictionary(grouping => grouping.Key,
                 grouping => grouping.Select(row => ParsePayload(row.Payload)).ToArray());
             return Results.Ok(CourtScheduleQuery.Build(day, DateTimeOffset.UtcNow, snapshot, Allowed(http, "classes", false, publicDemo)));
