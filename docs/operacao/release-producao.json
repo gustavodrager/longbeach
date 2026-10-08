@@ -8,27 +8,35 @@
   "services": {
     "api": {
       "id": "10712f6a-4c60-406a-96c5-5175aabacac9",
-      "deploymentId": "a26c4f35-eebd-4e98-bf8f-e1b201034e83",
-      "rollbackDeploymentId": "736e0d80-f7a7-43a3-a740-5a3437771cd0",
-      "commit": "47c233f149b97f7bfaaa8aa5ca24911dd39d3794",
-      "branch": "codex/consolidacao-operacional-20261008",
-      "ciRun": "37830893160",
-      "rollbackCommit": "99f81448b83a4d54e725d456b00d128db92c61cc",
-      "imageDigest": "sha256:ed46223619c6d9d0ba168098917549b0f1cc8d08618776cfc14798965fa3267e",
+      "deploymentId": "086d5ae7-173d-4029-b052-e218c7770f36",
+      "rollbackDeploymentId": "a26c4f35-eebd-4e98-bf8f-e1b201034e83",
+      "commit": "78f9c81b7b07735289d711ce81fdf8a0c1b6279c",
+      "branch": "codex/unidades-negocio-20261008",
+      "ciRun": "37856181278",
+      "rollbackCommit": "47c233f149b97f7bfaaa8aa5ca24911dd39d3794",
+      "imageDigest": "sha256:b32336dfc255a6d29e2e1794ff2ab9cfa528512b71bf512b2887e92c6c8b4f2c",
       "readyCheck": {
         "path": "/health/ready",
         "status": 200,
-        "observedAtUtc": "2026-10-08T22:21:00.605844251Z"
+        "observedAtUtc": "2026-10-08T23:13:58.334600496Z"
       },
-      "databaseMigrationResult": "already-up-to-date"
+      "databaseMigrationResult": "already-up-to-date",
+      "rollbackConstraint": "Keep compatible API 78f9c81 after unit classifications have been written; rollback to older API requires freezing writes and preserving new fields first."
     },
     "web": {
       "id": "12a5aa01-1a87-4899-8a58-653457c0a4cf",
-      "deploymentId": "435ccc54-8324-4ac7-a2f5-e04fee425c1f",
-      "rollbackDeploymentId": "adda5137-5604-4aa4-bf93-59462cba4e02",
-      "commit": "99f81448b83a4d54e725d456b00d128db92c61cc",
-      "branch": "codex/pagbank-homologacao-20261007",
-      "ciRun": "37715620674"
+      "deploymentId": "9e93fce3-1a80-4b38-9488-cf1ccc8e495d",
+      "rollbackDeploymentId": "435ccc54-8324-4ac7-a2f5-e04fee425c1f",
+      "commit": "78f9c81b7b07735289d711ce81fdf8a0c1b6279c",
+      "branch": "codex/unidades-negocio-20261008",
+      "ciRun": "37856181278",
+      "rollbackCommit": "99f81448b83a4d54e725d456b00d128db92c61cc",
+      "imageDigest": "sha256:aa723564863a363b922409bc5b11b50f10ffec0a86b6ae54d9449e3d3271dd94",
+      "readyCheck": {
+        "path": "/healthz",
+        "result": "Railway healthcheck succeeded",
+        "observedAtUtc": "2026-10-08T23:16:13.874849964Z"
+      }
     }
   },
   "postgresImage": "ghcr.io/railwayapp-templates/postgres-ssl:18",
@@ -45,7 +53,7 @@
   "productionRestoreEvidence": "not-verified",
   "railwayTracingEnabled": false,
   "verificationLimits": [
-    "Authenticated daily schedule not verified in production; browser security check unavailable.",
+    "Authenticated production UI not verified; browser security check unavailable.",
     "Production data audit awaits verified SSH host identity.",
     "Production backup restoration not verified."
   ]

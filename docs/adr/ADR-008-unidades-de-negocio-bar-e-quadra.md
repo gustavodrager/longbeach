@@ -40,4 +40,4 @@ Não há migration nem atualização em massa neste incremento: o envelope JSON 
 
 Publicar backend compatível antes do frontend. Conferir edição, filtros, omissão de campos por cliente anterior, rejeição de classificações contraditórias e permissões. Não reclassificar Arena em lote nem ativar pagamentos/EDI nesta entrega. Para interromper a nova interface, retornar apenas a web e manter o backend compatível: voltar a uma API anterior perde a proteção contra apagamento dos novos campos por clientes antigos.
 
-Produção permanece identificada no manifesto de release; a implementação deste ADR só estará publicada após promoção autorizada de commit validado. Pendências de acesso à auditoria real não são resolvidas pela classificação gerencial.
+Primeiro incremento publicado em 08/10/2026 após autorização explícita: API e web no commit `78f9c81`, validado pela CI `37856181278`. Produção e evidências permanecem identificadas no manifesto de release. Pendências de acesso à auditoria real não são resolvidas pela classificação gerencial.
