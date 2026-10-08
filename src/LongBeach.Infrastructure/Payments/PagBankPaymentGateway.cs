@@ -27,6 +27,7 @@ public sealed partial class PagBankPaymentGateway(HttpClient http, IConfiguratio
         var webhook = config["Payments:PagBank:WebhookUrl"];
         if (!Uri.TryCreate(webhook, UriKind.Absolute, out var uri) || uri.Scheme != "https") throw new BarRuleException("Configure o webhook HTTPS.");
         var body = new { reference_id = paymentId.ToString(), customer = new { name = customer.Name, email = customer.Email, tax_id = customer.TaxId },
+            items = new[] { new { reference_id = paymentId.ToString(), name = "Pagamento Long Beach", quantity = 1, unit_amount = checked((long)(amount * 100)) } },
             charges = new[] { new { reference_id = paymentId.ToString(), description = "Pagamento Long Beach", amount = new { value = checked((long)(amount * 100)), currency = "BRL" },
                 payment_method = new { type = "CREDIT_CARD", installments = 1, capture = true, card = new { encrypted = encryptedCard, store = false } } } }, notification_urls = new[] { webhook } };
         using var request = new HttpRequestMessage(HttpMethod.Post, "orders") { Content = JsonContent.Create(body) };
