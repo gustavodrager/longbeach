@@ -4,7 +4,7 @@ Referência conferida em 08/10/2026 (America/Sao_Paulo). Este documento descreve
 
 ## Versão e evidências
 
-A referência da implantação é [release-producao.json](release-producao.json), conferida com Railway e GitHub. A API usa `47c233f149b97f7bfaaa8aa5ca24911dd39d3794`, publicada com autorização do proprietário às 19h21 de 08/10 (São Paulo); a web permanece em `99f81448b83a4d54e725d456b00d128db92c61cc`. A CI `37830893160` validou a revisão da API: 163 testes unitários e 215 de integração em cada PostgreSQL (17 e 18), mais 208 testes de interface, builds e restauração sintética. O health check `/health/ready` respondeu 200; o pre-deploy confirmou banco já atualizado. O manifesto versão 2 identifica commit, branch e CI por serviço. A revisão #20 foi integrada em `codex/saldos-pagina-inicial`; `main` ainda aponta para uma revisão anterior. Não publicar `main` presumindo que representa produção.
+A referência da implantação é [release-producao.json](release-producao.json), conferida com Railway e GitHub. API e web usam `78f9c81b7b07735289d711ce81fdf8a0c1b6279c`, publicadas com autorização explícita do proprietário às 20h14 e 20h16 de 08/10 (São Paulo), respectivamente. A [CI 37856181278](https://github.com/gustavodrager/longbeach/actions/runs/37856181278) validou 183 testes unitários e 217 de integração em cada PostgreSQL (17 e 18), mais 212 testes de interface, builds e restauração sintética. A API respondeu 200 em `/health/ready`; o pre-deploy confirmou banco já atualizado. A web passou no health check `/healthz`. O manifesto versão 2 identifica commit, branch, digest e CI por serviço. A revisão #20 foi integrada em `codex/saldos-pagina-inicial`; `main` ainda aponta para uma revisão anterior. Não publicar `main` presumindo que representa produção.
 
 Os seis serviços estavam online, sem falhas nas oito horas anteriores à consulta, sem alterações pendentes. Isso comprova estado de implantação, não reconciliação dos dados nem restauração de backup. API e web têm uma réplica cada; PostgreSQL usa imagem 18 e volume próprio. Serviços `*-operations` permanecem preservados.
 
@@ -19,7 +19,7 @@ Este manifesto é uma fotografia datada, não um monitor. Em cada publicação, 
 | Mensalistas | Acordo, integrantes, competência, encontros, quinto encontro e presença | Cadastrar acordo não gera encontros; gerar encontros não implica cobrança ou pagamento |
 | Escola | Alunos, professores, turmas, matrículas e presença | Cadastros e vínculos financeiros pendentes exigem conferência |
 | Bar | Catálogo, estoque, compras, comandas, caixa, pagamentos e vínculos com encontros | Consumo, recebido, saldo de comanda e caixa são medidas distintas |
-| Financeiro | Lançamentos, histórico importado, controle mensal, despesas por tipo e saldos | Histórico sobreposto e liquidação EDI não são receitas adicionais |
+| Financeiro | Lançamentos, histórico importado, controle mensal, despesas por tipo, saldos e classificação Bar/Quadra/Compartilhado/A classificar | Classificação não implementa rateio nem isolamento de acesso por unidade; histórico sobreposto e liquidação EDI não são receitas adicionais |
 | Cobranças | Conta vinculada ao responsável, pagamento, recuperação, assinatura e estorno | Código publicado com novas cobranças integradas desabilitadas |
 | Integrações | Staging, proveniência, catálogo importado, adaptador PagBank e coletor EDI | Importação pontual de catálogo não é sincronização automática |
 

@@ -1,8 +1,8 @@
 import { defineRailway, github, postgres, preserve, project, service, volume } from "railway/iac";
 
 export default defineRailway(() => {
-  const longbeach = github("gustavodrager/longbeach", { branch: "codex/pagbank-homologacao-20261007", commitSha: "99f81448b83a4d54e725d456b00d128db92c61cc" });
-  const longbeachApi = github("gustavodrager/longbeach", { branch: "codex/consolidacao-operacional-20261008", commitSha: "47c233f149b97f7bfaaa8aa5ca24911dd39d3794" });
+  const longbeach = github("gustavodrager/longbeach", { branch: "codex/unidades-negocio-20261008", commitSha: "78f9c81b7b07735289d711ce81fdf8a0c1b6279c" });
+  const longbeachApi = github("gustavodrager/longbeach", { branch: "codex/unidades-negocio-20261008", commitSha: "78f9c81b7b07735289d711ce81fdf8a0c1b6279c" });
   const longbeach2 = github("gustavodrager/longbeach");
 
   const Postgres = postgres("Postgres", { region: "europe-west4-drams3a" });

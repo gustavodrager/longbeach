@@ -69,3 +69,5 @@ O modo temporário sem login está descrito em [modo de teste público](docs/ope
 ## Estado deste bootstrap
 
 Esta base prepara desenvolvimento, testes e publicação de imagens. Nenhum ambiente hospedado novo, DNS ou banco de produção é criado por estes arquivos. O sistema atual permanece disponível até o novo produto cumprir os critérios de paridade, reconciliação e rollback documentados.
+
+A evolução para duas unidades de negócio está definida na [ADR-008 — Bar e Quadra](docs/adr/ADR-008-unidades-de-negocio-bar-e-quadra.md), incluindo a classificação financeira inicial e os critérios para equipe, estoque, permissões e rateio.

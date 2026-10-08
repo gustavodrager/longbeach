@@ -30,8 +30,19 @@ O resultado desse teste comprova restauração sintética da versão; **não com
 - A consulta administrativa via SSH não pôde iniciar por falta de identidade confiável do servidor no ambiente local. Foi registrada uma chave de acesso temporária em agente isolado; a conexão parou antes de qualquer consulta e a chave foi revogada e apagada. A revisão automática rejeitou aceitar a primeira chave do servidor sem fingerprint verificada. Não foi aberto proxy público. Retomar somente com identidade do servidor confirmada por fonte confiável.
 - A auditoria de dados reais e a recuperação de backup de produção permanecem pendentes de acesso e evidência. Nenhum dado operacional foi alterado por esta rodada.
 
-## Promoção de 08/10/2026 e validação restante
+## Promoção anterior de 08/10/2026 às 19h21 (histórico)
 
-A API `47c233f` foi publicada após autorização explícita do proprietário, CI aprovada e revisão do patch limitado à branch e commit da API. Deployment `a26c4f35-eebd-4e98-bf8f-e1b201034e83` concluído com sucesso: `/health/ready` 200, uma réplica online, banco já atualizado e configuração Railway sem divergência. Web e demais serviços preservados. Rollback: API `99f8144`, deployment `736e0d80-f7a7-43a3-a740-5a3437771cd0`, compatível com o mesmo banco.
+A API `47c233f` foi publicada após autorização explícita do proprietário, CI aprovada e revisão do patch limitado à branch e commit da API. Deployment `a26c4f35-eebd-4e98-bf8f-e1b201034e83` concluído com sucesso: `/health/ready` 200, uma réplica online, banco já atualizado e configuração Railway sem divergência. Web e demais serviços preservados. Rollback disponível naquela promoção: API `99f8144`, deployment `736e0d80-f7a7-43a3-a740-5a3437771cd0`, compatível com o mesmo banco.
 
 A conferência da agenda autenticada em produção permanece pendente, pois a inspeção visual está impedida pela verificação de segurança do navegador. A consulta foi validada nos testes de integração; o health check não comprova a reconciliação dos dados reais. Os logs também registram avisos de Data Protection sobre chaves no filesystem efêmero e ausência de encryptor XML; avaliar o uso efetivo de dados protegidos antes de definir persistência, sem confundir esses avisos com falha do deployment.
+
+## Promoção das unidades de negócio — 08/10/2026 às 20h16
+
+Após autorização explícita do proprietário, API e web foram promovidas separadamente ao commit `78f9c81b7b07735289d711ce81fdf8a0c1b6279c`, aprovado na CI `37856181278`. Cada patch foi revisado e continha apenas branch e commit do serviço correspondente. A API foi publicada e verificada antes da web.
+
+- API: deployment `086d5ae7-173d-4029-b052-e218c7770f36`, `/health/ready` 200 às 23:13:58 UTC, pre-deploy sem migrations pendentes.
+- Web: deployment `9e93fce3-1a80-4b38-9488-cf1ccc8e495d`, health check Railway `/healthz` aprovado às 23:16:13 UTC.
+- Seis serviços online, uma réplica por serviço, nenhum patch pendente e nenhuma falha nas oito horas consultadas. Configuração declarada conferida com `railway config plan --detailed-exit-code`, sem divergência. Digests no manifesto.
+- Sem migration nova nem reclassificação de dados em massa. A validação funcional está coberta na CI; a conferência autenticada da interface em produção permanece pendente por bloqueio de segurança do navegador. Os avisos existentes de EDI e Data Protection persistem.
+
+**Reversão:** para interromper a interface nova, retornar a web ao deployment `435ccc54-8324-4ac7-a2f5-e04fee425c1f` (`99f8144`) e manter a API compatível `78f9c81`. A API predecessora `47c233f` não preserva os novos campos omitidos por clientes anteriores. Após qualquer classificação salva, voltar a essa API exige antes interromper escritas e preservar os campos; não usar rollback automático indiscriminado da API. Permissões por unidade, equipe, estoque compartilhado e rateio permanecem fases futuras do ADR-008.
