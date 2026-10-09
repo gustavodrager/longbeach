@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "observedOn": "2026-10-08",
+  "observedOn": "2026-10-09",
   "timezone": "America/Sao_Paulo",
   "repository": "gustavodrager/longbeach",
   "projectId": "b88a93d7-6964-4ac5-9590-7cef49598cf0",
@@ -25,17 +25,17 @@
     },
     "web": {
       "id": "12a5aa01-1a87-4899-8a58-653457c0a4cf",
-      "deploymentId": "9e93fce3-1a80-4b38-9488-cf1ccc8e495d",
-      "rollbackDeploymentId": "435ccc54-8324-4ac7-a2f5-e04fee425c1f",
-      "commit": "78f9c81b7b07735289d711ce81fdf8a0c1b6279c",
-      "branch": "codex/unidades-negocio-20261008",
-      "ciRun": "37856181278",
-      "rollbackCommit": "99f81448b83a4d54e725d456b00d128db92c61cc",
-      "imageDigest": "sha256:aa723564863a363b922409bc5b11b50f10ffec0a86b6ae54d9449e3d3271dd94",
+      "deploymentId": "07a5e402-516a-44d4-8533-6411c721a579",
+      "rollbackDeploymentId": "9e93fce3-1a80-4b38-9488-cf1ccc8e495d",
+      "commit": "7f47d65cbc12289f2f004c10a94dfb1653d79134",
+      "branch": "codex/estoque-bar-unico-20261008",
+      "ciRun": "37858994813",
+      "rollbackCommit": "78f9c81b7b07735289d711ce81fdf8a0c1b6279c",
+      "imageDigest": "sha256:d65294da1601e0808b2772d0cd3b0d5740001dd9f6065d9df39b66476863b140",
       "readyCheck": {
         "path": "/healthz",
         "result": "Railway healthcheck succeeded",
-        "observedAtUtc": "2026-10-08T23:16:13.874849964Z"
+        "observedAtUtc": "2026-10-09T15:22:23.172291040Z"
       }
     }
   },
@@ -56,5 +56,6 @@
     "Authenticated production UI not verified; browser security check unavailable.",
     "Production data audit awaits verified SSH host identity.",
     "Production backup restoration not verified."
-  ]
+  ],
+  "observationScope": "Deployment identity and Railway health rechecked on 2026-10-09; integration and backup findings carried forward from 2026-10-08."
 }
