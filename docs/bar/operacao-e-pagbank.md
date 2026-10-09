@@ -55,3 +55,11 @@ Rollback de aplicação pode desativar o Bar/PagBank sem apagar tabelas. Não re
 ## Contas da Quadra e área do aluno
 
 A operação compartilhada, o cartão integrado, as assinaturas e a associação EDI estão descritos em [Pagamentos unificados](pagamentos-unificados.md). O crédito integrado usa `CreditCard`; `CardManual` continua significando aprovação externa na maquininha. Desabilitar novas cobranças não interrompe consulta, webhook, estorno ou recuperação dos registros já iniciados.
+
+## Estoque único do Bar — ajuste de 08/10/2026
+
+O proprietário confirmou um único estoque físico para o Bar. A interface passa a usar automaticamente o cadastro Bar já utilizado no atendimento, sem coluna ou filtro Local e sem ações de criar locais ou transferir estoque. Contagens novas, recebimentos de compras, perdas/consumo interno e abertura de caixa usam o mesmo cadastro Bar, identificado de forma única; falha de consulta, cadastro ausente ou ambíguo impedem essas novas operações.
+
+A tela principal mostra os saldos do Bar. URLs antigas com filtro de local não mudam essa seleção. Saldos não zerados em outros cadastros, se existirem, continuam visíveis em uma seção separada de conferência, sem somar ao disponível do atendimento. Movimentações e inventários anteriores são preservados, inclusive seus vínculos originais. Nenhum saldo é transferido, reclassificado ou apagado automaticamente.
+
+Este ajuste é de interface: os contratos da API e os registros históricos de locais permanecem compatíveis. Não equivale a uma consolidação de saldos no banco nem ao estoque futuro por unidade previsto no ADR-008. Testes de interface verificam destino Bar nos quatro formulários, tratamento de cadastro ausente/ambíguo e preservação separada de saldos antigos; build PWA aprovado. A publicação efetiva deve ser conferida no manifesto de produção.

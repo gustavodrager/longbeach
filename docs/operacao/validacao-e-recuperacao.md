@@ -46,3 +46,11 @@ Após autorização explícita do proprietário, API e web foram promovidas sepa
 - Sem migration nova nem reclassificação de dados em massa. A validação funcional está coberta na CI; a conferência autenticada da interface em produção permanece pendente por bloqueio de segurança do navegador. Os avisos existentes de EDI e Data Protection persistem.
 
 **Reversão:** para interromper a interface nova, retornar a web ao deployment `435ccc54-8324-4ac7-a2f5-e04fee425c1f` (`99f8144`) e manter a API compatível `78f9c81`. A API predecessora `47c233f` não preserva os novos campos omitidos por clientes anteriores. Após qualquer classificação salva, voltar a essa API exige antes interromper escritas e preservar os campos; não usar rollback automático indiscriminado da API. Permissões por unidade, equipe, estoque compartilhado e rateio permanecem fases futuras do ADR-008.
+
+## Publicação da interface de estoque — 09/10/2026 às 12h22
+
+Publicação autorizada explicitamente pelo proprietário do commit `7f47d65cbc12289f2f004c10a94dfb1653d79134`, CI `37858994813` aprovada. O ambiente não tinha alterações pendentes; o patch revisado alterou somente branch e commit do serviço web.
+
+Deployment `07a5e402-516a-44d4-8533-6411c721a579` concluído com sucesso, uma réplica online e health check `/healthz` aprovado às 15:22:23 UTC. Digest e versão registrados no manifesto e fonte web atualizada no snapshot Railway. A API permaneceu no deployment `086d5ae7-173d-4029-b052-e218c7770f36` (`78f9c81`); nenhum job de migration foi acionado. Ambiente sem mudanças pendentes e sem falhas nas oito horas consultadas.
+
+Retorno da web: deployment `9e93fce3-1a80-4b38-9488-cf1ccc8e495d`, commit `78f9c81`; conservar a API atual. A mudança não transferiu nem apagou saldos. Testes de interface e CI comprovam os fluxos; a verificação autenticada no navegador continua pendente pelo bloqueio de segurança administrativo já registrado. Esta publicação não inclui cadastro de produtos: Caipirinha a R$ 25,00 permanece solicitada e ainda não cadastrada por falta de acesso autorizado pelo navegador.
