@@ -4,6 +4,16 @@ using LongBeach.Contracts.Operations;
 namespace LongBeach.Application.Operations;
 public static class CourtScheduleQuery
 {
+    public const int MaximumRangeDays = 366;
+
+    public static CourtScheduleRangeResponse BuildRange(DateOnly from, DateOnly to, DateTimeOffset updatedAt, IReadOnlyDictionary<string, JsonElement[]> records, bool includeClassIds)
+    {
+        var count = to.DayNumber - from.DayNumber + 1;
+        if (count < 1 || count > MaximumRangeDays) throw new ArgumentOutOfRangeException(nameof(to));
+        var days = Enumerable.Range(0, count).Select(offset => Build(from.AddDays(offset), updatedAt, records, includeClassIds)).ToArray();
+        return new(from.ToString("yyyy-MM-dd"), to.ToString("yyyy-MM-dd"), updatedAt, days);
+    }
+
     public static CourtScheduleResponse Build(DateOnly date, DateTimeOffset updatedAt, IReadOnlyDictionary<string, JsonElement[]> records, bool includeClassIds)
     {
         var rows = new List<CourtScheduleRow>();

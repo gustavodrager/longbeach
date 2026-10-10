@@ -143,7 +143,7 @@ it('recepção considera aulas na disponibilidade sem divulgar turma, professor 
     return json(path.endsWith('/courts')?[court]:[])
   })
   start(`/agenda?date=${today()}`,false,{...owner,roles:['Operations'],permissions:['projects:read']})
-  expect(await screen.findByText('1 h reservadas ou bloqueadas · 2 h de aulas · 13 h disponíveis')).toBeInTheDocument()
+  expect(await screen.findByText('1 h reservadas ou bloqueadas · 2 h de aulas · 13 h livres no dia')).toBeInTheDocument()
   expect(screen.getByText('Aula',{selector:'strong'})).toBeInTheDocument()
   expect(screen.queryByRole('link',{name:/18:00.*Aula/})).not.toBeInTheDocument()
   expect(fetchMock.mock.calls.some(([input])=>String(input).endsWith('/students')||String(input).endsWith('/classes')||String(input).endsWith('/team'))).toBe(false)
@@ -227,7 +227,7 @@ it('salva dias úteis até meia-noite mantendo a conferência da agenda pendente
 it('distingue horas de funcionamento de horas livres com agenda não conferida', async () => {
   localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[{...court,openingTime:'06:00',closingTime:'24:00',operatingDays:[1,2,3,4,5],scheduleConfirmed:false}]}))
   start('/agenda?date=2026-10-06')
-  expect(await screen.findByText('18 h de funcionamento · horas livres aguardam conferência da agenda')).toBeInTheDocument()
+  expect(await screen.findByText('Disponibilidade não verificada')).toBeInTheDocument()
   expect(screen.queryByText(/18 h disponíveis/)).not.toBeInTheDocument()
 })
 
@@ -266,4 +266,80 @@ it('salva destinação compartilhada sem transformar o custo em duas despesas',a
     expect(saved).toHaveLength(1)
     expect(saved[0]).toMatchObject({amount:100,allocationScope:'Shared',businessUnitId:null,status:'Pendente'})
   })
+})
+
+const fridayClass={id:'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',name:'Aula de sexta',sport:'Futevôlei',courtId:court.id,weekDay:5,startDate:'2026-10-09',startTime:'17:00',endTime:'18:00',teacherId:'',capacity:6,studentIds:[],status:'Ativa',notes:''}
+const fridayReservation={id:'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',name:'Locação de sexta',courtId:court.id,date:'2026-10-09',startTime:'19:00',endTime:'20:00',customerName:'Grupo teste',phone:'',amount:100,status:'Confirmada',notes:''}
+
+it('lista aulas por ocorrência junto das reservas e mantém a mesma seleção no dia',async()=>{
+  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[court],classes:[fridayClass],reservations:[fridayReservation]}))
+  start('/agenda?view=list&from=2026-10-09&to=2026-10-16&date=2026-10-09')
+  expect(await screen.findByText('3 atividades')).toBeInTheDocument()
+  expect(screen.getAllByRole('link',{name:/Aula de sexta/})).toHaveLength(2)
+  expect(screen.getByRole('link',{name:/Locação de sexta/})).toBeInTheDocument()
+  await userEvent.setup().selectOptions(screen.getByLabelText('Visualização'),'day')
+  expect(await screen.findByText('2 atividades')).toBeInTheDocument()
+  expect(screen.getAllByRole('link',{name:/Aula de sexta/})).toHaveLength(1)
+})
+
+it('não projeta aulas antes da vigência e filtra aula pelo nome e pela quadra',async()=>{
+  const otherCourt={...court,id:'cccccccc-cccc-cccc-cccc-cccccccccccc',name:'Quadra 2'}
+  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[court,otherCourt],classes:[fridayClass,{...fridayClass,id:'dddddddd-dddd-dddd-dddd-dddddddddddd',courtId:otherCourt.id,name:'Aula em outra quadra'}],reservations:[fridayReservation]}))
+  start(`/agenda?view=list&from=2026-10-02&to=2026-10-09&court=${court.id}&q=Aula`)
+  expect(await screen.findByText('1 atividade')).toBeInTheDocument()
+  expect(screen.getAllByRole('link',{name:/Aula de sexta/})).toHaveLength(1)
+  expect(screen.queryByText('Aula em outra quadra')).not.toBeInTheDocument()
+  expect(screen.queryByText('Locação de sexta')).not.toBeInTheDocument()
+})
+
+it('filtro de situação limita a seleção sem alterar a ocupação real',async()=>{
+  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[court],classes:[fridayClass],reservations:[fridayReservation]}))
+  start('/agenda?date=2026-10-09&status=Confirmada')
+  expect(await screen.findByText('1 h reservadas ou bloqueadas · 1 h de aulas · 14 h livres no dia')).toBeInTheDocument()
+  expect(screen.queryByRole('link',{name:/Aula de sexta/})).not.toBeInTheDocument()
+  expect(screen.getByText(/A disponibilidade também considera as aulas/)).toBeInTheDocument()
+})
+
+it('falha da consulta por período não transforma aulas desconhecidas em agenda vazia',async()=>{
+  vi.stubEnv('VITE_DEMO_MODE','false')
+  vi.spyOn(globalThis,'fetch').mockImplementation(async(input)=>{
+    const path=String(input)
+    if(path.includes('/schedule-range'))return json({message:'Consulta indisponível'},503)
+    if(path.endsWith('/courts'))return json([court])
+    if(path.endsWith('/reservations'))return json([fridayReservation])
+    return json([])
+  })
+  start('/agenda?view=list&from=2026-10-09&to=2026-10-09',false)
+  expect(await screen.findByText(/As aulas não puderam ser consultadas/)).toBeInTheDocument()
+  expect(screen.queryByText('Nenhuma atividade corresponde aos filtros.')).not.toBeInTheDocument()
+  expect(screen.queryByText('1 atividade')).not.toBeInTheDocument()
+  expect(screen.getByRole('link',{name:/Locação de sexta/})).toBeInTheDocument()
+})
+
+it('ocupação de aula sem permissão da Escola aparece sem nome ou link privado',async()=>{
+  vi.stubEnv('VITE_DEMO_MODE','false')
+  const reception: AuthUser={...owner,roles:['Operations'],permissions:['projects:read']}
+  vi.spyOn(globalThis,'fetch').mockImplementation(async(input)=>{
+    const path=String(input)
+    if(path.includes('/schedule-range'))return json({from:'2026-10-09',to:'2026-10-09',days:[{date:'2026-10-09',courts:[{courtId:court.id,blocks:[{source:'Aula',startTime:'17:00',endTime:'18:00',sourceId:null}]}]}]})
+    if(path.endsWith('/courts'))return json([court])
+    return json([])
+  })
+  start('/agenda?view=list&from=2026-10-09&to=2026-10-09',false,reception)
+  expect(await screen.findByText('1 atividade')).toBeInTheDocument()
+  expect(screen.queryByRole('link',{name:/Aula/})).not.toBeInTheDocument()
+  expect(screen.getByText('Ocupa a quadra neste horário')).toBeInTheDocument()
+})
+
+it('mantém filtros recolhidos e permite abrir, pesquisar e limpar a seleção',async()=>{
+  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[court],classes:[fridayClass],reservations:[fridayReservation]}))
+  start('/agenda?date=2026-10-09')
+  expect(await screen.findByText('2 atividades')).toBeInTheDocument()
+  const disclosure=screen.getByText('Filtros').closest('details')!
+  expect(disclosure).not.toHaveAttribute('open')
+  const user=userEvent.setup();await user.click(screen.getByText('Filtros'))
+  await user.type(screen.getByRole('searchbox',{name:'Buscar'}),'Aula')
+  expect(await screen.findByText('1 atividade')).toBeInTheDocument()
+  await user.click(screen.getByRole('link',{name:'Limpar filtros'}))
+  expect(await screen.findByText('2 atividades')).toBeInTheDocument()
 })

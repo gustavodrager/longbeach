@@ -1,0 +1,35 @@
+.agenda-controls { display:flex; align-items:end; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+.agenda-controls .operation-field { margin:0; min-width:200px; }
+.agenda-period { display:grid; grid-template-columns:repeat(2,minmax(0,220px)); gap:12px; margin-top:12px; }
+.agenda-period .operation-field { margin:0; }
+.agenda-options { display:flex; align-items:start; flex-wrap:wrap; gap:12px; margin-top:12px; }
+.agenda-options .management-disclosure { margin:0; min-width:150px; }
+.agenda-options .management-disclosure[open] { flex-basis:100%; }
+.agenda-options .management-disclosure summary { min-height:44px; display:list-item; }
+.agenda-options .arena-toolbar .operation-field { min-width:200px; }
+.agenda-page .arena-slot>strong { white-space:nowrap; }
+.agenda-page .arena-slot { grid-template-columns:115px minmax(0,1fr) auto; }
+.agenda-page .arena-list-summary { gap:8px; flex-wrap:wrap; }
+.agenda-page .arena-court-day h2 { font-size:22px; }
+@media(max-width:700px) {
+  .app-shell .agenda-page .page-heading { flex-direction:row; align-items:center; gap:8px; margin-bottom:14px; }
+  .app-shell .agenda-page .page-heading h1 { font-size:23px; }
+  .app-shell .agenda-page .page-heading .eyebrow,.app-shell .agenda-page .page-heading>div>p:not(.eyebrow) { display:none; }
+  .app-shell .agenda-page .page-heading .primary-link { padding:10px 12px; font-size:14px; min-height:44px; align-self:center; }
+  .agenda-controls { display:grid; gap:10px; }
+  .agenda-controls .operation-field { font-size:13px; }
+  .agenda-controls .operation-field select { min-height:44px; padding:8px 12px; }
+  .agenda-options { gap:8px; margin-top:10px; }
+  .agenda-options .management-disclosure { min-width:0; flex:1; }
+  .agenda-options .management-disclosure[open] { flex-basis:100%; }
+  .agenda-options .arena-toolbar .operation-field { min-width:0; }
+  .agenda-page .arena-list-summary { margin:14px 0 10px; font-size:13px; }
+  .agenda-page .arena-court-day { padding:12px; }
+  .agenda-page .arena-court-day .arena-section-heading { margin-bottom:10px; }
+  .agenda-page .arena-court-day .arena-section-heading p { font-size:13px; line-height:1.4; }
+  .agenda-page .arena-slot { padding:12px; gap:6px; grid-template-columns:minmax(0,1fr) auto; }
+  .agenda-page .arena-slot>strong { grid-column:1; font-size:16px; }
+  .agenda-page .arena-slot>span:not(.status-pill) { grid-column:1/-1; grid-row:2; }
+  .agenda-page .arena-slot>.status-pill { grid-column:2; grid-row:1; justify-self:end; }
+  .agenda-page .arena-slot>span>strong { font-size:16px; }
+}

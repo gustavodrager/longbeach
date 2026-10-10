@@ -567,3 +567,11 @@ a { color: #654b19; }
 .first-access-google h2 { font-size: 1.15rem; margin-bottom: .5rem; }
 .first-access-google > p { color: var(--muted); line-height: 1.5; }
 .first-access-page .form-error { margin-top: 1rem; }
+
+/* Update notices occupy their own space instead of covering the current task. */
+.pwa-notice { position:static; width:100%; max-width:none; margin:0; border-radius:0; box-shadow:none; padding:10px 16px; }
+@media(max-width:700px) {
+  .pwa-notice { grid-template-columns:minmax(0,1fr) auto auto; gap:8px; }
+  .pwa-notice span { display:none; }
+  .pwa-notice button { min-height:44px; padding:8px; }
+}

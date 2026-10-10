@@ -64,4 +64,33 @@ public sealed class CourtScheduleTests
         var row = Assert.Single(result.Courts);
         Assert.Equal(870, row.AvailableMinutes); Assert.True(row.HasConflict);
     }
+
+    [Fact]
+    public void Period_matches_daily_capacity_and_preserves_class_redaction_and_start_date()
+    {
+        var court = Guid.NewGuid(); var lesson = Guid.NewGuid();
+        var records = new Dictionary<string, JsonElement[]>
+        {
+            ["courts"] = [JsonSerializer.SerializeToElement(new { id = court, openingTime = "06:00", closingTime = "24:00", status = "Disponível" })],
+            ["classes"] = [JsonSerializer.SerializeToElement(new { id = lesson, courtId = court, startDate = "2026-10-09", weekDay = 5, startTime = "17:00", endTime = "18:00", status = "Ativa" })]
+        };
+        var timestamp = DateTimeOffset.UtcNow;
+        var result = CourtScheduleQuery.BuildRange(new(2026, 10, 2), new(2026, 10, 16), timestamp, records, false);
+        Assert.Equal(15, result.Days.Count);
+        Assert.Empty(result.Days[0].Courts[0].Blocks);
+        Assert.Equal(2, result.Days.Sum(day => day.Courts.Sum(row => row.Blocks.Count)));
+        Assert.All(result.Days, day => Assert.Equal(
+            JsonSerializer.Serialize(CourtScheduleQuery.Build(DateOnly.Parse(day.Date), timestamp, records, false)), JsonSerializer.Serialize(day)));
+        Assert.DoesNotContain(lesson.ToString(), JsonSerializer.Serialize(result));
+    }
+
+    [Fact]
+    public void Period_rejects_reversed_or_unbounded_ranges_and_includes_both_boundaries()
+    {
+        var records = new Dictionary<string, JsonElement[]>();
+        Assert.Throws<ArgumentOutOfRangeException>(() => CourtScheduleQuery.BuildRange(new(2026, 10, 2), new(2026, 10, 1), DateTimeOffset.UtcNow, records, false));
+        Assert.Throws<ArgumentOutOfRangeException>(() => CourtScheduleQuery.BuildRange(new(2026, 1, 1), new(2027, 1, 2), DateTimeOffset.UtcNow, records, false));
+        Assert.Equal(366, CourtScheduleQuery.BuildRange(new(2026, 1, 1), new(2027, 1, 1), DateTimeOffset.UtcNow, records, false).Days.Count);
+        Assert.Single(CourtScheduleQuery.BuildRange(DateOnly.MaxValue, DateOnly.MaxValue, DateTimeOffset.UtcNow, records, false).Days);
+    }
 }

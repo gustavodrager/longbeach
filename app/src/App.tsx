@@ -169,10 +169,10 @@ function OperationalRoutes() {
       <Route path="importacoes" element={bar('users:manage', <ImportPage />)} />
     </>}
   </Route>
-  return <AuthProvider demoMode={demoMode}><DemoDataProvider enabled demoMode={demoMode}><Routes>
+  return <AuthProvider demoMode={demoMode}><DemoDataProvider enabled demoMode={demoMode}><PwaUpdatePrompt /><Routes>
     <Route path="login" element={demoMode ? <Navigate to="/" replace /> : <LoginPage />} />
     <Route path="primeiro-acesso" element={demoMode ? <Navigate to="/" replace /> : <FirstAccessPage />} />
     {demoMode ? application : <Route element={<AuthGuard />}>{application}<Route path="minha-area" element={<Suspense fallback={<main role="status">Abrindo sua área…</main>}><ClientLayout /></Suspense>}><Route index element={<PortalHome />} /><Route path="agenda" element={<PortalAgenda />} /><Route path="solicitar" element={<PortalRequestForm />} /><Route path="ajuda" element={<PortalRequestForm help />} /><Route path="bar" element={<PortalBar />} /><Route path="pagamentos" element={<BillingPage />} /><Route path="perfil" element={<PortalProfile />} /><Route path="seguranca" element={<AccountPage />} /></Route></Route>}
     <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes><PwaUpdatePrompt /></DemoDataProvider></AuthProvider>
+  </Routes></DemoDataProvider></AuthProvider>
 }
