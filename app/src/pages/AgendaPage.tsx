@@ -113,7 +113,7 @@ function AgendaDayListPage() {
       </div></Disclosure>
       <Disclosure title="Mais opções"><div className="arena-actions">
         {data.canWrite('reservations') && <Link className="secondary-link" to={filters.href('/agenda/recorrentes/novo', { date, court: courtId })}>+ Reservas semanais de um grupo</Link>}
-        {data.canRead('courts') && <Link className="secondary-link" to="/quadras">Funcionamento →</Link>}
+        {data.canRead('courts') && <Link className="secondary-link" to="/agenda/funcionamento">Funcionamento →</Link>}
         {data.canRead('classes') && <Link className="secondary-link" to="/escola">Turmas de aulas →</Link>}
       </div></Disclosure>
     </div>
@@ -128,14 +128,14 @@ function AgendaDayListPage() {
         const items = entries.filter(entry => entry.courtId === court.id)
         return <section className="arena-court-day" key={court.id} aria-label={data.courts.length === 1 ? 'Atividades do dia' : court.name}>
           <div className="arena-section-heading"><div><h2>{data.courts.length === 1 ? 'Atividades do dia' : court.name}</h2><p>Horário cadastrado: {court.openingTime}–{court.closingTime}</p></div><p>{availability(occupation, schedule.isError)}</p></div>
-          {occupation?.schedulePending && !occupation.closedForDay && !occupation.closedForMaintenance && <p className="arena-hint">{data.canWrite('courts') ? <Link to="/quadras">Conferir agenda da quadra →</Link> : 'Peça à gestão para conferir os cadastros e horários.'}</p>}
+          {occupation?.schedulePending && !occupation.closedForDay && !occupation.closedForMaintenance && <p className="arena-hint">{data.canWrite('courts') ? <Link to="/agenda/funcionamento">Conferir agenda da quadra →</Link> : 'Peça à gestão para conferir os cadastros e horários.'}</p>}
           {occupation?.hasConflict && <p className="arena-message arena-error">Há horários sobrepostos ou fora do funcionamento. Confira as reservas e aulas.</p>}
           {schedule.isError && <button className="secondary-link" onClick={() => void schedule.refetch()}>Consultar disponibilidade novamente</button>}
           {renderEntries(items)}
           {!schedule.isError && !occupation?.schedulePending && !occupation?.closedForDay && !occupation?.closedForMaintenance && Boolean(occupation?.freeIntervals?.length) && <section className="agenda-day-free" aria-label="Horários livres"><h3>Horários livres</h3>{occupation!.freeIntervals!.map(interval => <div key={interval.startTime}><span>{interval.startTime}–{interval.endTime} · Livre</span>{data.canWrite('reservations') && <Link to={reservationUrl(date,court.id,interval.startTime,interval.endTime)}>+ Nova reserva</Link>}</div>)}</section>}
           {!items.length && occupation && !incomplete && <p className="arena-hint">{activeFilters ? 'Nenhuma atividade corresponde aos filtros nesta quadra.' : 'Nenhuma atividade neste dia.'}</p>}
         </section>
-      })}</div> : <Empty action={data.canWrite('courts') && <Link className="primary-link" to="/quadras">Cadastrar primeira quadra</Link>}>A agenda precisa de uma quadra cadastrada para mostrar horários e capacidade.</Empty>}
+      })}</div> : <Empty action={data.canWrite('courts') && <Link className="primary-link" to="/agenda/funcionamento">Cadastrar primeira quadra</Link>}>A agenda precisa de uma quadra cadastrada para mostrar horários e capacidade.</Empty>}
     </>}
     {selected && <AgendaActivityDetails selected={selected} onClose={() => setSelected(null)} />}
   </main>

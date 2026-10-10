@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -8,24 +9,28 @@ import { LoginPage } from '../../pages/LoginPage'
 import { FirstAccessPage } from '../../pages/FirstAccessPage'
 
 vi.mock('./GoogleSignInButton', () => ({ GoogleSignInButton: ({ onCredential }: { onCredential: (credential: string) => void }) => <button type="button" onClick={() => onCredential('verified-test-credential')}>Entrar com Google</button> }))
-afterEach(() => { cleanup(); vi.unstubAllEnvs(); sessionStorage.clear() })
+const clients: QueryClient[] = []
+afterEach(() => { cleanup(); clients.splice(0).forEach(c => c.clear()); vi.restoreAllMocks(); vi.unstubAllEnvs(); sessionStorage.clear() })
 const pending = { id: 'test-user', name: 'Proprietário de teste', email: '', username: 'test.owner', requiresFirstAccess: true, roles: [], permissions: [] }
 function auth(overrides: Partial<AuthContextValue> = {}): AuthContextValue {
   return { user: null, isBootstrapping: false, signIn: vi.fn(async () => {}), signInWithGoogle: vi.fn(async () => {}), signOut: vi.fn(async () => {}), changePassword: vi.fn(async () => {}), completeFirstAccessWithGoogle: vi.fn(async () => {}), ...overrides }
 }
 function start(value: AuthContextValue, path = '/login') {
-  return render(<AuthContext.Provider value={value}><MemoryRouter initialEntries={[path]}><Routes>
+  const client = new QueryClient({defaultOptions:{queries:{retry:false}}}); clients.push(client)
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({ googleClientId: 'test-client', clientRegistrationEnabled: false })))
+  return render(<QueryClientProvider client={client}><AuthContext.Provider value={value}><MemoryRouter initialEntries={[path]}><Routes>
     <Route path="/login" element={<LoginPage />} /><Route path="/primeiro-acesso" element={<FirstAccessPage />} />
     <Route element={<AuthGuard />}><Route path="/" element={<h1>Dados da arena</h1>} /></Route>
-  </Routes></MemoryRouter></AuthContext.Provider>)
+  </Routes></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
 }
 
-it('oferece usuário e senha junto com Google e envia o nome digitado', async () => {
-  vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'test-client'); const value = auth(); start(value)
-  expect(screen.getByRole('button', { name: 'Entrar com Google' })).toBeInTheDocument()
-  const user = userEvent.setup(); await user.type(screen.getByLabelText('Usuário ou e-mail'), 'test.owner'); await user.type(screen.getByLabelText('Senha'), 'initial-test')
-  await user.click(screen.getByRole('button', { name: /^Entrar$/ }))
-  expect(value.signIn).toHaveBeenCalledWith({ email: 'test.owner', password: 'initial-test' })
+it('oferece somente Google e envia a credencial verificada', async () => {
+  const value = auth(); start(value)
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Entrar com Google' }))
+  expect(value.signInWithGoogle).toHaveBeenCalledWith('verified-test-credential')
+  expect(value.signIn).not.toHaveBeenCalled()
+  expect(screen.queryByLabelText('Usuário ou e-mail')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Senha')).not.toBeInTheDocument()
 })
 it('redireciona sessão inicial restaurada antes de mostrar dados da arena', async () => {
   start(auth({ user: pending }), '/')
@@ -48,7 +53,7 @@ it('só conclui com senha forte e confirmação coincidente', async () => {
 })
 it('vincula o Google à sessão inicial em vez de criar outra conta', async () => {
   vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'test-client'); const value = auth({ user: pending }); start(value, '/primeiro-acesso')
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Entrar com Google' }))
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Entrar com Google' }))
   expect(value.completeFirstAccessWithGoogle).toHaveBeenCalledWith('verified-test-credential')
   expect(value.signInWithGoogle).not.toHaveBeenCalled()
 })

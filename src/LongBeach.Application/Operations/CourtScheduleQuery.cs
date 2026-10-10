@@ -25,7 +25,7 @@ public static class CourtScheduleQuery
             if (!CourtHours.TryMinute(opening, false, out var begin) || !CourtHours.TryMinute(closing, true, out var end) || begin >= end) continue;
             var blocks = new List<CourtScheduleBlock>(); var intervals = new List<(int Start, int End)>(); var rawIntervals = new List<(int Start, int End)>(); var reserved = 0; var classes = 0; var outsideHours = false;
             foreach (var record in Records("reservations").Where(row => OperationalValidation.Text(row, "courtId") == courtId.ToString() && OperationalValidation.Text(row, "date") == date.ToString("yyyy-MM-dd") && OperationalValidation.Text(row, "status") != "Cancelada"))
-                AddBlock(record, OperationalValidation.Text(record, "status") == "Bloqueio" ? "Bloqueio" : "Reserva", true);
+                AddBlock(record, OperationalValidation.Text(record, "status") == "Bloqueio" ? "Bloqueio" : OperationalValidation.Text(record, "activityKind") == "Trial" ? "Aula experimental" : "Reserva", true);
             foreach (var record in Records("classes").Where(row => OperationalValidation.Text(row, "courtId") == courtId.ToString() && OperationalValidation.Text(row, "status") == "Ativa" && OperationalValidation.ClassStartedOn(row, date) && row.TryGetProperty("weekDay", out var weekday) && weekday.TryGetInt32(out var value) && value == (int)date.DayOfWeek))
                 AddBlock(record, "Aula", includeClassIds);
             var used = 0; var cursor = begin; var free = new List<CourtFreeInterval>();
@@ -56,7 +56,7 @@ public static class CourtScheduleQuery
                 blocks.Add(new(source, startTime, endTime, sourceId));
                 start = Math.Max(start, begin); finish = Math.Min(finish, end); if (start >= finish) return;
                 intervals.Add((start, finish));
-                if (source == "Aula") classes += finish - start; else reserved += finish - start;
+                if (source is "Aula" or "Aula experimental") classes += finish - start; else reserved += finish - start;
             }
         }
         return new(date.ToString("yyyy-MM-dd"), updatedAt, rows);

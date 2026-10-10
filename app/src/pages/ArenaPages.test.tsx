@@ -210,17 +210,18 @@ it('remover ou renomear uma tarefa não transfere identidade nem conclusão para
 it('salva dias úteis até meia-noite mantendo a conferência da agenda pendente', async () => {
   start('/quadras')
   const user = userEvent.setup()
-  await user.click(screen.getByRole('button', {name:'+ Adicionar quadra'}))
+  await user.click(screen.getByRole('button', {name:'Configurar funcionamento'}))
   await user.type(screen.getByLabelText('Nome da quadra'), 'Quadra principal')
   fireEvent.change(screen.getByLabelText('Abre às'), {target:{value:'06:00'}})
   fireEvent.change(screen.getByLabelText('Fecha às'), {target:{value:'24:00'}})
   await user.click(screen.getByLabelText('Sábado'))
   await user.click(screen.getByLabelText('Domingo'))
   await user.click(screen.getByRole('button', {name:'Salvar quadra'}))
-  expect(await screen.findByText('Quadra principal')).toBeInTheDocument()
+  expect(await screen.findByText('Funcionamento da arena')).toBeInTheDocument()
+  expect(screen.queryByRole('button', {name:'+ Adicionar quadra'})).not.toBeInTheDocument()
   const saved = JSON.parse(localStorage.getItem('longbeach-os-demo-v1')??'{}').courts
   expect(saved).toHaveLength(1)
-  expect(saved[0]).toMatchObject({openingTime:'06:00',closingTime:'24:00',operatingDays:[1,2,3,4,5],scheduleConfirmed:false})
+  expect(saved[0]).toMatchObject({name:'Quadra principal',openingTime:'06:00',closingTime:'24:00',operatingDays:[1,2,3,4,5],scheduleConfirmed:false})
   expect(screen.getByText('Agenda atual aguardando conferência')).toBeInTheDocument()
 })
 

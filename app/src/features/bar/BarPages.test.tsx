@@ -3,18 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthContext } from '../auth/authContext'
-import { BarPosPage, BarStockPage, BarCountsPage, BarLossesPage, BarPurchasesPage, BarCashPage } from './BarPages'
+import { BarStockPage, BarCountsPage, BarLossesPage, BarPurchasesPage, BarCashPage } from './BarPages'
 import { visibleNavigation, attendantNavigation } from '../../components/navigation'
 import type { AuthUser } from '../auth/types'
 const user: AuthUser={id:'operator',name:'Operador',email:'test@longbeach.test',roles:['Operations'],permissions:['bar:catalog:read','bar:sales:operate','bar:cash:operate','bar:stock:read']}
-const session={id:'session',state:'Open',locationId:'bar',terminal:'Tablet',expected:100}
 function wrapper(children:React.ReactNode, authUser=user, path='/'){const auth={user:authUser,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{}, completeFirstAccessWithGoogle: async () => {}};return <QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter initialEntries={[path]}><AuthContext.Provider value={auth}>{children}</AuthContext.Provider></MemoryRouter></QueryClientProvider>}
 function response(body:unknown){return new Response(JSON.stringify(body),{headers:{'Content-Type':'application/json'}})}
-function mockApi(stock=5){return vi.spyOn(globalThis,'fetch').mockImplementation(async(input)=>{const path=String(input);if(path.endsWith('/catalog'))return response([{id:'water',name:'Água',shortName:'Água',salePrice:5,controlsStock:true}]);if(path.endsWith('/stock/balances'))return response([{productId:'water',locationId:'bar',available:stock}]);if(path.endsWith('/cash/sessions'))return response([session]);if(path.endsWith('/payments/config'))return response({pixEnabled:false});if(path.endsWith('/categories'))return response([]);if(path.endsWith('/sales'))return response({id:'sale',total:5});if(path.includes('/payments/cash'))return response({sale:{id:'sale'},paymentId:'payment',change:0});return response({})})}
 afterEach(()=>vi.restoreAllMocks())
 it('oferece apenas grupos permitidos para operador, preservando o atendimento',()=>{const can=(item:{permission?:string;owner?:boolean;kind?:string})=>!item.owner&&!item.kind&&(!item.permission||user.permissions.includes(item.permission));const bar=visibleNavigation(can).find(item=>item.label==='Bar');expect(bar?.children?.map(item=>item.label)).toEqual(['Estoque']);expect(attendantNavigation.filter(can).map(item=>item.label)).toEqual(['Vender','Pedidos','Meu caixa'])})
-it('desabilita produto sem estoque disponível',async()=>{mockApi(0);render(wrapper(<BarPosPage/>));expect(await screen.findByRole('button',{name:/Água.*Sem estoque/})).toBeDisabled()})
-it('inclui produto por toque e confirma dinheiro no backend existente',async()=>{const api=mockApi();render(wrapper(<BarPosPage/>));const u=userEvent.setup();await u.click(await screen.findByRole('button',{name:/Água/}));await u.selectOptions(screen.getByLabelText('Forma de pagamento'),'cash');await u.clear(screen.getByLabelText('Dinheiro recebido (R$; zero para cartão)'));await u.type(screen.getByLabelText('Dinheiro recebido (R$; zero para cartão)'),'5');await u.click(screen.getByRole('button',{name:'Receber'}));expect(await screen.findByText('Operação registrada.')).toBeInTheDocument();expect(api.mock.calls.some(([url])=>String(url).endsWith('/api/v1/bar/sales/sale/payments/cash'))).toBe(true)})
 
 const stockLocations = [{ id: 'warehouse', name: 'Almoxarifado' }, { id: 'bar', name: 'Bar' }]
 function stockApi(locations = stockLocations) {

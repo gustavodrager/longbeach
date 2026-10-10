@@ -26,7 +26,7 @@ function demoSchedule(date: string, data: ReturnType<typeof useOperations>): Cou
   const weekday = new Date(`${date}T12:00:00Z`).getUTCDay()
   return { date, updatedAtUtc: data.dataUpdatedAt ?? new Date().toISOString(), courts: data.courts.map(court => {
     const blocks: CourtScheduleBlock[] = [
-      ...data.reservations.filter(row => row.courtId === court.id && row.date === date && row.status !== 'Cancelada').map(row => ({ source: row.status === 'Bloqueio' ? 'Bloqueio' as const : 'Reserva' as const, startTime: row.startTime, endTime: row.endTime, sourceId: row.id })),
+      ...data.reservations.filter(row => row.courtId === court.id && row.date === date && row.status !== 'Cancelada').map(row => ({ source: row.status === 'Bloqueio' ? 'Bloqueio' as const : row.activityKind === 'Trial' ? 'Aula experimental' as const : 'Reserva' as const, startTime: row.startTime, endTime: row.endTime, sourceId: row.id })),
       ...data.classes.filter(row => row.courtId === court.id && row.weekDay === weekday && row.status === 'Ativa' && (!row.startDate || row.startDate <= date)).map(row => ({ source: 'Aula' as const, startTime: row.startTime, endTime: row.endTime, sourceId: row.id })),
     ].sort((a,b) => a.startTime.localeCompare(b.startTime))
     const begin = minute(court.openingTime), end = minute(court.closingTime)
@@ -37,8 +37,8 @@ function demoSchedule(date: string, data: ReturnType<typeof useOperations>): Cou
     if (cursor < end) freeIntervals.push({ startTime: time(cursor), endTime: time(end) })
     let occupiedMinutes = 0, occupiedEnd = 0
     for (const block of blocks) { occupiedMinutes += Math.max(0, minute(block.endTime) - Math.max(occupiedEnd,minute(block.startTime))); occupiedEnd = Math.max(occupiedEnd,minute(block.endTime)) }
-    const reservedMinutes = blocks.filter(block => block.source !== 'Aula').reduce((sum,block) => sum + Math.max(0, Math.min(end,minute(block.endTime))-Math.max(begin,minute(block.startTime))),0)
-    const classMinutes = blocks.filter(block => block.source === 'Aula').reduce((sum,block) => sum + Math.max(0, Math.min(end,minute(block.endTime))-Math.max(begin,minute(block.startTime))),0)
+    const reservedMinutes = blocks.filter(block => !['Aula','Aula experimental'].includes(block.source)).reduce((sum,block) => sum + Math.max(0, Math.min(end,minute(block.endTime))-Math.max(begin,minute(block.startTime))),0)
+    const classMinutes = blocks.filter(block => ['Aula','Aula experimental'].includes(block.source)).reduce((sum,block) => sum + Math.max(0, Math.min(end,minute(block.endTime))-Math.max(begin,minute(block.startTime))),0)
     const closedForDay = !(court.operatingDays ?? [0,1,2,3,4,5,6]).includes(weekday)
     const closed = closedForDay || court.status === 'Manutenção'
     return { closedForDay, operatingMinutes: closed ? 0 : end-begin, schedulePending: court.scheduleConfirmed === false, courtId: court.id, openingTime: court.openingTime, closingTime: court.closingTime, availableMinutes: closed ? 0 : court.scheduleConfirmed === false ? null : Math.max(0,end-begin-used), reservedMinutes, classMinutes, closedForMaintenance: court.status === 'Manutenção', occupiedMinutes, freeIntervals: court.scheduleConfirmed === false ? null : closed ? [] : freeIntervals, hasConflict: reservedMinutes+classMinutes>used || closed && blocks.length>0 || blocks.some(block => minute(block.startTime) < begin || minute(block.endTime) > end), blocks }

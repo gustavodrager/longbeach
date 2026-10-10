@@ -27,7 +27,7 @@ it('dashboard abre o mês da fonte e identifica o valor informado', async () => 
 it('atendente não consulta o histórico financeiro nem as APIs', () => {
   auth.roles = ['Operations']; const fetch = vi.spyOn(globalThis, 'fetch')
   wrap(<FinancialHistoryPage />)
-  expect(screen.getByRole('alert')).toHaveTextContent('apenas para os proprietários')
+  expect(screen.getByRole('alert')).toHaveTextContent('para a gestão')
   expect(fetch).not.toHaveBeenCalled()
 })
 it('apresenta a receita consolidada sem chamá-la de vendas brutas', async () => {

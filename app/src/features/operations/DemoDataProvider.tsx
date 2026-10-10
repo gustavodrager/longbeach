@@ -1,3 +1,4 @@
+import { hasPermission } from '../auth/access'
 import type { RentalGroup, RentalMonth, RentalAttendance } from '../arena/rentals'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { apiFetch, ApiError } from '../../lib/http'
@@ -104,7 +105,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
   const [persistenceMessage, setPersistenceMessage] = useState('')
   const [dataUpdatedAt, setDataUpdatedAt] = useState<string | null>(demoMode && !remote ? new Date().toISOString() : null)
   const [refreshFailed, setRefreshFailed] = useState(false)
-  const can = useCallback((kind: OperationalKind, operation: 'read' | 'write') => demoMode || Boolean(user && !(user.roles.includes('Student') && user.roles.every(role => role === 'Student')) && (user.roles.includes('Owner') || user.permissions.includes(operationalPermissions[kind][operation]))), [demoMode, user])
+  const can = useCallback((kind: OperationalKind, operation: 'read' | 'write') => demoMode || hasPermission(user, operationalPermissions[kind][operation]), [demoMode, user])
   const canRead = useCallback((kind: OperationalKind) => can(kind, 'read'), [can])
   const canWrite = useCallback((kind: OperationalKind) => can(kind, 'write'), [can])
   const load = useCallback(async (background = false) => {

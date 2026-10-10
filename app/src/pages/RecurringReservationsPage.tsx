@@ -78,7 +78,7 @@ export function RecurringReservationsPage() {
       <SaveRow label={uncertain ? 'Repetir confirmação do grupo' : 'Criar reservas semanais'} busy={busy} disabled={!data.courts.length || data.persistenceStatus === 'connecting'} onCancel={uncertain ? undefined : () => navigate(filters.href('/agenda'))} />
       {uncertain && <p className="arena-hint" role="status">Os dados deste envio estão preservados nesta tela. A repetição usa o mesmo identificador e não cria ocorrências duplicadas.</p>}
     </form>
-    {!data.courts.length && <p className="arena-message">Cadastre uma quadra disponível antes de criar o grupo. <Link to="/quadras">Ver quadras →</Link></p>}
+    {!data.courts.length && <p className="arena-message">Cadastre uma quadra disponível antes de criar o grupo. <Link to="/agenda/funcionamento">Conferir funcionamento →</Link></p>}
   </main>
 }
 

@@ -15,7 +15,7 @@ it('separa estimativas, conserva déficit e bloqueia consulta de equipe',async()
   expect(controlTotals(control.lines)).toEqual({income:10000,expense:14000,result:-4000,estimated:14000,hasEstimates:true})
   const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(new Response(JSON.stringify({month:'2026-09',months:['2026-09'],control})))
   const view=wrap();expect(await screen.findByText('-R$ 40,00')).toBeInTheDocument();expect(screen.getByText(/Estimativa · agosto/)).toBeInTheDocument()
-  view.unmount();fetch.mockClear();auth.roles=['Operations'];wrap();expect(fetch).not.toHaveBeenCalled();expect(screen.getByRole('alert')).toHaveTextContent('proprietários')
+  view.unmount();fetch.mockClear();auth.roles=['Operations'];wrap();expect(fetch).not.toHaveBeenCalled();expect(screen.getByRole('alert')).toHaveTextContent('gestão')
 })
 it('envia revisão com a versão original e mantém o formulário quando outra pessoa já editou',async()=>{
   const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async (_input,init)=>init?.method==='PUT'?new Response(JSON.stringify({message:'Este controle mudou. Atualize a página.'}),{status:409}):new Response(JSON.stringify({month:'2026-09',months:['2026-09'],control})))

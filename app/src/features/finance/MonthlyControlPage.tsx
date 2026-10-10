@@ -1,3 +1,4 @@
+import { isManagement } from '../auth/access'
 import { allocationChoice, allocationFields, allocationLabel, allocationOptions, type BusinessAllocation } from './businessUnits'
 import { BusinessAllocationField } from './BusinessAllocationField'
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
@@ -30,7 +31,7 @@ function ValueCards({ control }: { control: MonthlyControl }) {
   </div>
 }
 export function MonthlyControlPage() {
-  const { user } = useAuth(); const owner = Boolean(user?.roles.includes('Owner'))
+  const { user } = useAuth(); const owner = Boolean(isManagement(user))
   const [params, setParams] = useSearchParams(); const cache = useQueryClient(); const guard = useUnsavedChanges()
   const selected = params.get('month'); const query = useQuery({ queryKey: ['monthly-control', user?.id, selected], queryFn: () => apiFetch<Report>(`/api/v1/financial-history/monthly-controls${selected ? `?month=${encodeURIComponent(selected)}` : ''}`), enabled: owner, refetchInterval: 60_000 })
   const [edit, setEdit] = useState<{ base: MonthlyControl; line: ControlLine } | null>(null)
@@ -74,7 +75,7 @@ export function MonthlyControlPage() {
       setStaged(input)
     } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível ler a revisão.') }
   }
-  if (!owner) return <main className="operation-page arena-page"><h1>Controle mensal</h1><p role="alert">Disponível apenas para os proprietários.</p></main>
+  if (!owner) return <main className="operation-page arena-page"><h1>Controle mensal</h1><p role="alert">Disponível para a gestão.</p></main>
   return <main className="operation-page arena-page">
     <header className="page-heading"><div><h1>Controle mensal</h1></div>{control && <button className="primary-button" onClick={() => open()}>Adicionar valor</button>}</header>
     <div className="compact-filters"><Field label="Competência" type="month" value={selected ?? month} onChange={changeMonth} />{Boolean(query.data?.months.length) && <Field label="Meses registrados" value={month} onChange={changeMonth} options={[...new Set([month, ...query.data!.months])].sort().reverse().map(value => ({ value, label: monthLabel(value) }))} />}</div>

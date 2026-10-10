@@ -2,6 +2,8 @@ using LongBeach.Contracts.Portal;
 namespace LongBeach.Application.Portal;
 public interface IClientPortal
 {
+    Task<PortalAvailability> Availability(DateOnly date, Guid? courtId, CancellationToken ct);
+    Task<PortalRequest> Withdraw(Guid user, Guid id, AcceptAlternativeInput input, CancellationToken ct);
     Task<PortalProfile> Profile(Guid user, CancellationToken ct);
     Task<PortalProfile> SaveProfile(Guid user, ProfileInput input, CancellationToken ct);
     Task<IReadOnlyList<PortalAppointment>> Agenda(Guid user, CancellationToken ct);

@@ -1,3 +1,4 @@
+import { isManagement } from '../auth/access'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/authContext'
@@ -13,8 +14,8 @@ type Balances = {
 const monthLabel = (month: string) => new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${month}-01T12:00:00Z`))
 export function FinancialBalanceOverview() {
   const { user } = useAuth()
-  const query = useQuery({ queryKey: ['dashboard-balances', user?.id], queryFn: () => apiFetch<Balances>('/api/v1/financial-history/dashboard-balances'), enabled: Boolean(user?.roles.includes('Owner')), refetchInterval: 60_000 })
-  if (!user?.roles.includes('Owner')) return null
+  const query = useQuery({ queryKey: ['dashboard-balances', user?.id], queryFn: () => apiFetch<Balances>('/api/v1/financial-history/dashboard-balances'), enabled: Boolean(isManagement(user)), refetchInterval: 60_000 })
+  if (!isManagement(user)) return null
   const bank = query.data?.pagBank, general = query.data?.general
   const bankHref = `/financeiro/historico?${new URLSearchParams({ series: 'saldos', ...(bank?.date ? { month: bank.date.slice(0, 7) } : {}), ...(bank?.metric ? { metric: bank.metric } : {}) })}`
   const reviewed = general?.basis === 'revisado'

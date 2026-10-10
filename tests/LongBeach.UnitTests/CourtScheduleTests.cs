@@ -21,6 +21,19 @@ public sealed class CourtScheduleTests
     }
 
     [Fact]
+    public void Trial_is_counted_as_a_class_while_preserving_its_reservation_identity()
+    {
+        var court=Guid.NewGuid(); var reservation=Guid.NewGuid();
+        var rows=new Dictionary<string,JsonElement[]> {
+            ["courts"]=[JsonSerializer.SerializeToElement(new{id=court,openingTime="08:00",closingTime="24:00",status="Disponível"})],
+            ["reservations"]=[JsonSerializer.SerializeToElement(new{id=reservation,courtId=court,date="2026-10-05",startTime="23:30",endTime="24:00",status="Confirmada",activityKind="Trial"})]
+        };
+        var row=Assert.Single(CourtScheduleQuery.Build(new(2026,10,5),DateTimeOffset.UtcNow,rows,true).Courts);
+        Assert.Equal(30,row.ClassMinutes);Assert.Equal(0,row.ReservedMinutes);Assert.Equal(30,row.OccupiedMinutes);
+        var block=Assert.Single(row.Blocks);Assert.Equal("Aula experimental",block.Source);Assert.Equal(reservation,block.SourceId);
+    }
+
+    [Fact]
     public void Final_hour_ends_at_midnight_of_the_selected_day()
     {
         var id = Guid.NewGuid();

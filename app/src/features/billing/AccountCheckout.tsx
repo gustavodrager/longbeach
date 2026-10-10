@@ -12,20 +12,24 @@ export function AccountCheckout({ account, config, base, resume, subscription = 
   const [name, setName] = useState(user?.name ?? ''); const [email, setEmail] = useState(user?.email ?? ''); const [taxId, setTaxId] = useState(''); const [phone, setPhone] = useState(''); const [consent, setConsent] = useState(false)
   const [amount, setAmount] = useState(String(resume?.amount ?? account.payable)); const [started, setStarted] = useState(false)
   const operation = useRef(resume?.operationId ?? subscriptionOperationId ?? crypto.randomUUID())
+  const submitting = useRef(false)
+  const submittedAmount = useRef<number | undefined>(undefined)
   const total = account.kind === 'Bar' ? Number(amount.replace(',', '.')) : account.payable
   async function submit() {
-    setBusy(true); setError('')
+    if (submitting.current) return
+    submitting.current = true; setBusy(true); setError('')
     try {
       const publicKey = subscription ? config.subscriptionPublicKey : config.cardPublicKey
       const encryptedCard = method === 'CreditCard' ? await encryptCard(publicKey ?? '', card) : undefined
       const securityCode = subscription ? card.securityCode : undefined
       setCard(emptyCard); setStarted(true)
+      submittedAmount.current ??= resume?.amount ?? total
       await post(`${base}/accounts/${account.id}/${subscription ? 'subscriptions' : 'payments'}`, subscription
         ? { operationId: operation.current, name, email, taxId, phone, encryptedCard, securityCode, consent, expectedAmount: account.total, expectedFirstDue: account.dueDate }
-        : { operationId: operation.current, method, name, email, taxId, encryptedCard, amount: resume?.amount ?? total })
+        : { operationId: operation.current, method, name, email, taxId, encryptedCard, amount: submittedAmount.current })
       await done()
     } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível confirmar. Consulte a conta antes de repetir.'); await done() }
-    finally { setBusy(false) }
+    finally { submitting.current = false; setBusy(false) }
   }
   return <form className="ux-panel" onSubmit={e => { e.preventDefault(); void submit() }}>
     <h3>{subscription ? 'Autorizar mensalidade automática' : resume ? 'Retomar o mesmo pagamento' : 'Pagar esta conta'}</h3>

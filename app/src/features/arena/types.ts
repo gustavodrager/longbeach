@@ -3,6 +3,7 @@ export type Court = { id: string; version?: number; costsVisible?: boolean; name
 export type Reservation = {
   id: string; version?: number; costsVisible?: boolean; name: string; courtId: string; date: string; startTime: string; endTime: string
   customerName: string; phone: string; amount: number; status: 'Confirmada' | 'Chegou' | 'Concluída' | 'Cancelada' | 'Bloqueio'; notes: string
+  activityKind?: 'Trial'; teacherId?: string;
   rentalGroupId?: string; rentalMonth?: string; groupId?: string; groupTitle?: string; occurrenceIndex?: number
 }
 export type RecurringReservationInput = {
@@ -26,7 +27,7 @@ export type Maintenance = {
   status: 'Aberta' | 'Em andamento' | 'Concluída' | 'Cancelada'; priority: 'Normal' | 'Urgente'; notes: string
 }
 
-export type CourtScheduleBlock = { source: 'Aula' | 'Reserva' | 'Bloqueio'; startTime: string; endTime: string; sourceId: string | null }
+export type CourtScheduleBlock = { source: 'Aula' | 'Aula experimental' | 'Reserva' | 'Bloqueio'; startTime: string; endTime: string; sourceId: string | null }
 export type CourtScheduleRow = { courtId: string; openingTime: string; closingTime: string; availableMinutes: number | null; operatingMinutes?: number; closedForDay?: boolean; schedulePending?: boolean; reservedMinutes: number; classMinutes: number; closedForMaintenance: boolean; hasConflict: boolean; blocks: CourtScheduleBlock[]; occupiedMinutes?: number; freeIntervals?: { startTime: string; endTime: string }[] | null }
 export type CourtSchedule = { date: string; updatedAtUtc: string; courts: CourtScheduleRow[] }
 

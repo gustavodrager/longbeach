@@ -122,6 +122,29 @@ public sealed class BillingPostgresTests
         var suffix = Guid.NewGuid().ToString("N"); recurring.Rows = [new("INVO_" + suffix, 1, "PAID", 10000, "BRL", "PAYM_" + suffix, "APPROVED"), new("INVO_future" + suffix, 2, "UNPAID", 10000, "BRL", null, null)]; await service.Subscribe(a.Id, input, user.Id, default); var meetings = await db.OperationalRecords.Where(x => x.Kind == "reservations").Select(x => x.Id).ToArrayAsync(); await service.Subscribe(a.Id, input, user.Id, default);
         Assert.Equal(meetings.Length, await db.OperationalRecords.CountAsync(x => x.Kind == "reservations")); var accounts = await service.Accounts(user.Id, default); Assert.Equal(2, accounts.Count); Assert.All(accounts, x => Assert.NotNull(x.SubscriptionId)); var future = accounts.Single(x => x.Id != a.Id); await Assert.ThrowsAsync<BarRuleException>(() => service.Pay(future.Id, Input(), user.Id, true, default));
     }
+    [PostgresFact]
+    public async Task Own_bar_account_exposes_consumption_without_staff_data_and_preserves_authoritative_totals()
+    {
+        await using var db = Database(); var gateway = new Gateway(); var seed = await Seed(db, gateway);
+        var location = new LongBeach.Domain.Inventory.StockLocation("Bar teste");
+        var tab = new BarTab(location.Id, seed.User, "Comanda teste", "Tab");
+        var category = new BarProductCategory("Bebidas teste");
+        var product = new BarProduct("BILL-" + Guid.NewGuid().ToString("N")[..10], "Água teste", "Água", category.Id, "un", "un", 1, 5, 2, 0, false, false, 0);
+        var delivered = new BarTabItem(tab.Id, product, 2, seed.User, false); delivered.Accept(DateTimeOffset.UtcNow); delivered.Fulfill(DateTimeOffset.UtcNow);
+        var requested = new BarTabItem(tab.Id, product, 1, null, true);
+        var reversed = new BarTabItem(tab.Id, product, 3, seed.User, false); reversed.Accept(DateTimeOffset.UtcNow); reversed.Reverse("Anotação interna", false);
+        tab.Adjust(2);
+        var payment = new BarTabPayment(tab.Id, Guid.NewGuid(), "test", 3, "CardManual", seed.User, null, 3, "TEST"); payment.ConfirmManual(DateTimeOffset.UtcNow);
+        db.AddRange(location, category, product, tab, delivered, requested, reversed, payment); await db.SaveChangesAsync();
+        var service = Service(db, gateway); var account = await service.Assign(new("Bar", tab.Id, seed.User), seed.User, default);
+        var mine = await service.Account(account.Id, seed.User, default);
+        Assert.Equal(8, mine.Total); Assert.Equal(3, mine.Paid); Assert.Equal(5, mine.Payable); Assert.Equal(2, mine.Discount);
+        Assert.Equal(3, mine.Items!.Count); Assert.Contains(mine.Items, i => i.State == "Requested"); Assert.Contains(mine.Items, i => i.State == "Reversed");
+        var json = JsonSerializer.Serialize(mine.Items); Assert.DoesNotContain("UnitCost", json); Assert.DoesNotContain("ActorId", json); Assert.DoesNotContain("Anotação interna", json);
+        await Assert.ThrowsAsync<BarTabAccessException>(() => service.Account(account.Id, Guid.NewGuid(), default));
+        await Assert.ThrowsAsync<BarTabAccessException>(() => service.Pay(account.Id, Input(), Guid.NewGuid(), true, default));
+        Assert.Empty(await service.Accounts(Guid.NewGuid(), default));
+    }
     private sealed class Gateway : IPaymentGateway
     {
         private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, GatewayPayment> orders = new();

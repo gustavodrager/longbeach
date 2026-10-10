@@ -1,6 +1,12 @@
 # Acesso individual e primeiro acesso
 
-O login aceita usuário ou e-mail e senha, mesmo com Google habilitado. Os usuários antigos continuam usando suas credenciais e permissões. Novas contas sem e-mail podem vincular o próprio Google depois de autenticar com a credencial temporária.
+A página de login oferece somente Google desde 10/10/2026. A API preserva os endpoints de senha e primeiro acesso por compatibilidade; os procedimentos legados abaixo não são oferecidos na página de entrada atual. Para contas da equipe ainda sem Google, confirmar a identidade e preparar o acesso individual antes da adoção da nova página, preservando o usuário, o histórico e os papéis existentes.
+
+Entrar pelo Google não associa automaticamente a pessoa a um aluno, grupo mensalista ou reserva. A gestão confere a identidade e usa **Solicitações de clientes → Vincular cliente a aluno, grupo ou reserva**. Os identificadores exibidos ajudam a distinguir cadastros; nomes iguais não comprovam identidade. O vínculo operacional não concede funções da equipe, não transfere cobranças e não cria dívida. Um cadastro já associado a outro cliente ou responsável financeiro exige resolução do conflito, sem substituição silenciosa.
+
+## Cadastro público de clientes
+
+O fluxo descrito abaixo continua destinado à equipe e a contas provisionadas. O cadastro de novos clientes pelo Google é separado, fica desligado por padrão e concede somente o perfil de cliente. Configuração, validação e rollback estão no [ADR-006](../adr/ADR-006-cadastro-cliente-google.md). O frontend consulta as opções da API; não é necessário informar o Client ID por variável de build do frontend.
 
 ## Provisionamento explícito
 

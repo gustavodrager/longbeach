@@ -27,7 +27,11 @@ export async function loginWithGoogle(credential: string) {
     credentials: 'include',
     headers: { Authorization: `Bearer ${credential}`, Accept: 'application/json' },
   })
-  if (!response.ok) throw new Error('Google sign-in was rejected.')
+  if (!response.ok) throw new Error(response.status === 429
+    ? 'Muitas tentativas. Aguarde um minuto e tente novamente.'
+    : response.status >= 500
+      ? 'Não foi possível concluir o acesso agora. Tente novamente em instantes.'
+      : 'Não foi possível acessar com esta conta Google. Confira se escolheu a conta Google correta ou peça à equipe para conferir o vínculo.')
   const session = await response.json() as LoginResponse
   setAccessToken(session.accessToken)
   setCsrfToken(session.csrfToken)
@@ -67,4 +71,9 @@ export async function changePassword(passwords: PasswordChange) {
   setAccessToken(null)
   setCsrfToken(null)
   return response
+}
+
+export type SignInOptions = { googleClientId: string | null; clientRegistrationEnabled: boolean }
+export function getSignInOptions() {
+  return apiFetch<SignInOptions>('/api/v1/auth/options', undefined, false)
 }

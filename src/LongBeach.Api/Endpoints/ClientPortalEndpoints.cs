@@ -20,6 +20,8 @@ public static class ClientPortalEndpoints
             if(account is null)return Results.NotFound();
             return Results.Ok(await tabs.IssueAccess(account.SourceId,i,user,ct));
         });
+        me.MapGet("/availability", (DateOnly date, Guid? courtId, IClientPortal s, CancellationToken ct) => s.Availability(date, courtId, ct));
+        me.MapPost("/requests/{id:guid}/withdraw", (Guid id, AcceptAlternativeInput i, HttpContext h, IClientPortal s, CancellationToken ct) => s.Withdraw(Actor(h), id, i, ct));
         me.MapGet("/profile",(HttpContext h,IClientPortal s,CancellationToken ct)=>s.Profile(Actor(h),ct));
         me.MapPut("/profile",(ProfileInput i,HttpContext h,IClientPortal s,CancellationToken ct)=>s.SaveProfile(Actor(h),i,ct));
         me.MapGet("/agenda",(HttpContext h,IClientPortal s,CancellationToken ct)=>s.Agenda(Actor(h),ct));

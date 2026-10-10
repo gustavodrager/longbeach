@@ -52,12 +52,12 @@ export function DashboardPage() {
     return total + (minutes(item.endTime) - minutes(item.startTime)) / 60
   }, 0)
   const modules: [string, string, string, OperationalKind, AreaIconName][] = [
-    ['Agenda e recepção', 'Quadras, reservas e chegada de clientes.', '/agenda', 'reservations', 'agenda'],
+    ['Agenda e recepção', 'Disponibilidade, reservas e chegada de clientes.', '/agenda', 'reservations', 'agenda'],
     ['Mensalistas', 'Integrantes, encontros, mensalidades e consumo do grupo.', '/mensalistas', 'rentalGroups', 'team'],
-    ['Escola', 'Alunos, turmas, matrículas e presença.', '/escola', 'classes', 'school'],
-    ['Financeiro operacional', 'Contas, recebimentos e despesas.', '/financeiro', 'financeEntries', 'finance'],
+    ['Aulas', 'Alunos, turmas, matrículas e presença.', '/escola', 'classes', 'school'],
+    ['Financeiro', 'Contas, recebimentos e despesas.', '/financeiro', 'financeEntries', 'finance'],
     ['Equipe', 'Pessoas, funções e acordos de pagamento.', '/equipe', 'team', 'team'],
-    ['Materiais da arena', 'Material esportivo, limpeza e equipamentos.', '/estoque', 'inventory', 'materials'],
+    ['Materiais da arena', 'Material esportivo, limpeza e equipamentos.', '/administracao/materiais', 'inventory', 'materials'],
     ['Projetos', 'Tarefas, responsáveis e prazos.', '/projetos', 'projects', 'projects'],
     ['Manutenção', 'Serviços e cuidados com a infraestrutura.', '/manutencao', 'maintenance', 'maintenance'],
   ]
@@ -87,7 +87,7 @@ export function DashboardPage() {
         {data.canRead('reservations') && <Metric label="Reservas de hoje" value={count('reservations', data.reservations.filter(item => item.date === day && !['Cancelada', 'Bloqueio'].includes(item.status)).length)} to={link('/agenda', { date: day, view: 'day', activity: 'reservations' })} period="Agora · hoje" updated={updated} note={data.reservations.length ? "Reservas confirmadas, com chegada ou concluídas" : "Agenda ainda sem reservas cadastradas. Confirme a grade atual para carregar os horários."} />}
         {data.canRead('courts') && <Metric label="Tempo de quadra disponível hoje" value={availabilityReady ? `${quantity(scheduleCourts.reduce((sum, court) => sum + (court.availableMinutes ?? 0), 0) / 60)} h` : null} to={link('/agenda', { date: day, view: 'day' })} period="Agora · hoje" updated={formatUpdated(schedule.data?.updatedAtUtc)} note={schedulePending ? `${quantity(scheduleCourts.reduce((sum, court) => sum + (court.operatingMinutes ?? 0), 0) / 60)} h de funcionamento hoje. Horas livres aguardam conferência da agenda.` : data.courts.length ? "Tempo livre após reservas, bloqueios e aulas" : "Faltam as quadras e seus horários de funcionamento."} />}
         {data.canRead('financeEntries') && <Metric label="Valores vencidos a receber" value={cash(overdueReceivables)} to={link('/financeiro', { direction: 'Receber', status: 'Pendente', overdue: '1', range: 'all' })} period="Agora" updated={updated} attention={overdueReceivables > 0} note={data.financeEntries.length ? "Cobranças com vencimento anterior a hoje" : "Faltam cobranças com valor devido e vencimento. Valor pago na planilha não informa a dívida."} />}
-        {data.canRead('inventory') && <Metric label="Materiais para repor" value={count('inventory', lowMaterials.length)} to={link('/estoque', { low: '1' })} period="Agora · quantidade de materiais" updated={updated} attention={lowMaterials.length > 0} note={data.inventory.length ? undefined : 'Faltam quantidades atuais e estoque mínimo dos materiais da arena.'} />}
+        {data.canRead('inventory') && <Metric label="Materiais para repor" value={count('inventory', lowMaterials.length)} to={link('/administracao/materiais', { low: '1' })} period="Agora · quantidade de materiais" updated={updated} attention={lowMaterials.length > 0} note={data.inventory.length ? undefined : 'Faltam quantidades atuais e estoque mínimo dos materiais da arena.'} />}
         {data.canRead('projects') && <Metric label="Projetos com prazo vencido" value={count('projects', overdueProjects.length)} to={link('/projetos', { overdue: '1' })} period="Agora" updated={updated} attention={overdueProjects.length > 0} note={data.projects.length ? undefined : 'Cadastre os projetos e os prazos para acompanhar atrasos.'} />}
         {data.canRead('maintenance') && <Metric label="Manutenções urgentes abertas" value={count('maintenance', urgentMaintenance.length)} to={link('/manutencao', { priority: 'Urgente', status: 'open' })} period="Agora" updated={updated} attention={urgentMaintenance.length > 0} note={data.maintenance.length ? undefined : 'Cadastre os serviços de manutenção e suas prioridades.'} />}
       </div>

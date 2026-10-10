@@ -118,3 +118,5 @@
 @media (prefers-reduced-motion:reduce) { .management-dialog,.app-shell * { scroll-behavior: auto; } }
 
 .editor-body .bar-form .secondary-link,.editor-body .form-actions .secondary-link { background: transparent; box-shadow: none; border: 1px solid var(--line); color: var(--ink); }
+
+.navigation-dialog a.navigation-related-link{padding-left:28px;font-size:.9rem}

@@ -1,3 +1,4 @@
+import { hasWorkArea, workHome } from '../auth/access'
 import { useEffect, useRef } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Logo } from '../../components/Logo'
@@ -9,9 +10,8 @@ const destinations: [string,string,IconName][] = [['','Início','home'],['agenda
 export function ClientLayout() {
   const { user }=useAuth(); const location=useLocation(); const main=useRef<HTMLDivElement>(null)
   useEffect(()=>{main.current?.focus({preventScroll:true})},[location.pathname])
-  return <div className="client-portal"><a className="skip-link" href="#portal-content">Ir para o conteúdo</a><header className="portal-header"><Link to="/minha-area" aria-label="Início da minha área"><Logo tagline="Sua arena, no seu ritmo" /></Link><Link to="/minha-area/ajuda">Preciso de ajuda</Link></header>
+  return <div className="client-portal"><a className="skip-link" href="#portal-content">Ir para o conteúdo</a><header className="portal-header"><Link to="/minha-area" aria-label="Início da minha área"><Logo tagline="Sua arena, no seu ritmo" /></Link><div className="portal-header-actions">{hasWorkArea(user)&&<Link to={workHome(user)}>Área de trabalho →</Link>}<Link to="/minha-area/ajuda">Preciso de ajuda</Link></div></header>
     <div id="portal-content" className="portal-content" ref={main} tabIndex={-1}><Outlet /></div>
-    {user?.roles.some(r=>r!=='Student')&&<p className="portal-staff-link"><Link to="/">Voltar à área da equipe</Link></p>}
     <nav className="portal-nav" aria-label="Minha área">{destinations.map(([path,title,icon])=><NavLink key={path} end={!path} to={`/minha-area${path?`/${path}`:''}`}><NavigationIcon name={icon}/><span>{title}</span></NavLink>)}</nav>
   </div>
 }
