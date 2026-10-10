@@ -27,7 +27,7 @@ export type Maintenance = {
 }
 
 export type CourtScheduleBlock = { source: 'Aula' | 'Reserva' | 'Bloqueio'; startTime: string; endTime: string; sourceId: string | null }
-export type CourtScheduleRow = { courtId: string; openingTime: string; closingTime: string; availableMinutes: number | null; operatingMinutes?: number; closedForDay?: boolean; schedulePending?: boolean; reservedMinutes: number; classMinutes: number; closedForMaintenance: boolean; hasConflict: boolean; blocks: CourtScheduleBlock[] }
+export type CourtScheduleRow = { courtId: string; openingTime: string; closingTime: string; availableMinutes: number | null; operatingMinutes?: number; closedForDay?: boolean; schedulePending?: boolean; reservedMinutes: number; classMinutes: number; closedForMaintenance: boolean; hasConflict: boolean; blocks: CourtScheduleBlock[]; occupiedMinutes?: number; freeIntervals?: { startTime: string; endTime: string }[] | null }
 export type CourtSchedule = { date: string; updatedAtUtc: string; courts: CourtScheduleRow[] }
 
 export type CourtScheduleRange = { from: string; to: string; updatedAtUtc: string; days: CourtSchedule[] }

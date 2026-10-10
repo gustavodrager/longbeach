@@ -1,11 +1,14 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { ContextLink, Disclosure } from '../components/managementUi'
+import { Disclosure } from '../components/managementUi'
 import { useOperations } from '../features/operations/DemoDataProvider'
 import { useCourtSchedule, useCourtScheduleRange } from '../features/arena/queries'
 import type { CourtScheduleRow, Reservation } from '../features/arena/types'
 import { Empty, Feedback, Field, Heading, NoAccess, Pagination, Search, Status, displayDate, quantity, today, useFilters, validDate } from './arenaUi'
 import './agenda.css'
+import { WeeklyAgenda } from './WeeklyAgenda'
+import { AgendaActivityDetails, type AgendaSelection } from './AgendaActivityDetails'
+import { reservationUrl } from '../features/arena/agenda'
 
 function shiftDay(date: string, days: number) {
   if (!validDate(date)) return today()
@@ -28,13 +31,19 @@ function availability(occupation?: CourtScheduleRow, failed = false) {
 type Entry = { key: string; date: string; time: string; courtId: string; node: ReactNode }
 
 export function AgendaPage() {
+  const filters = useFilters()
+  return ['day', 'list'].includes(filters.params.get('view') ?? '') ? <AgendaDayListPage /> : <WeeklyAgenda />
+}
+
+function AgendaDayListPage() {
+  const [selected, setSelected] = useState<AgendaSelection | null>(null)
   const data = useOperations()
   const filters = useFilters()
   const date = filters.params.get('date') ?? today()
   const from = filters.params.get('from') ?? date
   const to = filters.params.get('to') ?? date
   const list = filters.params.get('view') === 'list'
-  const courtId = filters.params.get('court') ?? ''
+  const courtId = data.courts.length === 1 ? data.courts[0].id : filters.params.get('court') ?? ''
   const groupId = filters.params.get('group') ?? ''
   const reservationsOnly = filters.params.get('activity') === 'reservations'
   const showLessons = !reservationsOnly && !filters.status && !groupId
@@ -51,19 +60,19 @@ export function AgendaPage() {
   const courts = data.courts.filter(court => !courtId || court.id === courtId)
   const groupRows = data.reservations.filter(item => item.groupId === groupId)
   const rows = data.reservations.filter(item => (list ? item.date >= from && item.date <= to : item.date === date)
-    && (!courtId || item.courtId === courtId) && (!groupId || item.groupId === groupId)
+    && (list || item.status !== 'Cancelada') && (!courtId || item.courtId === courtId) && (!groupId || item.groupId === groupId)
     && (!filters.status || item.status === filters.status)
     && matches(`${item.name} ${item.customerName} ${item.groupTitle ?? ''}`)
     && (!reservationsOnly || !['Bloqueio', 'Cancelada'].includes(item.status)))
   const reservationEntry = (item: Reservation): Entry => ({
     key: item.id, date: item.date, time: item.startTime, courtId: item.courtId,
-    node: <ContextLink state={{ returnLabel: 'Agenda' }} className="arena-slot" to={filters.href(`/agenda/${item.id}`)}>
+    node: <button className="arena-slot" onClick={() => setSelected({ date: item.date, startTime: item.startTime, endTime: item.endTime, reservation: item })}>
       <strong>{item.startTime}–{item.endTime}</strong><span><strong>{item.name}</strong>
-        <small>{displayDate(item.date)} · {data.courts.find(court => court.id === item.courtId)?.name ?? 'Quadra'}</small>
+        <small>{displayDate(item.date)}{data.courts.length > 1 && ` · ${data.courts.find(court => court.id === item.courtId)?.name ?? 'Quadra'}`}</small>
         {item.customerName && item.customerName !== item.name && <small>{item.customerName}</small>}
         {item.groupId && <small>Grupo {item.groupTitle} · ocorrência {item.occurrenceIndex}</small>}
       </span><Status warning={item.status === 'Bloqueio'}>{item.status}</Status>
-    </ContextLink>,
+    </button>,
   })
   const entries = rows.map(reservationEntry)
   const days = list ? period.data?.days ?? [] : schedule.data ? [schedule.data] : []
@@ -74,38 +83,38 @@ export function AgendaPage() {
       const lesson = data.canRead('classes') && block.sourceId ? data.classes.find(item => item.id === block.sourceId) : undefined
       const name = lesson?.name ?? 'Aula'
       if (!matches(name)) return
-      const content = <><strong>{block.startTime}–{block.endTime}</strong><span><strong>{name}</strong><small>{displayDate(day.date)} · {data.courts.find(item => item.id === court.courtId)?.name ?? 'Quadra'}</small><small>Ocupa a quadra neste horário</small></span><Status>Aula</Status></>
+      const content = <><strong>{block.startTime}–{block.endTime}</strong><span><strong>{name}</strong><small>{displayDate(day.date)}{data.courts.length > 1 && ` · ${data.courts.find(item => item.id === court.courtId)?.name ?? 'Quadra'}`}</small><small>Ocupa a quadra neste horário</small></span><Status>Aula</Status></>
       entries.push({ key: `class-${day.date}-${court.courtId}-${index}`, date: day.date, time: block.startTime, courtId: court.courtId,
-        node: block.sourceId && data.canRead('classes') ? <ContextLink state={{ returnLabel: 'Agenda' }} className="arena-slot arena-slot-class" to={`/escola/${block.sourceId}`}>{content}</ContextLink> : <article className="arena-slot arena-slot-class">{content}</article> })
+        node: <button className="arena-slot arena-slot-class" onClick={() => setSelected({ date: day.date, startTime: block.startTime, endTime: block.endTime, isClass: true, lesson })}>{content}</button> })
     })
   }
   entries.sort((a, b) => `${a.date}${a.time}${a.key}`.localeCompare(`${b.date}${b.time}${b.key}`))
-  const activeFilters = [courtId, filters.status, query, groupId, reservationsOnly].filter(Boolean).length
+  const activeFilters = [data.courts.length > 1 && courtId, filters.status, query, groupId, reservationsOnly].filter(Boolean).length
   const clearFilters = filters.href('/agenda', { court: '', status: '', q: '', group: '', activity: '', page: '' })
   const renderEntries = (items: Entry[]) => <div className="arena-slots">{items.map(entry => <div key={entry.key}>{entry.node}</div>)}</div>
 
   if (!data.canRead('reservations')) return <NoAccess />
   return <main className="operation-page arena-page agenda-page">
-    <Heading title="Agenda e recepção" description="Consulte as atividades e a disponibilidade das quadras." action={data.canWrite('reservations') && <Link className="primary-link" to={filters.href('/agenda/novo', { date, court: courtId })}>+ Nova reserva</Link>} />
+    <Heading title="Agenda e recepção" description="Consulte as atividades e a disponibilidade dos horários." action={data.canWrite('reservations') && <Link className="primary-link" to={filters.href('/agenda/novo', { date, court: courtId, start: '', end: '' })}>+ Nova reserva</Link>} />
     <Feedback />
     <div className="agenda-controls">
       {!list && <div className="date-navigation"><button type="button" aria-label="Dia anterior" onClick={() => filters.set('date', shiftDay(date, -1))}>←</button><button type="button" onClick={() => filters.set('date', today())}>Hoje</button><button type="button" aria-label="Próximo dia" onClick={() => filters.set('date', shiftDay(date, 1))}>→</button><strong>{displayDate(date)}</strong></div>}
-      <Field label="Visualização" value={list ? 'list' : 'day'} onChange={value => filters.set('view', value)} options={[{ value: 'day', label: 'Agenda do dia' }, { value: 'list', label: 'Lista no período' }]} />
+      <Field label="Visualização" value={list ? 'list' : 'day'} onChange={value => filters.set('view', value)} options={[{ value: 'week', label: 'Semana' }, { value: 'day', label: 'Agenda do dia' }, { value: 'list', label: 'Lista no período' }]} />
     </div>
     {list && <div className="agenda-period"><Field label="De" type="date" value={from} onChange={value => filters.set('from', value)} /><Field label="Até" type="date" value={to} onChange={value => filters.set('to', value)} /></div>}
     <div className="agenda-options">
       <Disclosure title={`Filtros${activeFilters ? ` · ${activeFilters} ${activeFilters === 1 ? 'ativo' : 'ativos'}` : ''}`}><div className="arena-toolbar">
         {!list && <Field label="Dia" type="date" value={date} onChange={value => filters.set('date', value)} />}
         <Field label="Mostrar" value={reservationsOnly ? 'reservations' : ''} onChange={value => filters.set('activity', value)} options={[{ value: '', label: 'Reservas, bloqueios e aulas' }, { value: 'reservations', label: 'Somente reservas' }]} />
-        <Field label="Quadra" value={courtId} onChange={value => filters.set('court', value)} options={[{ value: '', label: 'Todas as quadras' }, ...data.courts.map(court => ({ value: court.id, label: court.name }))]} />
+        {data.courts.length > 1 && <Field label="Quadra" value={courtId} onChange={value => filters.set('court', value)} options={[{ value: '', label: 'Todas as quadras' }, ...data.courts.map(court => ({ value: court.id, label: court.name }))]} />}
         <Field label="Situação da reserva" value={filters.status} onChange={value => filters.set('status', value)} options={[{ value: '', label: 'Todas' }, 'Confirmada', 'Chegou', 'Concluída', 'Cancelada', 'Bloqueio']} />
         <Search filters={filters} placeholder="Buscar reserva, cliente ou aula…" />
         {activeFilters > 0 && <Link className="secondary-link" to={clearFilters}>Limpar filtros</Link>}
       </div></Disclosure>
       <Disclosure title="Mais opções"><div className="arena-actions">
         {data.canWrite('reservations') && <Link className="secondary-link" to={filters.href('/agenda/recorrentes/novo', { date, court: courtId })}>+ Reservas semanais de um grupo</Link>}
-        {data.canRead('courts') && <Link className="secondary-link" to="/quadras">Gerenciar quadras →</Link>}
-        {data.canRead('classes') && <Link className="secondary-link" to="/escola">Turmas que usam as quadras →</Link>}
+        {data.canRead('courts') && <Link className="secondary-link" to="/quadras">Funcionamento →</Link>}
+        {data.canRead('classes') && <Link className="secondary-link" to="/escola">Turmas de aulas →</Link>}
       </div></Disclosure>
     </div>
     {groupId && <p className="arena-message">Grupo semanal: <strong>{groupRows[0]?.groupTitle ?? 'Grupo selecionado'}</strong> · {groupRows.length} ocorrências <button className="text-button" onClick={() => filters.set('group', '')}>Ver todos os grupos</button></p>}
@@ -117,15 +126,17 @@ export function AgendaPage() {
       {list ? entries.length ? <Pagination total={entries.length}>{(start, end) => renderEntries(entries.slice(start, end))}</Pagination> : !incomplete && <Empty>Nenhuma atividade corresponde aos filtros.</Empty> : courts.length ? <div className="arena-schedule">{courts.map(court => {
         const occupation = !schedule.isError ? schedule.data?.courts.find(item => item.courtId === court.id) : undefined
         const items = entries.filter(entry => entry.courtId === court.id)
-        return <section className="arena-court-day" key={court.id} aria-label={court.name}>
-          <div className="arena-section-heading"><div><h2>{court.name}</h2><p>Horário cadastrado: {court.openingTime}–{court.closingTime}</p></div><p>{availability(occupation, schedule.isError)}</p></div>
+        return <section className="arena-court-day" key={court.id} aria-label={data.courts.length === 1 ? 'Atividades do dia' : court.name}>
+          <div className="arena-section-heading"><div><h2>{data.courts.length === 1 ? 'Atividades do dia' : court.name}</h2><p>Horário cadastrado: {court.openingTime}–{court.closingTime}</p></div><p>{availability(occupation, schedule.isError)}</p></div>
           {occupation?.schedulePending && !occupation.closedForDay && !occupation.closedForMaintenance && <p className="arena-hint">{data.canWrite('courts') ? <Link to="/quadras">Conferir agenda da quadra →</Link> : 'Peça à gestão para conferir os cadastros e horários.'}</p>}
           {occupation?.hasConflict && <p className="arena-message arena-error">Há horários sobrepostos ou fora do funcionamento. Confira as reservas e aulas.</p>}
           {schedule.isError && <button className="secondary-link" onClick={() => void schedule.refetch()}>Consultar disponibilidade novamente</button>}
           {renderEntries(items)}
+          {!schedule.isError && !occupation?.schedulePending && !occupation?.closedForDay && !occupation?.closedForMaintenance && Boolean(occupation?.freeIntervals?.length) && <section className="agenda-day-free" aria-label="Horários livres"><h3>Horários livres</h3>{occupation!.freeIntervals!.map(interval => <div key={interval.startTime}><span>{interval.startTime}–{interval.endTime} · Livre</span>{data.canWrite('reservations') && <Link to={reservationUrl(date,court.id,interval.startTime,interval.endTime)}>+ Nova reserva</Link>}</div>)}</section>}
           {!items.length && occupation && !incomplete && <p className="arena-hint">{activeFilters ? 'Nenhuma atividade corresponde aos filtros nesta quadra.' : 'Nenhuma atividade neste dia.'}</p>}
         </section>
       })}</div> : <Empty action={data.canWrite('courts') && <Link className="primary-link" to="/quadras">Cadastrar primeira quadra</Link>}>A agenda precisa de uma quadra cadastrada para mostrar horários e capacidade.</Empty>}
     </>}
+    {selected && <AgendaActivityDetails selected={selected} onClose={() => setSelected(null)} />}
   </main>
 }

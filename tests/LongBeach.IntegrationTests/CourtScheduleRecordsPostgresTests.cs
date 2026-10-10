@@ -80,6 +80,9 @@ public sealed class CourtScheduleRecordsPostgresTests
                 Assert.Equal(dailyRow.GetRawText(), row.GetRawText());
                 var expected = date is "2026-10-09" or "2026-10-16" ? 1 : 0;
                 Assert.Equal(expected, row.GetProperty("blocks").GetArrayLength());
+                Assert.Equal(expected * 60, row.GetProperty("occupiedMinutes").GetInt32());
+                Assert.Equal(expected == 0 ? 1 : 2, row.GetProperty("freeIntervals").GetArrayLength());
+                Assert.Equal(1080 - expected * 60, row.GetProperty("availableMinutes").GetInt32());
             }
             Assert.DoesNotContain(classId.ToString(), period.GetRawText());
             Assert.DoesNotContain("Nome privado da aula", period.GetRawText());

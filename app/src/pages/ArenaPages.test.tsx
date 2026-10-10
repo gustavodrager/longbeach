@@ -13,9 +13,9 @@ import { today } from './arenaUi'
 const owner: AuthUser={id:'11111111-1111-1111-1111-111111111111',name:'Admin teste',email:'teste@example.com',roles:['Owner'],permissions:[]}
 function json(body:unknown,status=200){return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}})}
 function RouteState(){const location=useLocation();return <output data-testid="route">{location.pathname}{location.search}</output>}
-function start(path:string,demoMode=true,user:AuthUser=owner){
+function start(path:string,demoMode=true,user:AuthUser=owner,staleTime=0){
   const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{}, completeFirstAccessWithGoogle: async () => {}}
-  const query=new QueryClient({defaultOptions:{queries:{retry:false}}})
+  const query=new QueryClient({defaultOptions:{queries:{retry:false,staleTime}}})
   return render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><DemoDataProvider enabled demoMode={demoMode}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<DashboardPage />} /><Route path="/quadras" element={<CourtsPage />} /><Route path="/agenda" element={<AgendaPage />} /><Route path="/agenda/:reservationId" element={<ReservationDetailsPage />} /><Route path="/financeiro" element={<FinancePage />} /><Route path="/financeiro/:entryId" element={<FinanceDetailsPage />} /><Route path="/equipe/:memberId" element={<TeamDetailsPage />} /><Route path="/projetos/:projectId" element={<ProjectDetailsPage />} /><Route path="/manutencao/:maintenanceId" element={<MaintenanceDetailsPage />} /></Routes></MemoryRouter></DemoDataProvider></AuthContext.Provider></QueryClientProvider>)
 }
 const court={id:'22222222-2222-2222-2222-222222222222',name:'Quadra 1',sport:'Futevôlei',status:'Disponível',openingTime:'07:00',closingTime:'23:00'}
@@ -51,7 +51,7 @@ it('registra reserva uma vez em dois envios e preserva filtros ao abrir a ficha'
   localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[court]}))
   start(`/agenda/novo?date=${today()}&court=${court.id}`)
   fireEvent.change(screen.getByLabelText('Nome da reserva'),{target:{value:'Treino do grupo'}})
-  fireEvent.change(screen.getByLabelText('Quadra'),{target:{value:court.id}})
+  expect(screen.queryByLabelText('Quadra')).not.toBeInTheDocument()
   fireEvent.change(screen.getByLabelText('Nome do cliente ou grupo'),{target:{value:'Grupo A'}})
   const form=screen.getByRole('button',{name:'Salvar reserva'}).closest('form')!
   act(()=>{fireEvent.submit(form);fireEvent.submit(form)})
@@ -88,7 +88,7 @@ it('falha ao salvar mantém a reserva e reenvia o mesmo identificador sem duplic
   start('/agenda/novo',false)
   const user=userEvent.setup();await waitFor(()=>expect(screen.queryByText('Carregando registros da arena…')).not.toBeInTheDocument())
   await user.type(screen.getByLabelText('Nome da reserva'),'Reserva com conexão instável')
-  await user.selectOptions(screen.getByLabelText('Quadra'),court.id)
+  expect(screen.queryByLabelText('Quadra')).not.toBeInTheDocument()
   await user.click(screen.getByRole('button',{name:'Salvar reserva'}))
   expect(await screen.findByRole('alert')).toHaveTextContent('Falha temporária')
   expect(screen.getByLabelText('Nome da reserva')).toHaveValue('Reserva com conexão instável')
@@ -142,7 +142,7 @@ it('recepção considera aulas na disponibilidade sem divulgar turma, professor 
     if(path.includes('/courts/schedule?'))return json({date:today(),updatedAtUtc:new Date().toISOString(),courts:[{courtId:court.id,openingTime:'07:00',closingTime:'23:00',availableMinutes:780,reservedMinutes:60,classMinutes:120,closedForMaintenance:false,hasConflict:false,blocks:[{source:'Aula',startTime:'18:00',endTime:'20:00',sourceId:null}]}]})
     return json(path.endsWith('/courts')?[court]:[])
   })
-  start(`/agenda?date=${today()}`,false,{...owner,roles:['Operations'],permissions:['projects:read']})
+  start(`/agenda?view=day&date=${today()}`,false,{...owner,roles:['Operations'],permissions:['projects:read']})
   expect(await screen.findByText('1 h reservadas ou bloqueadas · 2 h de aulas · 13 h livres no dia')).toBeInTheDocument()
   expect(screen.getByText('Aula',{selector:'strong'})).toBeInTheDocument()
   expect(screen.queryByRole('link',{name:/18:00.*Aula/})).not.toBeInTheDocument()
@@ -161,7 +161,7 @@ it('reservas de hoje abre exatamente a composição do indicador, sem bloqueios,
   await userEvent.setup().click(card)
   expect(await screen.findByRole('heading',{name:'Agenda e recepção'})).toBeInTheDocument()
   expect(screen.getByLabelText('Mostrar')).toHaveValue('reservations')
-  expect(screen.getByRole('link',{name:/Reserva confirmada/})).toBeInTheDocument()
+  expect(screen.getByRole('button',{name:/Reserva confirmada/})).toBeInTheDocument()
   expect(screen.queryByText('Bloqueio para limpeza')).not.toBeInTheDocument()
   expect(screen.queryByText('Reserva cancelada')).not.toBeInTheDocument()
   expect(screen.queryByText('Turma do dia')).not.toBeInTheDocument()
@@ -226,14 +226,14 @@ it('salva dias úteis até meia-noite mantendo a conferência da agenda pendente
 
 it('distingue horas de funcionamento de horas livres com agenda não conferida', async () => {
   localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[{...court,openingTime:'06:00',closingTime:'24:00',operatingDays:[1,2,3,4,5],scheduleConfirmed:false}]}))
-  start('/agenda?date=2026-10-06')
+  start('/agenda?view=day&date=2026-10-06')
   expect(await screen.findByText('Disponibilidade não verificada')).toBeInTheDocument()
   expect(screen.queryByText(/18 h disponíveis/)).not.toBeInTheDocument()
 })
 
 it('mostra fechamento no sábado sem atribuir capacidade livre à quadra', async () => {
   localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[{...court,openingTime:'06:00',closingTime:'24:00',operatingDays:[1,2,3,4,5]}]}))
-  start('/agenda?date=2026-10-10')
+  start('/agenda?view=day&date=2026-10-10')
   expect(await screen.findByText('Fechada neste dia da semana')).toBeInTheDocument()
   expect(screen.queryByText(/18 h disponíveis/)).not.toBeInTheDocument()
 })
@@ -275,11 +275,11 @@ it('lista aulas por ocorrência junto das reservas e mantém a mesma seleção n
   localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[court],classes:[fridayClass],reservations:[fridayReservation]}))
   start('/agenda?view=list&from=2026-10-09&to=2026-10-16&date=2026-10-09')
   expect(await screen.findByText('3 atividades')).toBeInTheDocument()
-  expect(screen.getAllByRole('link',{name:/Aula de sexta/})).toHaveLength(2)
-  expect(screen.getByRole('link',{name:/Locação de sexta/})).toBeInTheDocument()
+  expect(screen.getAllByRole('button',{name:/Aula de sexta/})).toHaveLength(2)
+  expect(screen.getByRole('button',{name:/Locação de sexta/})).toBeInTheDocument()
   await userEvent.setup().selectOptions(screen.getByLabelText('Visualização'),'day')
   expect(await screen.findByText('2 atividades')).toBeInTheDocument()
-  expect(screen.getAllByRole('link',{name:/Aula de sexta/})).toHaveLength(1)
+  expect(screen.getAllByRole('button',{name:/Aula de sexta/})).toHaveLength(1)
 })
 
 it('não projeta aulas antes da vigência e filtra aula pelo nome e pela quadra',async()=>{
@@ -287,16 +287,16 @@ it('não projeta aulas antes da vigência e filtra aula pelo nome e pela quadra'
   localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[court,otherCourt],classes:[fridayClass,{...fridayClass,id:'dddddddd-dddd-dddd-dddd-dddddddddddd',courtId:otherCourt.id,name:'Aula em outra quadra'}],reservations:[fridayReservation]}))
   start(`/agenda?view=list&from=2026-10-02&to=2026-10-09&court=${court.id}&q=Aula`)
   expect(await screen.findByText('1 atividade')).toBeInTheDocument()
-  expect(screen.getAllByRole('link',{name:/Aula de sexta/})).toHaveLength(1)
+  expect(screen.getAllByRole('button',{name:/Aula de sexta/})).toHaveLength(1)
   expect(screen.queryByText('Aula em outra quadra')).not.toBeInTheDocument()
   expect(screen.queryByText('Locação de sexta')).not.toBeInTheDocument()
 })
 
 it('filtro de situação limita a seleção sem alterar a ocupação real',async()=>{
   localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[court],classes:[fridayClass],reservations:[fridayReservation]}))
-  start('/agenda?date=2026-10-09&status=Confirmada')
+  start('/agenda?view=day&date=2026-10-09&status=Confirmada')
   expect(await screen.findByText('1 h reservadas ou bloqueadas · 1 h de aulas · 14 h livres no dia')).toBeInTheDocument()
-  expect(screen.queryByRole('link',{name:/Aula de sexta/})).not.toBeInTheDocument()
+  expect(screen.queryByRole('button',{name:/Aula de sexta/})).not.toBeInTheDocument()
   expect(screen.getByText(/A disponibilidade também considera as aulas/)).toBeInTheDocument()
 })
 
@@ -313,7 +313,7 @@ it('falha da consulta por período não transforma aulas desconhecidas em agenda
   expect(await screen.findByText(/As aulas não puderam ser consultadas/)).toBeInTheDocument()
   expect(screen.queryByText('Nenhuma atividade corresponde aos filtros.')).not.toBeInTheDocument()
   expect(screen.queryByText('1 atividade')).not.toBeInTheDocument()
-  expect(screen.getByRole('link',{name:/Locação de sexta/})).toBeInTheDocument()
+  expect(screen.getByRole('button',{name:/Locação de sexta/})).toBeInTheDocument()
 })
 
 it('ocupação de aula sem permissão da Escola aparece sem nome ou link privado',async()=>{
@@ -333,7 +333,7 @@ it('ocupação de aula sem permissão da Escola aparece sem nome ou link privado
 
 it('mantém filtros recolhidos e permite abrir, pesquisar e limpar a seleção',async()=>{
   localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[court],classes:[fridayClass],reservations:[fridayReservation]}))
-  start('/agenda?date=2026-10-09')
+  start('/agenda?view=day&date=2026-10-09')
   expect(await screen.findByText('2 atividades')).toBeInTheDocument()
   const disclosure=screen.getByText('Filtros').closest('details')!
   expect(disclosure).not.toHaveAttribute('open')
@@ -342,4 +342,121 @@ it('mantém filtros recolhidos e permite abrir, pesquisar e limpar a seleção',
   expect(await screen.findByText('1 atividade')).toBeInTheDocument()
   await user.click(screen.getByRole('link',{name:'Limpar filtros'}))
   expect(await screen.findByText('2 atividades')).toBeInTheDocument()
+})
+
+it('abre a semana por padrão, soma ocupação sem duplicar e destaca sem liberar horários',async()=>{
+  const group={id:'group-monthly',name:'Mensalistas da noite',members:[],organizerId:'',notes:''}
+  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[{...court,openingTime:'16:00',closingTime:'22:00',operatingDays:[5],scheduleConfirmed:true}],classes:[fridayClass],rentalGroups:[group],reservations:[{...fridayReservation,rentalGroupId:group.id,startTime:'17:30',endTime:'19:00'},{...fridayReservation,id:'canceled',status:'Cancelada',name:'Cancelada não ocupa',startTime:'20:00',endTime:'21:00'}]}))
+  start('/agenda?date=2026-10-09')
+  const dashboard=screen.getByRole('region',{name:'Resumo da semana'})
+  await waitFor(()=>expect(within(dashboard).getByText('4 h')).toBeInTheDocument())
+  expect(within(dashboard).getByText('2 h')).toBeInTheDocument()
+  expect(screen.queryByText('Quadra 1')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Quadra')).not.toBeInTheDocument()
+  expect(screen.queryByText('Cancelada não ocupa')).not.toBeInTheDocument()
+  expect(screen.getByRole('button',{name:/Aula.*17:00–18:00.*Aula de sexta/})).toBeInTheDocument()
+  const member=screen.getByRole('button',{name:/Mensalista.*17:30–19:00.*Mensalistas da noite/})
+  expect(member).toBeInTheDocument()
+  const user=userEvent.setup();await user.click(screen.getByText('Filtros'))
+  await user.selectOptions(screen.getByLabelText('Destacar atividade'),'aula')
+  expect(member).toHaveClass('is-muted')
+  expect(within(dashboard).getByText('4 h')).toBeInTheDocument()
+  expect(screen.getByRole('link',{name:'Nova reserva 09/10/2026 19:00–22:00'})).toHaveAttribute('href',expect.stringContaining('end=20%3A00'))
+})
+
+it('detalhes de aula mostram cadastro atual e voltam ao mesmo horário com foco',async()=>{
+  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[court],classes:[{...fridayClass,teacherId:'teacher'}],team:[{id:'teacher',name:'Professor Teste'}],students:[{id:'student',name:'Aluna Teste'}],enrollments:[{id:'enroll',classId:fridayClass.id,studentId:'student',status:'Ativa'}]}))
+  start('/agenda?date=2026-10-09')
+  const trigger=await screen.findByRole('button',{name:/Aula.*17:00–18:00.*Aula de sexta/})
+  const user=userEvent.setup();await user.click(trigger)
+  const panel=screen.getByRole('dialog',{name:'Aula de sexta'})
+  expect(within(panel).getByText('Professor Teste')).toBeInTheDocument()
+  expect(within(panel).getByText('Aluna Teste')).toBeInTheDocument()
+  expect(within(panel).getByText('Cadastro atual da turma e das matrículas.')).toBeInTheDocument()
+  expect(within(panel).queryByText(/cobrança|mensalidade/i)).not.toBeInTheDocument()
+  await user.click(within(panel).getByRole('button',{name:'Fechar Aula de sexta'}))
+  await waitFor(()=>expect(trigger).toHaveFocus())
+  expect(screen.getByTestId('route')).toHaveTextContent('/agenda?date=2026-10-09')
+})
+
+it('mensalista usa participantes do mês; recorrência avulsa continua locação',async()=>{
+  const group={id:'monthly',name:'Grupo mensal',organizerId:'owner',members:[{id:'owner',name:'Responsável atual',status:'Ativo'},{id:'new',name:'Participante novo',status:'Ativo'}],notes:''}
+  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[court],rentalGroups:[group],rentalMonths:[{id:'month',rentalGroupId:group.id,month:'2026-10',members:[{id:'old',name:'Participante do mês'}]}],reservations:[{...fridayReservation,rentalGroupId:group.id,rentalMonth:'2026-10'},{...fridayReservation,id:'generic',name:'Recorrência avulsa',groupId:'recurring',startTime:'20:00',endTime:'21:00'}]}))
+  start('/agenda?date=2026-10-09')
+  await userEvent.setup().click(await screen.findByRole('button',{name:/Mensalista.*Grupo mensal/}))
+  const panel=screen.getByRole('dialog',{name:'Grupo mensal'})
+  expect(within(panel).getByText('Participante do mês')).toBeInTheDocument()
+  expect(within(panel).queryByText('Participante novo')).not.toBeInTheDocument()
+  expect(within(panel).getByText('Responsável atual')).toBeInTheDocument()
+  expect(screen.getByRole('button',{name:/Locação.*Recorrência avulsa/})).toBeInTheDocument()
+})
+
+it('não anuncia intervalos livres com funcionamento pendente',async()=>{
+  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[{...court,scheduleConfirmed:false}],classes:[fridayClass]}))
+  start('/agenda?date=2026-10-09')
+  await screen.findByRole('button',{name:/Aula.*Aula de sexta/})
+  expect(screen.queryByRole('link',{name:/Nova reserva 09\/10/})).not.toBeInTheDocument()
+  expect(within(screen.getByRole('region',{name:'Resumo da semana'})).getByText('A confirmar')).toBeInTheDocument()
+})
+
+it('intervalo parcial preenche reserva e escolhe a única quadra automaticamente',async()=>{
+  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[{...court,openingTime:'23:30',closingTime:'24:00'}]}))
+  start('/agenda?date=2026-10-09')
+  await userEvent.setup().click(await screen.findByRole('link',{name:'Nova reserva 09/10/2026 23:30–24:00'}))
+  expect(screen.getByLabelText('Começa às')).toHaveValue('23:30')
+  expect(screen.getByLabelText('Termina às')).toHaveValue('24:00')
+  expect(screen.queryByLabelText('Quadra')).not.toBeInTheDocument()
+})
+
+it('semana falha informa painel parcial e não oferece novas reservas em lacunas',async()=>{
+  vi.stubEnv('VITE_DEMO_MODE','false')
+  vi.spyOn(globalThis,'fetch').mockImplementation(async input=>String(input).includes('/schedule-range')?json({message:'Indisponível'},503):json(String(input).endsWith('/courts')?[court]:[]))
+  start('/agenda?date=2026-10-09',false)
+  expect(await screen.findByRole('alert')).toHaveTextContent('Agenda incompleta')
+  expect(screen.getByRole('button',{name:'Tentar novamente'})).toBeInTheDocument()
+  expect(screen.queryByRole('link',{name:/Nova reserva 09\/10/})).not.toBeInTheDocument()
+})
+
+it('semana preserva ocupação da aula sem carregar ou revelar cadastros da escola',async()=>{
+  vi.stubEnv('VITE_DEMO_MODE','false')
+  const reception:AuthUser={...owner,roles:['Operations'],permissions:['projects:read']}
+  const fetchMock=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
+    const path=String(input)
+    if(path.includes('/schedule-range'))return json({from:'2026-10-05',to:'2026-10-11',days:Array.from({length:7},(_,index)=>({date:`2026-10-${String(index+5).padStart(2,'0')}`,courts:[{courtId:court.id,openingTime:'07:00',closingTime:'23:00',availableMinutes:index===4?900:960,occupiedMinutes:index===4?60:0,schedulePending:false,blocks:index===4?[{source:'Aula',startTime:'17:00',endTime:'18:00',sourceId:null}]:[],freeIntervals:index===4?[{startTime:'07:00',endTime:'17:00'},{startTime:'18:00',endTime:'23:00'}]:[{startTime:'07:00',endTime:'23:00'}]}]}))})
+    return json(path.endsWith('/courts')?[court]:[])
+  })
+  start('/agenda?date=2026-10-09',false,reception)
+  await userEvent.setup().click(await screen.findByRole('button',{name:/Aula.*17:00–18:00/}))
+  const panel=screen.getByRole('dialog',{name:'Aula'})
+  expect(within(panel).getByText('Detalhes da aula indisponíveis para seu acesso.')).toBeInTheDocument()
+  expect(within(panel).queryByRole('link',{name:/turma/i})).not.toBeInTheDocument()
+  expect(fetchMock.mock.calls.some(([input])=>/\/(students|classes|team)$/.test(String(input)))).toBe(false)
+})
+
+it('salvar na API invalida imediatamente a disponibilidade mesmo com cache de 30 segundos',async()=>{
+  vi.stubEnv('VITE_DEMO_MODE','false')
+  let saved:Record<string,unknown>|null=null, scheduleReads=0
+  vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{
+    const path=String(input)
+    if(init?.method==='PUT'){saved={...JSON.parse(String(init.body)),version:1};return json(saved,201)}
+    if(path.includes('/schedule-range')){
+      scheduleReads++
+      return json({from:'2026-10-05',to:'2026-10-11',days:Array.from({length:7},(_,index)=>({date:`2026-10-${String(index+5).padStart(2,'0')}`,courts:[{courtId:court.id,openingTime:'18:00',closingTime:'19:00',availableMinutes:index===4&&saved?0:60,occupiedMinutes:index===4&&saved?60:0,blocks:index===4&&saved?[{source:'Reserva',startTime:'18:00',endTime:'19:00',sourceId:saved.id}]:[],freeIntervals:index===4&&saved?[]:[{startTime:'18:00',endTime:'19:00'}]}]}))})
+    }
+    if(path.endsWith('/courts'))return json([{...court,openingTime:'18:00',closingTime:'19:00'}])
+    if(path.endsWith('/reservations'))return json(saved?[saved]:[])
+    return json([])
+  })
+  start('/agenda?date=2026-10-09',false,owner,30_000)
+  const user=userEvent.setup()
+  await user.click(await screen.findByRole('link',{name:'Nova reserva 09/10/2026 18:00–19:00'}))
+  await user.type(screen.getByLabelText('Nome da reserva'),'Reserva imediata')
+  await user.click(screen.getByRole('button',{name:'Salvar reserva'}))
+  await screen.findByRole('heading',{name:'Reserva imediata'})
+  await user.click(screen.getByRole('link',{name:'← Agenda e recepção'}))
+  expect(await screen.findByRole('button',{name:/Locação.*Reserva imediata/})).toBeInTheDocument()
+  expect(scheduleReads).toBe(2)
+  expect(screen.queryByRole('link',{name:'Nova reserva 09/10/2026 18:00–19:00'})).not.toBeInTheDocument()
+  expect(within(screen.getByRole('region',{name:'Resumo da semana'})).getByText('6 h')).toBeInTheDocument()
+  expect(screen.getByRole('link',{name:'+ Nova reserva'})).not.toHaveAttribute('href',expect.stringContaining('start='))
 })

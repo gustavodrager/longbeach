@@ -93,4 +93,49 @@ public sealed class CourtScheduleTests
         Assert.Equal(366, CourtScheduleQuery.BuildRange(new(2026, 1, 1), new(2027, 1, 1), DateTimeOffset.UtcNow, records, false).Days.Count);
         Assert.Single(CourtScheduleQuery.BuildRange(DateOnly.MaxValue, DateOnly.MaxValue, DateTimeOffset.UtcNow, records, false).Days);
     }
+    [Fact]
+    public void Free_intervals_merge_touching_blocks_and_keep_partial_hours_and_midnight()
+    {
+        var id = Guid.NewGuid();
+        JsonElement Reservation(string start, string end, string status = "Confirmada") => JsonSerializer.SerializeToElement(new { id = Guid.NewGuid(), courtId = id, date = "2026-10-09", startTime = start, endTime = end, status });
+        var records = new Dictionary<string, JsonElement[]>
+        {
+            ["courts"] = [JsonSerializer.SerializeToElement(new { id, openingTime = "06:00", closingTime = "24:00", status = "Disponível", scheduleConfirmed = true })],
+            ["reservations"] = [Reservation("07:15", "08:30"), Reservation("08:30", "09:00"), Reservation("08:00", "08:45"), Reservation("23:00", "23:30", "Bloqueio"), Reservation("12:00", "13:00", "Cancelada")]
+        };
+        var row = CourtScheduleQuery.Build(new(2026,10,9), DateTimeOffset.UtcNow, records, true).Courts[0];
+        Assert.Equal(135, row.OccupiedMinutes);
+        Assert.Equal(945, row.AvailableMinutes);
+        Assert.True(row.HasConflict);
+        Assert.Equal(new[] { ("06:00", "07:15"), ("09:00", "23:00"), ("23:30", "24:00") }, row.FreeIntervals!.Select(window => (window.StartTime,window.EndTime)));
+        Assert.Equal(row.AvailableMinutes, row.FreeIntervals!.Sum(window => Minute(window.EndTime) - Minute(window.StartTime)));
+        static int Minute(string value) => int.Parse(value[..2]) * 60 + int.Parse(value[3..]);
+    }
+
+    [Theory]
+    [InlineData(false, "Disponível", false)]
+    [InlineData(true, "Manutenção", false)]
+    [InlineData(true, "Disponível", true)]
+    public void Pending_maintenance_and_closed_days_never_offer_free_intervals(bool confirmed, string status, bool closed)
+    {
+        var records = new Dictionary<string, JsonElement[]> { ["courts"] = [JsonSerializer.SerializeToElement(new { id = Guid.NewGuid(), openingTime = "06:00", closingTime = "24:00", status, scheduleConfirmed = confirmed, operatingDays = closed ? new[] { 1 } : new[] { 5 } })] };
+        var row = CourtScheduleQuery.Build(new(2026,10,9), DateTimeOffset.UtcNow, records, true).Courts[0];
+        if (!confirmed) Assert.Null(row.FreeIntervals); else Assert.Empty(row.FreeIntervals!);
+    }
+
+    [Fact]
+    public void Blocks_completely_outside_hours_remain_visible_and_count_as_occupied_once()
+    {
+        var id = Guid.NewGuid();
+        var records = new Dictionary<string, JsonElement[]>
+        {
+            ["courts"] = [JsonSerializer.SerializeToElement(new { id, openingTime = "08:00", closingTime = "22:00", status = "Disponível" })],
+            ["reservations"] = [JsonSerializer.SerializeToElement(new { id = Guid.NewGuid(), courtId = id, date = "2026-10-09", startTime = "06:00", endTime = "07:00", status = "Confirmada" })]
+        };
+        var row = CourtScheduleQuery.Build(new(2026,10,9), DateTimeOffset.UtcNow, records, true).Courts[0];
+        Assert.Single(row.Blocks); Assert.True(row.HasConflict); Assert.Equal(60, row.OccupiedMinutes);
+        Assert.Equal(840, row.AvailableMinutes);
+        var window = Assert.Single(row.FreeIntervals!); Assert.Equal("08:00",window.StartTime); Assert.Equal("22:00",window.EndTime);
+    }
+
 }

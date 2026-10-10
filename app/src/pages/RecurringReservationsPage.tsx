@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError } from '../lib/http'
 import { useOperations } from '../features/operations/DemoDataProvider'
@@ -20,9 +20,10 @@ export function RecurringReservationsPage() {
   const retry = useRef<RecurringReservationInput | null>(null)
   const [busy, setBusy] = useState(false); const [uncertain, setUncertain] = useState(false); const [error, setError] = useState('')
   const [form, setForm] = useState<Omit<RecurringReservationInput, 'operationId'>>(() => ({
-    groupTitle: '', courtId: filters.params.get('court') ?? '', startDate: filters.params.get('date') ?? today(),
+    groupTitle: '', courtId: data.courts.length === 1 ? data.courts[0].id : filters.params.get('court') ?? '', startDate: filters.params.get('date') ?? today(),
     startTime: '18:00', endTime: '19:00', weeks: 4, customerName: '', phone: '', amount: 0, notes: '',
   }))
+  useEffect(() => { if (data.courts.length === 1 && !form.courtId) setForm(current => ({ ...current, courtId: data.courts[0].id })) }, [data.courts, form.courtId])
   const dates = recurringDates(form.startDate, form.weeks)
   if (!data.canRead('reservations') || !data.canWrite('reservations')) return <NoAccess />
 
@@ -57,7 +58,7 @@ export function RecurringReservationsPage() {
       <fieldset className="arena-input-lock" disabled={disabled}>
         <Group title="1. Grupo e período">
           <Field label="Nome do grupo de reservas" required value={form.groupTitle} onChange={groupTitle => setForm({ ...form, groupTitle })} />
-          <Field label="Quadra" required value={form.courtId} onChange={courtId => setForm({ ...form, courtId })} options={[{ value: '', label: 'Escolha a quadra' }, ...data.courts.filter(item => item.status === 'Disponível').map(item => ({ value: item.id, label: item.name }))]} />
+          {data.courts.length !== 1 && <Field label="Quadra" required value={form.courtId} onChange={courtId => setForm({ ...form, courtId })} options={[{ value: '', label: 'Escolha a quadra' }, ...data.courts.filter(item => item.status === 'Disponível').map(item => ({ value: item.id, label: item.name }))]} />}
           <Field label="Primeira reserva" required type="date" value={form.startDate} onChange={startDate => setForm({ ...form, startDate })} />
           <Field label="Número de semanas" required type="number" min={1} max={12} step="1" value={form.weeks} onChange={weeks => setForm({ ...form, weeks: Number(weeks) })} />
         </Group>

@@ -45,7 +45,7 @@ export const operationalPermissions: Record<OperationalKind, { read: string; wri
 }
 type Operations = OperationalData & {
   persistenceStatus: 'local' | 'connecting' | 'connected' | 'error'; persistenceMessage: string
-  saving: boolean; dataUpdatedAt: string | null; refreshFailed: boolean
+  saving: boolean; scheduleRevision: number; dataUpdatedAt: string | null; refreshFailed: boolean
   canRead: (kind: OperationalKind) => boolean; canWrite: (kind: OperationalKind) => boolean
   reload: () => Promise<void>
   saveRentalGroup: (value: New<RentalGroup>, id?: string) => Promise<string>
@@ -98,6 +98,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
   const [data, setData] = useState<OperationalData>(() => enabled && demoMode && !remote ? readDemo() : empty())
   const dataRef = useRef(data); dataRef.current = data
   const [saving, setSaving] = useState(false)
+  const [scheduleRevision, setScheduleRevision] = useState(0)
   const [persistenceStatus, setPersistenceStatus] = useState<Operations['persistenceStatus']>(remote ? 'connecting' : 'local')
   const persistenceRef = useRef(persistenceStatus); persistenceRef.current = persistenceStatus
   const [persistenceMessage, setPersistenceMessage] = useState('')
@@ -184,6 +185,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
       const rows = dataRef.current[kind] as { id: string }[]
       const next = { ...dataRef.current, [kind]: rows.some(row => row.id === id) ? rows.map(row => row.id === id ? saved : row) : [...rows, saved] }
       dataRef.current = next; setData(next); if (!remote) setDataUpdatedAt(new Date().toISOString())
+      if (['courts','classes','reservations'].includes(kind)) setScheduleRevision(value => value + 1)
       retryIds.current.delete(intent)
       setPersistenceMessage(remote ? 'Alterações salvas no PostgreSQL.' : 'Alterações salvas neste navegador de teste.')
       return id
@@ -233,6 +235,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
       const ids = new Set(saved.reservations.map(row => row.id))
       const next = { ...dataRef.current, reservations: [...dataRef.current.reservations.filter(row => !ids.has(row.id)), ...saved.reservations] }
       dataRef.current = next; setData(next); if (!remote) setDataUpdatedAt(new Date().toISOString()); setPersistenceMessage(`${saved.reservations.length} reservas do grupo foram confirmadas.`)
+      setScheduleRevision(value => value + 1)
       return saved
     } catch (error) {
       if (ownerRef.current === requestOwner && sessionEpoch.current === requestEpoch) setPersistenceMessage(error instanceof Error ? error.message : 'Não foi possível confirmar o grupo. Seu formulário permanece aberto.')
@@ -240,7 +243,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
     } finally { if (ownerRef.current === requestOwner && sessionEpoch.current === requestEpoch) { pending.current.delete(key); setSaving(pending.current.size > 0) } }
   }, [enabled, demoMode, user, canWrite, remote, owner])
   const value = useMemo<Operations>(() => ({
-    ...data, persistenceStatus, persistenceMessage, saving, dataUpdatedAt, refreshFailed, canRead, canWrite, reload,
+    ...data, persistenceStatus, persistenceMessage, saving, scheduleRevision, dataUpdatedAt, refreshFailed, canRead, canWrite, reload,
     saveRentalGroup: (v,id) => save('rentalGroups',v,id), saveRentalAttendance: (v,id) => save('rentalAttendances',v,id),
     saveStudent: (v,id) => save('students',v,id), saveTeamMember: (v,id) => save('team',v,id),
     saveInventoryItem: (v,id) => save('inventory',v,id), saveProject: (v,id) => save('projects',v,id),
@@ -253,7 +256,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
       if (!item || !Number.isFinite(amount) || amount === 0 || item.quantity + amount < 0) throw new Error('Confira a quantidade do material antes de ajustar.')
       await save('inventory', { ...item, quantity: item.quantity + amount, movements: [...(item.movements ?? []), { id: makeId(), kind: amount > 0 ? 'Entrada' : 'Baixa', quantity: Math.abs(amount), occurredAt: new Date().toISOString() }] }, id)
     },
-  }), [data, persistenceStatus, persistenceMessage, saving, dataUpdatedAt, refreshFailed, canRead, canWrite, reload, save, saveRecurringReservations])
+  }), [data, persistenceStatus, persistenceMessage, saving, scheduleRevision, dataUpdatedAt, refreshFailed, canRead, canWrite, reload, save, saveRecurringReservations])
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
 export function useOptionalOperations() { return useContext(Context) }

@@ -11,7 +11,7 @@ export function useCourtSchedule(date: string, enabled = true) {
   const accessScope = user ? `${user.id}:${[...user.roles].sort().join(',')}:${[...user.permissions].sort().join(',')}` : 'demo'
   const demoMode = import.meta.env.VITE_DEMO_MODE === 'true' && import.meta.env.VITE_OPERATIONAL_STORAGE !== 'postgres'
   return useQuery<CourtSchedule>({
-    queryKey: ['arena', 'court-schedule', accessScope, date, data.dataUpdatedAt],
+    queryKey: ['arena', 'court-schedule', accessScope, date, data.dataUpdatedAt, data.scheduleRevision],
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
     enabled: enabled && data.canRead('courts') && /^\d{4}-\d{2}-\d{2}$/.test(date) && Boolean(data.dataUpdatedAt),
@@ -31,12 +31,17 @@ function demoSchedule(date: string, data: ReturnType<typeof useOperations>): Cou
     ].sort((a,b) => a.startTime.localeCompare(b.startTime))
     const begin = minute(court.openingTime), end = minute(court.closingTime)
     let cursor = begin, used = 0
-    for (const block of blocks) { const start = Math.max(begin, minute(block.startTime)), finish = Math.min(end, minute(block.endTime)); used += Math.max(0, finish - Math.max(cursor,start)); cursor = Math.max(cursor,finish) }
+    const freeIntervals: { startTime: string; endTime: string }[] = []
+    const time = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+    for (const block of blocks) { const start = Math.max(begin, minute(block.startTime)), finish = Math.min(end, minute(block.endTime)); if (finish <= start) continue; if (start > cursor) freeIntervals.push({ startTime: time(cursor), endTime: time(start) }); used += Math.max(0, finish - Math.max(cursor,start)); cursor = Math.max(cursor,finish) }
+    if (cursor < end) freeIntervals.push({ startTime: time(cursor), endTime: time(end) })
+    let occupiedMinutes = 0, occupiedEnd = 0
+    for (const block of blocks) { occupiedMinutes += Math.max(0, minute(block.endTime) - Math.max(occupiedEnd,minute(block.startTime))); occupiedEnd = Math.max(occupiedEnd,minute(block.endTime)) }
     const reservedMinutes = blocks.filter(block => block.source !== 'Aula').reduce((sum,block) => sum + Math.max(0, Math.min(end,minute(block.endTime))-Math.max(begin,minute(block.startTime))),0)
     const classMinutes = blocks.filter(block => block.source === 'Aula').reduce((sum,block) => sum + Math.max(0, Math.min(end,minute(block.endTime))-Math.max(begin,minute(block.startTime))),0)
     const closedForDay = !(court.operatingDays ?? [0,1,2,3,4,5,6]).includes(weekday)
     const closed = closedForDay || court.status === 'Manutenção'
-    return { closedForDay, operatingMinutes: closed ? 0 : end-begin, schedulePending: court.scheduleConfirmed === false, courtId: court.id, openingTime: court.openingTime, closingTime: court.closingTime, availableMinutes: closed ? 0 : court.scheduleConfirmed === false ? null : Math.max(0,end-begin-used), reservedMinutes, classMinutes, closedForMaintenance: court.status === 'Manutenção', hasConflict: reservedMinutes+classMinutes>used || closedForDay && blocks.length>0, blocks }
+    return { closedForDay, operatingMinutes: closed ? 0 : end-begin, schedulePending: court.scheduleConfirmed === false, courtId: court.id, openingTime: court.openingTime, closingTime: court.closingTime, availableMinutes: closed ? 0 : court.scheduleConfirmed === false ? null : Math.max(0,end-begin-used), reservedMinutes, classMinutes, closedForMaintenance: court.status === 'Manutenção', occupiedMinutes, freeIntervals: court.scheduleConfirmed === false ? null : closed ? [] : freeIntervals, hasConflict: reservedMinutes+classMinutes>used || closed && blocks.length>0 || blocks.some(block => minute(block.startTime) < begin || minute(block.endTime) > end), blocks }
   }) }
 }
 
@@ -46,7 +51,7 @@ export function useCourtScheduleRange(from: string, to: string, enabled: boolean
   const accessScope = user ? `${user.id}:${[...user.roles].sort().join(',')}:${[...user.permissions].sort().join(',')}` : 'demo'
   const demoMode = import.meta.env.VITE_DEMO_MODE === 'true' && import.meta.env.VITE_OPERATIONAL_STORAGE !== 'postgres'
   return useQuery<CourtScheduleRange>({
-    queryKey: ['arena', 'court-schedule-range', accessScope, from, to, data.dataUpdatedAt],
+    queryKey: ['arena', 'court-schedule-range', accessScope, from, to, data.dataUpdatedAt, data.scheduleRevision],
     enabled: enabled && data.canRead('courts') && Boolean(data.dataUpdatedAt),
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
