@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { App } from './App'
 import { getCsrfToken, setAccessToken, setCsrfToken } from './lib/http'
 
+vi.mock('./features/auth/GoogleSignInButton', () => ({ GoogleSignInButton: ({ onCredential }: { onCredential: (credential: string) => void }) => <button type="button" onClick={() => onCredential('verified-test-credential')}>Entrar com Google</button> }))
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -13,6 +15,7 @@ function jsonResponse(body: unknown, status = 200) {
 
 function withOperationalReads(authHandler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+    if (String(input).endsWith('/api/v1/auth/options')) return Promise.resolve(jsonResponse({ googleClientId: 'test-client', clientRegistrationEnabled: true }))
     if (String(input).includes('/api/v1/financial-history') && !init?.method) return Promise.resolve(jsonResponse({ month: '2026-08', months: [], items: [], totals: [], total: 0, page: 1 }))
     if (String(input).includes('/api/v1/operations/') && !init?.method) return Promise.resolve(jsonResponse([]))
     return authHandler(input, init)
@@ -166,7 +169,7 @@ describe('autenticação e shell', () => {
     expect(screen.queryByRole('heading', { name: 'Visão geral' })).not.toBeInTheDocument()
   })
 
-  it('entra pela API e apresenta o shell autenticado', async () => {
+  it('entra com Google pela API e apresenta o shell autenticado', async () => {
     const authFetch = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
       .mockResolvedValueOnce(jsonResponse({}, 401))
       .mockResolvedValueOnce(
@@ -188,20 +191,18 @@ describe('autenticação e shell', () => {
     render(<App />)
     const user = userEvent.setup()
 
-    await user.type(await screen.findByLabelText('Usuário ou e-mail'), 'gustavo@example.com')
-    await user.type(screen.getByLabelText('Senha'), 'senha-segura')
-    await user.click(screen.getByRole('button', { name: 'Entrar' }))
+    await user.click(await screen.findByRole('button', { name: 'Entrar com Google' }))
 
     expect(await screen.findByRole('heading', { name: 'Visão geral' })).toBeInTheDocument()
     expect(screen.getByText('Gustavo Drager')).toBeInTheDocument()
     await waitFor(() => expect(authFetch).toHaveBeenCalledTimes(2))
 
     const loginRequest = authFetch.mock.calls[1]
-    expect(loginRequest[0]).toBe('/api/v1/auth/login')
+    expect(loginRequest[0]).toBe('/api/v1/auth/google')
     expect(loginRequest[1]).toEqual(
       expect.objectContaining({ method: 'POST', credentials: 'include' }),
     )
-    expect((loginRequest[1]?.headers as Headers).get('Authorization')).toBeNull()
+    expect(new Headers(loginRequest[1]?.headers).get('Authorization')).toBe('Bearer verified-test-credential')
     expect(getCsrfToken()).toBe('csrf-login-de-teste')
   })
 
@@ -274,10 +275,8 @@ describe('autenticação e shell', () => {
     await user.type(screen.getByLabelText('Confirmar nova senha'), 'NovaSenha2026!')
     await user.click(screen.getByRole('button', { name: 'Alterar senha' }))
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Senha alterada. Entre novamente com a nova senha.',
-    )
-    expect(screen.getByRole('heading', { name: 'Entre no Long Beach OS' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Entre no Long Beach OS' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Senha')).not.toBeInTheDocument()
     await waitFor(() => expect(authFetch).toHaveBeenCalledTimes(3))
 
     const changeRequest = authFetch.mock.calls[2]
@@ -292,4 +291,9 @@ describe('autenticação e shell', () => {
     })
     expect(getCsrfToken()).toBeNull()
   })
+})
+
+it('endereço antigo de funcionamento abre a página atual preservando parâmetros',async()=>{
+ vi.stubEnv('VITE_DEMO_MODE','true');window.history.replaceState({},'', '/quadras?secao=precos#horarios');render(<App/>);
+ await screen.findByRole('heading',{name:'Funcionamento e preços'});expect(window.location.pathname).toBe('/agenda/funcionamento');expect(window.location.search).toBe('?secao=precos');expect(window.location.hash).toBe('#horarios');vi.unstubAllEnvs()
 })

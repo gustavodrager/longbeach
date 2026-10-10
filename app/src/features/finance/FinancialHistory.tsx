@@ -1,3 +1,4 @@
+import { isManagement } from '../auth/access'
 import { useState } from 'react'
 import { EdiReprocessForm } from './EdiReprocessForm'
 import { useQuery } from '@tanstack/react-query'
@@ -17,12 +18,12 @@ export const centsMoney = (value: number) => (value / 100).toLocaleString('pt-BR
 const monthLabel = (value: string) => new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(value + '-01T12:00:00Z'))
 function useHistory(params: URLSearchParams) {
   const { user } = useAuth()
-  return useQuery({ queryKey: ['financial-history', user?.id, params.toString()], queryFn: async () => { const report = await apiFetch<Report>(`/api/v1/financial-history?${params}`); if (!Array.isArray(report.items) || !Array.isArray(report.totals) || !Array.isArray(report.months) || !/^\d{4}-\d{2}$/.test(report.month)) throw new Error('Resposta financeira inválida.'); return report }, enabled: Boolean(user?.roles.includes('Owner')), refetchInterval: 60_000 })
+  return useQuery({ queryKey: ['financial-history', user?.id, params.toString()], queryFn: async () => { const report = await apiFetch<Report>(`/api/v1/financial-history?${params}`); if (!Array.isArray(report.items) || !Array.isArray(report.totals) || !Array.isArray(report.months) || !/^\d{4}-\d{2}$/.test(report.month)) throw new Error('Resposta financeira inválida.'); return report }, enabled: Boolean(isManagement(user)), refetchInterval: 60_000 })
 }
 
 export function FinancialHistoryOverview() {
   const { user } = useAuth(); const query = useHistory(new URLSearchParams({ series: 'consolidado' })); const vendas = useHistory(new URLSearchParams({ series: 'pagvendas-vendas' }))
-  if (!user?.roles.includes('Owner')) return null
+  if (!isManagement(user)) return null
   const report = query.data
   return <section className="arena-dashboard-section" aria-labelledby="financial-history-title">
     <div className="arena-section-heading"><div><p className="arena-section-eyebrow">HISTÓRICO E CONTROLES</p><h2 id="financial-history-title">Movimentação disponível da arena</h2></div><Link className="secondary-link" to="/financeiro/historico">Abrir histórico e fontes →</Link></div>
@@ -38,7 +39,7 @@ export function BankStatementOverview() {
   const { user } = useAuth()
   const bank = useHistory(new URLSearchParams({ series: 'pagbank-conta' }))
   const external = useHistory(new URLSearchParams({ series: 'despesas-fora-pagbank', ...(bank.data?.month ? { month: bank.data.month } : {}) }))
-  if (!user?.roles.includes('Owner')) return null
+  if (!isManagement(user)) return null
   const rows = bank.data?.totals.filter(x => x.series === 'pagbank-conta') ?? []
   if (!rows.length && !bank.isError) return null
   const cards = [
@@ -60,9 +61,9 @@ export function BankStatementOverview() {
 
 export function FinancialHistoryPage() {
   const { user } = useAuth(); const [params, setParams] = useSearchParams(); const query = useHistory(params)
-  const integrations = useQuery({ queryKey: ['financial-integrations', user?.id], queryFn: () => apiFetch<Integration[]>('/api/v1/financial-history/integrations'), enabled: Boolean(user?.roles.includes('Owner')), refetchInterval: 60_000 })
+  const integrations = useQuery({ queryKey: ['financial-integrations', user?.id], queryFn: () => apiFetch<Integration[]>('/api/v1/financial-history/integrations'), enabled: Boolean(isManagement(user)), refetchInterval: 60_000 })
   const [open, setOpen] = useState<string | null>(null)
-  if (!user?.roles.includes('Owner')) return <main className="operation-page arena-page"><p role="alert">Histórico disponível apenas para os proprietários.</p></main>
+  if (!isManagement(user)) return <main className="operation-page arena-page"><p role="alert">Histórico disponível para a gestão.</p></main>
   const report = query.data; const page = report?.page ?? 1; const source=report?.items.find(item=>item.id===open)
   const change = (key: string, value: string) => { const next = new URLSearchParams(params); if (value) next.set(key, value); else next.delete(key); next.delete('page'); setParams(next) }
   return <main className="operation-page arena-page">
@@ -83,7 +84,7 @@ export function FinancialHistoryPage() {
 type ProviderReport = { date: string | null; dates: string[]; total: number; page: number; items: { movement: string; date: string; sourcePage: number; sourceSha256: string; data: Record<string, unknown> }[] }
 function PagBankDocuments() {
   const { user } = useAuth(); const [date, setDate] = useState(''); const [page, setPage] = useState(1)
-  const query = useQuery({ queryKey: ['pagbank-documents', user?.id, date, page], queryFn: () => apiFetch<ProviderReport>(`/api/v1/financial-history/pagbank-edi?${new URLSearchParams({ ...(date ? { date } : {}), page: String(page) })}`), enabled: Boolean(user?.roles.includes('Owner')), refetchInterval: 60_000 })
+  const query = useQuery({ queryKey: ['pagbank-documents', user?.id, date, page], queryFn: () => apiFetch<ProviderReport>(`/api/v1/financial-history/pagbank-edi?${new URLSearchParams({ ...(date ? { date } : {}), page: String(page) })}`), enabled: Boolean(isManagement(user)), refetchInterval: 60_000 })
   const report = query.data
   return <section className="foundation-card"><h2>Movimentos originais da API PagBank</h2><p>Documentos completos de vendas, liquidações, transferências e saldos. Os eventos permanecem separados; consulte os valores e códigos originais de cada movimento.</p>
     <EdiReprocessForm />

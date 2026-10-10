@@ -1,0 +1,10 @@
+namespace LongBeach.Contracts.Teaching;
+public sealed record TeachingClass(Guid Id, string Name, int WeekDay, string StartTime, string EndTime, string StartDate, string Status, int Capacity, int Enrolled);
+public sealed record TeachingAppointment(Guid Id, string Name, string CustomerName, string Date, string StartTime, string EndTime, string Status);
+public sealed record TeachingOverview(bool Linked, IReadOnlyList<TeachingClass> Classes, IReadOnlyList<TeachingAppointment>? Appointments = null);
+public sealed record TeachingStudent(Guid Id, string Name, string? Presence, int Version);
+public sealed record TeachingRoster(TeachingClass Class, string Date, IReadOnlyList<TeachingStudent> Students);
+public sealed record PresenceInput(Guid StudentId, string Status, int Version);
+public sealed record TeachingPerson(Guid Id, string Name);
+public sealed record TeacherLink(Guid UserId, Guid? TeamId);
+public sealed record TeachingAccess(IReadOnlyList<TeachingPerson> Users, IReadOnlyList<TeachingPerson> Team, IReadOnlyList<TeacherLink> Links);

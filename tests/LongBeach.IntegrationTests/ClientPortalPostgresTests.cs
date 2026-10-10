@@ -119,4 +119,53 @@ public sealed class ClientPortalPostgresTests
         var results=await Task.WhenAll(Accept(),Accept());Assert.Equal(results[0].ReservationId,results[1].ReservationId);
         Assert.Equal(1,await db.OperationalRecords.CountAsync(x=>x.Id==results[0].ReservationId));
     }
+
+    [PostgresFact]
+    public async Task Availability_exposes_only_free_intervals_and_fails_closed_for_pending_hours()
+    {
+        await using var db=Database();var seed=await Seed(db);var service=Service(db);
+        var block=Guid.NewGuid();var canceled=Guid.NewGuid();
+        db.AddRange(Row(block,"reservations",new{id=block,name="Private block",courtId=seed.Court,date="2026-10-07",startTime="10:00",endTime="10:30",status="Bloqueio"}),
+            Row(canceled,"reservations",new{id=canceled,name="Private customer",courtId=seed.Court,date="2026-10-07",startTime="09:00",endTime="09:30",status="Cancelada"}));await db.SaveChangesAsync();
+        var slots=await service.Availability(new(2026,10,7),seed.Court,default);
+        Assert.Equal("Available",slots.Status);Assert.Equal(new[]{new PortalFreeInterval("08:00","10:00"),new("10:30","18:00"),new("19:00","23:00")},slots.FreeIntervals);
+        var serialized=JsonSerializer.Serialize(slots);Assert.DoesNotContain("Private",serialized);Assert.DoesNotContain(block.ToString(),serialized);Assert.DoesNotContain(seed.Class.ToString(),serialized);
+        var today=await service.Availability(new(2026,10,6),seed.Court,default);Assert.Equal("09:01",today.FreeIntervals[0].StartTime);
+        var court=await db.OperationalRecords.SingleAsync(r=>r.Id==seed.Court);var p=JsonNode.Parse(court.Payload)!.AsObject();p["scheduleConfirmed"]=false;court.Update(court.Name,p.ToJsonString());await db.SaveChangesAsync();
+        var pending=await service.Availability(new(2026,10,7),seed.Court,default);Assert.Equal("Pending",pending.Status);Assert.Empty(pending.FreeIntervals);
+        p["scheduleConfirmed"]=true;p["operatingDays"]=new JsonArray(1);court.Update(court.Name,p.ToJsonString());await db.SaveChangesAsync();
+        var closed=await service.Availability(new(2026,10,7),seed.Court,default);Assert.Equal("Closed",closed.Status);Assert.Empty(closed.FreeIntervals);
+        await Assert.ThrowsAsync<BarRuleException>(()=>service.Availability(new(2026,10,5),seed.Court,default));
+    }
+    [PostgresFact]
+    public async Task Withdrawing_is_private_replay_safe_and_does_not_cancel_a_confirmed_reservation()
+    {
+        await using var db=Database();var seed=await Seed(db);var service=Service(db);var r=await service.Request(seed.User,Input(seed.Court),default);
+        await Assert.ThrowsAsync<BarTabAccessException>(()=>service.Withdraw(seed.Other,r.Id,new(1),default));
+        var withdrawn=await service.Withdraw(seed.User,r.Id,new(1),default);Assert.Equal("Withdrawn",withdrawn.Status);Assert.Equal(2,withdrawn.History!.Count);
+        Assert.Equal(2,(await service.Withdraw(seed.User,r.Id,new(1),default)).Version);
+        await Assert.ThrowsAsync<BarRuleException>(()=>service.Decide(r.Id,Confirm(withdrawn),default));
+        var another=await service.Request(seed.User,Input(seed.Court),default);var confirmed=await service.Decide(another.Id,Confirm(another),default);
+        await Assert.ThrowsAsync<BarRuleException>(()=>service.Withdraw(seed.User,confirmed.Id,new(confirmed.Version),default));
+        Assert.Equal("Confirmada",(await service.Agenda(seed.User,default)).Single(a=>a.SourceId==confirmed.ReservationId).Status);
+    }
+    [PostgresFact]
+    public async Task Confirmed_trial_reaches_only_the_assigned_teacher_without_financial_details()
+    {
+        await using var db=Database();var seed=await Seed(db);var service=Service(db);
+        db.Add(Row(Guid.NewGuid(),"teacherLinks",new{userId=seed.Other,teamId=seed.Teacher}));await db.SaveChangesAsync();
+        var r=await service.Request(seed.User,Input(seed.Court) with {Kind="Trial"},default);
+        var teaching=new LongBeach.Infrastructure.Teaching.TeachingService(db,Time);
+        Assert.Empty((await teaching.Overview(seed.Other,default)).Appointments!);
+        var confirmed=await service.Decide(r.Id,Confirm(r,40) with {TeacherId=seed.Teacher},default);
+        var appointment=Assert.Single((await teaching.Overview(seed.Other,default)).Appointments!);Assert.Equal(confirmed.ReservationId,appointment.Id);
+        Assert.DoesNotContain("amount",JsonSerializer.Serialize(appointment).ToLowerInvariant());Assert.DoesNotContain("phone",JsonSerializer.Serialize(appointment).ToLowerInvariant());
+        Assert.Empty((await teaching.Overview(seed.User,default)).Appointments!);
+        var row=await db.OperationalRecords.SingleAsync(x=>x.Id==appointment.Id);var payload=JsonNode.Parse(row.Payload)!.AsObject();
+        Assert.Equal("Trial",payload["activityKind"]!.ToString());
+        payload["status"]="Chegou";row.Update(row.Name,payload.ToJsonString());await db.SaveChangesAsync();
+        Assert.Equal("Chegou",Assert.Single((await teaching.Overview(seed.Other,default)).Appointments!).Status);
+        payload["status"]="Cancelada";row.Update(row.Name,payload.ToJsonString());await db.SaveChangesAsync();
+        Assert.Empty((await teaching.Overview(seed.Other,default)).Appointments!);
+    }
 }

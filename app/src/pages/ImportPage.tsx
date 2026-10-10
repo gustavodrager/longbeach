@@ -1,3 +1,4 @@
+import { isManagement } from '../features/auth/access'
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { ApiError, apiFetch } from '../lib/http'
 import { useAuth } from '../features/auth/authContext'
@@ -15,11 +16,11 @@ export function ImportPage() {
   const [busy, setBusy] = useState(false)
   const [catalogPreview, setCatalogPreview] = useState<CatalogPreview | null>(null)
   const [historyPreview, setHistoryPreview] = useState<HistoryPreview | null>(null)
-  const canImport = user?.roles.includes('Owner') ?? false
+  const canImport = isManagement(user) ?? false
 
   async function load() {
     try { setBatches(await apiFetch<StagedBatch[]>('/api/v1/imports')) }
-    catch (error) { setMessage(error instanceof ApiError && error.status === 403 ? 'Esta área está disponível apenas para o proprietário.' : 'Não foi possível consultar os lotes de importação.') }
+    catch (error) { setMessage(error instanceof ApiError && error.status === 403 ? 'Esta área está disponível para a gestão.' : 'Não foi possível consultar os lotes de importação.') }
   }
 
   useEffect(() => { if (canImport) void load() }, [canImport])
@@ -85,7 +86,7 @@ export function ImportPage() {
 
   return <main className="dashboard import-page">
     <header className="page-heading"><div><p className="eyebrow">DADOS E CONFERÊNCIA</p><h1>Importações</h1><p>Os arquivos ficam registrados com hash e origem antes de qualquer integração com os cadastros.</p></div></header>
-    {!canImport ? <p role="alert">Esta área está disponível apenas para o proprietário.</p> : <>
+    {!canImport ? <p role="alert">Esta área está disponível para a gestão.</p> : <>
       <section className="foundation-card import-card"><div><span className="card-kicker">Etapa segura</span><h2>Preparar lote para conferência</h2><p>Selecione um pacote JSON preparado a partir das planilhas. As linhas ficam em staging com a aba e o número original. Status, pagamentos e saldos não são confirmados nem lançados automaticamente.</p></div>
         <label className="button-primary import-picker">{busy ? 'Carregando lote…' : 'Selecionar pacote JSON'}<input aria-label="Selecionar pacote JSON" type="file" accept="application/json,.json" disabled={busy} onChange={(event) => void upload(event)} /></label>
       </section>

@@ -218,7 +218,7 @@ public sealed class AuthService(
 
     private static TokenPrincipal ToPrincipal(User user) =>
         new(user.Id, user.Name, VisibleEmail(user), user.RequiresFirstAccess ? [] : user.GetRoleNames(),
-            user.RequiresFirstAccess ? [] : user.GetPermissionNames(), user.RequiresFirstAccess, user.Username, user.InitialAccessExpiresAtUtc);
+            user.RequiresFirstAccess ? [] : ProfileAccess.Permissions(user.GetRoleNames(), user.GetPermissionNames()), user.RequiresFirstAccess, user.Username, user.InitialAccessExpiresAtUtc, user.GoogleSubject is not null);
 
     private static string VisibleEmail(User user) => user.Email.EndsWith("@unlinked.longbeach.invalid", StringComparison.Ordinal) ? string.Empty : user.Email;
 
@@ -233,8 +233,8 @@ public sealed class AuthService(
                     user.Name,
                     VisibleEmail(user),
                     user.RequiresFirstAccess ? [] : user.GetRoleNames(),
-                    user.RequiresFirstAccess ? [] : user.GetPermissionNames(),
-                    user.RequiresFirstAccess, user.Username)),
+                    user.RequiresFirstAccess ? [] : ProfileAccess.Permissions(user.GetRoleNames(), user.GetPermissionNames()),
+                    user.RequiresFirstAccess, user.Username, user.GoogleSubject is not null)),
             issued.RefreshToken,
             issued.RefreshTokenExpiresAtUtc,
             issued.CsrfToken);

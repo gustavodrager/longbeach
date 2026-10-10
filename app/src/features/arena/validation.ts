@@ -1,4 +1,5 @@
 import type { RentalGroup, RentalAttendance } from './rentals'
+import { allocationError } from '../finance/businessUnits'
 import type { OperationalData, OperationalKind } from '../operations/DemoDataProvider'
 import type { ArenaClass, Court, Enrollment, FinanceEntry, Presence, Reservation } from './types'
 
@@ -73,6 +74,8 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
   }
   if (kind === 'financeEntries') {
     const entry = input as FinanceEntry
+    const classification = allocationError(entry.origin, entry)
+    if (classification) return classification
     if (!Number.isFinite(entry.amount) || entry.amount <= 0 || Math.abs(Math.round(entry.amount * 100) - entry.amount * 100) > 0.00001) return 'Confira o valor do lançamento.'
     if (entry.status === 'Pago' && (!entry.paidDate || entry.paidDate > today)) return 'Informe a data do pagamento confirmado.'
     if (entry.sourceKind === 'enrollments' && entry.sourceId && entry.status !== 'Cancelado' && data.financeEntries.some(row => row.id !== entry.id && row.sourceKind === entry.sourceKind && row.sourceId === entry.sourceId && row.month === entry.month && row.status !== 'Cancelado')) return 'Já existe uma mensalidade desta matrícula para a competência informada.'

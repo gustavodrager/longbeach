@@ -15,7 +15,7 @@ it('separa estimativas, conserva déficit e bloqueia consulta de equipe',async()
   expect(controlTotals(control.lines)).toEqual({income:10000,expense:14000,result:-4000,estimated:14000,hasEstimates:true})
   const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(new Response(JSON.stringify({month:'2026-09',months:['2026-09'],control})))
   const view=wrap();expect(await screen.findByText('-R$ 40,00')).toBeInTheDocument();expect(screen.getByText(/Estimativa · agosto/)).toBeInTheDocument()
-  view.unmount();fetch.mockClear();auth.roles=['Operations'];wrap();expect(fetch).not.toHaveBeenCalled();expect(screen.getByRole('alert')).toHaveTextContent('proprietários')
+  view.unmount();fetch.mockClear();auth.roles=['Operations'];wrap();expect(fetch).not.toHaveBeenCalled();expect(screen.getByRole('alert')).toHaveTextContent('gestão')
 })
 it('envia revisão com a versão original e mantém o formulário quando outra pessoa já editou',async()=>{
   const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async (_input,init)=>init?.method==='PUT'?new Response(JSON.stringify({message:'Este controle mudou. Atualize a página.'}),{status:409}):new Response(JSON.stringify({month:'2026-09',months:['2026-09'],control})))
@@ -65,4 +65,23 @@ it('mostra grupo vazio e inicia novo valor com a classificação selecionada',as
   expect(await screen.findByText('Nenhum registro neste grupo para setembro de 2026.')).toBeInTheDocument()
   await user.click(screen.getByRole('button',{name:'Adicionar valor'}))
   expect(await screen.findByLabelText('Tipo')).toHaveValue('Parcela')
+})
+
+it('revisa unidade e filtra linhas sem alterar o total mensal nem ratear despesas',async()=>{
+  let saved:MonthlyControl=structuredClone(control)
+  const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async (_input,init)=>{
+    if(init?.method==='PUT')saved={...saved,...JSON.parse(String(init.body)),version:saved.version+1}
+    return new Response(JSON.stringify(init?.method==='PUT'?saved:{month:'2026-09',months:['2026-09'],control:saved}))
+  })
+  const user=userEvent.setup();wrap()
+  await user.click(await screen.findByRole('button',{name:'Editar Energia teste'}))
+  await user.selectOptions(screen.getByLabelText('Unidade de negócio / destinação'),'shared')
+  await user.click(screen.getByRole('button',{name:'Salvar valor'}))
+  await screen.findByText('Controle atualizado.')
+  const input=JSON.parse(String(fetch.mock.calls.find(([,init])=>init?.method==='PUT')![1]!.body))
+  expect(input.lines[1]).toMatchObject({allocationScope:'Shared',businessUnitId:null,amountCents:14000})
+  await user.selectOptions(await screen.findByLabelText('Unidade / destinação'),'shared')
+  expect(screen.getByRole('button',{name:'Editar Energia teste'})).toBeInTheDocument()
+  expect(screen.queryByRole('button',{name:'Editar Receita teste'})).not.toBeInTheDocument()
+  expect(screen.getByText('-R$ 40,00')).toBeInTheDocument()
 })

@@ -36,10 +36,24 @@ public static class OperationalEndpoints
             if (!Allowed(http, kind, false, publicDemo)) return Denied(http);
             if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var day))
                 return Results.BadRequest(new { message = "Informe a data da agenda no formato ano-mês-dia." });
-            var records = await db.OperationalRecords.AsNoTracking().Where(row => row.Kind == "courts" || row.Kind == "reservations" || row.Kind == "classes").ToListAsync(ct);
+            var records = await LongBeach.Infrastructure.Operations.CourtScheduleRecords.Load(db, day, ct);
             var snapshot = records.GroupBy(row => row.Kind).ToDictionary(grouping => grouping.Key,
                 grouping => grouping.Select(row => ParsePayload(row.Payload)).ToArray());
             return Results.Ok(CourtScheduleQuery.Build(day, DateTimeOffset.UtcNow, snapshot, Allowed(http, "classes", false, publicDemo)));
+        });
+
+        group.MapGet("/schedule-range", async (string kind, string? from, string? to, HttpContext http, LongBeachDbContext db, CancellationToken ct) =>
+        {
+            if (kind != "courts") return Results.NotFound();
+            if (!Allowed(http, kind, false, publicDemo)) return Denied(http);
+            if (!DateOnly.TryParseExact(from, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var first)
+                || !DateOnly.TryParseExact(to, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var last)
+                || last < first || last.DayNumber - first.DayNumber >= CourtScheduleQuery.MaximumRangeDays)
+                return Results.BadRequest(new { message = "Escolha um período válido de até 366 dias, incluindo a data inicial e final." });
+            var records = await LongBeach.Infrastructure.Operations.CourtScheduleRecords.Load(db, first, last, ct);
+            var snapshot = records.GroupBy(row => row.Kind).ToDictionary(grouping => grouping.Key,
+                grouping => grouping.Select(row => ParsePayload(row.Payload)).ToArray());
+            return Results.Ok(CourtScheduleQuery.BuildRange(first, last, DateTimeOffset.UtcNow, snapshot, Allowed(http, "classes", false, publicDemo)));
         });
 
         group.MapPost("/recurring", (string kind, RecurringReservationInput input, HttpContext http, LongBeachDbContext db, CancellationToken ct) =>
@@ -65,6 +79,7 @@ public static class OperationalEndpoints
                 CanFinance(http, false, publicDemo, kind), CanFinance(http, true, publicDemo, kind));
             if (!prepared.Allowed) return Results.Forbid();
             var incoming = prepared.Body;
+            if (kind == "financeEntries") LongBeach.Application.Finance.BusinessAllocationRules.PreserveOmitted(incoming, record?.Payload);
             if (kind == "financeEntries") await LongBeach.Infrastructure.Billing.BillingWriteGuard.Check(db, id, incoming, record?.Payload, ct);
             if (kind == "reservations")
             {

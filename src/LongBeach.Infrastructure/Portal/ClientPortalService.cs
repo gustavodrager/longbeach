@@ -70,12 +70,47 @@ public sealed class ClientPortalService(LongBeachDbContext db, TimeProvider time
         Save(records,old?.Id??Guid.NewGuid(),"portalProfiles","Perfil do cliente",new {userId=user,name,phone,input.Reminders});
         await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);return await Profile(user,ct);
     }
+    public async Task<PortalAvailability> Availability(DateOnly date, Guid? courtId, CancellationToken ct)
+    {
+        Require(date >= Today && date <= Today.AddDays(365), "Escolha uma data nos próximos 12 meses.");
+        var rows = await LongBeach.Infrastructure.Operations.CourtScheduleRecords.Load(db, date, ct);
+        var courts = rows.Where(r => r.Kind == "courts").ToArray();
+        var selected = courtId.HasValue ? courts.SingleOrDefault(r => r.Id == courtId) : courts.Length == 1 ? courts[0] : null;
+        var now = time.GetUtcNow();
+        if (selected is null) return new(date.ToString("yyyy-MM-dd"), null, "Pending", [], now);
+        var snapshot = rows.GroupBy(r => r.Kind).ToDictionary(g => g.Key, g => g.Select(r => JsonSerializer.Deserialize<JsonElement>(r.Payload)).ToArray());
+        var row = CourtScheduleQuery.Build(date, now, snapshot, false).Courts.SingleOrDefault(r => r.CourtId == selected.Id);
+        if (row is null || row.SchedulePending) return new(date.ToString("yyyy-MM-dd"), selected.Id, "Pending", [], now);
+        if (row.ClosedForDay || row.ClosedForMaintenance || Text(Data(selected), "status") != "Disponível")
+            return new(date.ToString("yyyy-MM-dd"), selected.Id, "Closed", [], now);
+        // Expose only free intervals, never identities, activity types or reservation IDs.
+        var minute = date == Today ? (int)Math.Floor(now.ToOffset(TimeSpan.FromHours(-3)).TimeOfDay.TotalMinutes) + 1 : 0;
+        var free = (row.FreeIntervals ?? []).Select(interval =>
+        {
+            CourtHours.TryMinute(interval.StartTime, false, out var start);
+            CourtHours.TryMinute(interval.EndTime, true, out var end);
+            return (Start: Math.Max(start, minute), End: end);
+        }).Where(i => i.Start < i.End).Select(i => new PortalFreeInterval($"{i.Start / 60:00}:{i.Start % 60:00}", $"{i.End / 60:00}:{i.End % 60:00}")).ToArray();
+        return new(date.ToString("yyyy-MM-dd"), selected.Id, "Available", free, now);
+    }
+    public async Task<PortalRequest> Withdraw(Guid user, Guid id, AcceptAlternativeInput input, CancellationToken ct)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct); await Lock(ct);
+        var rows = await db.OperationalRecords.Where(r => r.Kind == "portalRequests").ToListAsync(ct);
+        var row = rows.SingleOrDefault(r => r.Id == id); var request = row is null ? null : ReadRequest(row);
+        if (request is null || request.UserId != user) throw new BarTabAccessException(BarTabAccessFailure.Forbidden, "Solicitação não disponível.");
+        if (request.Status == "Withdrawn" && request.Version == input.Version + 1) return request;
+        Require(request.Version == input.Version && request.Status is "Sent" or "Reviewing" or "Alternative", "Este pedido mudou ou já foi concluído. Atualize sua agenda.");
+        var next = WithHistory(request, request with { Status = "Withdrawn", Reply = "Solicitação retirada pelo cliente.", Version = request.Version + 1, UpdatedAtUtc = time.GetUtcNow() });
+        Save(rows, id, "portalRequests", row!.Name, next);
+        await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return next;
+    }
     public async Task<PortalOptions> Options(CancellationToken ct, bool staff = false)
     {
         var records=await db.OperationalRecords.AsNoTracking().Where(r=>r.Kind=="courts"||r.Kind=="team").ToListAsync(ct);
         var url=config["ClientPortal:HelpUrl"];
         if(!Uri.TryCreate(url,UriKind.Absolute,out var uri)||uri.Scheme!="https")url=null;
-        return new(records.Where(r=>r.Kind=="courts"&&Text(Data(r),"status")=="Disponível").Select(r=>new PortalChoice(r.Id,r.Name)).ToArray(),records.Where(r=>staff&&r.Kind=="team").Select(r=>new PortalChoice(r.Id,r.Name)).ToArray(),url);
+        return new(records.Where(r=>r.Kind=="courts"&&Text(Data(r),"status")=="Disponível").Select(r=>new PortalChoice(r.Id,r.Name)).ToArray(),records.Where(r=>staff&&r.Kind=="team"&&Text(Data(r),"status")!="Inativo").Select(r=>new PortalChoice(r.Id,r.Name)).ToArray(),url);
     }
     public async Task<IReadOnlyList<PortalAppointment>> Agenda(Guid user,CancellationToken ct)
     {
@@ -97,7 +132,7 @@ public sealed class ClientPortalService(LongBeachDbContext db, TimeProvider time
             var started=CourtHours.TryMinute(Text(p,"startTime"),false,out var begins)&&midnight.AddMinutes(begins)<=time.GetUtcNow();
             var past=CourtHours.TryMinute(Text(p,"endTime"),true,out var end)&&midnight.AddMinutes(end)<time.GetUtcNow();
             result.Add(new(key,source.Id,kind,title,date,Text(p,"startTime"),Text(p,"endTime"),Name("courts",Id(p,"courtId")),Id(p,"teacherId")==Guid.Empty?"":Name("team",Id(p,"teacherId")),status,
-                "Chegue alguns minutos antes. Para ajustes, envie uma solicitação à equipe.",!started&&status is not ("Cancelada" or "Concluída"),past&&status!="Cancelada"&&!ratings.ContainsKey(key),ratings.GetValueOrDefault(key,0) is var score&&score>0?score:null));
+                "Chegue alguns minutos antes. Para ajustes, envie uma solicitação à equipe.",!started&&status is not ("Cancelada" or "Concluída"),past&&status!="Cancelada"&&!ratings.ContainsKey(key),ratings.GetValueOrDefault(key,0) is var score&&score>0?score:null,Text(p,"activityKind")));
         }
         foreach(var r in rows.Where(r=>r.Kind=="reservations"))
         {
@@ -149,8 +184,15 @@ public sealed class ClientPortalService(LongBeachDbContext db, TimeProvider time
         }
         else Require(string.IsNullOrEmpty(input.AppointmentKey),"Escolha uma solicitação sem compromisso vinculado.");
         if(input.Kind is "Trial" or "Reservation" or "Reschedule")ValidateSlot(input.Date,input.StartTime,input.EndTime);
+        var courtId = input.CourtId;
+        if (input.Kind is "Trial" or "Reservation" or "Reschedule")
+        {
+            var courts = records.Where(r => r.Kind == "courts" && Text(Data(r), "status") == "Disponível").ToArray();
+            if (!courtId.HasValue && courts.Length == 1) courtId = courts[0].Id;
+            Require(!courtId.HasValue || courts.Any(r => r.Id == courtId), "A quadra indicada não está disponível para pedidos. Atualize a página.");
+        }
         var name=(await Profile(user,ct)).Name;
-        var request=new PortalRequest(input.OperationId,user,name,input.Kind,input.AppointmentKey,input.Date,input.StartTime,input.EndTime,input.CourtId,input.Message,"Sent","",1,time.GetUtcNow(),time.GetUtcNow());
+        var request=new PortalRequest(input.OperationId,user,name,input.Kind,input.AppointmentKey,input.Date,input.StartTime,input.EndTime,courtId,input.Message,"Sent","",1,time.GetUtcNow(),time.GetUtcNow());
         request=WithHistory(request,request);
         Save(records,Guid.NewGuid(),"portalIntents","Identidade da solicitação",new {operationId=input.OperationId,userId=user,fingerprint=Fingerprint(input),originalFingerprint});
         Save(records,request.Id,"portalRequests","Solicitação do cliente",request);await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);return request;
@@ -208,9 +250,14 @@ public sealed class ClientPortalService(LongBeachDbContext db, TimeProvider time
         if(original?.Kind=="Aula"&&request.TeacherId is null)
             request=request with {TeacherId=Id(Data(rows.Single(r=>r.Id==original.SourceId)),"teacherId")};
         ValidateSlot(request.Date,request.StartTime,request.EndTime);
+        if (!request.CourtId.HasValue)
+        {
+            var courts = rows.Where(r => r.Kind == "courts" && Text(Data(r), "status") == "Disponível").ToArray();
+            if (courts.Length == 1) request = request with { CourtId = courts[0].Id };
+        }
         Require(request.CourtId.HasValue&&request.Amount>=0,"Defina a quadra e o valor combinado, inclusive zero quando gratuito.");
         var court=rows.FirstOrDefault(r=>r.Id==request.CourtId&&r.Kind=="courts");Require(court is not null&&Data(court)["scheduleConfirmed"]?.GetValue<bool>()!=false,"Confira a agenda da quadra antes de confirmar.");
-        if(request.Kind=="Trial")Require(request.TeacherId.HasValue&&rows.Any(r=>r.Id==request.TeacherId&&r.Kind=="team"),"Escolha o professor da aula experimental.");
+        if(request.Kind=="Trial")Require(request.TeacherId.HasValue&&rows.Any(r=>r.Id==request.TeacherId&&r.Kind=="team"&&Text(Data(r),"status")!="Inativo"),"Escolha o professor da aula experimental.");
         var id=original?.Kind=="Reserva"?original.SourceId:Guid.NewGuid();
         var old=rows.SingleOrDefault(r=>r.Id==id);var p=old is null?new JsonObject():Data(old);
         if(old is not null)
@@ -218,7 +265,8 @@ public sealed class ClientPortalService(LongBeachDbContext db, TimeProvider time
             Require(p["amount"]?.GetValue<decimal>()==request.Amount,"A remarcação preserva o valor original. Trate ajustes pelo financeiro.");
             Require(Id(p,"rentalGroupId")==Guid.Empty||Text(p,"date")[..7]==request.Date[..7],"A remarcação do mensalista deve permanecer no mesmo mês.");
         }
-        if(request.TeacherId.HasValue)Require(rows.Any(r=>r.Kind=="team"&&r.Id==request.TeacherId),"Professor não encontrado.");
+        if(request.TeacherId.HasValue)Require(rows.Any(r=>r.Kind=="team"&&r.Id==request.TeacherId&&Text(Data(r),"status")!="Inativo"),"Professor não encontrado.");
+        if (request.Kind == "Trial") p["activityKind"] = "Trial";
         p["id"]=id.ToString();p["name"]=request.Kind=="Trial"?$"Aula experimental · {request.CustomerName}":old?.Name??$"Reserva · {request.CustomerName}";
         p["courtId"]=request.CourtId.ToString();p["date"]=request.Date;p["startTime"]=request.StartTime;p["endTime"]=request.EndTime;
         p["customerName"]=request.CustomerName;p["phone"]=(await Profile(request.UserId,ct)).Phone;p["amount"]=request.Amount;p["status"]="Confirmada";p["notes"]=request.Reply;

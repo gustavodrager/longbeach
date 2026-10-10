@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthContext, type AuthContextValue } from '../auth/authContext'
@@ -10,7 +10,7 @@ const user:AuthUser={id:'student-a',name:'Aluno teste',email:'student@example.in
 const account:Account={id:'account-a',kind:'Quadra',sourceId:'entry-a',title:'Mensalidade de outubro',dueDate:'2026-10-10',total:100,paid:0,pending:0,payable:100,state:'Pendente',payments:[],recurringEligible:true,userId:user.id,competence:'2026-10'}
 const config:Config={pixEnabled:true,cardEnabled:true,subscriptionsEnabled:true,cardPublicKey:'public-key',subscriptionPublicKey:'subscription-key'}
 const clients:QueryClient[]=[]
-function mount(content:React.ReactNode){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{},completeFirstAccessWithGoogle:async()=>{}};render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter>{content}</MemoryRouter></AuthContext.Provider></QueryClientProvider>)}
+function mount(content:React.ReactNode, path='/minha-area/pagamentos'){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{},completeFirstAccessWithGoogle:async()=>{}};render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}>{content}</MemoryRouter></AuthContext.Provider></QueryClientProvider>)}
 function json(body:unknown){return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}})}
 afterEach(()=>{cleanup();clients.splice(0).forEach(c=>c.clear());delete window.PagSeguro;localStorage.clear();sessionStorage.clear()})
 it('consulta apenas minhas contas e separa bar e quadra',async()=>{
@@ -34,4 +34,24 @@ it('Pix em confirmação continua visível quando o saldo disponível passa a ze
  mount(<BillingPage/>);fireEvent.click(await screen.findByRole('button',{name:'Pagar esta conta'}));expect(screen.getByLabelText('Nome do pagador')).toHaveValue(user.name);expect(screen.getByLabelText('E-mail')).toHaveValue(user.email);fireEvent.change(screen.getByLabelText('CPF ou CNPJ'),{target:{value:'12345678909'}});fireEvent.click(screen.getByRole('button',{name:'Confirmar pagamento'}))
  expect(await screen.findByRole('button',{name:'Copiar código Pix'})).toBeInTheDocument();expect(screen.queryByRole('button',{name:'Confirmar pagamento'})).not.toBeInTheDocument()
  fireEvent.click(screen.getByRole('button',{name:'Em confirmação'}));expect(screen.getByDisplayValue('pix-copy-test')).toBeInTheDocument()
+})
+
+it('conta escolhida por link continua acessível mesmo quitada, sem iniciar cobrança',async()=>{
+ const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>String(input).endsWith('/config')?json(config):String(input).endsWith('/subscriptions')?json([]):json([{...account,payable:0,paid:100}]))
+ mount(<BillingPage/>,'/minha-area/pagamentos?conta=account-a');expect(await screen.findByRole('article',{name:account.title})).toBeInTheDocument();expect(screen.queryByRole('button',{name:'Pagar esta conta'})).not.toBeInTheDocument();expect(fetch.mock.calls.every(([,init])=>!init?.method)).toBe(true)
+})
+it('indisponibilidade do provedor mantém consulta e bloqueia novo pagamento',async()=>{
+ vi.spyOn(globalThis,'fetch').mockImplementation(async input=>String(input).endsWith('/config')?json({...config,pixEnabled:false,cardEnabled:false,subscriptionsEnabled:false}):String(input).endsWith('/subscriptions')?json([]):json([account]))
+ mount(<BillingPage/>);expect(await screen.findByRole('button',{name:'Pagar esta conta'})).toBeDisabled();expect(screen.getByText(/Pagamento online indisponível/)).toBeInTheDocument();expect(screen.getByRole('region',{name:'Resumo das minhas contas'})).toHaveTextContent('R$ 100,00')
+})
+it('falha de atualização oculta valores antigos e ações financeiras',async()=>{
+ let fail=false
+ vi.spyOn(globalThis,'fetch').mockImplementation(async input=>String(input).endsWith('/config')?json(config):String(input).endsWith('/subscriptions')?json([]):fail?new Response('{}',{status:503}):json([account]))
+ mount(<BillingPage/>);await screen.findByRole('article',{name:account.title});fail=true;await clients.at(-1)!.invalidateQueries({queryKey:['billing']})
+ expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível consultar');expect(screen.queryByRole('article')).not.toBeInTheDocument();expect(screen.queryByRole('region',{name:'Resumo das minhas contas'})).not.toBeInTheDocument();expect(screen.queryByText('Nenhuma conta nesta seleção.')).not.toBeInTheDocument()
+})
+it('itens de comanda distinguem pedidos, consumo e cancelamentos sem recalcular saldo',async()=>{
+ const items=[{id:'1',name:'Água',quantity:2,unitPrice:5,total:10,state:'Fulfilled'},{id:'2',name:'Suco',quantity:1,unitPrice:9,total:9,state:'Requested'},{id:'3',name:'Lanche',quantity:1,unitPrice:20,total:20,state:'Reversed'}]
+ vi.spyOn(globalThis,'fetch').mockImplementation(async input=>String(input).endsWith('/config')?json(config):String(input).endsWith('/subscriptions')?json([]):json([{...account,kind:'Bar',total:8,payable:8,discount:2,items}]))
+ mount(<BillingPage/>);await screen.findByRole('article');fireEvent.click(screen.getByText('Itens da comanda'));expect(screen.getByText('2 × Água')).toBeInTheDocument();expect(screen.getByText(/Ainda fora do total/)).toBeInTheDocument();expect(screen.getByText(/Cancelado · não cobrado/)).toBeInTheDocument();expect(screen.getByText('Desconto aplicado: R$ 2,00')).toBeInTheDocument();expect(within(screen.getByRole('article')).getByText('R$ 8,00 a pagar agora')).toBeInTheDocument()
 })

@@ -157,6 +157,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 }).AllowAnonymous();
 
 app.MapClientPortalEndpoints();
+app.MapTeachingEndpoints();
 app.MapBillingEndpoints();
 app.MapBarEndpoints();
 app.MapBarTabsEndpoints();
@@ -189,11 +190,6 @@ static void ConfigureAuthentication(IServiceCollection services, IConfiguration 
         {
             throw new InvalidOperationException("Authentication:Google:ClientId is required when Google sign-in is enabled.");
         }
-        if (GoogleEmailAllowlist.Parse(configuration["Authentication:Google:AllowedEmail"]).Length == 0)
-        {
-            throw new InvalidOperationException("Authentication:Google:AllowedEmail is required when Google sign-in is enabled.");
-        }
-
         authentication.AddJwtBearer("Google", google =>
         {
             google.Authority = "https://accounts.google.com";
@@ -258,6 +254,7 @@ static void ConfigureAuthentication(IServiceCollection services, IConfiguration 
 
 static void ConfigureAuthorization(IServiceCollection services, IConfiguration configuration)
 {
+    services.AddTransient<Microsoft.AspNetCore.Authentication.IClaimsTransformation, LongBeach.Api.ProfileClaimsTransformation>();
     services.AddAuthorization(options =>
     {
         options.FallbackPolicy = new AuthorizationPolicyBuilder()
@@ -268,9 +265,10 @@ static void ConfigureAuthorization(IServiceCollection services, IConfiguration c
         options.AddPolicy("Session", policy => policy.RequireAuthenticatedUser());
         options.AddPolicy(AuthorizationPolicyCatalog.Owner, policy =>
             policy.RequireRole(AuthorizationPolicyCatalog.Owner));
+        options.AddPolicy("Management", policy => policy.RequireAuthenticatedUser().RequireAssertion(c => !c.User.HasClaim("requires_first_access", "true")).RequireRole("Owner", "Administrator", "Manager"));
         options.AddPolicy("Administrator", policy => policy.RequireRole(
             AuthorizationPolicyCatalog.Owner,
-            AuthorizationPolicyCatalog.Administrator));
+            AuthorizationPolicyCatalog.Administrator, "Manager"));
         foreach (var permission in AuthorizationPolicyCatalog.Permissions)
         {
             options.AddPolicy(permission, policy => policy.RequireClaim("permission", permission));

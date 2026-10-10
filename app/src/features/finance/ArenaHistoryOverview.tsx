@@ -1,3 +1,4 @@
+import { isManagement } from '../auth/access'
 import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -29,10 +30,10 @@ export function ArenaHistoryOverview() {
       if (!Array.isArray(result.months) || result.students === undefined || result.rentals === undefined || result.lessons === undefined) throw new Error('Resumo dos controles inválido.')
       return result
     },
-    enabled: Boolean(user?.roles.includes('Owner')),
+    enabled: Boolean(isManagement(user)),
     refetchInterval: 60_000,
   })
-  if (!user?.roles.includes('Owner')) return null
+  if (!isManagement(user)) return null
   const report = query.data; const students = report?.students; const rentals = report?.rentals; const lessons = report?.lessons
   return <section className="arena-dashboard-section" aria-labelledby="arena-history-title">
     <div className="arena-section-heading"><div><p className="arena-section-eyebrow">CONTROLES DA ESCOLA E DAS QUADRAS</p><h2 id="arena-history-title">Escola e aluguel de quadras</h2></div></div>

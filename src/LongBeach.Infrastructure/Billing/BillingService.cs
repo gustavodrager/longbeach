@@ -107,7 +107,7 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
         if(a.Kind=="Bar")
         {
             var t=await tabs.Get(a.SourceId,false,ct);
-            return new(a.Id,a.Kind,a.SourceId,$"Comanda {t.Number} · {t.Name}",null,t.Total,t.Paid,t.Pending,t.Payable,t.State,t.Payments.Select(p=>new AccountPaymentDto(p.Id,p.OperationId,p.Method,p.Amount,p.State,p.Refunded,p.PixText,p.QrImageUrl,p.ExpiresAtUtc,p.ConfirmedAtUtc,p.CanResume,p.RefundPending)).ToArray(),false,a.UserId,null,null);
+            return new(a.Id,a.Kind,a.SourceId,$"Comanda {t.Number} · {t.Name}",null,t.Total,t.Paid,t.Pending,t.Payable,t.State,t.Payments.Select(p=>new AccountPaymentDto(p.Id,p.OperationId,p.Method,p.Amount,p.State,p.Refunded,p.PixText,p.QrImageUrl,p.ExpiresAtUtc,p.ConfirmedAtUtc,p.CanResume,p.RefundPending)).ToArray(),false,a.UserId,null,null,t.Items.Select(i=>new AccountItemDto(i.Id,i.Name,i.Quantity,i.UnitPrice,i.Total,i.State)).ToArray(),t.Discount);
         }
         var p=Payload(await Entry(a,ct));var payments=await db.Set<BillingPayment>().Where(x=>x.AccountId==id).OrderByDescending(x=>x.CreatedAtUtc).ToListAsync(ct);
         var total=p["amount"]!.GetValue<decimal>();var paid=payments.Where(x=>x.State is "Approved" or "Refunded").Sum(x=>x.Amount-x.Refunded);

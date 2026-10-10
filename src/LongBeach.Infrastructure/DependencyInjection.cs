@@ -40,6 +40,7 @@ public static class DependencyInjection
                     npgsql.MigrationsAssembly(typeof(LongBeachDbContext).Assembly.GetName().Name!))
                 .AddInterceptors(serviceProvider.GetRequiredService<AuditSaveChangesInterceptor>()));
 
+        services.AddScoped<LongBeach.Application.Teaching.ITeaching, LongBeach.Infrastructure.Teaching.TeachingService>();
         services.AddScoped<LongBeach.Application.Portal.IClientPortal, LongBeach.Infrastructure.Portal.ClientPortalService>();
         services.AddScoped<LongBeach.Application.Billing.IBilling, LongBeach.Infrastructure.Billing.BillingService>();
         services.AddHostedService<LongBeach.Infrastructure.Billing.BillingWorker>();
@@ -66,6 +67,7 @@ public static class DependencyInjection
         services.AddScoped<LongBeach.Application.Operations.IRentalGroupImport, LongBeach.Infrastructure.Operations.RentalGroupImportService>();
         services.AddScoped<LongBeach.Application.Operations.IGradeImport, LongBeach.Infrastructure.Operations.GradeImportService>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<LongBeach.Application.Auth.IGoogleClientRegistration, LongBeach.Infrastructure.Auth.GoogleClientRegistration>();
         services.Configure<Microsoft.AspNetCore.Identity.PasswordHasherOptions>(options =>
             options.IterationCount = 210_000);
         services.AddSingleton<IPasswordHasher, AspNetIdentityPasswordHasher>();
