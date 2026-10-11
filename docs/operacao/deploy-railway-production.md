@@ -1,5 +1,23 @@
 # Deploy de Production no Railway
 
+## Agenda semanal e experiências por perfil — 2026-10-10
+
+Publicação autorizada pelo proprietário na conversa operacional. PR [#25](https://github.com/gustavodrager/longbeach/pull/25) integrado em `codex/saldos-pagina-inicial` (merge `29a60d5f7163b78fc5bd41c31045cfee85e7f38e`). API e web fixadas no artefato `316ffe23eedcb7bdda91fc3e99362c444f093d6b`, branch `codex/perfis-acesso`. Inclui Agenda semanal, intervalos calculados no servidor, painéis de atividades, experiências de cliente/professor/bar/gestão, cadastro Google, solicitações e consolidação de páginas. Sem novas migrations.
+
+- API: `0e52c12c-c982-42e2-8dbc-691250a29e63`, SUCCESS em 11/10 às 00:06 UTC (10/10 no Brasil), digest `sha256:b79080a58807adb5b986b72a83c2a1420581f8ce9e355242a8bda884c51c6783`.
+- Web: `580842cf-88ea-4608-9262-cb133086031c`, SUCCESS em 11/10 às 00:17 UTC, digest `sha256:003b38e564ebfb192e273febf3b919cd2942b6aee9f33bf50b9bfef7d6cafd66`.
+- CI [38096616226](https://github.com/gustavodrager/longbeach/actions/runs/38096616226) aprovado: 191 unitários e 252 de integração em PostgreSQL 17 e 18, 266 frontend, 11 conversores, builds, auditoria somente leitura e restauração sintética. São 709 testes distintos da aplicação, além dos conversores.
+- API publicada antes da web; `/health/live`, `/health/ready`, `/` e `/healthz` responderam 200. Rotas pessoais/docentes/administrativas exigiram sessão (401). CORS permitiu a origem oficial com credenciais e não permitiu o antigo preview.
+- Preservados cliente Google de produção, allowlist privada, chaves, banco, domínios, EDI e serviços auxiliares. Acrescentado apenas `Authentication__Google__ClientRegistrationEnabled=true` na API; cadastros novos recebem Student e acesso pessoal. O provisionamento automático de Owner continua false. Nenhuma concessão de papel nesta publicação.
+- Snapshot importado antes e após cada promoção, diffs revisados e planos sem alterações inesperadas. Serviços auxiliares mantiveram os deployments anteriores. Todos os seis serviços online, sem falhas recentes ou trabalho pendente na conferência.
+- No Chrome, login Google real do proprietário funcionou antes e depois da publicação; logout e nova entrada confirmaram o acesso administrativo na versão atualizada. A PWA preservou a sessão ao atualizar; a tela de login mostrou somente Google. Agenda semanal, detalhes da aula e área pessoal carregaram; Escape devolveu foco ao cartão. Em 390 px, sete dias sequenciais sem overflow horizontal. Nenhum erro de console posterior à publicação foi observado. Um aviso GSI anterior à publicação não impediu a conclusão das duas entradas reais.
+
+Pendência operacional preservada: funcionamento de segunda a sexta 06:00–24:00 está marcado como **A confirmar / Agenda atual aguardando conferência** no cadastro de produção. A Agenda exibe atividades existentes, mas não anuncia os intervalos vazios como livres antes dessa conferência. Sábado/domingo e preços não foram alterados. Não foram transferidos dados fictícios da homologação local nem criadas reservas, cobranças ou pagamentos de teste em produção.
+
+Novos pagamentos PagBank continuam desabilitados pelos padrões existentes. Publicação não equivale à homologação financeira nem ao aceite em aparelhos reais de todos os perfis. O módulo completo de eventos permanece fora do escopo implementado (apenas bloqueio operacional da quadra).
+
+Rollback compatível da aplicação: API `086d5ae7-173d-4029-b052-e218c7770f36` no commit `78f9c81b7b07735289d711ce81fdf8a0c1b6279c`; web `07a5e402-516a-44d4-8533-6411c721a579` no commit `7f47d65cbc12289f2f004c10a94dfb1653d79134`. Uma reversão apenas da web pode manter a API nova. Não reverta a API antiga após cadastros públicos sem uma revisão de acesso: ela não tem o teto de permissões Student e desligar novos cadastros não protege contas já criadas. Prefira correção para frente; preserve a proteção dos clientes existentes. Preserve banco e identidades; nunca restaure a base de homologação sobre produção. Reimporte o snapshot e exija plano sem drift após qualquer retorno.
+
 ## Correção PagBank e publicação após envio da homologação — 2026-10-08
 
 Publicação autorizada pelo proprietário na conversa operacional. PR [#20](https://github.com/gustavodrager/longbeach/pull/20) integrado em `codex/saldos-pagina-inicial`; API e web fixadas no artefato validado `99f81448b83a4d54e725d456b00d128db92c61cc`, branch `codex/pagbank-homologacao-20261007`. A correção inclui os itens exigidos pelo PagBank no pedido de cartão. Nenhuma migration nova nesta revisão.
