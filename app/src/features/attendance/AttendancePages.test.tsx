@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthContext, type AuthContextValue } from '../auth/authContext'
 import type { AuthUser } from '../auth/types'
 import { setAccessToken, setCsrfToken } from '../../lib/http'
-import { SellPage, TabDetailsPage, TabsPage } from './AttendancePages'
+import { SellPage, TabDetailsPage, TabsPage, OrdersPage } from './AttendancePages'
 import { MyCashPage } from './CashPage'
 import { ReceivePage } from './PaymentPages'
 import { ClientPage } from './ClientPage'
@@ -19,9 +19,10 @@ const makeTab=():Tab=>({id:'tab-a',number:104,name:'Visitante',mode:'Tab',state:
 const products:CatalogItem[]=[{id:'water',name:'Água mineral',shortName:'Água',categoryId:'drinks',categoryName:'Bebidas',salePrice:5,favorite:true,displayOrder:1,available:2,prepared:false},{id:'juice',name:'Suco',shortName:'Suco',categoryId:'drinks',categoryName:'Bebidas',salePrice:8,favorite:true,displayOrder:2,available:0,prepared:true}]
 const payment=(body:Record<string,unknown>,state='Approved'):TabPayment=>({id:'payment-a',tabId:'tab-a',method:String(body.method),amount:Number(body.amount),tendered:Number(body.tendered??body.amount),change:Math.max(0,Number(body.tendered??body.amount)-Number(body.amount)),state,operationId:String(body.operationId),createdAtUtc,confirmedAtUtc:state==='Approved'?createdAtUtc:undefined,expiresAtUtc:'2026-10-04T15:30:00Z',refunded:0,refundPending:0,fee:0})
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}})
-type Server={tab:Tab;pixEnabled:boolean;catalog?:CatalogItem[];locations?:Named[];post?:(path:string,body:Record<string,unknown>)=>Response|Promise<Response>}
+type Server={tab:Tab;pixEnabled:boolean;catalog?:CatalogItem[];locations?:Named[];customers?:{id:string;name:string;emailHint:string}[];post?:(path:string,body:Record<string,unknown>)=>Response|Promise<Response>}
 function server(state:Server){return vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{
   const path=String(input);if(init?.method==='POST'&&state.post)return state.post(path,JSON.parse(String(init.body)))
+  if(path.includes('/tabs/customers?'))return json(state.customers??[])
   if(path.includes('/catalog'))return json(state.catalog??products)
   if(path.endsWith('/cash/sessions'))return json([{id:'session-a',registerId:'register-a',locationId:'bar-a',openedBy:actor.id,state:'Open',opening:0,expected:0,createdAtUtc,terminal:'Caixa'}])
   if(path.endsWith('/tabs/locations'))return json(state.locations??[{id:'bar-a',name:'Bar'}])
@@ -35,7 +36,7 @@ const clients:QueryClient[]=[]
 function mount(path:string,user=actor){
   const query=new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}});clients.push(query)
   const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{}, completeFirstAccessWithGoogle: async () => {}}
-  render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<BarArenaMetrics from="2026-10-01" to="2026-10-04" />} /><Route path="/bar/indicadores/:metric" element={<BarReportPage />} /><Route path="/atendimento/caixa" element={<MyCashPage />} /><Route path="/atendimento/vender" element={<SellPage />} /><Route path="/atendimento/comandas" element={<TabsPage />} /><Route path="/atendimento/comandas/:tabId" element={<TabDetailsPage />} /><Route path="/atendimento/receber/:tabId" element={<ReceivePage />} /><Route path="/atendimento/comprovante/:tabId/:paymentId" element={<h1>Comprovante recebido</h1>} /><Route path="/cliente" element={<ClientPage />} /></Routes></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
+  render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<BarArenaMetrics from="2026-10-01" to="2026-10-04" />} /><Route path="/bar/indicadores/:metric" element={<BarReportPage />} /><Route path="/atendimento/pedidos" element={<OrdersPage />} /><Route path="/atendimento/caixa" element={<MyCashPage />} /><Route path="/atendimento/vender" element={<SellPage />} /><Route path="/atendimento/comandas" element={<TabsPage />} /><Route path="/atendimento/comandas/:tabId" element={<TabDetailsPage />} /><Route path="/atendimento/receber/:tabId" element={<ReceivePage />} /><Route path="/atendimento/comprovante/:tabId/:paymentId" element={<h1>Comprovante recebido</h1>} /><Route path="/cliente" element={<ClientPage />} /></Routes></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
   return query
 }
 beforeEach(()=>{sessionStorage.clear();localStorage.clear();setAccessToken(null);setCsrfToken(null)})
@@ -375,7 +376,10 @@ it.each(['atendente','cliente'] as const)('pedido com resultado desconhecido con
   fireEvent.click(screen.getByRole('button',{name:label}))
   expect(await screen.findByRole('alert')).toHaveTextContent('Resposta interrompida')
   expect(screen.getByText('1 × Água')).toBeInTheDocument();expect(screen.getByRole('button',{name:'Alterar pedido'})).toBeDisabled()
-  if(scene==='atendente')expect(screen.getByRole('button',{name:'Adicionar à comanda'})).toBeDisabled()
+  if(scene==='atendente'){
+    expect(screen.getByRole('button',{name:'Adicionar à comanda'})).toBeDisabled()
+    expect(screen.queryByRole('link',{name:'Trocar comanda'})).not.toBeInTheDocument()
+  }
   cleanup();query.clear();mount(path)
   expect(await screen.findByText('1 × Água')).toBeInTheDocument()
   expect(screen.getByRole('button',{name:'Alterar pedido'})).toBeDisabled()
@@ -566,3 +570,133 @@ it('comanda encerrada permite comprovante sem catálogo nem novo pagamento',asyn
   expect(screen.getByRole('button',{name:'Salvar ou imprimir comprovante'})).toBeInTheDocument()
   expect(fetchMock.mock.calls.some(([input])=>String(input).endsWith('/catalog'))).toBe(false)
 })
+
+
+it('abre comanda coletiva com responsável confirmado e mostra o vínculo no detalhe',async()=>{
+ const bodies:Record<string,unknown>[]=[];const tab=makeTab();
+ server({tab,pixEnabled:false,customers:[{id:'customer-a',name:'Cliente Teste',emailHint:'c***@example.com'}],post:async(_,body)=>{bodies.push(body);tab.name=String(body.name);tab.responsible={id:'customer-a',name:'Cliente Teste'};return json(tab)}})
+ mount('/atendimento/comandas');fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));
+ fireEvent.click(screen.getByLabelText('Cliente cadastrado'));fireEvent.change(screen.getByLabelText('Buscar responsável'),{target:{value:'Cliente'}});fireEvent.click(screen.getByRole('button',{name:'Buscar cliente'}));
+ fireEvent.click(await screen.findByLabelText('Cliente Teste · c***@example.com'));
+ expect(screen.getByRole('button',{name:'Abrir comanda vinculada'})).toBeDisabled();
+ fireEvent.click(screen.getByLabelText(/Confirmo que Cliente Teste/));
+ fireEvent.change(screen.getByLabelText('Nome da pessoa ou do grupo (opcional)'),{target:{value:'Turma de quinta'}});
+ fireEvent.click(screen.getByRole('button',{name:'Abrir comanda vinculada'}));
+ expect(await screen.findByText('Responsável: Cliente Teste · Comanda disponível na área do cliente.')).toBeInTheDocument();
+ expect(bodies).toHaveLength(1);expect(bodies[0]).toMatchObject({responsibleUserId:'customer-a',name:'Turma de quinta',mode:'Tab',locationId:'bar-a'});
+})
+
+it('preserva a abertura incerta após remontar e repete a mesma operação',async()=>{
+ const bodies:Record<string,unknown>[]=[];let fail=true;
+ server({tab:makeTab(),pixEnabled:false,post:async(_,body)=>{bodies.push(body);if(fail)throw new TypeError('offline');return json(makeTab())}});
+ mount('/atendimento/comandas');fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));
+ fireEvent.change(screen.getByLabelText('Nome da pessoa ou do grupo (opcional)'),{target:{value:'Visitante Teste'}});
+ const button=screen.getByRole('button',{name:'Abrir sem cadastro'});await waitFor(()=>expect(button).toBeEnabled());fireEvent.click(button);
+ expect(await screen.findByText(/Não foi possível confirmar esta operação/)).toBeInTheDocument();
+ expect(screen.queryByLabelText('Nome da pessoa ou do grupo (opcional)')).not.toBeInTheDocument();
+ cleanup();fail=false;mount('/atendimento/comandas');
+ fireEvent.click(await screen.findByRole('button',{name:'Conferir abertura'}));
+ await waitFor(()=>expect(screen.getByTestId('route')).toHaveTextContent('/atendimento/comandas/tab-a'));
+ expect(bodies).toHaveLength(2);expect(bodies[1]).toEqual(bodies[0]);expect(bodies[0]).not.toHaveProperty('responsibleUserId');
+})
+
+it('mudar a busca remove o responsável e exige nova seleção',async()=>{
+ server({tab:makeTab(),pixEnabled:false,customers:[{id:'customer-a',name:'Cliente Teste',emailHint:'c***@example.com'}]});mount('/atendimento/comandas');
+ fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));fireEvent.click(screen.getByLabelText('Cliente cadastrado'));
+ fireEvent.change(screen.getByLabelText('Buscar responsável'),{target:{value:'Cliente'}});fireEvent.click(screen.getByRole('button',{name:'Buscar cliente'}));
+ fireEvent.click(await screen.findByLabelText('Cliente Teste · c***@example.com'));fireEvent.click(screen.getByLabelText(/Confirmo que Cliente Teste/));
+ fireEvent.change(screen.getByLabelText('Buscar responsável'),{target:{value:'Outro'}});
+ expect(screen.getByRole('button',{name:'Abrir comanda vinculada'})).toBeDisabled();expect(screen.queryByLabelText(/Confirmo que/)).not.toBeInTheDocument();
+})
+
+
+it('consulta encerradas preservando situação e busca na paginação e no retorno',async()=>{
+ const tab={...makeTab(),state:'Closed',closedAtUtc:'2026-10-05T15:00:00Z',due:0,payable:0};const requests=server({tab,pixEnabled:false});
+ mount('/atendimento/comandas?busca=104&pagina=2');fireEvent.click(screen.getByRole('button',{name:'Encerradas'}));
+ await waitFor(()=>expect(requests.mock.calls.some(([url])=>String(url).includes('state=Closed&search=104&page=1'))).toBe(true));
+ fireEvent.click(await screen.findByRole('button',{name:'Próxima'}));
+ await waitFor(()=>expect(requests.mock.calls.some(([url])=>String(url).includes('state=Closed&search=104&page=2'))).toBe(true));
+ fireEvent.click(await screen.findByRole('link',{name:/104.*Consultar comanda/}));
+ await screen.findByRole('heading',{name:'Comanda 104'});
+ const back=new URL(screen.getByRole('link',{name:'Voltar'}).getAttribute('href')!,'https://test.invalid');
+ expect(back.searchParams.get('situacao')).toBe('Closed');expect(back.searchParams.get('busca')).toBe('104');expect(back.searchParams.get('pagina')).toBe('2');
+ expect(screen.queryByRole('link',{name:'Receber'})).not.toBeInTheDocument();expect(screen.queryByRole('link',{name:'Adicionar produtos'})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'Encerrar comanda'})).not.toBeInTheDocument();
+ expect(screen.getByText('Nenhum consumo registrado nesta comanda.')).toBeInTheDocument();
+})
+
+it('filtra todas e com pedidos no servidor sem descartar a busca',async()=>{
+ const requests=server({tab:makeTab(),pixEnabled:false});mount('/atendimento/comandas?busca=104');
+ fireEvent.click(screen.getByRole('button',{name:'Todas'}));await waitFor(()=>expect(requests.mock.calls.some(([url])=>String(url).includes('state=&search=104&page=1'))).toBe(true));
+ fireEvent.click(screen.getByRole('button',{name:'Com pedidos'}));await waitFor(()=>expect(requests.mock.calls.some(([url])=>String(url).includes('state=Orders&search=104&page=1'))).toBe(true));
+ expect(screen.getByRole('button',{name:'Com pedidos'})).toHaveAttribute('aria-pressed','true');
+})
+
+it('fila mostra espera desde o aceite e retorna à mesma página',async()=>{
+ const tab=makeTab();tab.items=[{id:'order-a',tabId:tab.id,productId:'water',name:'Água',quantity:1,unitPrice:5,total:5,state:'Accepted',source:'Attendant',createdAtUtc,acceptedAtUtc:'2026-10-04T16:00:00Z',allowedActions:['fulfill']}];server({tab,pixEnabled:false});
+ mount('/atendimento/pedidos?pagina=2');await screen.findByText(/Aguardando entrega há/);
+ fireEvent.click(screen.getByRole('link',{name:'Comanda 104 Visitante'}));await screen.findByRole('heading',{name:'Comanda 104'});
+ expect(screen.getByRole('link',{name:'Voltar'})).toHaveAttribute('href','/atendimento/pedidos?pagina=2');
+})
+
+it('identifica a comanda e o responsável na escolha e revisão e envia somente para esse destino',async()=>{
+ const tab={...makeTab(),name:'Grupo de teste',responsible:{id:'customer-a',name:'Responsável Teste'}};
+ const state:Server={tab,pixEnabled:false,post:()=>json(tab)};const requests=server(state);mount('/atendimento/vender?comanda=tab-a');
+ const destination=await screen.findByRole('region',{name:'Destino do pedido'});
+ expect(within(destination).getByRole('heading',{name:'Comanda 104 · Grupo de teste'})).toBeInTheDocument();
+ expect(within(destination).getByText('Responsável: Responsável Teste')).toBeInTheDocument();
+ expect(within(destination).getByText(/Saldo atual da comanda/)).toHaveTextContent('12,50');
+ fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}));
+ expect(within(screen.getByRole('region',{name:'Destino do pedido'})).getByText('Responsável: Responsável Teste')).toBeInTheDocument();
+ expect(screen.getByText('1 × Água')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Adicionar à comanda'}));
+ expect(await screen.findByRole('heading',{name:'Comanda 104'})).toBeInTheDocument();
+ const posts=requests.mock.calls.filter(([,init])=>init?.method==='POST');expect(posts).toHaveLength(1);
+ expect(posts[0][0]).toBe('/api/v1/bar/tabs/tab-a/items');expect(JSON.parse(String(posts[0][1]?.body))).toMatchObject({items:[{productId:'water',quantity:1}],deliver:false});
+ expect(sessionStorage.getItem(`lb-cart:${actor.id}:tab-a`)).toBe('[]');
+});
+
+it('o nome da comanda não implica responsável e venda avulsa não herda a identidade',async()=>{
+ server({tab:{...makeTab(),name:'Grupo de teste'},pixEnabled:false});mount('/atendimento/vender?comanda=tab-a');
+ expect(await screen.findByText('Sem responsável vinculado à área do cliente.')).toBeInTheDocument();
+ cleanup();mount('/atendimento/vender');
+ expect(await screen.findByRole('heading',{name:'Venda avulsa'})).toBeInTheDocument();
+ expect(screen.getByText('Ao registrar, será criada uma comanda separada, sem responsável vinculado.')).toBeInTheDocument();
+ expect(screen.queryByText('Grupo de teste')).not.toBeInTheDocument();
+});
+
+it('escolher uma comanda preserva o rascunho avulso sem transferir produtos',async()=>{
+ const requests=server({tab:makeTab(),pixEnabled:false});mount('/atendimento/vender');
+ fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));
+ fireEvent.click(screen.getByRole('link',{name:'Escolher uma comanda'}));
+ fireEvent.click(await screen.findByRole('link',{name:/104.*Abrir comanda/}));
+ fireEvent.click(await screen.findByRole('link',{name:'Adicionar produtos'}));
+ expect(await screen.findByRole('heading',{name:'Comanda 104 · Visitante'})).toBeInTheDocument();
+ expect(await screen.findByRole('button',{name:/Adicionar Água por/})).toBeEnabled();
+ expect(screen.queryByLabelText('Quantidade de Água')).not.toBeInTheDocument();
+ expect(sessionStorage.getItem(`lb-cart:${actor.id}:sale`)).toBe('[{"productId":"water","quantity":1}]');
+ expect(requests.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
+ cleanup();mount('/atendimento/vender');expect(await screen.findByLabelText('Quantidade de Água')).toHaveTextContent('1');
+});
+
+it('comanda encerrada conserva o rascunho mas não oferece registro nem produtos',async()=>{
+ sessionStorage.setItem(`lb-cart:${actor.id}:tab-a`,'[{"productId":"water","quantity":1}]');
+ const requests=server({tab:{...makeTab(),state:'Closed'},pixEnabled:false});mount('/atendimento/vender?comanda=tab-a');
+ expect(await screen.findByText(/Esta comanda está encerrada/)).toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:/Registrar|Adicionar Água|Conferir pedido/})).not.toBeInTheDocument();
+ expect(screen.getByRole('link',{name:'Trocar comanda'})).toBeInTheDocument();
+ expect(sessionStorage.getItem(`lb-cart:${actor.id}:tab-a`)).toBe('[{"productId":"water","quantity":1}]');
+ expect(requests.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
+});
+
+it('falha ao atualizar a comanda bloqueia envio mesmo com dados anteriores em cache',async()=>{
+ const requests=server({tab:makeTab(),pixEnabled:false});const query=mount('/atendimento/vender?comanda=tab-a');
+ fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}));
+ requests.mockImplementation(async input=>String(input).endsWith('/tabs/tab-a')?json({detail:'Comanda indisponível.'},503):String(input).includes('/catalog')?json(products):json([{id:'bar-a',name:'Bar'}]));
+ await act(async()=>{await query.invalidateQueries({queryKey:['bar-runtime']})});
+ expect(await screen.findByRole('alert')).toHaveTextContent('Comanda indisponível.');
+ expect(screen.queryByRole('region',{name:'Destino do pedido'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Adicionar à comanda'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Registrar e entregar'})).not.toBeInTheDocument();
+ expect(sessionStorage.getItem(`lb-cart:${actor.id}:tab-a`)).toBe('[{"productId":"water","quantity":1}]');
+ expect(requests.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
+});

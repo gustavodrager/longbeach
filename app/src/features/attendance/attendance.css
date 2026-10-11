@@ -108,6 +108,7 @@
   .lb-order-steps { gap:14px; flex-wrap:wrap; }
   .lb-order-steps li { font-size:16px; gap:6px; }
   .lb-attendance .ux-account-number { font-size:48px; }
+  .lb-attendance .ux-account-grid { grid-template-columns:minmax(0,1fr); }
   .lb-attendance .ux-account-card .ux-total { gap:6px; }
   .ux-client .lb-client-tabs { gap:8px; }
   .ux-client .lb-client-tabs .ux-button { flex-direction:column; gap:4px; font-size:16px; padding:10px 6px; min-height:76px; }
@@ -133,3 +134,16 @@
 
 /* Customer balance remains legible when a QR opens directly, without the portal shell. */
 .ux-client .client-balance{padding:12px 0;max-width:100%}.ux-client .client-balance>strong{font-size:2rem}.ux-client .client-balance p{line-height:1.5}.ux-client .client-balance summary{cursor:pointer;min-height:44px;padding-top:12px}.pix-copy textarea{width:100%;box-sizing:border-box}.pix-copy>button{min-height:48px}@media print{.ux-client .ux-tabs,.ux-client button,.ux-client aside,.ux-client .pix-copy{display:none!important}.ux-client .ux-panel{break-inside:avoid}}
+
+.lb-tab-filters { margin:20px 0; flex-wrap:wrap; }
+.lb-tab-state { font-weight:700; }
+.lb-tab-context,.lb-tab-attention { display:flex; flex-direction:column; align-items:flex-start; gap:8px; }
+.lb-tab-context { margin:16px 0; }
+.lb-tab-attention .ux-status { white-space:normal; text-align:left; }
+.lb-order-waiting { font-weight:700; color:#76520c; }
+.lb-sale-destination { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; border-left:5px solid #f5be3d; }
+.lb-sale-destination>div { min-width:0; overflow-wrap:anywhere; }
+.lb-sale-destination h2 { margin:8px 0; }
+.lb-sale-destination .ux-button { flex-shrink:0; }
+.lb-sale-balance small { display:block; margin-top:6px; color:#625d53; }
+@media (max-width:800px) { .lb-sale-destination { flex-direction:column; } .lb-sale-destination>.ux-button { width:100%; } }
