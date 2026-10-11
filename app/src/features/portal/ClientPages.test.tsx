@@ -13,7 +13,9 @@ function mount(content:React.ReactNode,path='/minha-area') { const client=new Qu
 function json(body:unknown,status=200){return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}})}
 const profile={name:'Cliente teste',email:user.email,phone:'11988887777',reminders:true,links:[]}
 const request:PortalRequest={id:'r1',userId:user.id,customerName:user.name,kind:'Reservation',date:'2026-10-10',startTime:'18:00',endTime:'19:00',courtId:'court1',message:'Pedido',status:'Alternative',reply:'Podemos neste horário',version:2,updatedAtUtc:'2026-10-06T12:00:00Z',amount:50}
-afterEach(()=>{cleanup();clients.splice(0).forEach(c=>c.clear());sessionStorage.clear();vi.restoreAllMocks()})
+// Keep the booking fixtures in the future regardless of the day the suite runs.
+beforeEach(()=>{vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-10-09T12:00:00Z'))})
+afterEach(()=>{vi.useRealTimers();cleanup();clients.splice(0).forEach(c=>c.clear());sessionStorage.clear();vi.restoreAllMocks()})
 it('área pessoal tem cinco destinos sem navegação da gestão',async()=>{
  const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>String(input).endsWith('/profile')?json(profile):json([]));mount(<Routes><Route path="/minha-area" element={<ClientLayout/>}><Route index element={<PortalHome/>}/></Route></Routes>)
  expect(await screen.findByRole('heading',{name:'Olá, Cliente'})).toBeInTheDocument();expect(screen.getByRole('navigation',{name:'Minha área'}).querySelectorAll('a')).toHaveLength(5);expect(screen.queryByText('Gestão da arena')).not.toBeInTheDocument();expect(await screen.findByRole('link',{name:'Experimentar uma aula'})).toHaveAttribute('href','/minha-area/solicitar?tipo=Trial');expect(fetch.mock.calls.every(([url])=>String(url).includes('/api/v1/me/'))).toBe(true)

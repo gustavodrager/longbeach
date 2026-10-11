@@ -15,6 +15,73 @@ public sealed class BarTabsPostgresTests
 {
     private const string ConnectionVariable="LONG_BEACH_TEST_DATABASE_URL";
     [PostgresFact]
+    public async Task Tab_list_filters_before_paging_and_orders_pending_age_and_closing_time()
+    {
+        await using var f = await Fixture.Create(); var now = DateTimeOffset.UtcNow; var marker = "Fila" + Guid.NewGuid().ToString("N");
+        var older = new BarTab(f.Location.Id, f.Actor, marker + " antiga", "Tab"); older.MarkCreated(now.AddDays(-3));
+        var newer = new BarTab(f.Location.Id, f.Actor, marker + " recente", "Tab"); newer.MarkCreated(now.AddDays(-2));
+        var closedFirst = new BarTab(f.Location.Id, f.Actor, marker + " encerrada primeiro", "Tab"); closedFirst.MarkCreated(now.AddDays(-1)); closedFirst.Close(0, 0, false, now.AddHours(-2));
+        var closedLast = new BarTab(f.Location.Id, f.Actor, marker + " encerrada depois", "Tab"); closedLast.MarkCreated(now.AddDays(-4)); closedLast.Close(0, 0, false, now.AddHours(-1));
+        var oldItem = new BarTabItem(older.Id, f.Product, 1, null, true); oldItem.MarkCreated(now.AddHours(-1));
+        var newItem = new BarTabItem(newer.Id, f.Product, 1, null, true); newItem.MarkCreated(now.AddMinutes(-10));
+        f.Db.AddRange(older, newer, closedFirst, closedLast, oldItem, newItem); await f.Db.SaveChangesAsync();
+        var orders = await f.Tabs.List("Orders", marker, 1, 1, false, default);
+        Assert.Equal(2, orders.Total); Assert.Equal(older.Id, Assert.Single(orders.Items).Id);
+        Assert.Equal(newer.Id, Assert.Single((await f.Tabs.List("Orders", marker, 2, 1, false, default)).Items).Id);
+        var closed = await f.Tabs.List("Closed", marker, 1, 1, false, default);
+        Assert.Equal(2, closed.Total); Assert.Equal(closedLast.Id, Assert.Single(closed.Items).Id);
+        Assert.Empty(Assert.Single(closed.Items).AllowedActions);
+        Assert.Equal(4, (await f.Tabs.List(null, marker, 1, 10, false, default)).Total);
+        Assert.Equal(2, (await f.Tabs.List("Open", marker, 1, 10, false, default)).Total);
+        Assert.Empty((await f.Tabs.List("Closed", marker + " inexistente", 1, 10, false, default)).Items);
+    }
+
+    [PostgresFact]
+    public async Task Identified_tab_opens_with_atomic_private_billing_link_and_replays_once()
+    {
+        await using var f = await Fixture.Create();
+        var user = LongBeach.Domain.Identity.User.Create("Cliente da comanda", $"{Guid.NewGuid():N}@example.com", "test-only");
+        user.LinkGoogle(Guid.NewGuid().ToString(), user.Email); f.Db.Add(user); await f.Db.SaveChangesAsync();
+        var input = new OpenTabInput(Guid.NewGuid(), f.Location.Id, "Grupo da quinta", ResponsibleUserId: user.Id);
+        var opened = await f.Tabs.Open(input, f.Actor, default);
+        Assert.Equal(user.Id, opened.Responsible!.Id); Assert.Equal("Grupo da quinta", opened.Name);
+        Assert.Equal(opened.Id, (await f.Tabs.Open(input, f.Actor, default)).Id);
+        var account = Assert.Single(await f.Db.Set<LongBeach.Domain.Billing.BillingAccount>().Where(x => x.SourceId == opened.Id).ToListAsync());
+        Assert.Equal(user.Id, account.UserId); Assert.Equal(f.Actor, account.AssignedBy); Assert.Null(account.StudentId);
+        var config = new ConfigurationBuilder().Build();
+        var billing = new LongBeach.Infrastructure.Billing.BillingService(f.Db, f.Gateway, f.Tabs, new LongBeach.Infrastructure.Payments.PagBankRecurringGateway(new HttpClient(), config), new LongBeach.Infrastructure.Operations.RentalGroupsService(f.Db, TimeProvider.System), TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<LongBeach.Infrastructure.Billing.BillingService>.Instance, config);
+        Assert.Equal(account.Id, (await billing.Account(account.Id, user.Id, default)).Id);
+        await Assert.ThrowsAsync<BarTabAccessException>(() => billing.Account(account.Id, Guid.NewGuid(), default));
+        Assert.Equal(user.Name, (await f.Tabs.Get(opened.Id, false, default)).Responsible!.Name);
+        var access = await f.Tabs.IssueAccess(opened.Id, new(Guid.NewGuid()), f.Actor, default);
+        Assert.Null((await f.Tabs.Client(access.Token, default)).Responsible);
+        Assert.Single(opened.History, x => x.Kind == "ResponsibleAssigned");
+        await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Open(input with { ResponsibleUserId = Guid.NewGuid() }, f.Actor, default));
+    }
+
+    [PostgresFact]
+    public async Task Customer_lookup_masks_email_and_rejects_inactive_or_unlinked_identity_without_orphan_tab()
+    {
+        await using var f = await Fixture.Create(); var marker = "Busca" + Guid.NewGuid().ToString("N");
+        var active = LongBeach.Domain.Identity.User.Create(marker + new string('a', 120), $"{Guid.NewGuid():N}@example.com", "test-only"); active.LinkGoogle(Guid.NewGuid().ToString(), active.Email);
+        var inactive = LongBeach.Domain.Identity.User.Create(marker + " inativo", $"{Guid.NewGuid():N}@example.com", "test-only"); inactive.LinkGoogle(Guid.NewGuid().ToString(), inactive.Email); inactive.Deactivate();
+        var unlinked = LongBeach.Domain.Identity.User.Create(marker + " pendente", $"{Guid.NewGuid():N}@example.com", "test-only");
+        f.Db.AddRange(active, inactive, unlinked); await f.Db.SaveChangesAsync();
+        Assert.Empty(await f.Tabs.Customers("", default)); Assert.Empty(await f.Tabs.Customers("ab", default));
+        Assert.Equal(active.Id, Assert.Single(await f.Tabs.Customers(marker, default)).Id);
+        Assert.NotEqual(active.Email, Assert.Single(await f.Tabs.Customers(active.Email.ToUpperInvariant(), default)).EmailHint);
+        Assert.Empty(await f.Tabs.Customers("%@example.com", default));
+        var before = await f.Db.Set<BarTab>().CountAsync(x => x.LocationId == f.Location.Id);
+        foreach (var id in new[] { inactive.Id, unlinked.Id, Guid.NewGuid(), Guid.Empty })
+            await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Open(new(Guid.NewGuid(), f.Location.Id, ResponsibleUserId: id), f.Actor, default));
+        Assert.Equal(before, await f.Db.Set<BarTab>().CountAsync(x => x.LocationId == f.Location.Id));
+        var visitor = await f.Tabs.Open(new(Guid.NewGuid(), f.Location.Id, "Visitante"), f.Actor, default);
+        Assert.Null(visitor.Responsible);
+        Assert.False(await f.Db.Set<LongBeach.Domain.Billing.BillingAccount>().AnyAsync(x => x.SourceId == visitor.Id));
+        var personal = await f.Tabs.Open(new(Guid.NewGuid(), f.Location.Id, ResponsibleUserId: active.Id), f.Actor, default);
+        Assert.Equal(active.Name[..80], personal.Name);
+    }
+    [PostgresFact]
     public async Task Closed_tab_remains_read_only_until_expiry_and_explicit_revocation_still_wins()
     {
         await using var f=await Fixture.Create();var tab=await f.Tabs.Open(new(Guid.NewGuid(),f.Location.Id),f.Actor,default);

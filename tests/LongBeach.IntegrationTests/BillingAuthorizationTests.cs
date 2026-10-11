@@ -16,6 +16,7 @@ public sealed class BillingAuthorizationTests
     [InlineData("/api/v1/me/billing/accounts")]
     [InlineData("/api/v1/me/billing/config")]
     [InlineData("/api/v1/me/billing/subscriptions")]
+    [InlineData("/api/v1/bar/tabs/customers?search=cliente") ]
     [InlineData("/api/v1/billing/accounts")]
     [InlineData("/api/v1/billing/candidates")]
     [InlineData("/api/v1/billing/settlements")]
@@ -24,6 +25,7 @@ public sealed class BillingAuthorizationTests
     public async Task Billing_always_requires_individual_login(string path)
     { await using var f = new LongBeachWebApplicationFactory(); using var c = f.CreateClient(); Assert.Equal(HttpStatusCode.Unauthorized, (await c.GetAsync(path)).StatusCode); }
     [Theory]
+    [InlineData("/api/v1/bar/tabs/customers?search=cliente") ]
     [InlineData("/api/v1/billing/accounts")]
     [InlineData("/api/v1/billing/candidates")]
     [InlineData("/api/v1/billing/settlements")]
