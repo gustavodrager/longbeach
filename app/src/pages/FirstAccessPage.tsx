@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { getSignInOptions } from '../features/auth/authApi'
 import { Navigate } from 'react-router-dom'
 import { Logo } from '../components/Logo'
 import { useAuth } from '../features/auth/authContext'
@@ -12,7 +14,9 @@ export function FirstAccessPage() {
   const [confirmation, setConfirmation] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const googleEnabled = Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID)
+  const options = useQuery({ queryKey: ['sign-in-options'], queryFn: getSignInOptions, retry: false, staleTime: 0 })
+  const googleClientId = !options.isError ? options.data?.googleClientId : null
+  const googleEnabled = Boolean(googleClientId)
 
   if (isBootstrapping) return <main className="session-loading">Carregando seu acesso…</main>
   if (!user) return <Navigate to="/login" replace />
@@ -38,12 +42,12 @@ export function FirstAccessPage() {
   }
 
   return <main className="login-page first-access-page"><section className="login-panel" aria-labelledby="first-access-title">
-    <div className="login-brand"><Logo /></div>
+    <div className="login-brand"><Logo tagline="Sua arena, no seu ritmo" /></div>
     <div className="login-heading"><p className="eyebrow">Primeiro acesso</p><h1 id="first-access-title">Olá, {user.name}</h1>
       <p>Seu usuário é <strong>{user.username}</strong>. {googleEnabled ? 'Vincule seu Google ou escolha uma nova senha para acessar a arena.' : 'Escolha uma nova senha para acessar a arena.'}</p></div>
     {googleEnabled && <section className="first-access-google" aria-label="Vincular Google"><h2>Usar minha conta Google</h2>
       <p>Escolha sua conta pessoal. Nos próximos acessos, use o botão do Google.</p>
-      <GoogleSignInButton onCredential={credential => void linkGoogle(credential)} onError={setError} disabled={busy} />
+      <GoogleSignInButton clientId={googleClientId ?? ''} onCredential={credential => void linkGoogle(credential)} onError={setError} disabled={busy} />
       <p className="login-divider">ou crie sua senha</p></section>}
     <form className="login-form" onSubmit={savePassword}>
       <label><span>Senha inicial</span><input type="password" autoComplete="current-password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} maxLength={256} required /></label>

@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { useOperations } from '../features/operations/DemoDataProvider'
+import { Link, useLocation } from 'react-router-dom'
+import { safeReturn, useUnsavedChanges, useContextSearchParams } from '../components/managementUi'
+import { useOperations, useOptionalOperations } from '../features/operations/DemoDataProvider'
 import './arena-pages.css'
 
 export const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
@@ -31,22 +32,27 @@ export function Field({ label, value, onChange, type = 'text', required = false,
 export function Notes({ label = 'Observações', value, onChange }: { label?: string; value: string; onChange: (value: string) => void }) { return <label className="operation-field operation-field-wide">{label}<textarea value={value} rows={3} onChange={event => onChange(event.target.value)} /></label> }
 export function Group({ title, children }: { title: string; children: ReactNode }) { return <fieldset className="arena-form-group"><legend>{title}</legend><div className="field-grid">{children}</div></fieldset> }
 export function SaveRow({ onCancel, label = 'Salvar cadastro', busy = false, disabled = false }: { onCancel?: () => void; label?: string; busy?: boolean; disabled?: boolean }) { return <div className="form-actions"><button className="primary-button" type="submit" disabled={busy || disabled}>{busy ? 'Salvando…' : label}</button>{onCancel && <button className="secondary-link" type="button" onClick={onCancel} disabled={busy}>Cancelar</button>}</div> }
-export function Empty({ children, action }: { children: ReactNode; action?: ReactNode }) { return <div className="empty-state"><span aria-hidden="true">☀</span><p>{children}</p>{action}</div> }
-export function DetailList({ items }: { items: [string, ReactNode][] }) { return <dl className="detail-list">{items.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || 'Não informado'}</dd></div>)}</dl> }
+export function Empty({ children, action }: { children: ReactNode; action?: ReactNode }) {
+  const operations = useOptionalOperations()
+  if (operations && !operations.dataUpdatedAt && ['connecting','error'].includes(operations.persistenceStatus)) return null
+  return <div className="empty-state"><span aria-hidden="true">☀</span><p>{children}</p>{action}</div>
+}
+export function DetailList({ items }: { items: [string, ReactNode][] }) { return <dl className="detail-list">{items.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value === '' || value === null || value === undefined ? 'Não informado' : value}</dd></div>)}</dl> }
 export function Status({ children, warning = false }: { children: ReactNode; warning?: boolean }) { return <span className={`status-pill ${warning ? 'arena-warning' : ''}`}>{warning && <span aria-hidden="true">! </span>}{children}</span> }
 export function useFilters() {
-  const [params, setParams] = useSearchParams()
-  const set = (key: string, value: string) => { const next = new URLSearchParams(params); value ? next.set(key, value) : next.delete(key); if (key !== 'page') next.delete('page'); setParams(next) }
-  const href = (path: string, changes?: Record<string, string>) => { const next = new URLSearchParams(params); if (changes) for (const [key, value] of Object.entries(changes)) value ? next.set(key, value) : next.delete(key); return `${path}${next.size ? `?${next}` : ''}` }
+  const [params, setParams] = useContextSearchParams()
+  const set = (key: string, value: string) => { const next = new URLSearchParams(params); value ? next.set(key, value) : next.delete(key); if (key !== 'page') next.delete('page'); setParams(next, { replace: key === 'q', preventScrollReset: true }) }
+  const href = (path: string, changes?: Record<string, string>) => { const next = new URLSearchParams(params); for (const key of ['acao','registro','secao']) next.delete(key); if (changes) for (const [key, value] of Object.entries(changes)) value ? next.set(key, value) : next.delete(key); return `${path}${next.size ? `?${next}` : ''}` }
   return { params, set, href, query: params.get('q') ?? '', status: params.get('status') ?? '' }
 }
 export function Search({ filters, placeholder = 'Buscar pelo nome…' }: { filters: ReturnType<typeof useFilters>; placeholder?: string }) { return <label className="search-box"><span aria-hidden="true">⌕</span><input type="search" aria-label="Buscar" placeholder={placeholder} value={filters.query} onChange={event => filters.set('q', event.target.value)} /></label> }
 export function useSave() {
+  const { markSaved } = useUnsavedChanges()
   const locked = useRef(false); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [message, setMessage] = useState('')
   async function run<T>(action: () => Promise<T>, success = 'Cadastro salvo.') {
     if (locked.current) return undefined
     locked.current = true; setBusy(true); setError(''); setMessage('')
-    try { const result = await action(); setMessage(success); return result }
+    try { const result = await action(); markSaved(); setMessage(success); return result }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível salvar. Confira sua conexão e tente novamente.'); return undefined }
     finally { locked.current = false; setBusy(false) }
   }
@@ -57,7 +63,7 @@ export function Feedback({ action }: { action?: ReturnType<typeof useSave> }) {
   return <>{action?.error && <p className="arena-message arena-error" role="alert">{action.error}</p>}{action?.message && <p className="arena-message" role="status">{action.message}</p>}{persistenceStatus === 'connecting' && <p className="arena-message" role="status">Carregando registros da arena…</p>}{persistenceStatus === 'error' && <p className="arena-message arena-error" role="alert">{persistenceMessage || 'Não foi possível atualizar os registros. Os números podem estar desatualizados.'}</p>}</>
 }
 export function NoAccess() { return <main className="operation-page arena-page"><Heading title="Acesso restrito" description="Sua conta não possui acesso a esta área da arena." /><Link className="secondary-link" to="/">Voltar ao início</Link></main> }
-export function Breadcrumb({ to, label }: { to: string; label: string }) { return <div className="breadcrumb"><Link to={to}>← {label}</Link></div> }
+export function Breadcrumb({ to, label }: { to: string; label: string }) { const location = useLocation(); const contextual = safeReturn(location.state?.returnTo); return <nav className="breadcrumb" aria-label="Retornar"><Link to={contextual ? location.state.returnTo : to} state={{ ...(contextual ? location.state.returnState : undefined), restoreList: true }}>← {contextual ? location.state.returnLabel || 'Voltar à página anterior' : label}</Link></nav> }
 export function Pagination({ total, children }: { total: number; children: (start: number, end: number) => ReactNode }) {
   const filters = useFilters(); const pages = Math.max(1, Math.ceil(total / 20)); const raw = Number(filters.params.get('page') ?? 1); const page = Math.min(pages, Math.max(1, Number.isInteger(raw) ? raw : 1))
   return <>{children((page - 1) * 20, page * 20)}{pages > 1 && <nav className="arena-pagination" aria-label="Páginas dos registros"><button className="secondary-link" disabled={page <= 1} onClick={() => filters.set('page', String(page - 1))}>Anterior</button><span>{page} de {pages} · {total} registros</span><button className="secondary-link" disabled={page >= pages} onClick={() => filters.set('page', String(page + 1))}>Próxima</button></nav>}</>

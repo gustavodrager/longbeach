@@ -1,107 +1,46 @@
-import { useState, type FormEvent } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { getSignInOptions } from '../features/auth/authApi'
+import { Navigate } from 'react-router-dom'
 import { Logo } from '../components/Logo'
 import { useAuth } from '../features/auth/authContext'
 
 import { GoogleSignInButton } from '../features/auth/GoogleSignInButton'
 
 export function LoginPage() {
-  const { user, isBootstrapping, signIn, signInWithGoogle } = useAuth()
-  const location = useLocation()
-  const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const { user, isBootstrapping, signInWithGoogle } = useAuth()
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
-  const [passwordChanged] = useState(() => {
-    if ((location.state as { passwordChanged?: boolean } | null)?.passwordChanged === true) {
-      return true
-    }
-
-    try {
-      const changed = sessionStorage.getItem('lb_password_changed') === '1'
-      if (changed) sessionStorage.removeItem('lb_password_changed')
-      return changed
-    } catch {
-      return false
-    }
-  })
-
+  const options = useQuery({ queryKey: ['sign-in-options'], queryFn: getSignInOptions, retry: false, staleTime: 0 })
+  const googleClientId = !options.isError ? options.data?.googleClientId : null
+  const registrationEnabled = Boolean(googleClientId && options.data?.clientRegistrationEnabled)
   if (user) return <Navigate to={user.requiresFirstAccess ? '/primeiro-acesso' : '/'} replace />
 
   async function handleGoogle(credential: string) {
     setError(''); setIsSubmitting(true)
     try { await signInWithGoogle(credential) }
-    catch { setError('Esta conta Google ainda não está vinculada. No primeiro acesso, entre com seu usuário e senha inicial.') }
+    catch (error) { setError(error instanceof Error ? error.message : 'Não foi possível entrar com o Google. Tente novamente.') }
     finally { setIsSubmitting(false) }
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError('')
-    setIsSubmitting(true)
-    try {
-      await signIn({ email, password })
-      const requestedPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/'
-      navigate(requestedPath, { replace: true })
-    } catch {
-      setError('Usuário ou senha inválidos, ou acesso inicial expirado. Confira os dados e tente novamente.')
-    } finally {
-      setIsSubmitting(false)
-    }
   }
 
   return (
     <main className="login-page">
       <section className="login-panel" aria-labelledby="login-title">
-        <div className="login-brand"><Logo /></div>
+        <div className="login-brand"><Logo tagline="Sua arena, no seu ritmo" /></div>
         <div className="login-heading">
-          <p className="eyebrow">Gestão da arena</p>
+          <p className="eyebrow">Sua Long Beach</p>
           <h1 id="login-title">Entre no Long Beach OS</h1>
-          <p>Use seu usuário e senha ou entre com sua conta Google vinculada.</p>
+          <p>{registrationEnabled ? 'Entre ou crie sua conta de cliente com o Google.' : 'Use sua conta Google para acessar a arena.'}</p>
         </div>
 
-        {googleClientId && <div className="login-google"><GoogleSignInButton onCredential={credential => void handleGoogle(credential)} onError={setError} disabled={isSubmitting} /><p className="login-divider">ou entre com usuário e senha</p></div>}
-        <form onSubmit={handleSubmit} className="login-form">
-          {passwordChanged && (
-            <p className="form-success" role="status">
-              Senha alterada. Entre novamente com a nova senha.
-            </p>
-          )}
-          <label>
-            <span>Usuário ou e-mail</span>
-            <input
-              type="text"
-              name="email"
-              autoComplete="username"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="Seu usuário ou e-mail"
-              autoCapitalize="none"
-              spellCheck={false}
-              maxLength={320}
-              required
-            />
-          </label>
-          <label>
-            <span>Senha</span>
-            <input
-              type="password"
-              name="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Digite sua senha"
-              required
-            />
-          </label>
-          {error && <p className="form-error" role="alert">{error}</p>}
-          <button className="primary-button" type="submit" disabled={isSubmitting || isBootstrapping}>
-            {isSubmitting ? 'Entrando…' : 'Entrar'}
-          </button>
-        </form>
-        <p className="login-footnote">Acesso exclusivo para a equipe Long Beach.</p>
+        {googleClientId && <div className="login-google"><GoogleSignInButton clientId={googleClientId} onCredential={credential => void handleGoogle(credential)} onError={setError} disabled={isSubmitting || isBootstrapping} /><p>{registrationEnabled ? 'Primeira visita? Criaremos sua conta de cliente. Aulas e grupos existentes serão vinculados após conferência da equipe.' : 'Use sua conta Google já vinculada à arena.'}</p></div>}
+        {options.isPending && <p role="status">Carregando opções de acesso…</p>}
+        {options.isError && <p role="alert">Não foi possível consultar o acesso Google. <button className="text-button" type="button" onClick={() => void options.refetch()}>Tentar novamente</button></p>}
+        {options.isSuccess && !googleClientId && <p role="alert">O acesso com Google está indisponível no momento. Tente novamente ou procure a equipe da arena. <button className="text-button" type="button" onClick={() => void options.refetch()}>Tentar novamente</button></p>}
+        {isSubmitting && <p role="status">Entrando com Google…</p>}
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <details className="login-recovery"><summary>Preciso recuperar meu acesso</summary><p>Use a mesma conta Google do seu cadastro. Se perdeu o acesso, <a href="https://accounts.google.com/signin/recovery" target="_blank" rel="noreferrer">recupere sua conta no Google</a>. Para conferir seu vínculo com a arena, procure a equipe.</p></details>
+        <p className="login-footnote">Acesso para clientes e equipe Long Beach.</p>
       </section>
 
       <aside className="login-visual" aria-hidden="true">

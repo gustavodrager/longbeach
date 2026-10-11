@@ -1,5 +1,90 @@
 # Deploy de Production no Railway
 
+## Agenda semanal e experiências por perfil — 2026-10-10
+
+Publicação autorizada pelo proprietário na conversa operacional. PR [#25](https://github.com/gustavodrager/longbeach/pull/25) integrado em `codex/saldos-pagina-inicial` (merge `29a60d5f7163b78fc5bd41c31045cfee85e7f38e`). API e web fixadas no artefato `316ffe23eedcb7bdda91fc3e99362c444f093d6b`, branch `codex/perfis-acesso`. Inclui Agenda semanal, intervalos calculados no servidor, painéis de atividades, experiências de cliente/professor/bar/gestão, cadastro Google, solicitações e consolidação de páginas. Sem novas migrations.
+
+- API: `0e52c12c-c982-42e2-8dbc-691250a29e63`, SUCCESS em 11/10 às 00:06 UTC (10/10 no Brasil), digest `sha256:b79080a58807adb5b986b72a83c2a1420581f8ce9e355242a8bda884c51c6783`.
+- Web: `580842cf-88ea-4608-9262-cb133086031c`, SUCCESS em 11/10 às 00:17 UTC, digest `sha256:003b38e564ebfb192e273febf3b919cd2942b6aee9f33bf50b9bfef7d6cafd66`.
+- CI [38096616226](https://github.com/gustavodrager/longbeach/actions/runs/38096616226) aprovado: 191 unitários e 252 de integração em PostgreSQL 17 e 18, 266 frontend, 11 conversores, builds, auditoria somente leitura e restauração sintética. São 709 testes distintos da aplicação, além dos conversores.
+- API publicada antes da web; `/health/live`, `/health/ready`, `/` e `/healthz` responderam 200. Rotas pessoais/docentes/administrativas exigiram sessão (401). CORS permitiu a origem oficial com credenciais e não permitiu o antigo preview.
+- Preservados cliente Google de produção, allowlist privada, chaves, banco, domínios, EDI e serviços auxiliares. Acrescentado apenas `Authentication__Google__ClientRegistrationEnabled=true` na API; cadastros novos recebem Student e acesso pessoal. O provisionamento automático de Owner continua false. Nenhuma concessão de papel nesta publicação.
+- Snapshot importado antes e após cada promoção, diffs revisados e planos sem alterações inesperadas. Serviços auxiliares mantiveram os deployments anteriores. Todos os seis serviços online, sem falhas recentes ou trabalho pendente na conferência.
+- No Chrome, login Google real do proprietário funcionou antes e depois da publicação; logout e nova entrada confirmaram o acesso administrativo na versão atualizada. A PWA preservou a sessão ao atualizar; a tela de login mostrou somente Google. Agenda semanal, detalhes da aula e área pessoal carregaram; Escape devolveu foco ao cartão. Em 390 px, sete dias sequenciais sem overflow horizontal. Nenhum erro de console posterior à publicação foi observado. Um aviso GSI anterior à publicação não impediu a conclusão das duas entradas reais.
+
+Pendência operacional preservada: funcionamento de segunda a sexta 06:00–24:00 está marcado como **A confirmar / Agenda atual aguardando conferência** no cadastro de produção. A Agenda exibe atividades existentes, mas não anuncia os intervalos vazios como livres antes dessa conferência. Sábado/domingo e preços não foram alterados. Não foram transferidos dados fictícios da homologação local nem criadas reservas, cobranças ou pagamentos de teste em produção.
+
+Novos pagamentos PagBank continuam desabilitados pelos padrões existentes. Publicação não equivale à homologação financeira nem ao aceite em aparelhos reais de todos os perfis. O módulo completo de eventos permanece fora do escopo implementado (apenas bloqueio operacional da quadra).
+
+Rollback compatível da aplicação: API `086d5ae7-173d-4029-b052-e218c7770f36` no commit `78f9c81b7b07735289d711ce81fdf8a0c1b6279c`; web `07a5e402-516a-44d4-8533-6411c721a579` no commit `7f47d65cbc12289f2f004c10a94dfb1653d79134`. Uma reversão apenas da web pode manter a API nova. Não reverta a API antiga após cadastros públicos sem uma revisão de acesso: ela não tem o teto de permissões Student e desligar novos cadastros não protege contas já criadas. Prefira correção para frente; preserve a proteção dos clientes existentes. Preserve banco e identidades; nunca restaure a base de homologação sobre produção. Reimporte o snapshot e exija plano sem drift após qualquer retorno.
+
+## Correção PagBank e publicação após envio da homologação — 2026-10-08
+
+Publicação autorizada pelo proprietário na conversa operacional. PR [#20](https://github.com/gustavodrager/longbeach/pull/20) integrado em `codex/saldos-pagina-inicial`; API e web fixadas no artefato validado `99f81448b83a4d54e725d456b00d128db92c61cc`, branch `codex/pagbank-homologacao-20261007`. A correção inclui os itens exigidos pelo PagBank no pedido de cartão. Nenhuma migration nova nesta revisão.
+
+- API: `736e0d80-f7a7-43a3-a740-5a3437771cd0`, `SUCCESS` às 12:18 UTC; digest `sha256:1262422f1ab30329952a1c019157ecba68023fbc252be0f9e160a9f4f284bc8f`.
+- Web: `435ccc54-8324-4ac7-a2f5-e04fee425c1f`, `SUCCESS` às 12:31 UTC; digest `sha256:e9c9735d2fbd6b1ec73876618acf4494f474bdf6016becfbc5158422a6dd108f`.
+- CI [37715620674](https://github.com/gustavodrager/longbeach/actions/runs/37715620674) aprovado: 163 testes unitários, 213 de integração PostgreSQL e 208 frontend (584 testes da aplicação), além de conversores e builds.
+- API publicada e validada antes da web. `/health/live`, `/health/ready`, `/` e `/healthz` responderam `200`; endpoints de contas pessoais, contas administrativas, integrações e documentos EDI responderam `401` sem sessão. CORS autorizou a origem oficial com credenciais e não autorizou o preview.
+- No navegador autenticado, a atualização da PWA preservou a sessão; dashboard e Recebimentos carregaram. A conferência visual mostrou Conta do Bar e Conta da Quadra, ambas sem contas vinculadas na seleção. Nenhuma cobrança, pagamento ou alteração de dados financeiros foi realizada nesse smoke.
+- Cada patch mudou somente branch e commit do serviço oficial correspondente. Snapshots importados e registrados por etapa; planos sem diferenças. Os seis serviços ficaram online, sem falhas recentes nem trabalho pendente. Variáveis, domínios, banco, volumes e serviços auxiliares foram preservados.
+
+Antes desta publicação, a API já tinha `Integrations__PagBankEdi__Enabled=true`, USER e token EDI cadastrados. O snapshot passou a preservar essas três variáveis, sem versionar seus valores. Isso atualiza o diagnóstico da entrega de 2026-10-07: a coleta está habilitada na configuração, mas sua execução e conciliação reais não foram validadas nesta publicação.
+
+As flags de novas cobranças, PagBank, cartão integrado e assinaturas continuam ausentes e desabilitadas pelos padrões da aplicação. O envio do formulário de homologação foi confirmado pelo Pipefy na etapa anterior; aprovação do PagBank ainda não comprovada. Publicar esta versão não habilita recebimentos reais nem encerra as pendências de homologação.
+
+Rollback compatível da aplicação: API `79e9d4dd-2f45-4905-8ecc-2e6946cac81f` e web `adda5137-5604-4aa4-bf93-59462cba4e02`, em `a9b615a5cb4a9269c0ce7c6bf81d5ebdd0e76e60`. Preserve dados, credenciais e configuração EDI existentes. Após reversão, reconcilie a fonte fixada no snapshot e confirme plano sem diferenças.
+
+## Separação de despesas fixas e variáveis — 2026-10-07
+
+API e web promovidas no artefato `4c220504315031587e38fb9d07d148fa6c36e44f`, branch `codex/saldos-pagina-inicial`, após CI [37565416405](https://github.com/gustavodrager/longbeach/actions/runs/37565416405) aprovado: 162 testes unitários, 208 de integração PostgreSQL e 205 frontend, conversores e builds. Nenhuma migration ou alteração de dados nesta entrega.
+
+- API: `d5414e99-04d2-42e5-ace0-6ed901e40695`, SUCCESS, readiness `Healthy`.
+- Web: `020b841f-19aa-4f9a-96dd-d60d0a278fc0`, SUCCESS, health `ok`.
+- Patches revisados alteraram apenas branch e commit do serviço esperado, primeiro API e depois web. Configurações públicas, snapshots e planos sem diferenças conferidos. Serviços auxiliares preservados.
+- Prévia com dados fictícios: lista filtrada, edição/salvamento e retorno preservando o grupo, navegação por teclado com foco visível, sem rolagem horizontal em 360, 390, 768 e 1440 px. Console do fluxo sem erros.
+- Produção autenticada: PWA atualizado pelo aviso; quatro totais do dashboard conferidos contra os grupos do controle mensal, incluindo despesa com valor zero. Links de fixas, variáveis, parcelas e acertos mostraram somente as classificações esperadas. Totais e resultado mensal preservados. Nenhuma movimentação real criada durante a validação. Evidência visual privada mantida fora do Git.
+
+Rollback compatível: artefato anterior `12281ec8a29f2fff1bf6dee7b0104393129e85f1`, branch `codex/longbeach-payments`, API `d61045f2-4e33-495f-a703-a654a35cb429` e web `023e0ca8-cb91-473c-9bb9-488858422403`. O novo campo de leitura é opcional, sem mudança de gravação ou schema. Preservar migrations e dados de pagamentos já existentes.
+
+## Pagamentos e área do cliente — 2026-10-06
+
+Publicação autorizada pelo proprietário nesta sessão. PR #15 aplicado em `codex/saldos-pagina-inicial` (merge `106da34b01453da88dcdb6b04a5b8cee2a92b4ba`). API e web fixadas na revisão validada `12281ec8a29f2fff1bf6dee7b0104393129e85f1`, branch `codex/longbeach-payments`. A revisão inclui o portal do PR #16 e preserva o controle mensal integrado durante a preparação; o conflito do menu foi conciliado mantendo Recebimentos e Controle mensal.
+
+CI [37530868604](https://github.com/gustavodrager/longbeach/actions/runs/37530868604) aprovado: 161 testes unitários, 208 de integração PostgreSQL e 200 da interface, além dos conversores e builds. API publicada primeiro, deployment `d61045f2-4e33-495f-a703-a654a35cb429`; web depois, `023e0ca8-cb91-473c-9bb9-488858422403`. Ambos terminaram `SUCCESS`. Cada patch de Production foi revisado antes da aplicação e alterou somente a fonte do serviço correspondente.
+
+O pre-deploy único aplicou `20261006194848_UnifiedBilling` e `20261006195814_BillingProviderOrders`, com confirmação de sucesso nos logs às 21:07 UTC. Readiness/liveness da API e health da web responderam 200; endpoints de contas exigiram autenticação (401 sem sessão). CORS permitiu a origem oficial com credenciais e não permitiu a antiga origem de preview. Fonte oficial da web, PostgreSQL, modo demo desabilitado e configurações públicas de autenticação foram conferidos. Snapshots foram importados e registrados por etapa; planos sem diferenças e nenhum patch pendente ao final.
+
+Nenhuma variável de credencial ou habilitação PagBank está configurada na API. Novos pagamentos pela área de contas, crédito integrado, recorrência e EDI permanecem desabilitados pelos padrões da aplicação. Publicar as telas não comprova homologação nem libera recebimentos reais. Configuração, habilitação e teste real seguem [pagamentos unificados](../bar/pagamentos-unificados.md). Não foram criados vínculos de alunos por inferência, cobranças de teste ou movimentações financeiras em produção.
+
+A revisão visual e o smoke autenticado desta sessão não foram realizados: o navegador recusou acesso porque não conseguiu verificar a política de segurança administrativa. As verificações acima são de CI, configuração, logs e endpoints públicos; não equivalem ao aceite visual ou à homologação com clientes.
+
+Rollback de aplicação: API anterior `16af4d6f-fadd-4189-b17d-5c5bde8f751c` e web anterior `9c0ccfac-b34e-4970-b20c-58b85b7aedd6`, ambas em `08e3e9c96b3542d3b48c182b161e38c972a5ba57`. Preservar as migrations e os registros financeiros. Depois de iniciar pagamentos reais, preferir desligar novas operações e manter consulta/recuperação na versão compatível; não reverter o banco. Serviços auxiliares, domínios e legado permaneceram inalterados.
+
+## Consolidado mensal conciliado e referência de compras — 2026-10-06
+
+API e web fixadas em `ba08ce8fc7457de13152410faa5a4852da93b1ff`, branch `codex/saldos-pagina-inicial`. CI `37513023940` aprovado: 139 testes unitários, 164 de integração PostgreSQL, 178 frontend, 11 de conversores e builds API/PWA. Nenhuma migration nova.
+
+API `afe4dc01-19b4-435a-90f7-ec27b999fac2` publicada primeiro, web `aacd2efb-f84b-497a-ae38-96f377798f83` depois, ambas `SUCCESS`; health checks responderam `Healthy`/`ok`. Fonte oficial, armazenamento PostgreSQL e modo demo desabilitado conferidos. Cada patch alterou apenas o commit do serviço esperado; snapshots sincronizados e planos sem diferenças. O snapshot final deduplicou a fonte comum de API/web; os serviços auxiliares conservam a fonte anterior.
+
+Em produção, o pacote explicitamente conciliado do mês foi aplicado com dois totais e releitura de zero novos/dois existentes. O Chrome confirmou déficit, receitas, despesas e fonte PDF do saldo bancário independentemente, depois de atualizar a PWA. A compra autorizada e o recebimento foram registrados pelo fluxo normal, com uma única despesa operacional e referência do proprietário que adiantou recursos. Não foi efetuado pagamento ou compensação. Arquivos, valores, identidades e evidências ficam em armazenamento local privado.
+
+A ficha de compra exibe fornecedor, data, forma informada, referência de acerto e quantidades recebidas. Conferida em 360, 390, 768 e 1440 px, sem rolagem horizontal da página. As verificações após publicação foram de leitura, separadas das importações e registros reais autorizados.
+
+Rollback disponível: API `80d655a8-831c-4247-aea0-2f8eca1e2cdb` (`b29dfbd`) e web `e386c019-7e3d-4e77-b413-42139ba220b3` (`b1442f4`). Preserve os dados aplicados. A API anterior não calcula o novo modelo de consolidado com receita total: retorna indisponibilidade em vez de somar valores incorretos. Prefira manter a API atual e corrigir para frente; uma reversão só da interface preserva os registros, mas oculta a referência de quem pagou na listagem de compras.
+
+## Promoção de saldos e acesso Google — 2026-10-06
+
+Runtime de API e web fixado em `ee43f5cf4e7f414af8e82cf32e69940ad01813f7`, branch `codex/saldos-pagina-inicial`. CI `37473848182` aprovado (backend, conversores e frontend). API publicada primeiro, web depois. Health checks oficiais responderam normalmente e os cartões, períodos, despesas positivas e origem dos registros foram conferidos no Chrome.
+
+Dois usuários individuais pendentes receberam os e-mails explicitamente autorizados pelo proprietário por `--authorize-google-access --provision-from-stdin`. O pre-deploy temporário executou migration e os dois comandos em sequência; os logs confirmaram duas alterações, preservação de papel e desativação da credencial inicial. Nenhuma conta foi criada. Os dois parâmetros temporários foram removidos após sucesso e o pre-deploy voltou a `--migrate-only`. Os e-mails permanecem na allowlist privada, sem PII em Git. O primeiro login pessoal de cada proprietário deve ser feito por ele no Google.
+
+Deploy inicial da API: `0c224e7d-445f-4e07-8ff9-f375ab36ee18`; API após retirada dos parâmetros: `629d709b-2ecd-4796-99d3-55fb1e069d4e`; web: `534b4425-adde-41b5-b43a-ba5ef1a170e2`. Snapshots registrados por etapa e planos sem alterações. Não houve mudança nos serviços auxiliares, domínios ou acesso privado ao PostgreSQL.
+
+Extrato classificado de setembro aplicado pelo fluxo de staging/conferência/auditoria: 152 movimentos bancários e duas despesas externas confirmadas, com releitura indicando zero novos e 154 existentes. Arquivo, totais e comprovantes da conferência permanecem em armazenamento local privado. O extrato não informa saldo inicial/final nem substitui o consolidado completo da arena.
+
+EDI continua aguardando USER/token próprios e primeira coleta real. O coletor está disponível no servidor, porém a ausência de credenciais não representa sincronização ativa. PagVendas mantém importação por exportações oficiais; API administrativa ainda não confirmada.
+
 ## Escopo e isolamento
 
 Este runbook publica a base standalone em recursos exclusivos do projeto Railway `longbeach-os`:
@@ -275,3 +360,26 @@ Publicação autorizada na conversa operacional, isolada no projeto Long Beach O
 - A origem original e os pacotes rejeitados na conferência permanecem preservados; somente o lote conciliado foi aplicado. Nenhuma reserva, cobrança ou presença foi criada. A agenda completa da quadra continua pendente enquanto os aluguéis e bloqueios atuais não forem confirmados.
 
 Procedimento e limites de reversão: [Importação da grade de aulas](importacao-grade-aulas.md). Não voltar a versões que desconhecem valores financeiros nulos ou início de grade após aplicar os registros.
+
+## Preparação operacional do EDI — 2026-10-07
+
+API e web promovidas, nessa ordem, para `a9b615a5cb4a9269c0ce7c6bf81d5ebdd0e76e60`, branch `codex/edi-operacao-20261007`. A publicação foi autorizada na conversa operacional. PR de implementação: https://github.com/gustavodrager/longbeach/pull/18, integrado à branch de trabalho `codex/saldos-pagina-inicial`.
+
+- API: `5612a486-33a5-4b5f-b50c-0f56703a1f71`, `SUCCESS`; `/health/live` e `/health/ready` responderam `200 Healthy`. O pre-deploy controlado confirmou banco atualizado, sem novas migrations.
+- Web: `adda5137-5604-4aa4-bf93-59462cba4e02`, `SUCCESS`; `/` e `/healthz` responderam `200`. Os dois serviços permanecem fixados no commit validado.
+- CI `37695242404` aprovado: 162 testes unitários, 213 de integração PostgreSQL e 208 frontend (583 testes da aplicação), além de conversores e builds. Inclui falha após dia concluído, timeout no corpo, repetição idempotente, autorização, auditoria, versão substituída e concorrência com conciliação.
+- Consulta de integrações, documentos EDI e POST de reconsulta retornaram `401` sem sessão. A origem oficial recebeu CORS com credenciais; a origem de preview não recebeu permissão. A conferência visual autenticada não foi repetida nesta promoção; não considerar o smoke HTTP como prova desse fluxo.
+- Somente branch/commit dos serviços oficiais foram alterados. Snapshots foram registrados após cada promoção, com plano sem diferenças. Variáveis, serviços auxiliares, domínios e volumes foram preservados.
+
+O responsável confirmou que recebeu USER e token EDI no portal PagBank. Na conferência final, o serviço `api` ainda não tinha variáveis EDI; o coletor continua desabilitado por padrão. Nenhuma consulta real ao EDI foi executada nesta entrega. A ativação depende de cadastro seguro das credenciais e confirmação da data inicial, seguidos da primeira coleta e comparação com o extrato oficial. Não registrar credenciais, documentos reais nem dados pessoais neste runbook. Procedimento: [Histórico financeiro e integrações](../arquitetura/historico-financeiro-integracoes.md#pagbank-edi).
+
+Rollback da aplicação: API `d5414e99-04d2-42e5-ace0-6ed901e40695` e web `020b841f-19aa-4f9a-96dd-d60d0a278fc0`, ambas em `4c220504315031587e38fb9d07d148fa6c36e44f`. Preserve documentos, versões e cursores; se o EDI já tiver sido ativado, desabilite a coleta antes de retornar ao coletor anterior. Depois, registre novamente as fontes fixadas e confirme plano sem diferenças.
+
+
+## Publicação da consulta diária da agenda — 08/10/2026, 19h21
+
+Com autorização explícita do proprietário nesta conversa, a API foi fixada na branch `codex/consolidacao-operacional-20261008`, commit `47c233f149b97f7bfaaa8aa5ca24911dd39d3794`. A CI `37830893160` passou em PostgreSQL 17 e 18 e no frontend. O patch aprovado no Railway continha apenas branch e commit da API.
+
+Deployment `a26c4f35-eebd-4e98-bf8f-e1b201034e83` concluído com sucesso, imagem `sha256:ed46223619c6d9d0ba168098917549b0f1cc8d08618776cfc14798965fa3267e`, uma réplica online. O pre-deploy confirmou que nenhuma migration precisava ser aplicada; `/health/ready` respondeu 200 às 22:21:00 UTC. `railway config plan --detailed-exit-code` confirmou snapshot sem divergência. Web permanece no deployment `435ccc54-8324-4ac7-a2f5-e04fee425c1f`, commit `99f8144`.
+
+Rollback da API: branch `codex/pagbank-homologacao-20261007`, commit `99f81448b83a4d54e725d456b00d128db92c61cc`, deployment `736e0d80-f7a7-43a3-a740-5a3437771cd0`; não exige remoção de dados. A agenda autenticada não foi conferida em produção por indisponibilidade da verificação de segurança do navegador. O log EDI mostrou falha na validação local de credenciais; StartDate também permanece ausente. Não ativar coleta apenas preenchendo a data. A auditoria real aguarda identidade SSH verificada; a restauração real de backup ainda não foi comprovada.

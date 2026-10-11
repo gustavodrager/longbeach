@@ -38,6 +38,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
             new("permissions_version", "1")
         };
 
+        if (principal.GoogleLinked) claims.Add(new("google_linked", "true"));
         if (principal.Username is not null) claims.Add(new("username", principal.Username));
         if (principal.RequiresFirstAccess) claims.Add(new("requires_first_access", "true"));
         else

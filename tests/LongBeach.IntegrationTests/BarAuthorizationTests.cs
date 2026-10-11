@@ -13,6 +13,7 @@ public sealed class BarAuthorizationTests
     [InlineData("/api/v1/bar/products")]
     [InlineData("/api/v1/bar/stock/balances")]
     [InlineData("/api/v1/bar/stock/movements")]
+    [InlineData("/api/v1/bar/stock/valuation")]
     [InlineData("/api/v1/bar/cash/sessions")]
     [InlineData("/api/v1/bar/sales")]
     [InlineData("/api/v1/bar/purchases")]
@@ -40,6 +41,7 @@ public sealed class BarAuthorizationTests
     }
     [Theory]
     [InlineData("/api/v1/bar/tabs/reports/received")]
+    [InlineData("/api/v1/bar/stock/valuation")]
     [InlineData("/api/v1/bar/tabs/payments/00000000-0000-0000-0000-000000000001")]
     [InlineData("/api/v1/bar/tabs/resources/cash/00000000-0000-0000-0000-000000000001")]
     public async Task Sales_reader_cannot_access_financial_drilldown(string path)
@@ -48,6 +50,14 @@ public sealed class BarAuthorizationTests
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token("bar:sales:read"));
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
+    }
+    [Fact]
+    public async Task Stock_reader_cannot_access_inventory_costs_and_profit()
+    {
+        await using var factory = new LongBeachWebApplicationFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token("bar:stock:read"));
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/bar/stock/valuation")).StatusCode);
     }
     [Theory]
     [InlineData("/api/v1/bar/tabs")]
@@ -60,6 +70,7 @@ public sealed class BarAuthorizationTests
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/payments/00000000-0000-0000-0000-000000000002/reconcile")]
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/payments/00000000-0000-0000-0000-000000000002/refund")]
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/items/00000000-0000-0000-0000-000000000002/reverse")]
+    [InlineData("/api/v1/bar/purchases/00000000-0000-0000-0000-000000000001/payment-reference")]
     public async Task Tab_mutations_require_login_and_their_permission(string path)
     {
         await using var factory = new LongBeachWebApplicationFactory();
@@ -74,6 +85,7 @@ public sealed class BarAuthorizationTests
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/payments/00000000-0000-0000-0000-000000000002/reconcile")]
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/payments/00000000-0000-0000-0000-000000000002/refund")]
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/items/00000000-0000-0000-0000-000000000002/reverse")]
+    [InlineData("/api/v1/bar/purchases/00000000-0000-0000-0000-000000000001/payment-reference")]
     public async Task Operator_cannot_approve_supervisory_actions(string path)
     {
         await using var factory = new LongBeachWebApplicationFactory();

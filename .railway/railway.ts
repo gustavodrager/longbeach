@@ -1,8 +1,7 @@
 import { defineRailway, github, postgres, preserve, project, service, volume } from "railway/iac";
 
 export default defineRailway(() => {
-  const longbeach = github("gustavodrager/longbeach", { branch: "codex/mensalistas-quadra", commitSha: "ef2f91ac8c6a8454749dda38f816c1d9672c7ab0" });
-  const longbeachWeb = github("gustavodrager/longbeach", { branch: "codex/mensalistas-quadra", commitSha: "ef2f91ac8c6a8454749dda38f816c1d9672c7ab0" });
+  const longbeach = github("gustavodrager/longbeach", { branch: "codex/perfis-acesso", commitSha: "316ffe23eedcb7bdda91fc3e99362c444f093d6b" });
   const longbeach2 = github("gustavodrager/longbeach");
 
   const Postgres = postgres("Postgres", { region: "europe-west4-drams3a" });
@@ -17,16 +16,16 @@ export default defineRailway(() => {
     replicas: { "europe-west4-drams3a": 1 },
     deploy: { preDeployTimeoutSeconds: 300 },
     domains: ["api.longbeach.quebranunca.com.br"],
-    env: { ASPNETCORE_ENVIRONMENT: "Production", ASPNETCORE_URLS: "http://+:8080", AllowedHosts: "api.longbeach.quebranunca.com.br;api-production-d77d.up.railway.app;healthcheck.railway.app", Authentication__CookieDomain: "longbeach.quebranunca.com.br", Authentication__Google__AllowedEmail: preserve(), Authentication__Google__ClientId: preserve(), Authentication__Google__Enabled: "true", Authentication__Google__ProvisionAllowedEmailsAsOwners: "false", Authentication__Jwt__AccessTokenMinutes: preserve(), Authentication__Jwt__Audience: "LongBeach.OS.Client", Authentication__Jwt__Issuer: "https://api.longbeach.quebranunca.com.br", Authentication__Jwt__RefreshTokenDays: preserve(), Authentication__Jwt__SigningKey: preserve(), Authentication__MobileAllowedOrigins__0: preserve(), Authentication__MobileAllowedOrigins__1: preserve(), Authentication__MobileAllowedOrigins__2: preserve(), Authorization__SeedOnStartup: "false", Bootstrap__InitialOwner__Enabled: "false", ConnectionStrings__LongBeach: preserve(), Cors__AllowedOrigins__0: "https://longbeach.quebranunca.com.br", Cors__AllowedOrigins__1: "https://longbeach.quebranunca.com.br", Database__MigrateOnStartup: "false", DemoMode__PublicOperationalData: "false", HealthChecks__DatabaseEnabled: "true", PORT: preserve(), RAILWAY_DOCKERFILE_PATH: preserve(), ReverseProxy__TrustAllForwarders: "false" },
+    env: { ASPNETCORE_ENVIRONMENT: preserve(), ASPNETCORE_URLS: preserve(), AllowedHosts: preserve(), Authentication__CookieDomain: preserve(), Authentication__Google__AllowedEmail: preserve(), Authentication__Google__ClientId: preserve(), Authentication__Google__ClientRegistrationEnabled: preserve(), Authentication__Google__Enabled: preserve(), Authentication__Google__ProvisionAllowedEmailsAsOwners: preserve(), Authentication__Jwt__AccessTokenMinutes: preserve(), Authentication__Jwt__Audience: preserve(), Authentication__Jwt__Issuer: preserve(), Authentication__Jwt__RefreshTokenDays: preserve(), Authentication__Jwt__SigningKey: preserve(), Authentication__MobileAllowedOrigins__0: preserve(), Authentication__MobileAllowedOrigins__1: preserve(), Authentication__MobileAllowedOrigins__2: preserve(), Authorization__SeedOnStartup: preserve(), Bootstrap__InitialOwner__Enabled: preserve(), ConnectionStrings__LongBeach: preserve(), Cors__AllowedOrigins__0: preserve(), Cors__AllowedOrigins__1: preserve(), Database__MigrateOnStartup: preserve(), DemoMode__PublicOperationalData: preserve(), HealthChecks__DatabaseEnabled: preserve(), Integrations__PagBankEdi__Enabled: preserve(), Integrations__PagBankEdi__Token: preserve(), Integrations__PagBankEdi__User: preserve(), PORT: preserve(), RAILWAY_DOCKERFILE_PATH: preserve(), ReverseProxy__TrustAllForwarders: preserve() },
   });
   const web = service("web", {
-    source: longbeachWeb,
+    source: longbeach,
     build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "deploy/web.Dockerfile" },
     healthcheck: "/healthz",
     healthcheckTimeout: 300,
     replicas: { "europe-west4-drams3a": 1 },
     domains: ["longbeach.quebranunca.com.br"],
-    env: { PORT: preserve(), RAILWAY_DOCKERFILE_PATH: preserve(), VITE_API_URL: "https://api.longbeach.quebranunca.com.br", VITE_DEMO_MODE: "false", VITE_GOOGLE_CLIENT_ID: preserve(), VITE_OPERATIONAL_STORAGE: "postgres" },
+    env: { PORT: preserve(), RAILWAY_DOCKERFILE_PATH: preserve(), VITE_API_URL: preserve(), VITE_DEMO_MODE: preserve(), VITE_GOOGLE_CLIENT_ID: preserve(), VITE_OPERATIONAL_STORAGE: preserve() },
   });
   const webOperationsWCjo = service("web-operations-WCjo", {
     source: longbeach2,

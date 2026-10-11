@@ -1,0 +1,42 @@
+/* Reports use the management layout, including on a direct page load. */
+.bar-reports .bar-report-period { padding: 18px 20px; margin: 0 0 28px; border: 1px solid var(--line); border-radius: 12px; background: #fffcf6; gap: 16px; }
+.bar-reports .bar-report-period .operation-field { flex: 1 1 160px; max-width: 220px; font-size: 14px; }
+.bar-reports .bar-report-period input { min-height: 48px; font-size: 16px; background: #fff; }
+.bar-reports .bar-report-period .primary-button { margin: 0; padding: 12px 20px; color: var(--ink); box-shadow: none; }
+.bar-reports .bar-report-period .arena-hint { font-size: 12px; line-height: 1.6; }
+.bar-reports .bar-report-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.bar-reports .arena-metric { min-width: 0; min-height: 220px; }
+.bar-reports .arena-metric strong { font-size: clamp(25px,2.5vw,32px); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.bar-reports .arena-metric-unavailable strong { font-size: 20px; }
+.bar-reports .bar-report-records > .arena-hint { margin: 20px 0 0; line-height: 1.7; }
+.bar-reports .bar-report-records .management-disclosure { margin-bottom: 0; }
+.bar-reports .bar-report-total { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,2fr); gap: 24px; align-items: center; }
+.bar-report-total strong { display: block; font-size: clamp(28px,3vw,38px); line-height: 1.2; margin-top: 10px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.bar-report-total strong.bar-report-unavailable { font-size: 23px; color: var(--muted); }
+.bar-report-total p { margin: 0 0 8px; line-height: 1.6; }
+.bar-reports .responsive-records { background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.bar-reports .responsive-records td { overflow-wrap: anywhere; }
+.bar-reports .responsive-records td:last-child a { display: inline-flex; align-items: center; min-height: 44px; }
+.bar-reports .arena-pagination { flex-wrap: wrap; }
+.bar-reports .ux-notice { margin: 16px 0; }
+@media (min-width:1440px) {
+  .bar-reports .bar-report-metrics { grid-template-columns: repeat(5,minmax(0,1fr)); }
+}
+@media (max-width:900px) {
+  .bar-reports .bar-report-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width:700px) {
+  .bar-reports .bar-report-period { padding: 16px; gap: 12px; }
+  .bar-reports .bar-report-period .operation-field { min-width: 0; max-width: none; flex-basis: calc(50% - 6px); }
+  .bar-reports .bar-report-period .primary-button { width: 100%; }
+  .bar-reports .bar-report-total { grid-template-columns: minmax(0,1fr); gap: 16px; }
+  .bar-reports .bar-report-records .arena-actions { display: grid; grid-template-columns: minmax(0,1fr); }
+  .bar-reports .responsive-records { background: transparent; border: 0; overflow: visible; }
+}
+@media (max-width:480px) {
+  .bar-reports .bar-report-metrics { grid-template-columns: minmax(0,1fr); }
+  .bar-reports .arena-metric { min-height: 0; gap: 8px; }
+  .bar-reports .arena-metric-label { min-height: 0; }
+  .bar-reports .arena-metric strong { font-size: 30px; }
+  .bar-reports .arena-metric-unavailable strong { font-size: 20px; }
+}

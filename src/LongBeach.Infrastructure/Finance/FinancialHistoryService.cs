@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 namespace LongBeach.Infrastructure.Finance;
 
-public sealed class FinancialHistoryService(LongBeachDbContext db, IAuditContext audit, TimeProvider time, IConfiguration config) : IFinancialHistory
+public sealed partial class FinancialHistoryService(LongBeachDbContext db, IAuditContext audit, TimeProvider time, IConfiguration config) : IFinancialHistory
 {
     private sealed record Plan(string Name, string Hash, string Status, FinancialObservation[] Items, int Matches);
     private async Task<Plan> Read(Guid batchId, CancellationToken ct)
@@ -114,6 +114,40 @@ public sealed class FinancialHistoryService(LongBeachDbContext db, IAuditContext
             while(await reader.ReadAsync(ct)){using var json=JsonDocument.Parse(reader.GetString(4));items.Add(new(reader.GetGuid(0),reader.GetGuid(1),reader.GetString(2),reader.GetString(3).Trim(),FinancialHistoryRules.Parse(json.RootElement)));}
         return new(month,months,FinancialHistoryRules.Totals(items.Select(x=>x.Data)),items.Skip((page-1)*50).Take(50).ToArray(),items.Count,page,time.GetUtcNow());
     }
+    public async Task<DashboardBalances> DashboardBalances(CancellationToken ct)
+    {
+        var rows = new List<HistoryItem>();
+        var today = DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime.AddHours(-3));
+        // Independent latest dates for the monthly control and the PagBank snapshot; no pagination loss.
+        await using (var command = await Command("""
+            WITH candidates AS (
+                SELECT * FROM financial_observations
+                WHERE period_start <= @p0 AND
+                  ((series='consolidado' AND payload->>'Grain'='month') OR
+                   (series='saldos' AND lower(trim(metric))='saldo pagbank' AND payload->>'Grain'='snapshot'))
+            )
+            SELECT o.id,o.batch_id,b.source_name,o.source_sha256,o.payload::text
+            FROM candidates o JOIN import_batches b ON b.id=o.batch_id
+            WHERE o.period_start=(SELECT MAX(c.period_start) FROM candidates c WHERE c.series=o.series)
+            ORDER BY o.series,o.source_cell,o.id
+            """, ct, today))
+        await using (var reader = await command.ExecuteReaderAsync(ct)) while (await reader.ReadAsync(ct))
+        {
+            using var json = JsonDocument.Parse(reader.GetString(4));
+            rows.Add(new(reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), reader.GetString(3).Trim(), FinancialHistoryRules.Parse(json.RootElement)));
+        }
+        var result = DashboardBalanceRules.Summarize(rows, today);
+        var reviewed = await db.OperationalRecords.AsNoTracking().Where(x => x.Kind == MonthlyControlRules.Kind && x.Name.CompareTo(today.ToString("yyyy-MM")) <= 0)
+            .OrderByDescending(x => x.Name).Select(x => x.Payload).FirstOrDefaultAsync(ct);
+        if (reviewed is not null)
+        {
+            var control = JsonSerializer.Deserialize<MonthlyControlDocument>(reviewed, MonthlyJson)!;
+            if (result.General.Month is null || string.CompareOrdinal(control.Month, result.General.Month) >= 0)
+                result = result with { General = MonthlyControlRules.Balance(control) };
+        }
+        return result;
+    }
+
     public async Task<ArenaHistorySummary> ArenaSummary(string? month, CancellationToken ct)
     {
         if (month is not null && !DateOnly.TryParseExact(month + "-01", "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
@@ -151,7 +185,8 @@ public sealed class FinancialHistoryService(LongBeachDbContext db, IAuditContext
         var configured=enabled && !string.IsNullOrWhiteSpace(config["Integrations:PagBankEdi:User"]) && config["Integrations:PagBankEdi:User"]!.All(char.IsAsciiDigit)
             && !string.IsNullOrWhiteSpace(config["Integrations:PagBankEdi:Token"])
             && DateOnly.TryParseExact(config["Integrations:PagBankEdi:StartDate"],"yyyy-MM-dd",System.Globalization.CultureInfo.InvariantCulture,System.Globalization.DateTimeStyles.None,out var start) && start>=new DateOnly(2000,1,1);
-        result.Add(new("PagBank EDI",!configured?"Aguardando configuração":failure is not null?"Requer atenção":last is null?"Aguardando primeira leitura":"Automático",
+        var yesterday=DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime.AddHours(-3)).AddDays(-1);
+        result.Add(new("PagBank EDI",!configured?"Aguardando configuração":failure is not null?"Requer atenção":last is null?"Aguardando primeira leitura":time.GetUtcNow()-last.Value>TimeSpan.FromHours(26)?"Coleta atrasada":complete is null||complete<yesterday?"Atualizando histórico":"Automático",
             "Vendas, liquidações e saldos em D+1. Documentos originais preservados; classificação financeira depende de conciliação.",last,failure,complete));
         result.Add(new("PagVendas","Exportação disponível","Histórico por exportação. API administrativa sem autenticação de navegador ainda não confirmada.",null,null,null));
         return result;

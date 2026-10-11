@@ -7,7 +7,7 @@ public sealed record AddTabItemsInput(Guid OperationId, IReadOnlyList<TabItemInp
 public sealed record TabActionInput(Guid OperationId, string? Reason = null, bool ReturnStock = false);
 public sealed record TabPaymentInput(Guid OperationId, string Method, decimal Amount, Guid? SessionId = null,
     decimal? Tendered = null, bool CardApproved = false, string? Authorization = null,
-    string? Name = null, string? Email = null, string? TaxId = null);
+    string? Name = null, string? Email = null, string? TaxId = null, string? EncryptedCard = null);
 public sealed record TabAdjustmentInput(Guid OperationId, string Kind, decimal Amount, string Reason);
 public sealed record TabReconcileInput(Guid OperationId, decimal Fee, string Reason);
 public sealed record TabRefundInput(Guid OperationId, decimal Amount, string Reason);

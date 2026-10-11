@@ -7,12 +7,35 @@ using LongBeach.Application.Bar;
 using LongBeach.Domain.Bar;
 using Microsoft.Extensions.Configuration;
 namespace LongBeach.Infrastructure.Payments;
-public sealed partial class PagBankPaymentGateway(HttpClient http, IConfiguration config) : IPaymentGateway
+public sealed partial class PagBankPaymentGateway(HttpClient http, IConfiguration config, PagBankWebhookKeys? keys = null) : IPaymentGateway
 {
-    public bool Enabled => config.GetValue("Payments:PagBank:Enabled",false);
+    public bool Enabled => config.GetValue("Payments:PagBank:Enabled",false) && config.GetValue("Payments:PagBank:PixEnabled",true);
+    public bool CardEnabled => config.GetValue("Payments:PagBank:Enabled",false) && config.GetValue("Payments:PagBank:CardEnabled", false);
+    public async Task<string?> CardPublicKey(CancellationToken ct)
+    {
+        if (!CardEnabled) return null;
+        Configure(); using var response = await http.GetAsync("public-keys/card", ct);
+        if (!response.IsSuccessStatusCode) throw new BarRuleException("Não foi possível preparar o cartão. Tente novamente.");
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+        return json.RootElement.GetProperty("public_key").GetString();
+    }
+    public async Task<GatewayPayment> CreateCard(Guid paymentId, Guid operationId, decimal amount, PixCustomer customer, string encryptedCard, CancellationToken ct)
+    {
+        if (!CardEnabled) throw new BarRuleException("Cartão online ainda não habilitado.");
+        Configure();
+        if (string.IsNullOrWhiteSpace(encryptedCard) || encryptedCard.Length > 12000 || !TaxIdPattern().IsMatch(customer.TaxId)) throw new BarRuleException("Confira os dados do cartão e do pagador.");
+        var webhook = config["Payments:PagBank:WebhookUrl"];
+        if (!Uri.TryCreate(webhook, UriKind.Absolute, out var uri) || uri.Scheme != "https") throw new BarRuleException("Configure o webhook HTTPS.");
+        var body = new { reference_id = paymentId.ToString(), customer = new { name = customer.Name, email = customer.Email, tax_id = customer.TaxId },
+            items = new[] { new { reference_id = paymentId.ToString(), name = "Pagamento Long Beach", quantity = 1, unit_amount = checked((long)(amount * 100)) } },
+            charges = new[] { new { reference_id = paymentId.ToString(), description = "Pagamento Long Beach", amount = new { value = checked((long)(amount * 100)), currency = "BRL" },
+                payment_method = new { type = "CREDIT_CARD", installments = 1, capture = true, card = new { encrypted = encryptedCard, store = false } } } }, notification_urls = new[] { webhook } };
+        using var request = new HttpRequestMessage(HttpMethod.Post, "orders") { Content = JsonContent.Create(body) };
+        request.Headers.Add("x-idempotency-key", operationId.ToString()); using var response = await http.SendAsync(request, ct); return await Read(response, ct);
+    }
     private void Configure()
     {
-        if(!Enabled)throw new BarRuleException("Pix PagBank ainda não está habilitado neste ambiente.");
+
         var url=config["Payments:PagBank:BaseUrl"] ?? "https://sandbox.api.pagseguro.com/";
         if(url!="https://sandbox.api.pagseguro.com/" && url!="https://api.pagseguro.com/")throw new BarRuleException("Ambiente PagBank inválido.");
         var token=config["Payments:PagBank:Token"];if(string.IsNullOrWhiteSpace(token))throw new BarRuleException("Credencial PagBank ausente.");
@@ -22,6 +45,7 @@ public sealed partial class PagBankPaymentGateway(HttpClient http, IConfiguratio
     }
     public async Task<GatewayPayment> CreatePix(Guid paymentId, Guid operationId, decimal amount, DateTimeOffset expires, PixCustomer customer, CancellationToken ct)
     {
+        if (!Enabled) throw new BarRuleException("Pix PagBank ainda não habilitado.");
         Configure();
         var webhook=config["Payments:PagBank:WebhookUrl"];
         if(!Uri.TryCreate(webhook,UriKind.Absolute,out var uri)||uri.Scheme!="https")throw new BarRuleException("Configure URL HTTPS do webhook PagBank.");
@@ -52,9 +76,36 @@ public sealed partial class PagBankPaymentGateway(HttpClient http, IConfiguratio
         if(confirmed.Refunded!=expected)throw new BarRuleException("Estorno PagBank ainda não confirmado. Consulte antes de repetir.");
         return confirmed;
     }
-    public bool VerifyWebhook(byte[] body,IEnumerable<string> signatures)
+    public bool VerifyWebhook(byte[] body,IEnumerable<string> signatures) => Verify(body,signatures,config["Payments:PagBank:WebhookPublicKey"]);
+    private readonly PagBankWebhookKeys keyCache=keys??new();
+    public async Task<bool> VerifyWebhookAsync(byte[] body,IEnumerable<string> signatures,CancellationToken ct)
     {
-        if(!Enabled)return false;var key=config["Payments:PagBank:WebhookPublicKey"];if(string.IsNullOrWhiteSpace(key))return false;
+        var values=signatures.ToArray();if(values.Length==0||values.All(string.IsNullOrWhiteSpace))return false;
+        if(!config.GetValue("Payments:PagBank:RefreshWebhookKeys",false))return VerifyWebhook(body,values);
+        Configure();var identity=http.BaseAddress+":"+Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(config["Payments:PagBank:Token"]!)));
+        var entry=keyCache.For(identity);await entry.Gate.WaitAsync(ct);
+        try
+        {
+            var now=DateTimeOffset.UtcNow;
+            if(now>=entry.NextRefresh)
+            {
+                entry.NextRefresh=now.AddMinutes(5);
+                try
+                {
+                    using var response=await http.GetAsync("public-keys?type=webhook",ct);response.EnsureSuccessStatusCode();
+                    using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));var key=json.RootElement.GetProperty("public_key").GetString()!;
+                    using var ec=ECDsa.Create();ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(key),out _);
+                    if(entry.Current!=key){entry.Previous=entry.Current;entry.PreviousUntil=now.AddDays(7);entry.Current=key;}
+                }
+                catch(Exception e)when(!ct.IsCancellationRequested&&e is HttpRequestException or TaskCanceledException or JsonException or CryptographicException or FormatException){/* Keep last trusted key on network failure. */}
+            }
+            return Verify(body,values,entry.Current)||(now<entry.PreviousUntil&&Verify(body,values,entry.Previous))||(entry.Current==null&&VerifyWebhook(body,values));
+        }
+        finally {entry.Gate.Release();}
+    }
+    private static bool Verify(byte[] body,IEnumerable<string> signatures,string? key)
+    {
+        if(string.IsNullOrWhiteSpace(key))return false;
         try
         {
             using var ecdsa=ECDsa.Create();ecdsa.ImportSubjectPublicKeyInfo(Convert.FromBase64String(key),out _);

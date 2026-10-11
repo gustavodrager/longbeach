@@ -1,6 +1,12 @@
 # Acesso individual e primeiro acesso
 
-O login aceita usuário ou e-mail e senha, mesmo com Google habilitado. Os usuários antigos continuam usando suas credenciais e permissões. Novas contas sem e-mail podem vincular o próprio Google depois de autenticar com a credencial temporária.
+A página de login oferece somente Google desde 10/10/2026. A API preserva os endpoints de senha e primeiro acesso por compatibilidade; os procedimentos legados abaixo não são oferecidos na página de entrada atual. Para contas da equipe ainda sem Google, confirmar a identidade e preparar o acesso individual antes da adoção da nova página, preservando o usuário, o histórico e os papéis existentes.
+
+Entrar pelo Google não associa automaticamente a pessoa a um aluno, grupo mensalista ou reserva. A gestão confere a identidade e usa **Solicitações de clientes → Vincular cliente a aluno, grupo ou reserva**. Os identificadores exibidos ajudam a distinguir cadastros; nomes iguais não comprovam identidade. O vínculo operacional não concede funções da equipe, não transfere cobranças e não cria dívida. Um cadastro já associado a outro cliente ou responsável financeiro exige resolução do conflito, sem substituição silenciosa.
+
+## Cadastro público de clientes
+
+O fluxo descrito abaixo continua destinado à equipe e a contas provisionadas. O cadastro de novos clientes pelo Google é separado, fica desligado por padrão e concede somente o perfil de cliente. Configuração, validação e rollback estão no [ADR-006](../adr/ADR-006-cadastro-cliente-google.md). O frontend consulta as opções da API; não é necessário informar o Client ID por variável de build do frontend.
 
 ## Provisionamento explícito
 
@@ -12,6 +18,12 @@ O login aceita usuário ou e-mail e senha, mesmo com Google habilitado. Os usuá
 O provisionador mantém somente o hash da senha. Sem e-mail conhecido, usa internamente um endereço aleatório reservado em `.invalid`, omitido das respostas de autenticação. Ele nunca é destinatário de mensagens. `Username` tem índice único sem distinção de caixa.
 
 ## Primeiro acesso
+
+### E-mail Google confirmado posteriormente pelo proprietário
+
+Para uma conta individual ainda pendente cujo e-mail foi autorizado explicitamente, acrescente somente esse e-mail à allowlist Google existente, preservando os demais. Execute `dotnet LongBeach.Api.dll --authorize-google-access --provision-from-stdin` com JSON privado contendo `Bootstrap.GoogleAccess.Username`, `Email` e `Role`. Não versione os alvos nem passe dados privados por argumentos que possam aparecer em logs. O comando exige Google habilitado, e-mail permitido, usuário ativo já existente e papel já concedido. Não cria usuários nem atribui permissões.
+
+O comando aceita somente a identidade provisória `.invalid`, substitui o hash da senha inicial por um segredo aleatório descartado, revoga sessões temporárias, conclui o primeiro acesso e audita `GoogleAccessAuthorized`. A conta pode então usar o fluxo Google já validado por assinatura, audiência e e-mail verificado. Repetir o mesmo alvo é idempotente; trocar uma identidade já ativada ou usar e-mail de outra conta é rejeitado. Não associe um `sub` inventado e não autentique como a pessoa para simular seu primeiro login. Execute separadamente para cada conta autorizada, usando o mesmo usuário e preservando seu histórico.
 
 A senha temporária concede uma sessão de até quinze minutos, limitada à tela de primeiro acesso, `/auth/me`, troca de senha, vinculação Google e encerramento. Nenhum papel ou permissão operacional é emitido. A API verifica também o estado e a validade da conta ao receber o JWT temporário. A renovação preserva essa limitação e não transforma uma sessão temporária em acesso completo.
 

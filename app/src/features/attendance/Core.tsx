@@ -23,20 +23,6 @@ export function useCart(scope: string, owner = 'client') {
   return [cart, setCart] as const
 }
 
-/** Keep a cart's location in this tab; remember the user's last choice for a new session. */
-export function useServiceLocation(owner: string | undefined) {
-  const key = `lb-cart-location:${owner ?? 'signed-out'}:sale`
-  const read = () => { try { return sessionStorage.getItem(key) ?? localStorage.getItem(key) ?? '' } catch { return '' } }
-  const [state, setState] = useState(() => ({ key, locationId: read() }))
-  if (state.key !== key) setState({ key, locationId: read() })
-  const locationId = state.key === key ? state.locationId : ''
-  const setLocationId = (value: string) => {
-    setState({ key, locationId: value })
-    try { sessionStorage.setItem(key, value); localStorage.setItem(key, value) } catch { /* selection remains in memory */ }
-  }
-  return [locationId, setLocationId] as const
-}
-
 /** Stores only the action awaiting confirmation; the existing cart and UUID preserve its payload. */
 export function useConfirmationGate(scope: string) {
   const key = `lb-confirmation:${scope}`

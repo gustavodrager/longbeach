@@ -94,22 +94,62 @@ public sealed class FirstAccessApiTests
         await Assert.ThrowsAsync<DbUpdateException>(()=>db.SaveChangesAsync());
     }
 
-    private static WebApplicationFactory<Program> Factory()
+    [PostgresFact] public async Task Explicit_Google_authorization_preserves_the_existing_owner_and_revokes_temporary_access()
+    {
+        var email = $"approved-{Guid.NewGuid():N}@example.test";
+        await using var factory = Factory(email); using var client = factory.CreateClient();
+        var (username, id) = await Provision(factory);
+        var initialSession = await Login(client, username, Initial);
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+        IConfiguration Config(string target, string allowed) => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> {
+            ["Bootstrap:GoogleAccess:Username"] = username, ["Bootstrap:GoogleAccess:Email"] = target,
+            ["Bootstrap:GoogleAccess:Role"] = "Owner", ["Authentication:Google:Enabled"] = "true",
+            ["Authentication:Google:AllowedEmail"] = allowed
+        }).Build();
+        var command = new GoogleAccessAuthorizer(db, hasher, TimeProvider.System);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => command.RunAsync(Config(email, "other@example.test")));
+        var before = await db.Users.CountAsync();
+        Assert.True(await command.RunAsync(Config(email, email)));
+        var user = await db.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role).SingleAsync(x => x.Id == id);
+        var hash = user.PasswordHash;
+        Assert.False(await command.RunAsync(Config(email, email)));
+        Assert.Equal(before, await db.Users.CountAsync()); Assert.Equal(hash, user.PasswordHash);
+        Assert.Equal(new[] { "Owner" }, user.GetRoleNames()); Assert.False(user.RequiresFirstAccess);
+        Assert.Equal(PasswordHashVerificationResult.Failed, hasher.Verify(Initial, hash));
+        client.DefaultRequestHeaders.Authorization = new("Bearer", initialSession.GetProperty("accessToken").GetString());
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/auth/me")).StatusCode);
+        client.DefaultRequestHeaders.Authorization = null;
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/auth/login", new { email=username, password=Initial })).StatusCode);
+        client.DefaultRequestHeaders.Authorization = new("Bearer", GoogleToken("approved-subject", email, verified:false));
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsync("/api/v1/auth/google", null)).StatusCode);
+        client.DefaultRequestHeaders.Authorization = new("Bearer", GoogleToken("approved-subject", email));
+        var response = await client.PostAsync("/api/v1/auth/google", null);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var session = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(id, session.GetProperty("user").GetProperty("id").GetGuid());
+        Assert.Contains("Owner", session.GetProperty("user").GetProperty("roles").EnumerateArray().Select(x => x.GetString()));
+        Assert.Single(await db.AuditLogs.Where(x => x.ResourceId == id.ToString() && x.Action == "GoogleAccessAuthorized").ToListAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => command.RunAsync(Config("replacement@example.test", "replacement@example.test")));
+    }
+
+    private static WebApplicationFactory<Program> Factory(string allowedEmail = "existing@example.test")
     {
         // Program registers authentication before WebApplicationFactory's late config callback.
         // Tests in this assembly are serialized; restore process variables immediately after startup.
-        var settings=new Dictionary<string,string> { ["Authentication__Google__Enabled"]="true",["Authentication__Google__ClientId"]="test-client",["Authentication__Google__AllowedEmail"]="existing@example.test" };
+        var settings=new Dictionary<string,string> { ["Authentication__Google__Enabled"]="true",["Authentication__Google__ClientId"]="test-client",["Authentication__Google__AllowedEmail"]=allowedEmail };
         var previous=settings.ToDictionary(x=>x.Key,x=>Environment.GetEnvironmentVariable(x.Key));
         try
         {
             foreach(var setting in settings)Environment.SetEnvironmentVariable(setting.Key,setting.Value);
-            var factory=BuildFactory(); using var client=factory.CreateClient(); return factory;
+            var factory=BuildFactory(allowedEmail); using var client=factory.CreateClient(); return factory;
         }
         finally { foreach(var setting in previous)Environment.SetEnvironmentVariable(setting.Key,setting.Value); }
     }
 
-    private static WebApplicationFactory<Program> BuildFactory()=>OperationalPostgresTests.Factory().WithWebHostBuilder(builder=>builder
-        .ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?> { ["Authentication:Google:Enabled"]="true",["Authentication:Google:ClientId"]="test-client",["Authentication:Google:AllowedEmail"]="existing@example.test" }))
+    private static WebApplicationFactory<Program> BuildFactory(string allowedEmail)=>OperationalPostgresTests.Factory().WithWebHostBuilder(builder=>builder
+        .ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?> { ["Authentication:Google:Enabled"]="true",["Authentication:Google:ClientId"]="test-client",["Authentication:Google:AllowedEmail"]=allowedEmail }))
         .ConfigureServices(services=> {
             services.AddScoped<IAuthService,AuthService>();
             services.PostConfigure<JwtBearerOptions>("Google",options=> {

@@ -24,7 +24,7 @@ public sealed class BarClientAccessTests
         Assert.DoesNotContain("\"items\"",await response.Content.ReadAsStringAsync());
     }
     [PostgresFact]
-    public async Task Revoked_expired_and_closed_credentials_return_410_and_foreign_payment_returns_403()
+    public async Task Revoked_and_expired_credentials_are_denied_but_closed_tab_is_read_only()
     {
         await using var factory=Factory(); using var client=factory.CreateClient();
         var actor=Guid.NewGuid(); Guid locationId; Guid productId;
@@ -71,7 +71,8 @@ public sealed class BarClientAccessTests
         using (var response=await Get(expired.Token)) Assert.Equal(HttpStatusCode.Gone,response.StatusCode);
         var closed=await Access();
         await using (var scope=factory.Services.CreateAsyncScope()) await scope.ServiceProvider.GetRequiredService<IBarTabs>().Close(closed.TabId,new(Guid.NewGuid()),actor,default);
-        using (var response=await Get(closed.Token)) Assert.Equal(HttpStatusCode.Gone,response.StatusCode);
+        using (var response=await Get(closed.Token)) Assert.Equal(HttpStatusCode.OK,response.StatusCode);
+        using (var response=await Get(closed.Token,"/catalog")) Assert.Equal(HttpStatusCode.Gone,response.StatusCode);
     }
     private static WebApplicationFactory<Program> Factory()=>new LongBeachWebApplicationFactory().WithWebHostBuilder(builder=>builder
         .ConfigureAppConfiguration((_,config)=>config.AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:LongBeach",Environment.GetEnvironmentVariable("LONG_BEACH_TEST_DATABASE_URL")}}))

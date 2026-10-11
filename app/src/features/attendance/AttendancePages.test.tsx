@@ -5,6 +5,7 @@ import { AuthContext, type AuthContextValue } from '../auth/authContext'
 import type { AuthUser } from '../auth/types'
 import { setAccessToken, setCsrfToken } from '../../lib/http'
 import { SellPage, TabDetailsPage, TabsPage } from './AttendancePages'
+import { MyCashPage } from './CashPage'
 import { ReceivePage } from './PaymentPages'
 import { ClientPage } from './ClientPage'
 import { BarReportPage } from './ReportPages'
@@ -34,7 +35,7 @@ const clients:QueryClient[]=[]
 function mount(path:string,user=actor){
   const query=new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}});clients.push(query)
   const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{}, completeFirstAccessWithGoogle: async () => {}}
-  render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<BarArenaMetrics from="2026-10-01" to="2026-10-04" />} /><Route path="/bar/indicadores/:metric" element={<BarReportPage />} /><Route path="/atendimento/vender" element={<SellPage />} /><Route path="/atendimento/comandas" element={<TabsPage />} /><Route path="/atendimento/comandas/:tabId" element={<TabDetailsPage />} /><Route path="/atendimento/receber/:tabId" element={<ReceivePage />} /><Route path="/atendimento/comprovante/:tabId/:paymentId" element={<h1>Comprovante recebido</h1>} /><Route path="/cliente" element={<ClientPage />} /></Routes></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
+  render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<BarArenaMetrics from="2026-10-01" to="2026-10-04" />} /><Route path="/bar/indicadores/:metric" element={<BarReportPage />} /><Route path="/atendimento/caixa" element={<MyCashPage />} /><Route path="/atendimento/vender" element={<SellPage />} /><Route path="/atendimento/comandas" element={<TabsPage />} /><Route path="/atendimento/comandas/:tabId" element={<TabDetailsPage />} /><Route path="/atendimento/receber/:tabId" element={<ReceivePage />} /><Route path="/atendimento/comprovante/:tabId/:paymentId" element={<h1>Comprovante recebido</h1>} /><Route path="/cliente" element={<ClientPage />} /></Routes></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
   return query
 }
 beforeEach(()=>{sessionStorage.clear();localStorage.clear();setAccessToken(null);setCsrfToken(null)})
@@ -43,7 +44,7 @@ afterEach(()=>{clients.splice(0).forEach(query=>query.clear());setAccessToken(nu
 it('permite alterar quantidade e impede adicionar produto esgotado ou acima do estoque',async()=>{
   server({tab:makeTab(),pixEnabled:false});mount('/atendimento/vender')
   const add=await screen.findByRole('button',{name:/Adicionar Água por/})
-  expect(screen.getByRole('button',{name:/Adicionar Suco por.*Esgotado/})).toBeDisabled()
+  expect(screen.queryByRole('button',{name:/Adicionar Suco por/})).not.toBeInTheDocument()
   fireEvent.click(add);expect(screen.getByLabelText('Quantidade de Água')).toHaveTextContent('1')
   fireEvent.click(screen.getByRole('button',{name:'Adicionar uma unidade de Água'}))
   expect(screen.getByLabelText('Quantidade de Água')).toHaveTextContent('2')
@@ -54,51 +55,99 @@ it('permite alterar quantidade e impede adicionar produto esgotado ou acima do e
   expect(screen.getByRole('button',{name:'Registrar e entregar'})).toBeEnabled()
 })
 
-it('seleção de local antecede o catálogo e conserva o local do pedido após recarregar e esvaziar',async()=>{
+it('atendimento usa sempre Bar mesmo com Almoxarifado salvo e preserva o carrinho após recarregar',async()=>{
+  localStorage.setItem(`lb-cart-location:${actor.id}:sale`,'warehouse-a')
+  sessionStorage.setItem(`lb-cart-location:${actor.id}:sale`,'warehouse-a')
   const fetchMock=server({tab:makeTab(),pixEnabled:false,locations:[{id:'warehouse-a',name:'Almoxarifado'},{id:'bar-a',name:'Bar'}]})
   const query=mount('/atendimento/vender')
-  expect(await screen.findByRole('heading',{name:'Escolha o local de atendimento'})).toBeInTheDocument()
-  expect(screen.getByLabelText('Local de atendimento')).toHaveValue('')
-  expect(screen.queryByLabelText('Escolher produtos')).not.toBeInTheDocument()
-  expect(screen.queryByRole('button',{name:'Conferir pedido'})).not.toBeInTheDocument()
-  expect(fetchMock.mock.calls.some(([input])=>String(input).includes('/catalog'))).toBe(false)
-  fireEvent.change(screen.getByLabelText('Local de atendimento'),{target:{value:'bar-a'}})
   fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}))
-  expect(screen.getByLabelText('Local de atendimento')).toBeDisabled()
+  expect(screen.queryByLabelText('Local de atendimento')).not.toBeInTheDocument()
   cleanup();query.clear();mount('/atendimento/vender')
   expect(await screen.findByLabelText('Quantidade de Água')).toHaveTextContent('1')
-  expect(screen.getByLabelText('Local de atendimento')).toHaveValue('bar-a')
   fireEvent.click(screen.getByRole('button',{name:'Retirar uma unidade de Água'}))
-  expect(screen.getByLabelText('Local de atendimento')).toBeEnabled()
-  expect(screen.getByLabelText('Local de atendimento')).toHaveValue('bar-a')
-  const catalogPaths=fetchMock.mock.calls.filter(([input])=>String(input).includes('/catalog')).map(([input])=>String(input))
-  expect(catalogPaths.length).toBeGreaterThan(0)
-  expect(catalogPaths.every(path=>new URL(path,'https://test.invalid').searchParams.get('locationId')==='bar-a')).toBe(true)
+  const paths=fetchMock.mock.calls.filter(([input])=>String(input).includes('/catalog')).map(([input])=>String(input))
+  expect(paths.length).toBeGreaterThan(0)
+  expect(paths.every(path=>new URL(path,'https://test.invalid').searchParams.get('locationId')==='bar-a')).toBe(true)
   expect(fetchMock.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0)
 })
 
-it.each(['outro usuário','local removido'] as const)('local salvo é validado antes de mostrar o estoque: %s',async reason=>{
-  localStorage.setItem(`lb-cart-location:${reason==='outro usuário'?'operator-b':actor.id}:sale`,reason==='outro usuário'?'bar-a':'removed-location')
-  const fetchMock=server({tab:makeTab(),pixEnabled:false,locations:[{id:'warehouse-a',name:'Almoxarifado'},{id:'bar-a',name:'Bar'}]})
+it.each([
+  [{id:'warehouse-a',name:'Almoxarifado'}],
+  [{id:'bar-a',name:'Bar'},{id:'bar-b',name:' bar '}],
+])('não escolhe outro estoque se o local Bar estiver ausente ou ambíguo',async(...locations)=>{
+  const fetchMock=server({tab:makeTab(),pixEnabled:false,locations})
   mount('/atendimento/vender')
-  await screen.findByRole('heading',{name:'Escolha o local de atendimento'})
-  expect(screen.getByLabelText('Local de atendimento')).toHaveValue('')
+  expect(await screen.findByRole('heading',{name:'Estoque Bar não configurado'})).toBeInTheDocument()
   expect(fetchMock.mock.calls.some(([input])=>String(input).includes('/catalog'))).toBe(false)
 })
 
-it('seleção de local também é obrigatória ao abrir uma comanda com vários locais',async()=>{
+it('abre novas comandas no Bar sem seletor de local',async()=>{
   const state:Server={tab:makeTab(),pixEnabled:false,locations:[{id:'warehouse-a',name:'Almoxarifado'},{id:'bar-a',name:'Bar'}]}
   state.post=(_path,body)=>{expect(body).toMatchObject({locationId:'bar-a',mode:'Tab'});return json(state.tab)}
   const fetchMock=server(state);mount('/atendimento/comandas')
   fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}))
   const submit=await screen.findByRole('button',{name:'Abrir sem cadastro'})
-  expect(submit).toBeDisabled()
-  fireEvent.submit(submit.closest('form')!)
-  expect(fetchMock.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0)
-  fireEvent.change(screen.getByLabelText('Local'),{target:{value:'bar-a'}})
-  expect(submit).toBeEnabled();fireEvent.click(submit)
+  await waitFor(()=>expect(submit).toBeEnabled())
+  expect(screen.queryByLabelText('Local')).not.toBeInTheDocument()
+  fireEvent.click(submit)
   expect(await screen.findByRole('heading',{name:'Comanda 104'})).toBeInTheDocument()
   expect(fetchMock.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(1)
+})
+
+it('abre meu caixa no Bar mesmo quando Almoxarifado vem primeiro',async()=>{
+  let opened=false
+  const fetchMock=vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{
+    const path=String(input)
+    if(init?.method==='POST'){expect(JSON.parse(String(init.body))).toMatchObject({locationId:'bar-a',opening:0});opened=true;return json({id:'session-a'})}
+    if(path.endsWith('/cash/sessions'))return json(opened?[{id:'session-a',openedBy:actor.id,state:'Open',opening:0,expected:0,createdAtUtc}]:[])
+    if(path.endsWith('/cash/registers'))return json([{id:'register-a',name:'Caixa'}])
+    if(path.endsWith('/cash/locations'))return json([{id:'warehouse-a',name:'Almoxarifado'},{id:'bar-a',name:'Bar'}])
+    throw new Error(path)
+  })
+  mount('/atendimento/caixa')
+  fireEvent.change(await screen.findByLabelText('Dinheiro inicial (R$)'),{target:{value:'0'}})
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Abrir caixa'})).toBeEnabled())
+  expect(screen.queryByLabelText('Local de estoque')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button',{name:'Abrir caixa'}))
+  expect(await screen.findByRole('heading',{name:'Caixa aberto'})).toBeInTheDocument()
+  expect(fetchMock.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(1)
+})
+
+it('omite produtos sem saldo e sem controle; permite retirar um item esgotado do carrinho',async()=>{
+  const state:Server={tab:makeTab(),pixEnabled:false,catalog:[...products,{...products[1],id:'untracked',name:'Sem controle',shortName:'Sem controle',available:null}]}
+  const fetchMock=server(state);const query=mount('/atendimento/vender')
+  fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}))
+  expect(screen.queryByRole('button',{name:/Adicionar Sem controle/})).not.toBeInTheDocument()
+  state.catalog=state.catalog!.map(product=>({...product,available:0}))
+  await act(async()=>{await query.invalidateQueries({queryKey:['bar-runtime']})})
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Adicionar uma unidade de Água'})).toBeDisabled())
+  fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}))
+  fireEvent.click(screen.getByRole('button',{name:'Registrar e entregar'}))
+  expect(screen.getByRole('alert')).toHaveTextContent('O estoque mudou')
+  expect(fetchMock.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0)
+  fireEvent.click(screen.getByRole('button',{name:'Alterar pedido'}))
+  fireEvent.click(screen.getByRole('button',{name:'Retirar uma unidade de Água'}))
+  expect(screen.getByRole('heading',{name:'Nenhum produto disponível'})).toBeInTheDocument()
+})
+
+it('recupera o mesmo pedido após resposta perdida mesmo se o estoque já foi consumido',async()=>{
+  let attempts=0
+  const state:Server={tab:makeTab(),pixEnabled:false,catalog:[{...products[0],available:1}]}
+  state.post=(path)=>{
+    if(path.endsWith('/tabs'))return json(state.tab)
+    if(path.endsWith('/items')){attempts++;state.catalog=[{...products[0],available:0}];return attempts===1?json({detail:'Resposta perdida'},502):json(state.tab)}
+    throw new Error(path)
+  }
+  const fetchMock=server(state);const query=mount('/atendimento/vender')
+  fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}))
+  fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}))
+  fireEvent.click(screen.getByRole('button',{name:'Registrar e entregar'}))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Resposta perdida')
+  await act(async()=>{await query.invalidateQueries({queryKey:['bar-runtime']})})
+  fireEvent.click(screen.getByRole('button',{name:'Registrar e entregar'}))
+  expect(await screen.findByRole('heading',{name:'Receber · Comanda 104'})).toBeInTheDocument()
+  const writes=fetchMock.mock.calls.filter(([input,init])=>String(input).endsWith('/items')&&init?.method==='POST').map(([,init])=>JSON.parse(String(init?.body)))
+  expect(writes).toHaveLength(2);expect(writes[1]).toEqual(writes[0])
 })
 
 it('envia venda pronta como Immediate no contrato real e entrega o consumo uma vez',async()=>{
@@ -129,7 +178,7 @@ it('mostra troco somente para dinheiro e exige aprovação do cartão antes de r
   fireEvent.change(screen.getByLabelText('Dinheiro recebido (R$)'),{target:{value:'20,00'}})
   expect(screen.getByText(/Troco: R\$\s*7,50/)).toBeInTheDocument()
   expect(screen.queryByLabelText('Nome do pagador')).not.toBeInTheDocument()
-  fireEvent.click(screen.getByRole('button',{name:'Cartão'}))
+  fireEvent.click(screen.getByRole('button',{name:'Cartão na maquininha'}))
   expect(screen.queryByLabelText('Dinheiro recebido (R$)')).not.toBeInTheDocument()
   expect(screen.getByRole('button',{name:'Confirmar recebimento'})).toBeDisabled()
   fireEvent.click(screen.getByLabelText('A maquininha confirmou a aprovação'))
@@ -149,14 +198,14 @@ it.each(['valor','parte','meio'] as const)('exige nova aprovação de cartão qu
   const fetchMock=server(state);mount('/atendimento/receber/tab-a')
   fireEvent.click(await screen.findByRole('button',{name:'Receber uma parte'}))
   fireEvent.change(screen.getByLabelText('Valor desta parte (R$)'),{target:{value:'5'}})
-  fireEvent.click(screen.getByRole('button',{name:'Cartão'}))
+  fireEvent.click(screen.getByRole('button',{name:'Cartão na maquininha'}))
   fireEvent.click(screen.getByLabelText('A maquininha confirmou a aprovação'))
   expect(screen.getByRole('button',{name:'Confirmar recebimento'})).toBeEnabled()
   if(change==='valor')fireEvent.change(screen.getByLabelText('Valor desta parte (R$)'),{target:{value:'8'}})
   if(change==='parte')fireEvent.click(screen.getByRole('button',{name:/Receber tudo/}))
   if(change==='meio'){
     fireEvent.click(screen.getByRole('button',{name:'Dinheiro'}))
-    fireEvent.click(screen.getByRole('button',{name:'Cartão'}))
+    fireEvent.click(screen.getByRole('button',{name:'Cartão na maquininha'}))
   }
   const checkbox=screen.getByLabelText('A maquininha confirmou a aprovação')
   expect(checkbox).not.toBeChecked()
@@ -176,7 +225,7 @@ it('atualização do saldo por outro atendente invalida a aprovação da maquini
   const state:Server={tab:makeTab(),pixEnabled:false};const fetchMock=server(state)
   const query=mount('/atendimento/receber/tab-a')
   fireEvent.click(await screen.findByRole('button',{name:/Receber tudo/}))
-  fireEvent.click(screen.getByRole('button',{name:'Cartão'}))
+  fireEvent.click(screen.getByRole('button',{name:'Cartão na maquininha'}))
   fireEvent.click(screen.getByLabelText('A maquininha confirmou a aprovação'))
   state.tab={...state.tab,total:20,due:20,payable:20}
   await act(async()=>{await query.invalidateQueries({queryKey:['bar-runtime',actor.id,'/tabs/tab-a']})})
@@ -330,7 +379,7 @@ it.each(['atendente','cliente'] as const)('pedido com resultado desconhecido con
   cleanup();query.clear();mount(path)
   expect(await screen.findByText('1 × Água')).toBeInTheDocument()
   expect(screen.getByRole('button',{name:'Alterar pedido'})).toBeDisabled()
-  fireEvent.click(screen.getByRole('button',{name:label}))
+  fireEvent.click(screen.getByRole('button',{name:scene==='cliente'?'Verificar envio':label}))
   expect(await screen.findByRole('heading',{name:scene==='cliente'?'Acompanhar pedidos':'Comanda 104'})).toBeInTheDocument()
   const bodies=fetchMock.mock.calls.filter(([,init])=>init?.method==='POST').map(([,init])=>JSON.parse(String(init?.body)))
   expect(bodies).toHaveLength(2);expect(bodies[0]).toEqual(bodies[1]);expect(bodies[0]).toMatchObject({items:[{productId:'water',quantity:1}],deliver:scene==='atendente'})
@@ -364,7 +413,7 @@ it('Pix parcial com POST502 repete a mesma chave até o GET confirmar e cria a p
   fireEvent.click(screen.getByRole('button',{name:'Criar Pix'}))
   expect(await screen.findByRole('alert')).toHaveTextContent('O provedor ainda não confirmou')
   expect(screen.getByLabelText('Valor (R$)')).toBeDisabled()
-  fireEvent.click(screen.getByRole('button',{name:'Repetir confirmação do mesmo Pix'}))
+  fireEvent.click(screen.getByRole('button',{name:'Verificar pagamento'}))
   expect(await screen.findByRole('alert')).toHaveTextContent('A consulta ainda está em andamento')
   const retryBodies=fetchMock.mock.calls.filter(([,init])=>init?.method==='POST').map(([,init])=>JSON.parse(String(init?.body)))
   expect(retryBodies).toHaveLength(2);expect(retryBodies[0]).toEqual(retryBodies[1])
@@ -507,4 +556,13 @@ it.each(['cliente','atendente'])('rejeição de CPF permite corrigir o Pix antes
   const bodies=fetchMock.mock.calls.filter(([,init])=>init?.method==='POST').map(([,init])=>JSON.parse(String(init?.body)))
   expect(bodies.map(body=>body.taxId)).toEqual(['123','12345678901'])
   expect(state.tab.payments).toHaveLength(1);expect(state.tab.paid).toBe(0)
+})
+
+
+it('comanda encerrada permite comprovante sem catálogo nem novo pagamento',async()=>{
+  const fetchMock=server({tab:{...makeTab(),state:'Closed',payable:0,due:0,paid:12.5},pixEnabled:false});mount('/cliente#token=own-secret')
+  expect(await screen.findByRole('heading',{name:'Comanda encerrada'})).toBeInTheDocument()
+  expect(screen.getByRole('button',{name:'Pedir'})).toBeDisabled();expect(screen.getByRole('button',{name:'Pagar'})).toBeDisabled()
+  expect(screen.getByRole('button',{name:'Salvar ou imprimir comprovante'})).toBeInTheDocument()
+  expect(fetchMock.mock.calls.some(([input])=>String(input).endsWith('/catalog'))).toBe(false)
 })

@@ -82,6 +82,12 @@ public sealed class AuditSaveChangesInterceptor(
     {
         if (entry.Entity is OperationalRecord record)
         {
+            if (record.Kind == "financeEntries")
+                return new { record.Kind, Classification = new
+                {
+                    Before = entry.State == EntityState.Added ? null : Classification(entry.Property(nameof(OperationalRecord.Payload)).OriginalValue as string),
+                    After = Classification(record.Payload)
+                }, Data = "[OMITTED: may contain personal data]" };
             return new { record.Kind, Data = "[OMITTED: may contain personal data]" };
         }
         if (entry.State == EntityState.Modified)
@@ -103,6 +109,15 @@ public sealed class AuditSaveChangesInterceptor(
             property => SafeValue(
                 property.Metadata.Name,
                 useOriginal ? property.OriginalValue : property.CurrentValue));
+    }
+
+    private static object? Classification(string? payload)
+    {
+        if (payload is null) return null;
+        using var doc = JsonDocument.Parse(payload);
+        string? Read(string key, params string[] allowed) => doc.RootElement.TryGetProperty(key, out var value)
+            && value.ValueKind == JsonValueKind.String && allowed.Contains(value.GetString()) ? value.GetString() : null;
+        return new { AllocationScope = Read("allocationScope", "Unit", "Shared", "Unclassified"), BusinessUnitId = Read("businessUnitId", "bar", "quadra") };
     }
 
     private static object? SafeValue(string propertyName, object? value) =>

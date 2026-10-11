@@ -1,11 +1,14 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../features/auth/authContext'
 import { BarArenaMetrics } from '../features/attendance/BarArenaMetrics'
-import { FinancialHistoryOverview } from '../features/finance/FinancialHistory'
+import { FinancialBalanceOverview } from '../features/finance/FinancialBalanceOverview'
+import { StockValuation } from '../features/bar/StockValuation'
+import { BankStatementOverview, FinancialHistoryOverview } from '../features/finance/FinancialHistory'
 import { ArenaHistoryOverview } from '../features/finance/ArenaHistoryOverview'
 import { useCourtSchedule } from '../features/arena/queries'
 import { useOperations, type OperationalKind } from '../features/operations/DemoDataProvider'
-import { AreaIcon, Feedback, Field, Heading, currency, displayDate, quantity, today, useFilters, validDate, type AreaIconName } from './arenaUi'
+import { AreaIcon, Feedback, Field, currency, displayDate, quantity, today, useFilters, validDate, type AreaIconName } from './arenaUi'
+import { Disclosure } from '../components/managementUi'
 
 function Metric({ label, value, to, period, updated, note, attention = false }: { label: string; value: string | null; to: string; period: string; updated: string; note?: string; attention?: boolean }) {
   return <Link className={`arena-metric ${attention && value !== null ? 'arena-metric-attention' : ''} ${value === null ? 'arena-metric-unavailable' : ''}`} to={to}>
@@ -49,20 +52,22 @@ export function DashboardPage() {
     return total + (minutes(item.endTime) - minutes(item.startTime)) / 60
   }, 0)
   const modules: [string, string, string, OperationalKind, AreaIconName][] = [
-    ['Agenda e recepção', 'Quadras, reservas e chegada de clientes.', '/agenda', 'reservations', 'agenda'],
+    ['Agenda e recepção', 'Disponibilidade, reservas e chegada de clientes.', '/agenda', 'reservations', 'agenda'],
     ['Mensalistas', 'Integrantes, encontros, mensalidades e consumo do grupo.', '/mensalistas', 'rentalGroups', 'team'],
-    ['Escola', 'Alunos, turmas, matrículas e presença.', '/escola', 'classes', 'school'],
-    ['Financeiro operacional', 'Contas, recebimentos e despesas.', '/financeiro', 'financeEntries', 'finance'],
+    ['Aulas', 'Alunos, turmas, matrículas e presença.', '/escola', 'classes', 'school'],
+    ['Financeiro', 'Contas, recebimentos e despesas.', '/financeiro', 'financeEntries', 'finance'],
     ['Equipe', 'Pessoas, funções e acordos de pagamento.', '/equipe', 'team', 'team'],
-    ['Materiais da arena', 'Material esportivo, limpeza e equipamentos.', '/estoque', 'inventory', 'materials'],
+    ['Materiais da arena', 'Material esportivo, limpeza e equipamentos.', '/administracao/materiais', 'inventory', 'materials'],
     ['Projetos', 'Tarefas, responsáveis e prazos.', '/projetos', 'projects', 'projects'],
     ['Manutenção', 'Serviços e cuidados com a infraestrutura.', '/manutencao', 'maintenance', 'maintenance'],
   ]
   const updated = formatUpdated(data.dataUpdatedAt); const period = `${displayDate(from)} a ${displayDate(to)}`
   return <main className="operation-page arena-page dashboard">
-    <Heading eyebrow={new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: 'long' }).format(new Date())} title="Visão geral" description="Sua arena em um só lugar. Veja as prioridades e abra os registros de cada resultado." action={<div className="arena-actions">{data.canRead('reservations') && <Link className="primary-link" to={`/agenda?date=${day}&view=day`}>Abrir agenda de hoje</Link>}{barHref && <Link className="secondary-link" to={barHref}>Abrir bar e caixa <span aria-hidden="true">→</span></Link>}</div>} />
+    <header className="dashboard-heading"><h1>Visão geral</h1><time dateTime={day}>{new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: 'long' }).format(new Date())}</time></header>
     <Feedback />
-    <FinancialHistoryOverview />
+    <FinancialBalanceOverview />
+    <StockValuation compact />
+    <Disclosure title="Histórico e movimentos de origem" lazy><FinancialHistoryOverview /><BankStatementOverview /></Disclosure>
     <ArenaHistoryOverview />
     {data.canRead('rentalGroups') && <section className="arena-dashboard-section" aria-labelledby="rental-groups-dashboard"><div className="arena-section-heading"><h2 id="rental-groups-dashboard">Grupos mensalistas</h2><Link to="/mensalistas">Gerenciar grupos →</Link></div><div className="arena-metric-grid"><Metric label="Grupos ativos" value={count('rentalGroups', data.rentalGroups.filter(g => g.status === 'Ativo' && g.startDate <= day && (!g.endDate || g.endDate >= day)).length)} to="/mensalistas" period="Acordos cadastrados" updated={updated} note={data.rentalGroups.length ? 'Veja integrantes, calendário e cobranças de cada turma.' : 'Cadastre os grupos e seus integrantes para acompanhar aluguel e bar.'} /></div></section>}
 
@@ -82,7 +87,7 @@ export function DashboardPage() {
         {data.canRead('reservations') && <Metric label="Reservas de hoje" value={count('reservations', data.reservations.filter(item => item.date === day && !['Cancelada', 'Bloqueio'].includes(item.status)).length)} to={link('/agenda', { date: day, view: 'day', activity: 'reservations' })} period="Agora · hoje" updated={updated} note={data.reservations.length ? "Reservas confirmadas, com chegada ou concluídas" : "Agenda ainda sem reservas cadastradas. Confirme a grade atual para carregar os horários."} />}
         {data.canRead('courts') && <Metric label="Tempo de quadra disponível hoje" value={availabilityReady ? `${quantity(scheduleCourts.reduce((sum, court) => sum + (court.availableMinutes ?? 0), 0) / 60)} h` : null} to={link('/agenda', { date: day, view: 'day' })} period="Agora · hoje" updated={formatUpdated(schedule.data?.updatedAtUtc)} note={schedulePending ? `${quantity(scheduleCourts.reduce((sum, court) => sum + (court.operatingMinutes ?? 0), 0) / 60)} h de funcionamento hoje. Horas livres aguardam conferência da agenda.` : data.courts.length ? "Tempo livre após reservas, bloqueios e aulas" : "Faltam as quadras e seus horários de funcionamento."} />}
         {data.canRead('financeEntries') && <Metric label="Valores vencidos a receber" value={cash(overdueReceivables)} to={link('/financeiro', { direction: 'Receber', status: 'Pendente', overdue: '1', range: 'all' })} period="Agora" updated={updated} attention={overdueReceivables > 0} note={data.financeEntries.length ? "Cobranças com vencimento anterior a hoje" : "Faltam cobranças com valor devido e vencimento. Valor pago na planilha não informa a dívida."} />}
-        {data.canRead('inventory') && <Metric label="Materiais para repor" value={count('inventory', lowMaterials.length)} to={link('/estoque', { low: '1' })} period="Agora · quantidade de materiais" updated={updated} attention={lowMaterials.length > 0} note={data.inventory.length ? undefined : 'Faltam quantidades atuais e estoque mínimo dos materiais da arena.'} />}
+        {data.canRead('inventory') && <Metric label="Materiais para repor" value={count('inventory', lowMaterials.length)} to={link('/administracao/materiais', { low: '1' })} period="Agora · quantidade de materiais" updated={updated} attention={lowMaterials.length > 0} note={data.inventory.length ? undefined : 'Faltam quantidades atuais e estoque mínimo dos materiais da arena.'} />}
         {data.canRead('projects') && <Metric label="Projetos com prazo vencido" value={count('projects', overdueProjects.length)} to={link('/projetos', { overdue: '1' })} period="Agora" updated={updated} attention={overdueProjects.length > 0} note={data.projects.length ? undefined : 'Cadastre os projetos e os prazos para acompanhar atrasos.'} />}
         {data.canRead('maintenance') && <Metric label="Manutenções urgentes abertas" value={count('maintenance', urgentMaintenance.length)} to={link('/manutencao', { priority: 'Urgente', status: 'open' })} period="Agora" updated={updated} attention={urgentMaintenance.length > 0} note={data.maintenance.length ? undefined : 'Cadastre os serviços de manutenção e suas prioridades.'} />}
       </div>

@@ -27,10 +27,13 @@ using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 var startupCommand = StartupCommandParser.Parse(args);
 var verifyGoogleOwners = args.Contains("--verify-google-owners", StringComparer.OrdinalIgnoreCase);
+var authorizeGoogleAccess = args.Contains("--authorize-google-access", StringComparer.OrdinalIgnoreCase);
 var provisionFirstAccess = args.Contains("--provision-first-access", StringComparer.OrdinalIgnoreCase);
 var provisionFromStdin = args.Contains("--provision-from-stdin", StringComparer.OrdinalIgnoreCase);
-if (provisionFromStdin && !provisionFirstAccess)
-    throw new InvalidOperationException("--provision-from-stdin requires --provision-first-access.");
+if (provisionFromStdin && !provisionFirstAccess && !authorizeGoogleAccess)
+    throw new InvalidOperationException("--provision-from-stdin requires a provisioning command.");
+if (authorizeGoogleAccess && (provisionFirstAccess || verifyGoogleOwners || startupCommand == StartupCommand.MigrateOnly))
+    throw new InvalidOperationException("Run Google access authorization as its own command after migrations.");
 if (provisionFirstAccess && (verifyGoogleOwners || startupCommand == StartupCommand.MigrateOnly))
     throw new InvalidOperationException("Run first-access provisioning as its own command after migrations.");
 if (verifyGoogleOwners && startupCommand == StartupCommand.MigrateOnly)
@@ -58,6 +61,19 @@ ConfigureHealthChecks(builder.Services, builder.Configuration);
 ConfigureRateLimiting(builder.Services);
 
 var app = builder.Build();
+
+if (authorizeGoogleAccess)
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var command = new GoogleAccessAuthorizer(scope.ServiceProvider.GetRequiredService<LongBeachDbContext>(),
+        scope.ServiceProvider.GetRequiredService<IPasswordHasher>(), scope.ServiceProvider.GetRequiredService<TimeProvider>());
+    var target = provisionFromStdin
+        ? new ConfigurationBuilder().AddConfiguration(app.Configuration).AddJsonStream(Console.OpenStandardInput()).Build()
+        : app.Configuration;
+    var changed = await command.RunAsync(target);
+    app.Logger.LogInformation("Google access authorization completed for one existing account: changed {Changed}; role preserved; temporary credential disabled.", changed);
+    return;
+}
 
 if (provisionFirstAccess)
 {
@@ -140,6 +156,9 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     Predicate = registration => registration.Tags.Contains("ready") || registration.Tags.Contains("live")
 }).AllowAnonymous();
 
+app.MapClientPortalEndpoints();
+app.MapTeachingEndpoints();
+app.MapBillingEndpoints();
 app.MapBarEndpoints();
 app.MapBarTabsEndpoints();
 app.MapImportEndpoints();
@@ -171,11 +190,6 @@ static void ConfigureAuthentication(IServiceCollection services, IConfiguration 
         {
             throw new InvalidOperationException("Authentication:Google:ClientId is required when Google sign-in is enabled.");
         }
-        if (GoogleEmailAllowlist.Parse(configuration["Authentication:Google:AllowedEmail"]).Length == 0)
-        {
-            throw new InvalidOperationException("Authentication:Google:AllowedEmail is required when Google sign-in is enabled.");
-        }
-
         authentication.AddJwtBearer("Google", google =>
         {
             google.Authority = "https://accounts.google.com";
@@ -240,6 +254,7 @@ static void ConfigureAuthentication(IServiceCollection services, IConfiguration 
 
 static void ConfigureAuthorization(IServiceCollection services, IConfiguration configuration)
 {
+    services.AddTransient<Microsoft.AspNetCore.Authentication.IClaimsTransformation, LongBeach.Api.ProfileClaimsTransformation>();
     services.AddAuthorization(options =>
     {
         options.FallbackPolicy = new AuthorizationPolicyBuilder()
@@ -250,9 +265,10 @@ static void ConfigureAuthorization(IServiceCollection services, IConfiguration c
         options.AddPolicy("Session", policy => policy.RequireAuthenticatedUser());
         options.AddPolicy(AuthorizationPolicyCatalog.Owner, policy =>
             policy.RequireRole(AuthorizationPolicyCatalog.Owner));
+        options.AddPolicy("Management", policy => policy.RequireAuthenticatedUser().RequireAssertion(c => !c.User.HasClaim("requires_first_access", "true")).RequireRole("Owner", "Administrator", "Manager"));
         options.AddPolicy("Administrator", policy => policy.RequireRole(
             AuthorizationPolicyCatalog.Owner,
-            AuthorizationPolicyCatalog.Administrator));
+            AuthorizationPolicyCatalog.Administrator, "Manager"));
         foreach (var permission in AuthorizationPolicyCatalog.Permissions)
         {
             options.AddPolicy(permission, policy => policy.RequireClaim("permission", permission));
@@ -293,6 +309,9 @@ static void ConfigureRateLimiting(IServiceCollection services)
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 AutoReplenishment = true
             }));
+        options.AddPolicy("client-portal", context => RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? context.User.FindFirst("sub")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true }));
         options.AddPolicy("public-demo-write", context => RateLimitPartition.GetFixedWindowLimiter(
             context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             _ => new FixedWindowRateLimiterOptions

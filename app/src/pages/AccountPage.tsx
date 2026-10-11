@@ -76,7 +76,12 @@ export function AccountPage() {
         </div>
       </header>
 
-      <section className="account-card" aria-labelledby="change-password-title">
+      {user?.googleLinked ? <section className="account-card" aria-labelledby="google-security-title">
+        <div className="account-card-copy"><h2 id="google-security-title">Acesso pelo Google</h2>
+        <p>Você vinculou sua conta Google à Long Beach. Use a mesma conta para entrar. A senha do Google é gerenciada pelo próprio Google.</p>
+        <a className="secondary-link" href="https://myaccount.google.com/security" target="_blank" rel="noreferrer">Gerenciar segurança no Google (nova aba)</a>
+        <p>Se perdeu acesso a essa conta, procure a equipe para confirmar sua identidade.</p></div>
+      </section> : <section className="account-card" aria-labelledby="change-password-title">
         <div className="account-card-copy">
           <h2 id="change-password-title">Alterar senha</h2>
           <p>
@@ -130,7 +135,7 @@ export function AccountPage() {
             {isSubmitting ? 'Alterando…' : 'Alterar senha'}
           </button>
         </form>
-      </section>
+      </section>}
     </main>
   )
 }

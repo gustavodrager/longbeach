@@ -1,12 +1,18 @@
-import { lazy, Suspense, type ReactNode } from 'react'
+import { LegacyDestination, BarDestination, MissingDestination } from './components/RouteDestinations'
+import { hasPermission, isManagement, workHome } from './features/auth/access'
+const BillingPage = lazy(() => import("./features/billing/BillingPages").then(m => ({ default: m.BillingPage })))
+const SettlementsPage = lazy(() => import("./features/billing/SettlementsPage").then(m => ({ default: m.SettlementsPage })))
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Navigate, Route, Routes } from 'react-router-dom'
+import { OptionalUnsavedProvider } from './components/managementUi'
 import { AppShell } from './components/AppShell'
 import { PwaUpdatePrompt } from './components/PwaUpdatePrompt'
 import { AuthGuard } from './features/auth/AuthGuard'
 import { AuthProvider } from './features/auth/AuthProvider'
 import { DashboardPage } from './pages/DashboardPage'
 import { FinancialHistoryPage } from './features/finance/FinancialHistory'
+const MonthlyControlPage = lazy(() => import('./features/finance/MonthlyControlPage').then(module => ({ default: module.MonthlyControlPage })))
 import { LoginPage } from './pages/LoginPage'
 import { FirstAccessPage } from './pages/FirstAccessPage'
 const BarLayout = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarLayout })))
@@ -57,6 +63,20 @@ const BarOverviewPage = lazy(() => import('./features/attendance/ReportPages').t
 const BarReportPage = lazy(() => import('./features/attendance/ReportPages').then(module => ({ default: module.BarReportPage })))
 const BarSourcePage = lazy(() => import('./features/attendance/ReportPages').then(module => ({ default: module.BarSourcePage })))
 
+const ClientLayout = lazy(() => import('./features/portal/ClientLayout').then(m => ({ default: m.ClientLayout })))
+const RequestManagement = lazy(() => import('./features/portal/RequestManagement').then(m => ({ default: m.RequestManagement })))
+const PortalHome = lazy(() => import('./features/portal/ClientPages').then(m => ({ default: m.PortalHome })))
+const PortalAgenda = lazy(() => import('./features/portal/ClientPages').then(m => ({ default: m.PortalAgenda })))
+const PortalRequestForm = lazy(() => import('./features/portal/ClientPages').then(m => ({ default: m.PortalRequestForm })))
+const PortalBar = lazy(() => import('./features/portal/ClientPages').then(m => ({ default: m.PortalBar })))
+const PortalProfile = lazy(() => import('./features/portal/ClientPages').then(m => ({ default: m.PortalProfile })))
+
+const TeacherLayout = lazy(() => import('./features/teaching/TeachingPages').then(m => ({ default: m.TeacherLayout })))
+const TeacherHome = lazy(() => import('./features/teaching/TeachingPages').then(m => ({ default: m.TeacherHome })))
+const TeacherClasses = lazy(() => import('./features/teaching/TeachingPages').then(m => ({ default: m.TeacherClasses })))
+const TeacherRoster = lazy(() => import('./features/teaching/TeachingPages').then(m => ({ default: m.TeacherRoster })))
+const TeacherAccess = lazy(() => import('./features/teaching/TeachingPages').then(m => ({ default: m.TeacherAccess })))
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -72,21 +92,27 @@ const PrototypeApp = lazy(() => import('./features/prototype/PrototypeApp').then
 const ClientPage = lazy(() => import('./features/attendance/ClientPage').then(module => ({ default: module.ClientPage })))
 
 export function App() {
-  return <QueryClientProvider client={queryClient}><BrowserRouter><Routes>
+  const [router, setRouter] = useState<ReturnType<typeof createBrowserRouter> | null>(null)
+  useEffect(() => { const instance = createBrowserRouter([{ path: '*', element: <ApplicationRoutes /> }]); setRouter(instance); return () => instance.dispose() }, [])
+  return <QueryClientProvider client={queryClient}>{router ? <RouterProvider router={router} /> : <main role="status">Abrindo sua área…</main>}</QueryClientProvider>
+}
+function ApplicationRoutes() {
+  return <OptionalUnsavedProvider><Routes>
     <Route path="/prototipo/*" element={<Suspense fallback={<main className="session-loading" role="status">Abrindo protótipo…</main>}><PrototypeApp /></Suspense>} />
     <Route path="/cliente" element={<Suspense fallback={<main className="session-loading" role="status">Abrindo sua comanda…</main>}><ClientPage /></Suspense>} />
     <Route path="*" element={<OperationalRoutes />} />
-  </Routes></BrowserRouter></QueryClientProvider>
+  </Routes></OptionalUnsavedProvider>
 }
 
 function Permission({ permission, demoMode = false, children }: { permission: string; demoMode?: boolean; children: ReactNode }) {
   const { user } = useAuth()
-  return demoMode || user?.roles.includes('Owner') || user?.permissions.includes(permission) ? children : <section className="operation-page"><h1>Acesso restrito</h1><p role="alert">Peça à gestão para conferir sua permissão para esta área.</p></section>
+  return demoMode || hasPermission(user, permission) ? children : <section className="operation-page"><h1>Acesso restrito</h1><p role="alert">Peça à gestão para conferir sua permissão para esta área.</p></section>
 }
+function ManagementOnly({ children }: { children: ReactNode }) { const { user } = useAuth(); return isManagement(user) ? children : <section><h1>Acesso restrito</h1><p>Esta área é exclusiva da gestão.</p></section> }
 function HomePage({ demoMode }: { demoMode: boolean }) {
   const { user } = useAuth()
-  const management = user?.roles.includes('Owner') || Object.values(operationalPermissions).some(item => user?.permissions.includes(item.read)) || ['bar:finance:read', 'bar:catalog:write', 'bar:stock:manage', 'bar:purchases:manage', 'bar:supervise'].some(permission => user?.permissions.includes(permission))
-  return !demoMode && !management && user?.permissions.includes('bar:sales:operate') ? <Navigate to="/atendimento/vender" replace /> : <DashboardPage />
+  const home = workHome(user)
+  return !demoMode && home !== '/' ? <Navigate to={home} replace /> : <DashboardPage />
 }
 function OperationalRoutes() {
   const demoMode = import.meta.env.VITE_DEMO_MODE === 'true'
@@ -94,25 +120,34 @@ function OperationalRoutes() {
   const bar = (permission: string, page: ReactNode) => <Permission permission={permission}>{page}</Permission>
   const application = <Route element={<Suspense fallback={<main className="session-loading" role="status">Abrindo sua área…</main>}><AppShell demoMode={demoMode} /></Suspense>}>
     <Route index element={<HomePage demoMode={demoMode} />} />
+    {!demoMode && <Route path="administracao/professores" element={<ManagementOnly><TeacherAccess /></ManagementOnly>} />}
     <Route path="conta" element={<AccountPage />} />
+    {!demoMode && <Route path="solicitacoes-clientes" element={<RequestManagement />} />}
+    {!demoMode && <Route path="minhas-contas" element={<LegacyDestination to="/minha-area/pagamentos" />} />}
+    {!demoMode && <Route path="recebimentos" element={bar('finance:read', <BillingPage admin />)} />}
+    {!demoMode && <Route path="recebimentos/conciliacao" element={bar('finance:read', <SettlementsPage />)} />}
     <Route path="financeiro/historico" element={<FinancialHistoryPage />} />
+    <Route path="financeiro/controle-mensal" element={<MonthlyControlPage />} />
     <Route path="alunos" element={arena('students', <StudentsPage />)} />
     <Route path="alunos/:studentId" element={arena('students', <StudentDetailsPage />)} />
     <Route path="equipe" element={arena('team', <TeamPage />)} />
     <Route path="equipe/:memberId" element={arena('team', <TeamDetailsPage />)} />
-    <Route path="estoque" element={arena('inventory', <InventoryPage />)} />
-    <Route path="estoque/:itemId" element={arena('inventory', <InventoryDetailsPage />)} />
+    <Route path="estoque" element={<LegacyDestination to="/administracao/materiais" />} />
+    <Route path="estoque/:itemId" element={<LegacyDestination to="/administracao/materiais" parameter="itemId" />} />
+    <Route path="administracao/materiais" element={arena('inventory', <InventoryPage />)} />
+    <Route path="administracao/materiais/:itemId" element={arena('inventory', <InventoryDetailsPage />)} />
     <Route path="projetos" element={arena('projects', <ProjectsPage />)} />
     <Route path="projetos/:projectId" element={arena('projects', <ProjectDetailsPage />)} />
     <Route path="mensalistas" element={arena('rentalGroups', <RentalGroupsPage />)} />
     <Route path="mensalistas/:groupId" element={arena('rentalGroups', <RentalGroupPage />)} />
-    <Route path="quadras" element={arena('courts', <CourtsPage />)} />
+    <Route path="quadras" element={<LegacyDestination to="/agenda/funcionamento" />} />
+    <Route path="agenda/funcionamento" element={arena('courts', <CourtsPage />)} />
     <Route path="agenda" element={arena('reservations', <AgendaPage />)} />
     <Route path="agenda/recorrentes/novo" element={arena('reservations', <RecurringReservationsPage />)} />
     <Route path="agenda/:reservationId" element={arena('reservations', <ReservationDetailsPage />)} />
     <Route path="escola" element={arena('classes', <SchoolPage />)} />
     <Route path="escola/turmas/:classId" element={arena('classes', <ClassDetailsPage />)} />
-    <Route path="escola/:classId" element={arena('classes', <ClassDetailsPage />)} />
+    <Route path="escola/:classId" element={<LegacyDestination to="/escola/turmas" parameter="classId" />} />
     <Route path="escola/matriculas" element={arena('enrollments', <EnrollmentsPage />)} />
     <Route path="escola/presencas" element={arena('presences', <PresencesPage />)} />
     <Route path="financeiro" element={arena('financeEntries', <FinancePage />)} />
@@ -128,7 +163,7 @@ function OperationalRoutes() {
       <Route path="atendimento/comprovante/:tabId/:paymentId" element={bar('bar:sales:read', <ReceiptPage />)} />
       <Route path="atendimento/caixa" element={bar('bar:cash:operate', <MyCashPage />)} />
       <Route path="bar" element={<BarLayout />}>
-        <Route index element={<Navigate to="/atendimento/vender" replace />} />
+        <Route index element={<BarDestination />} />
         <Route path="produtos" element={bar('bar:catalog:write', <BarProductsPage />)} />
         <Route path="receitas" element={bar('bar:catalog:write', <BarRecipesPage />)} />
         <Route path="receitas/:productId" element={bar('bar:catalog:write', <BarRecipesPage />)} />
@@ -146,10 +181,10 @@ function OperationalRoutes() {
       <Route path="importacoes" element={bar('users:manage', <ImportPage />)} />
     </>}
   </Route>
-  return <AuthProvider demoMode={demoMode}><DemoDataProvider enabled demoMode={demoMode}><Routes>
+  return <AuthProvider demoMode={demoMode}><DemoDataProvider enabled demoMode={demoMode}><PwaUpdatePrompt /><Routes>
     <Route path="login" element={demoMode ? <Navigate to="/" replace /> : <LoginPage />} />
     <Route path="primeiro-acesso" element={demoMode ? <Navigate to="/" replace /> : <FirstAccessPage />} />
-    {demoMode ? application : <Route element={<AuthGuard />}>{application}</Route>}
-    <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes><PwaUpdatePrompt /></DemoDataProvider></AuthProvider>
+    {demoMode ? application : <Route element={<AuthGuard />}>{application}<Route path="professor" element={<Suspense fallback={<main role="status">Abrindo aulas…</main>}><TeacherLayout /></Suspense>}><Route index element={<TeacherHome />} /><Route path="turmas" element={<TeacherClasses />} /><Route path="presencas" element={<TeacherClasses attendance />} /><Route path="turmas/:classId" element={<TeacherRoster />} /></Route><Route path="minha-area" element={<Suspense fallback={<main role="status">Abrindo sua área…</main>}><ClientLayout /></Suspense>}><Route index element={<PortalHome />} /><Route path="agenda" element={<PortalAgenda />} /><Route path="solicitar" element={<PortalRequestForm />} /><Route path="ajuda" element={<PortalRequestForm help />} /><Route path="bar" element={<PortalBar />} /><Route path="pagamentos" element={<BillingPage />} /><Route path="perfil" element={<PortalProfile />} /><Route path="seguranca" element={<AccountPage />} /></Route></Route>}
+    <Route path="*" element={<MissingDestination />} />
+  </Routes></DemoDataProvider></AuthProvider>
 }
