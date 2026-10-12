@@ -14,6 +14,12 @@ A criação é serializada em transação PostgreSQL, com índices únicos de e-
 
 A lista `AllowedEmail` continua autorizando a compatibilidade de login por e-mail de contas existentes; não é requisito para clientes vinculados. O provisionamento de proprietários permanece separado e deve ficar desligado durante a ativação do cadastro público.
 
+### Complemento — persistência do vínculo de contas autorizadas
+
+Na correção posterior à publicação do bar de 11/10/2026, o login de uma conta ativa já autorizada em `AllowedEmail`, sem primeiro acesso pendente e ainda sem `GoogleSubject`, passa a gravar o `sub` do token Google validado na mesma transação de gravação da sessão. Não muda usuário, senha, papéis ou vínculos operacionais. O cadastro público continua sem associar contas existentes por e-mail: esta exceção permanece restrita ao login explicitamente autorizado pela API. O serviço de autenticação exige subject válido e desabilita a correspondência por e-mail por padrão.
+
+`GoogleSubject` participa do controle otimista de concorrência, além do índice único já existente; um login concorrente com leitura antiga não pode substituir o vínculo nem gravar sua sessão. O conflito retorna 409 e exige repetir o login. Trata-se de metadado de concorrência do EF, sem alteração física do banco; o snapshot acompanha o modelo. A gravação é auditada pelo interceptor existente. Contas já vinculadas continuam sendo localizadas pelo subject mesmo sem allowlist. A reversão do código não remove os vínculos já confirmados.
+
 ## Interface
 
 Entrada orientada a clientes e equipe; mensagem explícita de criação de conta e conferência dos vínculos. Na área pessoal, clientes sem vínculos recebem acesso ao perfil e à solicitação de conferência. Telefone permanece opcional. A segurança de contas vinculadas direciona ao Google. Solicitações e pagamentos continuam sujeitos às regras existentes; não são confirmados pelo cadastro.

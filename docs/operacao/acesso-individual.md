@@ -32,6 +32,12 @@ A senha temporária concede uma sessão de até quinze minutos, limitada à tela
 
 A allowlist permanece válida para contas Google legadas. Vincular Google não cria usuários nem amplia papéis. Conclusões concorrentes usam a senha armazenada como controle de concorrência; o índice único impede vinculação dupla. Auditorias ocultam hashes e tokens.
 
+Após a correção de persistência do vínculo Google (preparada depois da publicação do bar de 11/10/2026), uma conta legada ativa e autorizada na allowlist grava sua identificação Google no próximo login válido, preservando papéis e histórico. Isso também permite encontrá-la como responsável de comanda: a busca do bar continua exigindo uma conta ativa, com Google vinculado e sem primeiro acesso pendente. Renovar a sessão existente não realiza o vínculo; é necessário entrar novamente pelo botão Google depois de publicar a correção. Não editar subjects manualmente nem ampliar a busca para cadastros sem vínculo.
+
+Homologar com identidade fictícia em banco isolado: antes do login a busca exata não encontra a conta; depois encontra o mesmo identificador, com e-mail mascarado. Conferir `googleLinked`, papéis, auditoria, repetição sem duplicidade, login com cadastro público desligado e bloqueio de token inválido, conta inativa/pendente e subject conflitante. Dois primeiros logins concorrentes podem resultar em 409 para um deles; repetir o login deve preservar o vínculo vencedor. O controle de concorrência não exige nova coluna ou migration física. Na produção, a conferência deve ser feita após o próprio titular entrar novamente, sem criar comanda ou cobrança de teste.
+
+Validação local desta correção: 195 testes unitários e 260 testes de integração aprovados, sem falhas ou ignorados; API compilada e build da interface concluído. Banco exclusivo `longbeach_google_binding_20261012_test`, separado da prévia e de produção. O teste integrado cobre o caminho HTTP Google → sessão → busca de responsável para Owner e Administrator, com token assinado por chave exclusivamente de teste; também comprova rollback de sessão e auditoria na tentativa concorrente que perde. Modelo sem alterações de esquema pendentes. Estes resultados não representam login real das contas administrativas em produção. Correção ainda não publicada nesta rodada.
+
 Se a credencial inicial expirar, o provisionador não a redefine silenciosamente. O responsável deverá tratar a recuperação de forma direcionada, após confirmar a identidade. Não é um cadastro público.
 
 ## Verificação e retorno
