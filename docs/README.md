@@ -13,6 +13,8 @@
 - [`arquitetura/modelo-autenticacao-web-mobile.md`](arquitetura/modelo-autenticacao-web-mobile.md)
 - [`arquitetura/modelo-dados-primeira-release.md`](arquitetura/modelo-dados-primeira-release.md)
 
+- [`adr/ADR-007-area-pessoal-cliente.md`](adr/ADR-007-area-pessoal-cliente.md) — área pessoal, vínculos e confirmação de solicitações
+
 ## Migração
 
 - [`migracao/auditoria-legado.md`](migracao/auditoria-legado.md)
@@ -24,6 +26,8 @@
 - [`produto/criterios-de-pronto.md`](produto/criterios-de-pronto.md)
 
 ## Operação
+
+- [`operacao/perfil-cliente.md`](operacao/perfil-cliente.md) — operação, limites e aceite com clientes
 
 - [`operacao/ci-cd-e-ambientes.md`](operacao/ci-cd-e-ambientes.md)
 - [`operacao/deploy-railway-production.md`](operacao/deploy-railway-production.md)

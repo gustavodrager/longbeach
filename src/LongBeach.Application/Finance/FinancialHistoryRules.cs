@@ -6,7 +6,7 @@ namespace LongBeach.Application.Finance;
 
 public static class FinancialHistoryRules
 {
-    public static readonly string[] Series = ["consolidado", "consolidado-com-dividas", "compras-detalhadas", "servicos-detalhados", "saldos", "alunos", "mensalistas", "aulas", "pagvendas-vendas", "pagbank-conta"];
+    public static readonly string[] Series = ["consolidado", "consolidado-com-dividas", "compras-detalhadas", "servicos-detalhados", "saldos", "alunos", "mensalistas", "aulas", "pagvendas-vendas", "pagbank-conta", "despesas-fora-pagbank"];
     public static FinancialObservation Parse(JsonElement payload)
     {
         try

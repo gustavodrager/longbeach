@@ -16,6 +16,16 @@ public static class AuthEndpoints
     {
         var group = endpoints.MapGroup("/api/v1/auth").WithTags("Authentication");
 
+        group.MapGet("/options", (HttpContext context, IConfiguration configuration) =>
+        {
+            SetNoStore(context.Response);
+            var enabled = configuration.GetValue<bool>("Authentication:Google:Enabled");
+            return Results.Ok(new
+            {
+                GoogleClientId = enabled ? configuration["Authentication:Google:ClientId"] : null,
+                ClientRegistrationEnabled = enabled && configuration.GetValue<bool>("Authentication:Google:ClientRegistrationEnabled")
+            });
+        }).AllowAnonymous();
         group.MapPost("/login", LoginAsync).AllowAnonymous().RequireRateLimiting("auth-login");
         group.MapPost("/refresh", RefreshAsync).AllowAnonymous().RequireRateLimiting("auth-refresh");
         group.MapPost("/logout", LogoutAsync).AllowAnonymous();
@@ -42,15 +52,20 @@ public static class AuthEndpoints
         HttpContext httpContext,
         IConfiguration configuration,
         IAuthService authService,
+        IGoogleClientRegistration registration,
         CancellationToken cancellationToken)
     {
         var email = principal.FindFirstValue("email");
         var allowedEmails = configuration["Authentication:Google:AllowedEmail"];
         var subject = principal.FindFirstValue("sub");
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(subject))
+        if (principal.FindFirstValue("email_verified") != "true" ||
+            string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(subject))
         {
             return Results.Unauthorized();
         }
+
+        if (configuration.GetValue<bool>("Authentication:Google:ClientRegistrationEnabled"))
+            await registration.EnsureClientAsync(subject, email, principal.FindFirstValue("name"), cancellationToken);
 
         var session = await authService.LoginWithGoogleAsync(email, GetIpAddress(httpContext), cancellationToken,
             subject, GoogleEmailAllowlist.Contains(allowedEmails, email));
@@ -229,7 +244,8 @@ public static class AuthEndpoints
             principal.FindAll(ClaimTypes.Role).Select(claim => claim.Value).Distinct().ToArray(),
             principal.FindAll("permission").Select(claim => claim.Value).Distinct().ToArray(),
             principal.FindFirstValue("requires_first_access") == "true",
-            principal.FindFirstValue("username")));
+            principal.FindFirstValue("username"),
+            principal.FindFirstValue("google_linked") == "true"));
     }
 
     private static Dictionary<string, string[]> ValidateLogin(LoginRequest request)

@@ -1,13 +1,15 @@
 namespace LongBeach.Contracts.Bar;
 
 public sealed record PageResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int Total);
-public sealed record OpenTabInput(Guid OperationId, Guid LocationId, string? Name = null, string Mode = "Tab");
+public sealed record OpenTabInput(Guid OperationId, Guid LocationId, string? Name = null, string Mode = "Tab", Guid? ResponsibleUserId = null);
+public sealed record TabCustomer(Guid Id, string Name, string EmailHint);
+public sealed record TabResponsible(Guid Id, string Name);
 public sealed record TabItemInput(Guid ProductId, decimal Quantity);
 public sealed record AddTabItemsInput(Guid OperationId, IReadOnlyList<TabItemInput> Items, bool Deliver = false);
 public sealed record TabActionInput(Guid OperationId, string? Reason = null, bool ReturnStock = false);
 public sealed record TabPaymentInput(Guid OperationId, string Method, decimal Amount, Guid? SessionId = null,
     decimal? Tendered = null, bool CardApproved = false, string? Authorization = null,
-    string? Name = null, string? Email = null, string? TaxId = null);
+    string? Name = null, string? Email = null, string? TaxId = null, string? EncryptedCard = null);
 public sealed record TabAdjustmentInput(Guid OperationId, string Kind, decimal Amount, string Reason);
 public sealed record TabReconcileInput(Guid OperationId, decimal Fee, string Reason);
 public sealed record TabRefundInput(Guid OperationId, decimal Amount, string Reason);
@@ -28,7 +30,7 @@ public sealed record TabResponse(Guid Id, long Number, string Name, string Mode,
     Guid ActorId, decimal Total, decimal Paid, decimal Pending, decimal Due, decimal Payable,
     DateTimeOffset CreatedAtUtc, DateTimeOffset? ClosedAtUtc, IReadOnlyList<TabItemResponse> Items,
     IReadOnlyList<TabPaymentResponse> Payments, IReadOnlyList<TabHistoryResponse> History,
-    IReadOnlyList<string> AllowedActions, decimal Gross = 0, decimal Discount = 0);
+    IReadOnlyList<string> AllowedActions, decimal Gross = 0, decimal Discount = 0, TabResponsible? Responsible = null);
 public sealed record TabCatalogProduct(Guid Id, string Name, string ShortName, Guid CategoryId, string CategoryName,
     decimal SalePrice, bool Favorite, int DisplayOrder, string? ImageUrl, decimal? Available, bool Prepared, Guid? RecipeId = null, int? RecipeVersion = null);
 public sealed record TabReportRow(Guid Id, string Label, string Detail, DateTimeOffset Date,

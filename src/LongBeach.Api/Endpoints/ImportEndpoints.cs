@@ -18,7 +18,7 @@ public static partial class ImportEndpoints
 
     public static IEndpointRouteBuilder MapImportEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapGroup("/api/v1/imports").WithTags("Imports").RequireAuthorization(AuthorizationPolicyCatalog.Owner);
+        var group = endpoints.MapGroup("/api/v1/imports").WithTags("Imports").RequireAuthorization("Management");
         group.MapGet("/", ListBatches);
         group.MapGet("/{batchId:guid}/rows", ListRows);
         group.MapGet("/{batchId:guid}/rental-groups", (Guid batchId, LongBeach.Application.Operations.IRentalGroupImport service, CancellationToken ct) => service.Preview(batchId, ct));

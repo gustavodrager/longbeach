@@ -1,5 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { EditorPanel, useEditorQuery, useUnsavedChanges } from '../../components/managementUi'
 import { useAuth } from '../auth/authContext'
 import { dateTime, useBarCommand, useBarData, type PageResult } from '../attendance/api'
 import { ApiError, apiFetch } from '../../lib/http'
@@ -25,7 +26,7 @@ function RecipeDetails({ recipe, current }: { recipe: RecipeVersion; current?: b
 }
 
 function RecipeEditor({ product, products, previous, onCancel, onSaved, onLockedChange }: { product: ManagedProduct; products: ManagedProduct[]; previous?: RecipeVersion; onCancel: () => void; onSaved: (recipe: RecipeVersion) => void; onLockedChange: (locked: boolean) => void }) {
-  const action = useBarCommand(); const operationId = useRef(crypto.randomUUID()); const retry = useRef<RecipeInput | null>(null)
+  const action = useBarCommand(); const {markSaved}=useUnsavedChanges(); const operationId = useRef(crypto.randomUUID()); const retry = useRef<RecipeInput | null>(null)
   const [uncertain, setUncertain] = useState(false); const [yieldQuantity, setYield] = useState(previous?.yieldQuantity ?? 1); const [reason, setReason] = useState('')
   const [rows, setRows] = useState<IngredientRow[]>(() => previous?.ingredients.map(item => ({ key: crypto.randomUUID(), productId: item.productId, quantity: item.quantity, unit: item.unit })) ?? [{ key: crypto.randomUUID(), productId: '', quantity: 1, unit: 'Sale' }])
   const ingredients = products.filter(item => item.product.active && item.product.controlsStock && !item.product.prepared && item.product.id !== product.product.id)
@@ -42,7 +43,7 @@ function RecipeEditor({ product, products, previous, onCancel, onSaved, onLocked
     }
     onLockedChange(true)
     const result = await action.run(() => apiFetch<RecipeVersion>('/api/v1/bar/recipes', { method: 'POST', body: JSON.stringify(retry.current) }))
-    if (result.ok) { onLockedChange(false); onSaved(result.value); return }
+    if (result.ok) { markSaved(); onLockedChange(false); onSaved(result.value); return }
     if (!result.error) return
     const rejected = result.error instanceof ApiError && [400, 403, 409, 422].includes(result.error.status)
     setUncertain(!rejected)
@@ -76,14 +77,14 @@ function RecipeEditor({ product, products, previous, onCancel, onSaved, onLocked
 
 export function BarRecipesPage() {
   const { user } = useAuth(); const { productId } = useParams(); const filters = useFilters(); const navigate = useNavigate()
-  const allowed = Boolean(user?.permissions.includes('bar:catalog:write'))
+  const allowed = Boolean(user?.roles.includes('Owner')||user?.permissions.includes('bar:catalog:write'))
   const products = useBarData<ManagedProduct[]>('/products', allowed)
   const rawPage = Number(filters.params.get('page') ?? 1); const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1
   const versionId = filters.params.get('version') ?? ''
   const first = useBarData<PageResult<RecipeVersion>>(`/recipes?productId=${encodeURIComponent(productId ?? '')}&page=1&pageSize=20`, allowed && Boolean(productId))
   const history = useBarData<PageResult<RecipeVersion>>(`/recipes?productId=${encodeURIComponent(productId ?? '')}&page=${page}&pageSize=20`, allowed && Boolean(productId))
   const version = useBarData<RecipeVersion>(`/recipes/${encodeURIComponent(versionId)}`, allowed && Boolean(versionId))
-  const [editing, setEditing] = useState(false); const [saved, setSaved] = useState<RecipeVersion | null>(null); const [draftLocked, setDraftLocked] = useState(false)
+  const [editing, setEditing] = useEditorQuery(false,productId); const [saved, setSaved] = useState<RecipeVersion | null>(null); const [draftLocked, setDraftLocked] = useState(false)
   const product = products.data?.find(item => item.product.id === productId)
   const current = first.data?.items[0]
   const selected = versionId ? version.data?.productId === productId ? version.data : undefined : current
@@ -91,7 +92,7 @@ export function BarRecipesPage() {
   const choose = (id: string) => { setEditing(false); setSaved(null); navigate(filters.href(id ? `/bar/receitas/${id}` : '/bar/receitas', { page: '', version: '' })) }
   return <main className="operation-page arena-page">
     <Breadcrumb to="/bar/produtos" label="Produtos do bar" />
-    <Heading eyebrow="Gestão do bar" title="Receitas dos preparados" description="Defina ingredientes e rendimento. A equipe de atendimento vende o produto; a entrega utiliza a receita confirmada no pedido." />
+    <Heading eyebrow="Gestão do bar" title="Fichas técnicas" description="Defina ingredientes e rendimento. A equipe de atendimento vende o produto; a entrega utiliza a receita confirmada no pedido." />
     {products.isLoading && <p role="status" className="arena-message">Carregando produtos…</p>}
     {products.error && <p role="alert" className="arena-message arena-error">{products.error.message} <button className="text-button" onClick={() => void products.refetch()}>Tentar novamente</button></p>}
     <div className="arena-toolbar"><Field label="Produto preparado" disabled={draftLocked} value={productId ?? ''} onChange={choose} options={[{ value: '', label: 'Escolha um produto preparado' }, ...(products.data?.filter(item => item.product.prepared).map(item => ({ value: item.product.id, label: `${item.product.name}${item.product.active ? '' : ' · inativo'}` })) ?? [])]} /></div>
@@ -101,7 +102,7 @@ export function BarRecipesPage() {
       {first.error && <p className="arena-message arena-error" role="alert">{first.error.message} <button className="text-button" onClick={() => void first.refetch()}>Consultar receitas novamente</button></p>}
       {version.error && versionId && <p className="arena-message arena-error" role="alert">Não foi possível consultar esta versão.</p>}
       {version.data && versionId && version.data.productId !== productId && <p className="arena-message arena-error" role="alert">Esta versão pertence a outro produto. Escolha uma versão no histórico abaixo.</p>}
-      {editing ? <RecipeEditor key={productId} product={product} products={products.data ?? []} previous={current} onLockedChange={setDraftLocked} onCancel={() => setEditing(false)} onSaved={recipe => { setSaved(recipe); setEditing(false); filters.set('version', recipe.id) }} /> : !first.isLoading && !first.isError ? <div className="arena-actions"><button className="primary-link" disabled={!product.product.active} onClick={() => setEditing(true)}>{current ? 'Criar nova versão da receita' : 'Cadastrar primeira receita'}</button>{versionId && <Link className="secondary-link" to={filters.href(`/bar/receitas/${productId}`, { version: '', page: '' })}>Ver receita atual →</Link>}</div> : null}
+      {editing ? <EditorPanel title="Editar ficha técnica" busy={draftLocked} onClose={()=>setEditing(false)}><RecipeEditor key={productId} product={product} products={products.data ?? []} previous={current} onLockedChange={setDraftLocked} onCancel={() => setEditing(false)} onSaved={recipe => { setSaved(recipe); setEditing(false); navigate(filters.href(`/bar/receitas/${productId}`,{version:recipe.id})) }} /></EditorPanel> : !first.isLoading && !first.isError ? <div className="arena-actions"><button className="primary-link" disabled={!product.product.active} onClick={() => setEditing(true)}>{current ? 'Criar nova versão da receita' : 'Cadastrar primeira receita'}</button>{versionId && <Link className="secondary-link" to={filters.href(`/bar/receitas/${productId}`, { version: '', page: '' })}>Ver receita atual →</Link>}</div> : null}
       {!editing && selected && <RecipeDetails recipe={selected} current={!first.isError && selected.id === current?.id} />}
       {!editing && !current && !first.isLoading && !first.isError && <Empty>Este preparado ainda não tem receita. Até cadastrar uma receita, a entrega usa o próprio estoque conforme a configuração do produto.</Empty>}
       {!product.product.active && <p className="arena-hint">Produto inativo. Ative-o em Produtos para cadastrar uma nova versão.</p>}

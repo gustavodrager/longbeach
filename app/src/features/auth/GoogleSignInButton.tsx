@@ -9,13 +9,12 @@ declare global {
   }
 }
 
-export function GoogleSignInButton({ onCredential, onError, disabled = false }: {
-  onCredential: (credential: string) => void; onError: (message: string) => void; disabled?: boolean
+export function GoogleSignInButton({ onCredential, onError, disabled = false, clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '' }: {
+  onCredential: (credential: string) => void; onError: (message: string) => void; disabled?: boolean; clientId?: string
 }) {
   const element = useRef<HTMLDivElement>(null)
   const handlers = useRef({ onCredential, onError, disabled })
   useEffect(() => { handlers.current = { onCredential, onError, disabled } }, [onCredential, onError, disabled])
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
   useEffect(() => {
     if (!clientId) return
     let active = true
@@ -26,10 +25,10 @@ export function GoogleSignInButton({ onCredential, onError, disabled = false }: 
       } })
       element.current.replaceChildren()
       window.google.accounts.id.renderButton(element.current, {
-        theme: 'outline', size: 'large', width: Math.min(360, element.current.clientWidth || 280), text: 'signin_with',
+        theme: 'outline', size: 'large', width: Math.min(360, element.current.clientWidth || 280), text: 'continue_with',
       })
     }
-    const failed = () => { if (active) handlers.current.onError('Não foi possível carregar o Google. Você pode entrar com sua senha.') }
+    const failed = () => { if (active) handlers.current.onError('Não foi possível carregar o Google. Recarregue a página para tentar novamente.') }
     let script = document.querySelector<HTMLScriptElement>('script[data-google-identity]')
     if (window.google) render()
     else {

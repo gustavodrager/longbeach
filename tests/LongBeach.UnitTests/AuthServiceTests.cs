@@ -12,7 +12,7 @@ public sealed class AuthServiceTests
     [Fact]
     public async Task Google_login_issues_a_Long_Beach_session_for_an_existing_active_account()
     {
-        var user = User.Create("Arena Owner", "gustavodrager@gmail.com", "valid-hash");
+        var user = User.Create("Arena Owner", "owner@example.test", "valid-hash");
         var repository = new FakeUserRepository(user);
         var service = new AuthService(
             repository,
@@ -20,13 +20,45 @@ public sealed class AuthServiceTests
             new FakeTokenService(),
             new FixedTimeProvider(Now));
 
-        var session = await service.LoginWithGoogleAsync("gustavodrager@gmail.com", "google-client-ip");
+        var session = await service.LoginWithGoogleAsync("owner@example.test", "google-client-ip",
+            subject: "verified-google-subject", allowEmailMatch: true);
 
-        Assert.Equal("gustavodrager@gmail.com", session.Response.User.Email);
+        Assert.Equal("owner@example.test", session.Response.User.Email);
+        Assert.Equal("verified-google-subject", user.GoogleSubject);
+        Assert.True(session.Response.User.GoogleLinked);
         Assert.Equal("access-token", session.Response.AccessToken);
         Assert.Equal(Now.AddHours(8), session.RefreshTokenExpiresAtUtc);
         Assert.Single(user.RefreshTokens);
         Assert.Equal(1, repository.SaveCount);
+    }
+
+    [Fact]
+    public async Task Google_email_fallback_is_disabled_unless_explicitly_authorized()
+    {
+        var user = User.Create("Owner", "owner@example.test", "valid-hash");
+        var repository = new FakeUserRepository(user);
+        var service = new AuthService(repository, new FakePasswordHasher(), new FakeTokenService(), new FixedTimeProvider(Now));
+        await Assert.ThrowsAsync<AuthenticationFailedException>(() =>
+            service.LoginWithGoogleAsync(user.Email, null, subject: "subject"));
+        Assert.Null(user.GoogleSubject);
+        Assert.Empty(user.RefreshTokens);
+        Assert.Equal(0, repository.SaveCount);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    public async Task Google_email_fallback_requires_a_subject(string? subject)
+    {
+        var user = User.Create("Owner", "owner@example.test", "valid-hash");
+        var repository = new FakeUserRepository(user);
+        var service = new AuthService(repository, new FakePasswordHasher(), new FakeTokenService(), new FixedTimeProvider(Now));
+        await Assert.ThrowsAsync<AuthenticationFailedException>(() =>
+            service.LoginWithGoogleAsync(user.Email, null, subject: subject, allowEmailMatch: true));
+        Assert.Null(user.GoogleSubject);
+        Assert.Empty(user.RefreshTokens);
+        Assert.Equal(0, repository.SaveCount);
     }
 
     [Fact]

@@ -34,6 +34,40 @@ def serial(value):
     return value.isoformat() if isinstance(value,(dt.date,dt.datetime,dt.time)) else value
 
 
+def prepare_statement_summary(source):
+    """Resumo mensal explicitamente autorizado; não reimporta suas linhas como extrato."""
+    wb=openpyxl.load_workbook(source,read_only=True,data_only=True)
+    if not {'Planilha1','Planilha2'}.issubset(wb.sheetnames):
+        raise ValueError('Consolidado de extrato não reconhecido.')
+    detail=wb['Planilha1'];summary=wb['Planilha2']
+    if [detail.cell(1,c).value for c in (2,5,8)]!=['DATA','VALOR','Tipo_01'] or \
+       [summary.cell(r,3).value for r in (31,48,51)]!=['Despesa','Receita','Total Geral']:
+        raise ValueError('Cabeçalhos do consolidado não reconhecidos.')
+    totals={'Receita':0,'Despesa':0};months=set()
+    for row in list(detail.values)[1:]:
+        if not any(v is not None for v in row):continue
+        date,value,kind=row[1],row[4],row[7]
+        if not isinstance(date,dt.datetime) or value is None or kind not in totals:
+            raise ValueError('Detalhe sem data, valor ou classificação.')
+        amount=cents(value)
+        if amount==0 or (amount>0)!=(kind=='Receita'):
+            raise ValueError('Sinal e classificação divergentes no consolidado.')
+        months.add(date.date().replace(day=1));totals[kind]+=amount
+    if len(months)!=1:raise ValueError('O consolidado deve cobrir uma única competência.')
+    income,expense,result=(cents(summary.cell(r,4).value) for r in (48,31,51))
+    if income is None or expense is None or result is None or income!=totals['Receita'] or expense!=totals['Despesa'] or income+expense!=result:
+        raise ValueError('Resumo, detalhe e resultado não conciliam. Confira as despesas externas e a atualização da tabela dinâmica.')
+    first=next(iter(months));last=first.replace(day=calendar.monthrange(first.year,first.month)[1])
+    records=[]
+    for row,metric,label,amount in [(48,'receitas-consolidadas','Receitas do consolidado',income),(31,'despesas','Despesas do consolidado',expense)]:
+        cell=f'Planilha2!D{row}'
+        records.append({'sheetName':'Planilha2 • D','rowNumber':row,'recordType':'reference-data','externalId':'finance:'+cell,'data':{
+            'entity':'financial-observation-v1','currency':'BRL','sourceCell':cell,'series':'consolidado','metric':metric,'label':label,
+            'state':'Informado na planilha','periodStart':first.isoformat(),'periodEnd':last.isoformat(),'grain':'month','amountCents':amount,
+            'notes':'Resumo mensal da aba Planilha2 autorizado pelo proprietário, conciliado com as linhas de detalhe e o resultado em D51. Receitas conforme a fonte, sem inferir vendas brutas. Movimentos bancários e despesas externas já incluídos não devem ser somados novamente.'}})
+    return {'sourceName':source.name+'-consolidado-v1.json','sourceSha256':hashlib.sha256(source.read_bytes()).hexdigest(),'records':records}
+
+
 def prepare(source):
     wb=openpyxl.load_workbook(source,read_only=True,data_only=True)
     records=[]
@@ -63,6 +97,19 @@ def prepare(source):
             if row==1 or not isinstance(values[0],dt.datetime):continue
             add(s.title,row,5,'aulas','valor-escalonavel',f'Aula {values[2]}',values[5] or 'Não informado',values[0].date(),values[4],grain='day',
                 notes=json.dumps({'quantidadeAlunos':values[3],'dia':values[1]},ensure_ascii=False))
+    elif 'Planilha1' in wb.sheetnames and [wb['Planilha1'].cell(1,c).value for c in range(1,11)] == ['CODIGO DA TRANSACAO','DATA','TIPO','DESCRICAO','VALOR','Dia da Semana','Comissão?','Tipo_01','Tipo_02','Tipo_03']:
+        seen=set()
+        for row,values in enumerate(wb['Planilha1'].values,1):
+            if row==1 or not any(v is not None for v in values):continue
+            code,date,kind,description,value=values[:5]
+            if not code or code in seen or not isinstance(date,dt.datetime) or value is None or values[7] not in ('Receita','Despesa'):
+                raise ValueError('Movimento bancário sem identidade, data, valor, classificação ou com duplicidade.')
+            amount=cents(value)
+            if amount==0 or (amount>0)!=(values[7]=='Receita'):raise ValueError('Sinal e classificação bancária divergentes.')
+            seen.add(code)
+            add('Planilha1',row,5,'pagbank-conta','entradas-extrato' if amount>0 else 'saidas-extrato',description,'Informado no extrato',date.date(),value,grain='day',notes=json.dumps({'transactionCode':code,'tipo':kind,'categoria':values[8],'classificacao':values[9],'comissao':values[6]},ensure_ascii=False))
+        # Pivot subtotals are intentionally excluded: they can include off-account expenses.
+        # Such values require explicit reconciliation and an independently reviewed staging batch.
     elif '202608' in wb.sheetnames:
         s=wb['202608']
         if [s.cell(4,c).value for c in (6,7,8,9)]!=['Descrição','Valor de 202606','Valor Pago 202607','Valor Pago 202608']:
@@ -98,6 +145,7 @@ def prepare(source):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('source',type=Path);parser.add_argument('output',type=Path)
-    args=parser.parse_args();package=prepare(args.source)
+    parser.add_argument('--consolidado-extrato',action='store_true',help='Preparar somente o resumo mensal da Planilha2, após autorização e conciliação do proprietário.')
+    args=parser.parse_args();package=prepare_statement_summary(args.source) if args.consolidado_extrato else prepare(args.source)
     args.output.write_text(json.dumps(package,ensure_ascii=False,indent=2)+'\n');args.output.chmod(0o600)
     print(json.dumps({'records':len(package['records']),'sha256':package['sourceSha256']}))

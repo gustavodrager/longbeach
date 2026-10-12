@@ -7,7 +7,8 @@ const repo = path.resolve(import.meta.dirname, '..')
 const publicAssets = path.join(repo, 'app/public/prototype-assets')
 const symbol = await fs.readFile(path.join(publicAssets, 'logo-symbol.svg'), 'utf8')
 const horizontal = await fs.readFile(path.join(publicAssets, 'logo-horizontal.svg'), 'utf8')
-const sand = '#F2E8D8'
+// Opaque background of the original Canva PNG, kept within the exported artwork.
+const sand = '#F0E8DA'
 async function files(dir) { const entries = await fs.readdir(dir, { withFileTypes: true }); const nested = await Promise.all(entries.map(entry => entry.isDirectory() ? files(path.join(dir, entry.name)) : path.join(dir, entry.name))); return nested.flat() }
 async function render(filename, kind) {
   const metadata = await sharp(filename).metadata()

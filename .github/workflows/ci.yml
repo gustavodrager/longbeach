@@ -21,12 +21,16 @@ env:
 
 jobs:
   backend:
-    name: Backend .NET
+    name: Backend .NET / PostgreSQL ${{ matrix.postgres }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: [17, 18]
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:${{ matrix.postgres }}-alpine
         env:
           POSTGRES_DB: longbeach_ci
           POSTGRES_USER: longbeach_ci
@@ -113,11 +117,20 @@ jobs:
 
           curl --fail --silent --show-error http://127.0.0.1:5100/health > /dev/null
 
+      - name: Verify read-only operational audit
+        run: |
+          docker exec -i '${{ job.services.postgres.id }}' psql -X -qAt -U longbeach_ci -d longbeach_ci \
+            -v ON_ERROR_STOP=1 -v month=2026-10 < scripts/auditar-operacao.sql > "$RUNNER_TEMP/operational-audit.json"
+          python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); assert r["readOnly"]=="on"; assert len(r["checks"])>=8' "$RUNNER_TEMP/operational-audit.json"
+
+      - name: Verify synthetic backup restoration
+        run: docker exec -i '${{ job.services.postgres.id }}' sh -s < scripts/verificar-restauracao-ci.sh
+
       - name: Publish test results
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: dotnet-test-results
+          name: dotnet-test-results-pg${{ matrix.postgres }}
           path: TestResults/**/*
           if-no-files-found: warn
           retention-days: 7

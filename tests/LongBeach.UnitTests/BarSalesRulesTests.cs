@@ -5,6 +5,37 @@ namespace LongBeach.UnitTests;
 public sealed class BarSalesRulesTests
 {
     [Fact]
+    public void Reported_item_total_preserves_pack_cost_and_partial_receipts_without_changing_catalog_units()
+    {
+        var product=Product();var purchase=new Purchase(Guid.NewGuid(),"Test pack",Guid.NewGuid());
+        var item=new PurchaseItem(purchase.Id,product,24,4.17m);purchase.Items.Add(item);
+        purchase.Terms(0,0,"Pix","Arena",null,new Dictionary<Guid,decimal>{{product.Id,100m}});
+        Assert.Equal(100m,purchase.Total);Assert.Equal(100m,item.LandedTotal);
+        Assert.Equal(100m,item.Receive(7)+item.Receive(17));Assert.Equal(24,product.ConversionFactor);
+        Assert.Throws<BarRuleException>(()=>purchase.Terms(0,0,"Pix",null,null,new Dictionary<Guid,decimal>{{product.Id,99m}}));
+    }
+    [Fact]
+    public void Reported_weighted_item_total_accepts_only_cent_rounding_and_allocates_exact_discount()
+    {
+        var product=Product();var purchase=new Purchase(Guid.NewGuid(),"Test weight",Guid.NewGuid());
+        var item=new PurchaseItem(purchase.Id,product,0.333m,10m);purchase.Items.Add(item);
+        purchase.Terms(0,0.10m,"Pix",null,null,new Dictionary<Guid,decimal>{{product.Id,3.32m}});
+        Assert.Equal(3.22m,purchase.Total);Assert.Equal(3.22m,item.LandedTotal);
+        Assert.Throws<BarRuleException>(()=>purchase.Terms(0,0,"Pix",null,null,new Dictionary<Guid,decimal>{{product.Id,3.20m}}));
+        Assert.Throws<BarRuleException>(()=>purchase.Terms(0,0,"Pix",null,null,new Dictionary<Guid,decimal>{{Guid.NewGuid(),3.32m}}));
+    }
+    [Fact]
+    public void Correcting_payment_reference_keeps_received_purchase_and_amounts_unchanged()
+    {
+        var purchase=new Purchase(Guid.NewGuid(),"Test reference",Guid.NewGuid());var item=new PurchaseItem(purchase.Id,Product(),1,100);purchase.Items.Add(item);
+        purchase.Terms(0,0,"Cash","Test owner",null);item.Receive(1);purchase.Receive();var version=purchase.Version;
+        purchase.CorrectPaymentReference("Pix","Arena account");
+        Assert.Equal(version+1,purchase.Version);Assert.Equal("Pix",purchase.PaymentMethod);Assert.Equal("Arena account",purchase.AccountReference);
+        Assert.Equal("Received",purchase.State);Assert.Equal(100m,purchase.Total);Assert.Equal(1m,item.Received);Assert.Equal(100m,item.CostReceived);
+        purchase.CorrectPaymentReference("Pix","Arena account");Assert.Equal(version+1,purchase.Version);
+        Assert.Throws<BarRuleException>(()=>purchase.CorrectPaymentReference("",null));Assert.Equal("Arena account",purchase.AccountReference);
+    }
+    [Fact]
     public void Paid_sale_is_immutable_and_snapshots_price_and_cost()
     {
         var p=Product();var sale=new BarSale(Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid());sale.Add(p,2);sale.Paid();

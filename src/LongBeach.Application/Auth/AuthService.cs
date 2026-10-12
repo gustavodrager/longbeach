@@ -42,9 +42,13 @@ public sealed class AuthService(
         string? ipAddress,
         CancellationToken cancellationToken = default,
         string? subject = null,
-        bool allowEmailMatch = true)
+        bool allowEmailMatch = false)
     {
-        var user = subject is null ? null : await users.FindByGoogleSubjectAsync(subject, cancellationToken);
+        if (string.IsNullOrWhiteSpace(subject) || subject.Length > 255 ||
+            string.IsNullOrWhiteSpace(email) || email.Length > 320)
+            throw new AuthenticationFailedException();
+
+        var user = await users.FindByGoogleSubjectAsync(subject, cancellationToken);
         if (user is null && allowEmailMatch)
             user = await users.FindByEmailAsync(User.NormalizeEmail(email), cancellationToken);
         if (user is null || !user.IsActive || user.RequiresFirstAccess ||
@@ -52,6 +56,11 @@ public sealed class AuthService(
         {
             throw new AuthenticationFailedException();
         }
+
+        // The API enables email matching only for explicitly allowlisted, verified Google
+        // identities. Persist that first binding with the session, without changing roles.
+        if (user.GoogleSubject is null)
+            user.LinkGoogle(subject, email);
 
         return await IssueAndPersistAsync(
             user,
@@ -218,7 +227,7 @@ public sealed class AuthService(
 
     private static TokenPrincipal ToPrincipal(User user) =>
         new(user.Id, user.Name, VisibleEmail(user), user.RequiresFirstAccess ? [] : user.GetRoleNames(),
-            user.RequiresFirstAccess ? [] : user.GetPermissionNames(), user.RequiresFirstAccess, user.Username, user.InitialAccessExpiresAtUtc);
+            user.RequiresFirstAccess ? [] : ProfileAccess.Permissions(user.GetRoleNames(), user.GetPermissionNames()), user.RequiresFirstAccess, user.Username, user.InitialAccessExpiresAtUtc, user.GoogleSubject is not null);
 
     private static string VisibleEmail(User user) => user.Email.EndsWith("@unlinked.longbeach.invalid", StringComparison.Ordinal) ? string.Empty : user.Email;
 
@@ -233,8 +242,8 @@ public sealed class AuthService(
                     user.Name,
                     VisibleEmail(user),
                     user.RequiresFirstAccess ? [] : user.GetRoleNames(),
-                    user.RequiresFirstAccess ? [] : user.GetPermissionNames(),
-                    user.RequiresFirstAccess, user.Username)),
+                    user.RequiresFirstAccess ? [] : ProfileAccess.Permissions(user.GetRoleNames(), user.GetPermissionNames()),
+                    user.RequiresFirstAccess, user.Username, user.GoogleSubject is not null)),
             issued.RefreshToken,
             issued.RefreshTokenExpiresAtUtc,
             issued.CsrfToken);

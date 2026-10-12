@@ -55,6 +55,6 @@ it('falha de confirmação descarta a prévia para exigir nova conferência', as
 it('atendente não acessa nem consulta os lotes', () => {
   auth.roles = ['Operations']; const api = vi.spyOn(globalThis, 'fetch')
   render(<ImportPage />)
-  expect(screen.getByRole('alert')).toHaveTextContent('disponível apenas para o proprietário')
+  expect(screen.getByRole('alert')).toHaveTextContent('disponível para a gestão')
   expect(api).not.toHaveBeenCalled()
 })

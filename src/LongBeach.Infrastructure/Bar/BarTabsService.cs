@@ -5,6 +5,8 @@ using System.Text.Json;
 using LongBeach.Application.Bar;
 using LongBeach.Contracts.Bar;
 using LongBeach.Domain.Bar;
+using LongBeach.Domain.Billing;
+using LongBeach.Domain.Identity;
 using LongBeach.Domain.Cash;
 using LongBeach.Domain.Inventory;
 using LongBeach.Domain.Payments;
@@ -31,7 +33,11 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         }
         if (!string.IsNullOrWhiteSpace(search)) { var text = search.Trim(); if (text.Length > 80) throw new BarRuleException("Busca muito longa."); query = long.TryParse(text, out var number) ? query.Where(x => x.Number == number) : query.Where(x => EF.Functions.ILike(x.Name, "%" + text + "%")); }
         var count = await query.CountAsync(ct);
-        var tabs = await query.OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.Number).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        var ordered = state == "Orders"
+            ? query.OrderBy(x => db.Set<BarTabItem>().Where(i => i.TabId == x.Id && (i.State == "Requested" || i.State == "Accepted")).Min(i => i.CreatedAtUtc)).ThenBy(x => x.Number)
+            : state == "Closed" ? query.OrderByDescending(x => x.ClosedAtUtc).ThenByDescending(x => x.Number)
+            : query.OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.Number);
+        var tabs = await ordered.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         var values = new List<TabResponse>(); foreach (var tab in tabs) values.Add(await Public(tab, costs, false, ct, supervisor));
         return new(values, page, pageSize, count);
     }
@@ -41,10 +47,40 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         var payment = await db.Set<BarTabPayment>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == paymentId, ct) ?? throw new BarRuleException("Pagamento não encontrado.");
         return await Public(await Find(payment.TabId, ct), true, false, ct);
     }
-    public Task<TabResponse> Open(OpenTabInput input, Guid actor, CancellationToken ct) => Run(input.OperationId, Hash(new { action = "open", input, actor }), async () =>
+    // Names support discovery; email lookup is exact, and responses never expose full addresses.
+    public async Task<IReadOnlyList<TabCustomer>> Customers(string? search, CancellationToken ct)
+    {
+        var text = search?.Trim() ?? "";
+        if (text.Length < 3) return [];
+        if (text.Length > 320) throw new BarRuleException("Busca muito longa.");
+        var pattern = "%" + text.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+        var normalized = User.NormalizeEmail(text);
+        var users = await db.Users.AsNoTracking().Where(x => x.IsActive && x.GoogleSubject != null && !x.RequiresFirstAccess)
+            .Where(x => text.Contains("@") ? x.NormalizedEmail == normalized : EF.Functions.ILike(x.Name, pattern))
+            .OrderBy(x => x.Name).ThenBy(x => x.Id).Take(20).Select(x => new { x.Id, x.Name, x.Email }).ToListAsync(ct);
+        return users.Select(x => new TabCustomer(x.Id, x.Name, x.Email[..1] + "***@" + x.Email.Split('@').Last())).ToArray();
+    }
+    public Task<TabResponse> Open(OpenTabInput input, Guid actor, CancellationToken ct) => Run(input.OperationId,
+        input.ResponsibleUserId is null
+            ? Hash(new { action = "open", input = new { input.OperationId, input.LocationId, input.Name, input.Mode }, actor })
+            : Hash(new { action = "open", input, actor }), async () =>
     {
         if (!await db.Set<StockLocation>().AnyAsync(x => x.Id == input.LocationId, ct)) throw new BarRuleException("Escolha um local de atendimento existente.");
-        var tab = new BarTab(input.LocationId, actor, input.Name, input.Mode); db.Add(tab); db.Add(new BarTabHistory(tab.Id, "Opened", actor)); await db.SaveChangesAsync(ct);
+        User? responsible = null;
+        if (input.ResponsibleUserId is Guid userId)
+        {
+            if (input.Mode != "Tab") throw new BarRuleException("Identifique o responsável ao abrir uma comanda.");
+            responsible = await db.Users.SingleOrDefaultAsync(x => x.Id == userId && x.IsActive && x.GoogleSubject != null && !x.RequiresFirstAccess, ct)
+                ?? throw new BarRuleException("Escolha um cliente ativo que já entrou com o Google.");
+        }
+        var tab = new BarTab(input.LocationId, actor, string.IsNullOrWhiteSpace(input.Name) ? responsible?.Name[..Math.Min(80, responsible.Name.Length)] : input.Name, input.Mode);
+        db.Add(tab); db.Add(new BarTabHistory(tab.Id, "Opened", actor));
+        if (responsible is not null)
+        {
+            db.Add(new BillingAccount("Bar", tab.Id, responsible.Id, null, actor));
+            db.Add(new BarTabHistory(tab.Id, "ResponsibleAssigned", actor));
+        }
+        await db.SaveChangesAsync(ct);
         return await Public(tab, false, false, ct);
     }, ct);
     public async Task<IReadOnlyList<TabCatalogProduct>> Catalog(Guid locationId, CancellationToken ct)
@@ -110,9 +146,9 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     public async Task<TabPaymentResponse> Pay(Guid id, TabPaymentInput input, Guid? actor, string? accessToken, CancellationToken ct)
     {
         var scope = await Scope(id, actor, accessToken, ct);
-        var fingerprint = input.Method == "Pix" ? Hash(new { action = "payPix", id, input.OperationId, input.Method, input.Amount, scope }) : Hash(new { action = "pay", id, input, scope });
-        if (actor is null && input.Method != "Pix") throw new BarRuleException("O acesso do cliente permite apenas Pix.");
-        if (input.Method == "Pix") { var result = await PayPix(id, input, actor, accessToken, fingerprint, ct); return actor is null ? ClientPayment(result) : result; }
+        var fingerprint = input.Method is "Pix" or "CreditCard" ? Hash(new { action = "payPix", id, input.OperationId, input.Method, input.Amount, scope }) : Hash(new { action = "pay", id, input, scope });
+        if (actor is null && input.Method is not ("Pix" or "CreditCard")) throw new BarRuleException("O cliente pode pagar por Pix ou cartão online.");
+        if (input.Method is "Pix" or "CreditCard") { var result = await PayPix(id, input, actor, accessToken, fingerprint, ct); return actor is null ? ClientPayment(result) : result; }
         return await Run(input.OperationId, fingerprint, async () =>
         {
             var tab = await Lock(id, ct); tab.EnsureOpen(); await CheckAmount(id, input.Amount, ct);
@@ -134,7 +170,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     }
     private async Task<TabPaymentResponse> PayPix(Guid id, TabPaymentInput input, Guid? actor, string? accessToken, string fingerprint, CancellationToken ct)
     {
-        if (!gateway.Enabled) throw new BarRuleException("Pix ainda não está habilitado neste ambiente. Escolha outro meio ou configure o provedor.");
+        if (!(input.Method == "CreditCard" ? gateway.CardEnabled : gateway.Enabled)) throw new BarRuleException("Pix ainda não está habilitado neste ambiente. Escolha outro meio ou configure o provedor.");
         var name = BarRules.Text(input.Name, 160, "Nome do pagador"); var email = BarRules.Text(input.Email, 320, "E-mail do pagador");
         var taxId = new string((input.TaxId ?? "").Where(char.IsDigit).ToArray());
         if (!System.Text.RegularExpressions.Regex.IsMatch(email, "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$") || taxId.Length is not (11 or 14)) throw new BarRuleException("Confira o e-mail e o CPF ou CNPJ do pagador.");
@@ -148,7 +184,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             if (payment is null)
             {
                 tab.EnsureOpen(); await CheckAmount(id, input.Amount, ct);
-                payment = new BarTabPayment(id, input.OperationId, fingerprint, input.Amount, "Pix", actor, null, null, null); payment.SetExpiry(time.GetUtcNow().AddMinutes(10)); db.Add(payment);
+                payment = new BarTabPayment(id, input.OperationId, fingerprint, input.Amount, input.Method, actor, null, null, null); payment.SetExpiry(time.GetUtcNow().AddMinutes(10)); db.Add(payment);
                 db.Add(new BarTabHistory(id, "PaymentPending", actor, payment.Amount, paymentId: payment.Id)); tab.Touch(); await db.SaveChangesAsync(ct);
             }
             else if (payment.Fingerprint != fingerprint || payment.TabId != id) throw new BarRuleException("Chave reutilizada para outro pagamento.");
@@ -158,7 +194,8 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         // provider idempotency key instead of allowing a second allocation.
         if (payment.ProviderId is null)
         {
-            var remote = await ProviderCall(payment, payment.OperationId, () => gateway.CreatePix(payment.Id, payment.OperationId, payment.Amount, payment.ExpiresAtUtc!.Value, new PixCustomer(name, email, taxId), ct), ct);
+            if(time.GetUtcNow()-payment.CreatedAtUtc>=TimeSpan.FromHours(24))throw new BarPaymentConfirmationPendingException(payment.Id,payment.OperationId,"Cobrança antiga sem confirmação. Concilie no provedor antes de retomar.");
+            var remote = await ProviderCall(payment, payment.OperationId, () => input.Method == "CreditCard" ? gateway.CreateCard(payment.Id, payment.OperationId, payment.Amount, new PixCustomer(name, email, taxId), input.EncryptedCard ?? "", ct) : gateway.CreatePix(payment.Id, payment.OperationId, payment.Amount, payment.ExpiresAtUtc!.Value, new PixCustomer(name, email, taxId), ct), ct);
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             await Lock(id, ct); await db.Entry(payment).ReloadAsync(ct);
             if (payment.ProviderId is null) { payment.Provider(remote.OrderId, remote.PixText, remote.QrImageUrl); await db.SaveChangesAsync(ct); }
@@ -180,7 +217,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     public async Task<TabPaymentResponse> RefreshProviderPayment(Guid paymentId, CancellationToken ct)
     {
         var payment = await db.Set<BarTabPayment>().SingleOrDefaultAsync(x => x.Id == paymentId, ct) ?? throw new BarRuleException("Pagamento não encontrado.");
-        if (payment.Method != "Pix" || payment.State != "Pending") return await PublicPayment(payment, ct);
+        if (payment.Method is not ("Pix" or "CreditCard") || payment.State != "Pending") return await PublicPayment(payment, ct);
         if (payment.ProviderId is null) throw new BarPaymentConfirmationPendingException(payment.Id, payment.OperationId, "A criação do Pix ainda precisa ser repetida com a mesma chave de operação. Não receba novamente esse valor.");
         var remote = await ProviderCall(payment, payment.OperationId, () => gateway.Get(payment.ProviderId, ct), ct);
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
@@ -217,7 +254,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
                     if (await db.Set<BarTabRefund>().AnyAsync(x => x.PaymentId == paymentId && x.State == "Pending", ct)) throw new BarRuleException("Há um estorno em confirmação. Consulte essa operação antes de iniciar outro.");
                     refund = new BarTabRefund(id, paymentId, input.OperationId, fingerprint, input.Amount, input.Reason, actor); db.Add(refund);
                 }
-                if (payment.Method != "Pix")
+                if (payment.Method is not ("Pix" or "CreditCard"))
                 {
                     if (payment.Method == "Cash")
                     {
@@ -228,7 +265,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
                     await CompleteRefund(tab, payment, refund, ct);
                 }
                 await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
-                if (payment.Method != "Pix") return await PublicPayment(payment, ct);
+                if (payment.Method is not ("Pix" or "CreditCard")) return await PublicPayment(payment, ct);
             }
             catch { db.ChangeTracker.Clear(); throw; }
         }
@@ -276,7 +313,6 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         var tab = await Lock(id, ct); var totals = await Totals(id, ct);
         var unfinished = await db.Set<BarTabItem>().AnyAsync(x => x.TabId == id && (x.State == "Requested" || x.State == "Accepted"), ct) || await db.Set<BarTabRefund>().AnyAsync(x => x.TabId == id && x.State == "Pending", ct);
         tab.Close(totals.Due, totals.Pending, unfinished, time.GetUtcNow());
-        foreach (var access in await db.Set<BarTabAccess>().Where(x => x.TabId == id && !x.Revoked).ToListAsync(ct)) access.Revoke();
         db.Add(new BarTabHistory(id, "Closed", actor)); await db.SaveChangesAsync(ct); return await Public(tab, false, false, ct);
     }, ct);
     private sealed record AccessReceipt(Guid Id, Guid TabId, Guid OperationId, DateTimeOffset ExpiresAtUtc);
@@ -295,7 +331,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         }, ct);
         return new(id, AccessToken(receipt), receipt.ExpiresAtUtc);
     }
-    public async Task<TabResponse> Client(string token, CancellationToken ct) => await Public(await Access(token, ct), false, true, ct);
+    public async Task<TabResponse> Client(string token, CancellationToken ct) => await Public(await Access(token, ct, readOnly: true), false, true, ct);
     public async Task<IReadOnlyList<TabCatalogProduct>> ClientCatalog(string token, CancellationToken ct) => await Catalog((await Access(token, ct)).LocationId, ct);
     public async Task<TabResponse> RevokeAccess(Guid id, TabActionInput input, Guid actor, CancellationToken ct) => await Run(input.OperationId, Hash(new { action = "revokeAccess", id, input, actor }), async () =>
     {
@@ -306,13 +342,13 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     }, ct);
     public async Task<bool> Webhook(byte[] body, IEnumerable<string> signatures, CancellationToken ct)
     {
-        if (!gateway.VerifyWebhook(body, signatures)) return false;
+        if (!await gateway.VerifyWebhookAsync(body, signatures,ct)) return false;
         var hash = Convert.ToHexString(SHA256.HashData(body)); if (await db.Set<PaymentWebhookInbox>().AnyAsync(x => x.PayloadHash == hash, ct)) return true;
         using var document = JsonDocument.Parse(body); var order = document.RootElement.GetProperty("id").GetString();
         var payment = await db.Set<BarTabPayment>().SingleOrDefaultAsync(x => x.ProviderId == order, ct);
         if (payment is null && document.RootElement.TryGetProperty("reference_id", out var reference) && Guid.TryParse(reference.GetString(), out var referenceId))
         {
-            payment = await db.Set<BarTabPayment>().SingleOrDefaultAsync(x => x.Id == referenceId && x.Method == "Pix" && x.ProviderId == null, ct);
+            payment = await db.Set<BarTabPayment>().SingleOrDefaultAsync(x => x.Id == referenceId && (x.Method == "Pix" || x.Method == "CreditCard") && x.ProviderId == null, ct);
             if (payment is not null)
             {
                 var remote = await ProviderCall(payment, payment.OperationId, () => gateway.Get(order!, ct), ct);
@@ -341,7 +377,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         if (actor is not null && actor != Guid.Empty) return actor.Value.ToString();
         var tab = await Access(token ?? "", ct); if (tab.Id != id) throw new BarTabAccessException(BarTabAccessFailure.Forbidden, "Este acesso não permite operar outra comanda."); return HashText(token!);
     }
-    private async Task<BarTab> Access(string token, CancellationToken ct)
+    private async Task<BarTab> Access(string token, CancellationToken ct, bool readOnly = false)
     {
         if (token.Length is < 32 or > 200) throw new BarTabAccessException(BarTabAccessFailure.Invalid, "Peça um novo acesso à equipe.");
         var hash = HashText(token);
@@ -349,7 +385,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             ?? throw new BarTabAccessException(BarTabAccessFailure.Invalid, "Acesso inválido. Peça um novo acesso à equipe.");
         if (access.Revoked || access.ExpiresAtUtc <= time.GetUtcNow()) throw new BarTabAccessException(BarTabAccessFailure.ExpiredOrRevoked, "Acesso expirado ou revogado. Peça um novo acesso à equipe.");
         var tab = await db.Set<BarTab>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == access.TabId, ct);
-        if (tab is null || tab.State != "Open") throw new BarTabAccessException(BarTabAccessFailure.Closed, "Esta comanda foi encerrada. Peça um novo acesso à equipe.");
+        if (tab is null || (tab.State != "Open" && !(readOnly && tab.State == "Closed"))) throw new BarTabAccessException(BarTabAccessFailure.Closed, "Esta comanda foi encerrada. Peça um novo acesso à equipe.");
         return tab;
     }
     private string AccessToken(AccessReceipt receipt)
@@ -416,10 +452,14 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             paymentRows.Add(client ? ClientPayment(row) : row);
         }
         var history = await db.Set<BarTabHistory>().AsNoTracking().Where(x => x.TabId == tab.Id).OrderBy(x => x.CreatedAtUtc).Select(x => new TabHistoryResponse(x.Id, x.Kind, x.ItemId, x.PaymentId, x.Amount, x.ActorId, x.Reason, x.CreatedAtUtc)).ToListAsync(ct);
+        var responsible = client ? null : await (from account in db.Set<BillingAccount>().AsNoTracking()
+            join user in db.Users.AsNoTracking() on account.UserId equals user.Id
+            where account.Kind == "Bar" && account.SourceId == tab.Id
+            select new TabResponsible(user.Id, user.Name)).SingleOrDefaultAsync(ct);
         return new(tab.Id, tab.Number, tab.Name, tab.Mode, tab.State, tab.LocationId, client ? Guid.Empty : tab.ActorId, totals.Total, totals.Paid, totals.Pending, totals.Due, totals.Payable, tab.CreatedAtUtc, tab.ClosedAtUtc,
             items.Select(x => new TabItemResponse(x.Id, x.TabId, x.ProductId, x.Name, x.Quantity, x.UnitPrice, x.Total, x.State, x.Source, client ? null : x.ActorId, x.CreatedAtUtc, x.AcceptedAtUtc, x.FulfilledAtUtc, x.Reason, costs ? x.UnitCost : null,
                 client || tab.State != "Open" ? [] : x.State == "Requested" ? ["accept", "reject"] : x.State == "Accepted" ? supervisor ? ["fulfill", "reverse"] : ["fulfill"] : x.State == "Fulfilled" && supervisor ? ["reverse"] : [], costs ? x.RecipeId : null, costs && x.RecipeId is not null ? recipeVersions.GetValueOrDefault(x.RecipeId.Value) : null)).ToArray(), paymentRows, client ? history.Select(x => x with { ActorId = null }).ToArray() : history,
-            tab.State != "Open" ? [] : client ? ["add", "pix"] : supervisor ? ["add", "pay", "close", "issueAccess", "adjust"] : ["add", "pay", "close", "issueAccess"], totals.Total + tab.Discount, tab.Discount);
+            tab.State != "Open" ? [] : client ? ["add", "pix"] : supervisor ? ["add", "pay", "close", "issueAccess", "adjust"] : ["add", "pay", "close", "issueAccess"], totals.Total + tab.Discount, tab.Discount, responsible);
     }
     private async Task<TabPaymentResponse> PublicPayment(BarTabPayment payment, CancellationToken ct, bool costs = false)
     {

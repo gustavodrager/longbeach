@@ -8,6 +8,7 @@ public interface IBarTabs
     Task<PageResult<RecipeVersionResponse>> Recipes(Guid? productId, int page, int pageSize, CancellationToken ct);
     Task<RecipeVersionResponse> Recipe(Guid id, CancellationToken ct);
     Task<RecipeVersionResponse> SaveRecipe(SaveRecipeInput input, Guid actor, CancellationToken ct);
+    Task<IReadOnlyList<TabCustomer>> Customers(string? search, CancellationToken ct);
     bool PixEnabled { get; }
     Task<IReadOnlyList<StockLocation>> Locations(CancellationToken ct);
     Task<PageResult<TabResponse>> List(string? state, string? search, int page, int pageSize, bool costs, CancellationToken ct, bool supervisor = false);

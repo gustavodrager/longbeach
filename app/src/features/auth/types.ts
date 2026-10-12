@@ -18,6 +18,7 @@ export type AuthUser = {
   email: string
   roles: UserRole[]
   permissions: string[]
+  googleLinked?: boolean
   requiresFirstAccess?: boolean
   username?: string | null
 }

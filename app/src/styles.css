@@ -389,7 +389,7 @@ a { color: #654b19; }
 :where(button,input,select) { min-height: 48px; }
 :where(button) { color: var(--ink); }
 .brand { flex-direction: column; align-items: flex-start; gap: 9px; color: var(--ink); }
-.brand-logo { display: block; width: 195px; height: auto; }
+.brand-logo { display: block; width: 220px; height: auto; }
 .brand-mark { width: 72px; height: auto; }
 .brand-system { font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; font-weight: 700; color: var(--muted); }
 .login-page { color: var(--ink); background: var(--sand); }
@@ -404,7 +404,7 @@ a { color: #654b19; }
 .app-main { padding-bottom: 0; }
 .app-shell-attendance .app-main { padding-bottom: 90px; }
 .mobile-header { background: #fffcf6f5; min-height: 80px; height: auto; gap: 12px; }
-.mobile-header .brand-logo { width: min(39vw, 175px); }
+.mobile-header .brand-logo { width: min(46vw, 180px); }
 .mobile-header .brand-system { display: none; }
 .avatar { color: #171717; background: #f2e8d8; width: 48px; height: 48px; border-color: #d7cba9; }
 .demo-mode-mobile { color: #6a5424; font-size: 12px; white-space: normal; max-width: 105px; }
@@ -488,6 +488,10 @@ a { color: #654b19; }
 ::selection { color: var(--ink); background: #f5be3d80; }
 .brand-system { letter-spacing: .1em; font-size: 12px; }
 .shell-brand-link { color: inherit; text-decoration: none; }
+.mobile-header .shell-brand-link { flex: 1 1 180px; min-width: 0; }
+.mobile-header .shell-brand-link .brand { min-width: 0; }
+.mobile-header .shell-brand-link .brand-logo { max-width: 100%; }
+.mobile-header .mobile-mode-link,.mobile-header .shell-menu-button { flex-shrink: 0; }
 .navigation-icon { flex: 0 0 auto; }
 .nav-group { display: grid; gap: 3px; align-content: start; }
 .nav-group-title { margin: 18px 12px 4px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; }
@@ -514,7 +518,7 @@ a { color: #654b19; }
 .login-panel { max-width: 42rem; }
 .login-heading h1 { font-size: clamp(2rem, 4vw, 3.15rem); line-height: 1.14; }
 .login-heading > p:last-child { font-size: 18px; }
-.login-brand .brand-logo { width: 230px; max-width: 100%; }
+.login-brand .brand-logo { width: 280px; max-width: 100%; }
 .login-form { min-width: 0; }
 .login-footnote { font-size: 14px; line-height: 1.5; }
 .login-form label { font-size: 16px; }
@@ -542,8 +546,8 @@ a { color: #654b19; }
 @media(min-width:64rem) {
   .app-shell { grid-template-columns: 264px minmax(0,1fr); }
   .side-nav { width: 264px; padding: 24px 16px 16px; background: var(--sand); overflow: hidden; }
-  .side-nav > .brand { flex-shrink: 0; padding: 0 10px 24px; }
-  .side-nav .brand-logo { width: 204px; }
+  .side-nav > .brand { flex-shrink: 0; padding: 0 6px 20px; }
+  .side-nav .brand-logo { width: 220px; }
   .side-nav > nav { flex: 1; min-height: 0; align-content: start; overflow-y: auto; padding-right: 3px; scrollbar-width: thin; scrollbar-color: #bfb191 transparent; }
   .side-nav .nav-item { min-height: 48px; }
   .side-account { flex-shrink: 0; margin-top: 16px; }
@@ -555,7 +559,7 @@ a { color: #654b19; }
   .management-topbar { padding: 12px 16px; }
   .shell-location span { display: none; }
   .shell-refresh { padding-inline: 10px; font-size: 13px; }
-  .mobile-header .brand-logo { width: 145px; }
+  .mobile-header .brand-logo { width: min(46vw, 180px); }
   .mobile-header { gap: 8px; }
   .mobile-header .avatar { width: 48px; flex-shrink: 0; }
   .shell-mobile-menu .nav-group { grid-template-columns: 1fr; }
@@ -567,3 +571,11 @@ a { color: #654b19; }
 .first-access-google h2 { font-size: 1.15rem; margin-bottom: .5rem; }
 .first-access-google > p { color: var(--muted); line-height: 1.5; }
 .first-access-page .form-error { margin-top: 1rem; }
+
+/* Update notices occupy their own space instead of covering the current task. */
+.pwa-notice { position:static; width:100%; max-width:none; margin:0; border-radius:0; box-shadow:none; padding:10px 16px; }
+@media(max-width:700px) {
+  .pwa-notice { grid-template-columns:minmax(0,1fr) auto auto; gap:8px; }
+  .pwa-notice span { display:none; }
+  .pwa-notice button { min-height:44px; padding:8px; }
+}

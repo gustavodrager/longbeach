@@ -10,6 +10,22 @@ A aplicação exige fingerprint da conferência, transação serializable, lock 
 
 O dashboard usa a última competência do consolidado. O histórico permite mês, controle, indicador, paginação e inspeção de origem. Valores pendentes e estimados preservam seus estados; não entram em um total geral fictício de recebimentos.
 
+### Saldos e extratos na página inicial
+
+`GET /api/v1/financial-history/dashboard-balances`, exclusivo de Owner, lê todas as linhas do último consolidado mensal e a última fotografia de `Saldo Pagbank` separadamente. O resultado mensal calcula receitas menos despesas líquidas. Aceita duas estruturas: receitas da arena + vendas brutas do bar + despesas; ou um único total `receitas-consolidadas` + despesas. Nunca mistura o total com seus componentes nem infere receitas ausentes como zero. Exige a mesma fonte/mês, sem células duplicadas; uma competência incompleta permanece indisponível. Estimativas, parcelas de dívidas do quadro alternativo e controles detalhados não são somados outra vez. A apresentação das despesas no início é positiva, preservando o sinal original no histórico e nos cálculos. Um déficit e um saldo bancário negativo continuam negativos.
+
+O saldo bancário mostra sua data e origem; não representa leitura em tempo real. Saldos em datas distintas nunca são somados. Um extrato sem saldo inicial/final não permite deduzir o dinheiro disponível a partir de seu resultado líquido.
+
+O conversor reconhece o extrato classificado com código de transação, data, descrição, valor e categoria. Rejeita identificadores duplicados, sinais incompatíveis e campos obrigatórios ausentes. Cada linha de detalhe vai para `pagbank-conta`, com métricas `entradas-extrato` e `saidas-extrato`, mantendo código e célula. Os resumos de tabelas dinâmicas não são importados automaticamente. Despesas presentes apenas nesses resumos exigem conciliação e confirmação do meio de pagamento. Quando confirmadas como pagas por outra conta, entram em `despesas-fora-pagbank`, com competência mensal se o dia exato for desconhecido. O dashboard mostra entradas, saídas bancárias e despesas externas separadamente; esse conjunto não substitui o consolidado completo da arena.
+
+Quando o proprietário confirma que a Planilha2 é o consolidado mensal da arena, a opção explícita `--consolidado-extrato` prepara apenas receita e despesa do resumo. Valida os cabeçalhos, uma única competência, valores/sinais de todas as linhas e igualdade entre detalhe, resumo e resultado geral. Não transforma linhas externas adicionadas à planilha em movimentos bancários nem denomina entradas líquidas como vendas brutas. O pacote preserva hash e células e passa pela conferência/aplicação idempotente normal. O modo padrão continua rejeitando códigos bancários duplicados.
+
+Nas compras do bar, a referência da conta identifica quem pagou e o acerto pendente quando um proprietário adiantou recursos. Data, fornecedor, forma informada e referência ficam visíveis na ficha da compra. Registrar e receber produtos não executa pagamento ou compensação; o recebimento atualiza estoque e custo, sem inventar débito no PagBank.
+
+A correção da conta/forma informada usa `POST /api/v1/bar/purchases/{id}/payment-reference`, com a permissão de gestão de compras e a versão corrente. A auditoria conserva antes/depois; a operação não modifica valores, estoque ou recebimentos, mesmo quando a compra já foi recebida. O Financeiro operacional mantém sua própria referência e deve ser corrigido separadamente quando houver um lançamento manual vinculado.
+
+O item de compra aceita um total informado opcional para preservar centavos do comprovante ao dividir embalagens ou trabalhar com pesos. A divergência em relação a quantidade × custo só pode estar dentro do arredondamento do custo unitário (meio centavo por unidade, mínimo de um centavo). O total conciliado alimenta o rateio e o custo recebido já existentes, sem alterar o cadastro ou a conversão global do produto. Descontos de um item podem ser representados pelo custo líquido; descontos gerais seguem o rateio existente. Nenhuma migration nova é necessária.
+
 ## Indicadores da escola e dos mensalistas
 
 O dashboard Owner consulta `GET /api/v1/financial-history/arena-summary`. A leitura calcula os indicadores sobre todas as observações aplicadas do mês, sem o limite de 50 linhas da tela de histórico. Por padrão cada controle usa sua última competência; um mês explícito não retrocede para dados antigos quando faltam registros. Os cartões mostram a competência e abrem o histórico correspondente.
@@ -23,9 +39,9 @@ A consulta é somente leitura e não gera novas importações, reservas, cobran�
 
 ## PagBank EDI
 
-O worker usa exclusivamente GET nos quatro feeds oficiais (`transactional`, `financial`, `cashouts`, `balances`), sem sessão de navegador. A cada dez minutos tenta até sete dias, até ontem no fuso de Brasília, com releitura de dois dias e backoff exponencial limitado a seis horas. Um advisory lock evita coletores concorrentes. Credenciais ficam somente no servidor.
+O worker usa exclusivamente GET nos quatro feeds oficiais (`transactional`, `financial`, `cashouts`, `balances`), sem sessão de navegador. A cada dez minutos tenta até sete dias, até ontem no fuso de Brasília, com releitura de dois dias e backoff exponencial limitado a seis horas. Um advisory lock por dia evita gravações concorrentes, inclusive com conciliação. O limite de 45 segundos cobre também o corpo da resposta; falha ao registrar o erro no banco não encerra o coletor. Credenciais ficam somente no servidor.
 
-Só confirma uma coleta após validar `VALIDADO=true`, estabelecimento, todas as páginas, contagem e os quatro feeds. Falha reverte a coleta e conserva o cursor anterior. Documentos originais e versões são preservados, com hash; leituras repetidas não duplicam páginas. O relatório Owner mostra a versão mais recente completa de cada feed, incluindo todos os campos e valores originais, sem somar transação e liquidação do mesmo recebível.
+Só confirma uma coleta após validar `VALIDADO=true`, estabelecimento, todas as páginas, contagem e os quatro feeds. Cada dia é confirmado em uma transação própria: falha reverte somente o dia incompleto e conserva os dias já concluídos. Documentos originais e versões são preservados, com hash; leituras repetidas não duplicam páginas. O relatório Owner mostra a versão mais recente completa de cada feed, incluindo todos os campos e valores originais, sem somar transação e liquidação do mesmo recebível.
 
 Configuração no serviço `api`, separada do token de pagamentos:
 
@@ -39,6 +55,18 @@ A opção é desabilitada por padrão. O painel distingue configuração pendent
 As novas ativações são solicitadas pelo próprio cliente no portal oficial. Não há Sandbox EDI. A primeira leitura real exige credencial autorizada, conferência de cobertura e acompanhamento do painel. A coleta histórica não implica autorização de pagamentos.
 
 Fontes oficiais: [guia EDI](https://developer.pagbank.com.br/docs/edi), [API e integralidade](https://developer.pagbank.com.br/docs/api-do-extrato-edi), [autenticação Basic](https://developer.pagbank.com.br/v1/reference/api-de-conciliacao-introducao).
+
+### Reconsulta e acompanhamento
+
+O Owner pode abrir **Financeiro → Histórico → Documentos originais do PagBank → Consultar novamente um período do PagBank**. A ação exige motivo e período de até sete dias, terminando no máximo ontem no fuso de Brasília. `POST /api/v1/financial-history/pagbank-edi/reprocess` obtém o responsável da sessão, exige o EDI habilitado e não aceita credenciais no corpo. Cada dia concluído registra `ProviderDocumentsReprocessed`; a operação não avança o cursor diário nem limpa uma falha da coleta automática. Se a conexão for interrompida, os dias concluídos permanecem salvos e a mesma consulta pode ser repetida. Um período maior deve ser dividido em blocos.
+
+Depois de iniciada a coleta, diminuir `StartDate` não retrocede o cursor. Use a reconsulta para lacunas anteriores. Documentos com conteúdo alterado conservam a versão anterior. A conciliação lista apenas a última coleta completa por data/feed e rejeita versões substituídas, sob o mesmo lock do coletor. A seleção continua limitada aos cem documentos mais recentes e a liquidações simples; não é uma conciliação automática por identificador.
+
+O painel distingue atualização histórica em andamento de leitura atual. Uma última leitura bem-sucedida há mais de 26 horas aparece como **Coleta atrasada**, mesmo sem erro registrado. Falhas informadas continuam como **Requer atenção**. A reconsulta manual não mascara o atraso da rotina automática.
+
+Para ativar, cadastrar USER e token específico no serviço `api` do projeto `longbeach-os` (token selado), confirmar com o proprietário `StartDate`, revisar a configuração e promover a revisão testada. A configuração no portal PagBank não equivale a variáveis já cadastradas no servidor. Primeiro conferir uma amostra real dos quatro feeds, incluindo dias vazios, e comparar valores/códigos com o extrato oficial. Não solicitar token pelo chat nem versionar respostas reais. A habilitação do EDI independe dos pagamentos.
+
+Os testes cobrem preservação de dias anteriores após falha, timeout durante o corpo, liberação do lock, reconsulta auditada sem avanço do cursor, repetição sem duplicação, versão substituída na conciliação, atraso e autorização Owner. Permanecem pendentes da amostra real o mapeamento entre identificadores de Pedidos/Recorrência e EDI, a abrangência da conta e a classificação de antecipações/estornos. A importação EDI não alimenta automaticamente o saldo da página inicial nem resolve a conciliação de vendas da maquininha.
 
 ## PagVendas
 

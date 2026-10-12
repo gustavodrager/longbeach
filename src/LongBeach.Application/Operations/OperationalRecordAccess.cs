@@ -8,11 +8,12 @@ public static class OperationalRecordAccess
     private static string[] Fields(string kind) => kind switch
     {
         "rentalGroups" => ["monthlyAmount", "extraAmount"], "rentalMonths" => ["amount"],
+        "courts" => ["hourlyRentalAmount", "weekendPackageAmount", "weekendPackageHours", "weekendPackageLatestEndTime"],
         "students" => ["monthlyAmount", "paymentStatus", "paymentDate", "statementName"],
         "enrollments" => ["monthlyAmount"], "team" => ["payAmount", "payBasis", "paymentFrequency", "paymentDay", "notes"], "inventory" => ["unitCost", "paymentMethod"],
         "projects" => ["estimatedCost", "actualCost"], "reservations" => ["amount"], _ => []
     };
-    private static JsonNode Default(string field) => field is "paymentStatus" or "paymentDate" or "statementName" or "payBasis" or "paymentFrequency" or "paymentDay" or "notes" or "paymentMethod" ? JsonValue.Create("")! : JsonValue.Create(0)!;
+    private static JsonNode? Default(string field) => field is "hourlyRentalAmount" or "weekendPackageAmount" or "weekendPackageHours" or "weekendPackageLatestEndTime" ? null : field is "paymentStatus" or "paymentDate" or "statementName" or "payBasis" or "paymentFrequency" or "paymentDay" or "notes" or "paymentMethod" ? JsonValue.Create("")! : JsonValue.Create(0)!;
     public static string VisiblePayload(string json, string kind, bool financeRead)
     {
         var fields = Fields(kind);

@@ -75,7 +75,7 @@ public sealed class BarPaymentsService(LongBeachDbContext db,IPaymentGateway gat
     }
     public async Task<bool> Webhook(byte[] body,IEnumerable<string> signatures,CancellationToken ct)
     {
-        if(!gateway.VerifyWebhook(body,signatures))return false;
+        if(!await gateway.VerifyWebhookAsync(body,signatures,ct))return false;
         var hash=Convert.ToHexString(SHA256.HashData(body));if(await db.Set<PaymentWebhookInbox>().AnyAsync(x=>x.PayloadHash==hash,ct))return true;
         using var doc=JsonDocument.Parse(body);var orderId=doc.RootElement.GetProperty("id").GetString();
         var payment=await db.Set<BarPayment>().SingleOrDefaultAsync(x=>x.ProviderId==orderId,ct);

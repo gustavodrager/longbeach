@@ -1,0 +1,20 @@
+.stock-valuation { min-width: 0; }
+.stock-value-context { margin: -8px 0 20px; line-height: 1.6; }
+.stock-value-cards { grid-template-columns: repeat(4,minmax(0,1fr)); }
+.stock-value-cards:has(> :last-child:nth-child(3)) { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.stock-value-cards .arena-metric { min-width: 0; min-height: 190px; padding: 22px; }
+.stock-value-cards .arena-metric strong { font-size: clamp(24px,2.5vw,34px); line-height: 1.25; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.stock-value-cards .arena-metric small { line-height: 1.5; }
+.stock-value-profit { background: #f2f6ed; border-color: #afbc96; }
+.stock-value-loss { background: #fff3ef; border-color: #cf988c; }
+.stock-value-notice { border-left: 3px solid #ba8421; padding: 12px 16px; background: #fff7e3; color: #624b22; font-size: 14px; line-height: 1.6; }
+.stock-value-basis { display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; padding: 20px 0; }
+.stock-value-basis p { margin: 8px 0 0; font-size: 14px; }
+.stock-value-coverage { flex: 0 1 340px; font-size: 13px; color: var(--muted); }
+.stock-value-coverage progress { display: block; width: 100%; height: 8px; margin-top: 12px; accent-color: #758356; }
+.stock-value-filters { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.stock-value-filters .operation-field { flex: 1 1 220px; min-width: 0; }
+.stock-valuation .responsive-records td { overflow-wrap: anywhere; }
+.stock-valuation .responsive-records td small { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
+@media (max-width:1100px) { .stock-value-cards, .stock-value-cards:has(> :last-child:nth-child(3)) { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width:600px) { .stock-value-cards, .stock-value-cards:has(> :last-child:nth-child(3)) { grid-template-columns: minmax(0,1fr); } .stock-value-cards .arena-metric { min-height: auto; gap: 10px; } }

@@ -17,9 +17,11 @@ export type TabPayment = {
   actorId?: string; sessionId?: string; operationId: string; providerId?: string; pixText?: string; qrImageUrl?: string; canResume?: boolean
   expiresAtUtc?: string; createdAtUtc: string; confirmedAtUtc?: string; refunded: number; refundPending: number; fee: number | null
 }
+export type TabCustomer = { id: string; name: string; emailHint: string }
 export type Tab = {
+  responsible?: { id: string; name: string } | null
   id: string; number: number; name: string; mode: string; state: string; locationId: string; actorId: string
-  total: number; paid: number; pending: number; due: number; payable: number; createdAtUtc: string
+  total: number; paid: number; pending: number; due: number; payable: number; createdAtUtc: string; closedAtUtc?: string | null
   items: TabItem[]; payments: TabPayment[]; gross?: number; discount?: number; history: { id: string; kind: string; itemId?: string; paymentId?: string; amount: number; actorId?: string; reason?: string; createdAtUtc: string }[]; allowedActions: string[]
 }
 export type CashSession = {
@@ -37,7 +39,7 @@ export function parseAmount(value: string) { return /^\d+(?:[,.]\d{1,2})?$/.test
 export const operationId = () => crypto.randomUUID()
 export const isOpen = (session: CashSession) => session.state === 'Open' || session.state === 'Reopened'
 export const itemLabels: Record<string, string> = { Requested: 'Esperando a equipe confirmar', Accepted: 'A preparar / entregar', Fulfilled: 'Entregue', Rejected: 'Recusado', Reversed: 'Consumo corrigido' }
-export const paymentLabels: Record<string, string> = { Cash: 'Dinheiro', CardManual: 'Cartão', Pix: 'Pix' }
+export const paymentLabels: Record<string, string> = { CreditCard: 'Crédito à vista', Cash: 'Dinheiro', CardManual: 'Cartão', Pix: 'Pix' }
 
 export function useBarData<T>(path: string, enabled = true) {
   const { user } = useAuth()

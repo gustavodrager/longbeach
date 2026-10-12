@@ -81,14 +81,14 @@ public sealed class BarTabPayment : Entity
     public BarTabPayment(Guid tabId, Guid operationId, string fingerprint, decimal amount, string method,
         Guid? actor, Guid? sessionId, decimal? tendered, string? authorization) : base(Guid.NewGuid())
     {
-        if (operationId == Guid.Empty || method is not ("Cash" or "CardManual" or "Pix")) throw new BarRuleException("Meio e operação obrigatórios.");
+        if (operationId == Guid.Empty || method is not ("Cash" or "CardManual" or "Pix" or "CreditCard")) throw new BarRuleException("Meio e operação obrigatórios.");
         TabId = tabId; OperationId = operationId; Fingerprint = fingerprint; Amount = BarRules.Money(amount);
         if (Amount == 0) throw new BarRuleException("Informe um valor maior que zero.");
         Tendered = BarRules.Money(tendered ?? amount);
         if (method == "Cash" && Tendered < amount) throw new BarRuleException("Dinheiro recebido insuficiente.");
         Method = method; ActorId = actor; SessionId = sessionId;
         Authorization = string.IsNullOrWhiteSpace(authorization) ? null : BarRules.Text(authorization, 100, "Autorização");
-        State = method == "Pix" ? "Pending" : "Approved";
+        State = method is "Pix" or "CreditCard" ? "Pending" : "Approved";
     }
     public Guid TabId { get; private set; }
     public Guid OperationId { get; private set; }

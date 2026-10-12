@@ -1,6 +1,12 @@
 # Acesso individual e primeiro acesso
 
-O login aceita usuário ou e-mail e senha, mesmo com Google habilitado. Os usuários antigos continuam usando suas credenciais e permissões. Novas contas sem e-mail podem vincular o próprio Google depois de autenticar com a credencial temporária.
+A página de login oferece somente Google desde 10/10/2026. A API preserva os endpoints de senha e primeiro acesso por compatibilidade; os procedimentos legados abaixo não são oferecidos na página de entrada atual. Para contas da equipe ainda sem Google, confirmar a identidade e preparar o acesso individual antes da adoção da nova página, preservando o usuário, o histórico e os papéis existentes.
+
+Entrar pelo Google não associa automaticamente a pessoa a um aluno, grupo mensalista ou reserva. A gestão confere a identidade e usa **Solicitações de clientes → Vincular cliente a aluno, grupo ou reserva**. Os identificadores exibidos ajudam a distinguir cadastros; nomes iguais não comprovam identidade. O vínculo operacional não concede funções da equipe, não transfere cobranças e não cria dívida. Um cadastro já associado a outro cliente ou responsável financeiro exige resolução do conflito, sem substituição silenciosa.
+
+## Cadastro público de clientes
+
+O fluxo descrito abaixo continua destinado à equipe e a contas provisionadas. O cadastro de novos clientes pelo Google é separado, fica desligado por padrão e concede somente o perfil de cliente. Configuração, validação e rollback estão no [ADR-006](../adr/ADR-006-cadastro-cliente-google.md). O frontend consulta as opções da API; não é necessário informar o Client ID por variável de build do frontend.
 
 ## Provisionamento explícito
 
@@ -13,12 +19,24 @@ O provisionador mantém somente o hash da senha. Sem e-mail conhecido, usa inter
 
 ## Primeiro acesso
 
+### E-mail Google confirmado posteriormente pelo proprietário
+
+Para uma conta individual ainda pendente cujo e-mail foi autorizado explicitamente, acrescente somente esse e-mail à allowlist Google existente, preservando os demais. Execute `dotnet LongBeach.Api.dll --authorize-google-access --provision-from-stdin` com JSON privado contendo `Bootstrap.GoogleAccess.Username`, `Email` e `Role`. Não versione os alvos nem passe dados privados por argumentos que possam aparecer em logs. O comando exige Google habilitado, e-mail permitido, usuário ativo já existente e papel já concedido. Não cria usuários nem atribui permissões.
+
+O comando aceita somente a identidade provisória `.invalid`, substitui o hash da senha inicial por um segredo aleatório descartado, revoga sessões temporárias, conclui o primeiro acesso e audita `GoogleAccessAuthorized`. A conta pode então usar o fluxo Google já validado por assinatura, audiência e e-mail verificado. Repetir o mesmo alvo é idempotente; trocar uma identidade já ativada ou usar e-mail de outra conta é rejeitado. Não associe um `sub` inventado e não autentique como a pessoa para simular seu primeiro login. Execute separadamente para cada conta autorizada, usando o mesmo usuário e preservando seu histórico.
+
 A senha temporária concede uma sessão de até quinze minutos, limitada à tela de primeiro acesso, `/auth/me`, troca de senha, vinculação Google e encerramento. Nenhum papel ou permissão operacional é emitido. A API verifica também o estado e a validade da conta ao receber o JWT temporário. A renovação preserva essa limitação e não transforma uma sessão temporária em acesso completo.
 
 - **Nova senha:** confirme a senha inicial, informe e repita uma senha de pelo menos 14 caracteres, com maiúscula, minúscula, número e símbolo. As sessões temporárias são revogadas; entre novamente com usuário e nova senha.
 - **Google:** a sessão interna identifica a conta que está sendo ativada. Um segundo token Google é validado por assinatura, emissor, audiência, expiração, `email_verified` e `sub`. A conta Google não pode pertencer a outro usuário. A associação é única pelo `sub`; a senha temporária é destruída e uma nova sessão completa é emitida. Os logins seguintes pela identidade vinculada dispensam edição da allowlist.
 
 A allowlist permanece válida para contas Google legadas. Vincular Google não cria usuários nem amplia papéis. Conclusões concorrentes usam a senha armazenada como controle de concorrência; o índice único impede vinculação dupla. Auditorias ocultam hashes e tokens.
+
+Após a correção de persistência do vínculo Google (preparada depois da publicação do bar de 11/10/2026), uma conta legada ativa e autorizada na allowlist grava sua identificação Google no próximo login válido, preservando papéis e histórico. Isso também permite encontrá-la como responsável de comanda: a busca do bar continua exigindo uma conta ativa, com Google vinculado e sem primeiro acesso pendente. Renovar a sessão existente não realiza o vínculo; é necessário entrar novamente pelo botão Google depois de publicar a correção. Não editar subjects manualmente nem ampliar a busca para cadastros sem vínculo.
+
+Homologar com identidade fictícia em banco isolado: antes do login a busca exata não encontra a conta; depois encontra o mesmo identificador, com e-mail mascarado. Conferir `googleLinked`, papéis, auditoria, repetição sem duplicidade, login com cadastro público desligado e bloqueio de token inválido, conta inativa/pendente e subject conflitante. Dois primeiros logins concorrentes podem resultar em 409 para um deles; repetir o login deve preservar o vínculo vencedor. O controle de concorrência não exige nova coluna ou migration física. Na produção, a conferência deve ser feita após o próprio titular entrar novamente, sem criar comanda ou cobrança de teste.
+
+Validação local desta correção: 195 testes unitários e 260 testes de integração aprovados, sem falhas ou ignorados; API compilada e build da interface concluído. Banco exclusivo `longbeach_google_binding_20261012_test`, separado da prévia e de produção. O teste integrado cobre o caminho HTTP Google → sessão → busca de responsável para Owner e Administrator, com token assinado por chave exclusivamente de teste; também comprova rollback de sessão e auditoria na tentativa concorrente que perde. Modelo sem alterações de esquema pendentes. Estes resultados não representam login real das contas administrativas em produção. Correção publicada posteriormente com aprovação explícita: API `4ff170e`, deployment `6328fa55-f3b4-4f0d-8b50-fd42642233a3`; ver registro de publicação. A conferência nas contas reais depende do próximo login dos titulares.
 
 Se a credencial inicial expirar, o provisionador não a redefine silenciosamente. O responsável deverá tratar a recuperação de forma direcionada, após confirmar a identidade. Não é um cadastro público.
 

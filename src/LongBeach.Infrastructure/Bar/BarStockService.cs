@@ -6,7 +6,7 @@ using LongBeach.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 namespace LongBeach.Infrastructure.Bar;
-public sealed class BarStockService(LongBeachDbContext db, IConfiguration? config = null) : IBarStock
+public sealed partial class BarStockService(LongBeachDbContext db, IConfiguration? config = null, TimeProvider? time = null) : IBarStock
 {
     public async Task<IReadOnlyList<StockLocation>> Locations(CancellationToken ct) => await db.Set<StockLocation>().AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
     public async Task<StockLocation> CreateLocation(LocationInput input, CancellationToken ct)

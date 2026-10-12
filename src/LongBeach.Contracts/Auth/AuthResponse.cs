@@ -20,4 +20,5 @@ public sealed record UserSummary(
     IReadOnlyCollection<string> Roles,
     IReadOnlyCollection<string> Permissions,
     bool RequiresFirstAccess = false,
-    string? Username = null);
+    string? Username = null,
+    bool GoogleLinked = false);

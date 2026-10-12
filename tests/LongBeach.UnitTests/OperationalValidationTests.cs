@@ -19,6 +19,30 @@ public sealed class OperationalValidationTests
     };
     private static readonly DateOnly Today = new(2026, 10, 4);
     [Theory]
+    [InlineData(100, 800, 8, "22:00", true)]
+    [InlineData(0, 0, 8, "22:00", true)]
+    [InlineData(-1, 800, 8, "22:00", false)]
+    [InlineData(100, 800, 0, "22:00", false)]
+    [InlineData(100, 800, 8, "25:00", false)]
+    [InlineData(100, 800, 8, "07:00", false)]
+    public void Court_services_validate_prices_duration_and_checkout(decimal hourly, decimal package, decimal hours, string checkout, bool valid)
+    {
+        var court = Json(new { id = CourtId, name = "Quadra", status = "Disponível", openingTime = "06:00", closingTime = "24:00", hourlyRentalAmount = hourly, weekendPackageAmount = package, weekendPackageHours = hours, weekendPackageLatestEndTime = checkout });
+        Assert.Equal(valid, OperationalValidation.Validate("courts", CourtId, court, Records(), Today) is null);
+    }
+    [Fact]
+    public void Court_prices_require_financial_permission_and_are_preserved_on_redacted_updates()
+    {
+        const string saved = """{"name":"Quadra","hourlyRentalAmount":100,"weekendPackageAmount":800,"weekendPackageHours":8,"weekendPackageLatestEndTime":"22:00"}""";
+        var visible = OperationalRecordAccess.VisiblePayload(saved, "courts", false);
+        Assert.Equal(JsonValueKind.Null, JsonDocument.Parse(visible).RootElement.GetProperty("hourlyRentalAmount").ValueKind);
+        var prepared = OperationalRecordAccess.PrepareWrite(visible, saved, "courts", false, false);
+        Assert.True(prepared.Allowed);
+        Assert.Equal(100, prepared.Body["hourlyRentalAmount"]!.GetValue<int>());
+        Assert.Equal("22:00", prepared.Body["weekendPackageLatestEndTime"]!.GetValue<string>());
+        Assert.False(OperationalRecordAccess.PrepareWrite("""{"hourlyRentalAmount":50}""", saved, "courts", true, false).Allowed);
+    }
+    [Theory]
     [InlineData("null", true)]
     [InlineData("0", true)]
     [InlineData("-1", false)]

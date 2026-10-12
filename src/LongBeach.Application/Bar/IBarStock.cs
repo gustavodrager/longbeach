@@ -7,6 +7,7 @@ public interface IBarStock
     Task<StockLocation> CreateLocation(LocationInput input, CancellationToken ct);
     Task<object> Balances(bool costs, CancellationToken ct);
     Task<object> Movements(bool costs, CancellationToken ct);
+    Task<StockValuationResponse> Valuation(CancellationToken ct);
     Task Transfer(TransferInput input, Guid actor, CancellationToken ct);
     Task Output(StockOutputInput input, string kind, Guid actor, bool supervisor, CancellationToken ct);
     Task<InventoryCount> CreateCount(CountInput input, Guid actor, CancellationToken ct);

@@ -65,11 +65,11 @@ it('falha incerta e dois cliques repetem um único grupo com o mesmo corpo e pre
   expect(await screen.findByRole('heading', { name: 'Agenda e recepção' })).toBeInTheDocument()
   const bodies = fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST').map(([, init]) => JSON.parse(String(init?.body)))
   expect(bodies).toHaveLength(2); expect(bodies[0]).toEqual(bodies[1]); expect(rows).toHaveLength(3)
-  const user = userEvent.setup(); await user.click(screen.getAllByRole('link', { name: /Grupo semanal de teste.*ocorrência 1/ })[0])
+  const user = userEvent.setup(); await user.click(screen.getAllByRole('button', { name: /Grupo semanal de teste.*ocorrência 1/ })[0]); await user.click(screen.getByRole('link', { name: 'Ver reserva completa →' }))
   expect(await screen.findByRole('heading', { name: 'Grupo semanal · Grupo semanal de teste' })).toBeInTheDocument()
   expect(screen.getAllByRole('link', { name: /ocorrência [123].*Confirmada/ })).toHaveLength(3)
   expect(screen.getByRole('link', { name: 'Ver todas as ocorrências na agenda →' })).toHaveAttribute('href', expect.stringContaining(`group=${bodies[0].operationId}`))
-  expect(screen.getByRole('link', { name: '← Agenda e recepção' })).toHaveAttribute('href', expect.stringContaining('view=list'))
+  expect(screen.getByRole('link', { name: '← Agenda' })).toHaveAttribute('href', expect.stringContaining('view=list'))
   expect(localStorage.getItem('longbeach-os-demo-v1')).toBeNull(); expect(sessionStorage.length).toBe(0)
 })
 

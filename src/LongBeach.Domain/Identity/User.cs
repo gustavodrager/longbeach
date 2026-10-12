@@ -76,6 +76,18 @@ public sealed class User : Entity
         NormalizedEmail = NormalizeEmail(email);
     }
 
+    public void PrepareGoogleAccess(string email, string passwordHash)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(email);
+        ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
+        if (!IsActive || !RequiresFirstAccess || GoogleSubject is not null ||
+            !Email.EndsWith("@unlinked.longbeach.invalid", StringComparison.Ordinal) || email.Length > 320)
+            throw new InvalidOperationException("Only an unlinked pending account can receive authorized Google access.");
+        Email = email.Trim(); NormalizedEmail = NormalizeEmail(email);
+        PasswordHash = passwordHash;
+        CompleteFirstAccess();
+    }
+
     public void ChangePasswordHash(string passwordHash)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);

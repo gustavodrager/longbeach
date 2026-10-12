@@ -1,0 +1,57 @@
+import { useEffect, useRef, useState } from 'react'
+import { Link, NavLink, Outlet, useLocation, useParams, useSearchParams } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '../auth/authContext'
+import { hasPermission, isManagement } from '../auth/access'
+import { apiFetch } from '../../lib/http'
+import { Logo } from '../../components/Logo'
+import { today, dayLabel, messageOf } from '../portal/api'
+import './teaching.css'
+
+type Class = { id: string; name: string; weekDay: number; startTime: string; endTime: string; startDate: string; status: string; capacity: number; enrolled: number }
+type ScheduledLesson = { id: string; name: string; customerName: string; date: string; startTime: string; endTime: string; status: string }
+type Overview = { linked: boolean; classes: Class[]; appointments?: ScheduledLesson[] }
+type Student = { id: string; name: string; presence: string | null; version: number }
+type Roster = { class: Class; date: string; students: Student[] }
+type Access = { users: { id: string; name: string }[]; team: { id: string; name: string }[]; links: { userId: string; teamId: string | null }[] }
+const days = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado']
+const allowed = (user: ReturnType<typeof useAuth>['user']) => isManagement(user) || Boolean(user?.roles.includes('Teacher'))
+function useTeaching<T>(path = '') { const { user } = useAuth(); return useQuery({ queryKey: ['teaching',user?.id,path], queryFn: () => apiFetch<T>('/api/v1/me/teaching'+path), enabled: allowed(user), retry: false, refetchInterval: 30000, refetchOnWindowFocus: true }) }
+function Notice({ pending, error }: { pending: boolean; error: Error | null }) { return pending ? <p role="status">Carregando suas aulas…</p> : error ? <p role="alert">Não foi possível consultar as aulas. {error.message}</p> : null }
+function ClassCard({ cls, date }: { cls: Class; date?: string }) { return <Link className="teaching-card" to={`/professor/turmas/${cls.id}${date ? '?date='+date : ''}`}><span className="teaching-time">{days[cls.weekDay]} · {cls.startTime}–{cls.endTime}</span><h2>{cls.name}</h2><p>{cls.enrolled}/{cls.capacity} matrículas ativas · {cls.status}</p><span className="teaching-action">Ver alunos e presença →</span></Link> }
+export function TeacherLayout() {
+  const { user, signOut } = useAuth(); const location = useLocation(); const main = useRef<HTMLElement>(null)
+  useEffect(() => { main.current?.focus({preventScroll:true}) },[location.pathname])
+  if (!allowed(user)) return <main className="operation-page"><h1>Acesso restrito</h1><p>Esta área é destinada aos professores.</p><Link to="/minha-area">Minha área</Link></main>
+  return <div className="teaching-shell"><a className="skip-link" href="#teaching-content">Ir para o conteúdo</a><header className="teaching-header"><Link to="/professor"><Logo tagline="Área do professor" /></Link><div><Link to="/minha-area">Minha área</Link>{isManagement(user) && <Link to="/">Gestão</Link>}{hasPermission(user,'bar:sales:operate') && <Link to="/atendimento/vender">Atendimento</Link>}<button onClick={() => void signOut()}>Sair</button></div></header><main id="teaching-content" tabIndex={-1} ref={main} className="teaching-main"><Outlet /></main><nav className="teaching-nav" aria-label="Área do professor"><NavLink end to="/professor">Hoje</NavLink><NavLink to="/professor/turmas">Minhas turmas</NavLink><NavLink to="/professor/presencas">Presenças</NavLink></nav></div>
+}
+function MissingLink() { return <section className="teaching-empty"><h2>Seu acesso às turmas está em preparação</h2><p>Peça à gestão para vincular sua conta ao seu cadastro de professor. As turmas aparecem após essa conferência.</p></section> }
+function ScheduledLessons({items}:{items:ScheduledLesson[]}) {
+  return items.length ? <section><h2>Atividades agendadas</h2><p>Encontros confirmados fora da grade regular.</p><div className="teaching-grid">{items.map(a=><article className="teaching-card" key={a.id}><h3>{a.name}</h3><p>{dayLabel(a.date)} · {a.startTime}–{a.endTime}</p><p>{a.customerName} · {a.status}</p></article>)}</div></section> : null
+}
+export function TeacherHome() {
+  const query = useTeaching<Overview>(); const date = today(); const weekday = new Date(date+'T12:00:00').getDay(); const classes = query.data?.classes.filter(c => c.status==='Ativa' && c.weekDay===weekday && (!c.startDate || c.startDate<=date)) ?? []
+  return <><p className="eyebrow">ÁREA DE TRABALHO</p><h1>Suas aulas de hoje</h1><p>{dayLabel(date)}</p><Notice pending={query.isPending} error={query.error}/>{!query.isError && query.data && (!query.data.linked ? <MissingLink/> : <><div className="teaching-summary"><strong>{classes.length}</strong><span>{classes.length===1?'aula na sua grade hoje':'aulas na sua grade hoje'}</span><Link to="/professor/turmas">Ver grade completa →</Link></div>{classes.length ? <div className="teaching-grid">{classes.map(c=><ClassCard key={c.id} cls={c} date={date}/>)}</div> : <section className="teaching-empty"><h2>Nenhuma aula na grade de hoje</h2><p>Consulte suas turmas para conferir os próximos dias.</p></section>}<ScheduledLessons items={query.data.appointments?.filter(a=>a.date===date)??[]}/></>)}</>
+}
+export function TeacherClasses({ attendance = false }: { attendance?: boolean }) {
+  const query = useTeaching<Overview>()
+  return <><p className="eyebrow">ÁREA DO PROFESSOR</p><h1>{attendance?'Presenças':'Minhas turmas'}</h1><p>{attendance?'Escolha a turma e depois a data para fazer a chamada.':'Sua grade e suas matrículas atuais. Os dados dos alunos aparecem dentro de cada turma.'}</p><Notice pending={query.isPending} error={query.error}/>{!query.isError && query.data && (!query.data.linked ? <MissingLink/> : query.data.classes.length ? <div className="teaching-grid">{query.data.classes.map(c=><ClassCard key={c.id} cls={c}/>)}</div> : <p>Nenhuma turma vinculada ao seu cadastro.</p>)}{!attendance&&!query.isError&&query.data?.linked&&<ScheduledLessons items={query.data.appointments??[]}/>}</>
+}
+function nearestClassDate(cls: Class) { const day = today(); const date = new Date(day+'T12:00:00Z'); date.setUTCDate(date.getUTCDate() - (date.getUTCDay()-cls.weekDay+7)%7); const last=date.toISOString().slice(0,10); if(cls.startDate && last<cls.startDate){ const first=new Date(cls.startDate+'T12:00:00Z');first.setUTCDate(first.getUTCDate()+(cls.weekDay-first.getUTCDay()+7)%7);return first.toISOString().slice(0,10) } return last }
+export function TeacherRoster() {
+  const { classId } = useParams(); const [params,setParams] = useSearchParams(); const overview = useTeaching<Overview>(); const cls = overview.data?.classes.find(c=>c.id===classId); const date = params.get('date') ?? (cls ? nearestClassDate(cls) : today());
+  const { user }=useAuth(); const cache=useQueryClient(); const [busy,setBusy]=useState(false);const [feedback,setFeedback]=useState('');const [error,setError]=useState('')
+  const path=`/classes/${classId}?date=${encodeURIComponent(date)}`;const query=useQuery({queryKey:['teaching',user?.id,path],queryFn:()=>apiFetch<Roster>('/api/v1/me/teaching'+path),enabled:allowed(user)&&Boolean(cls),retry:false,refetchInterval:30000,refetchOnWindowFocus:true})
+  useEffect(()=>{setFeedback('');setError('')},[date,classId])
+  async function save(student: Student,status: string) {
+    if(busy)return;setBusy(true);setError('');setFeedback('')
+    try { const roster=await apiFetch<Roster>(`/api/v1/me/teaching/classes/${classId}/presences?date=${date}`,{method:'PUT',body:JSON.stringify({studentId:student.id,status,version:student.version})});cache.setQueryData(['teaching',user?.id,path],roster);setFeedback(`Presença de ${student.name} registrada.`) } catch(e){setError(messageOf(e));await cache.invalidateQueries({queryKey:['teaching',user?.id,path]})} finally{setBusy(false)}
+  }
+  const canSave=date<=today()&&cls?.status==='Ativa'&&!query.isError
+  return <><Link to="/professor/turmas">← Minhas turmas</Link><h1>{cls?.name??'Alunos e presença'}</h1><Notice pending={overview.isPending} error={overview.error}/>{overview.data&&!cls&&<p role="alert">Turma indisponível para este acesso.</p>}{cls&&<><p>{days[cls.weekDay]} · {cls.startTime}–{cls.endTime} · {cls.status}</p><label className="teaching-date">Data da aula<input type="date" value={date} disabled={busy} onChange={e=>setParams({date:e.target.value})}/></label><p>Alunos conforme as datas de matrícula cadastradas. Nomes e demais dados refletem o cadastro atual.</p><Notice pending={query.isPending} error={query.error}/>{feedback&&<p role="status">{feedback}</p>}{error&&<p role="alert">{error}</p>}{!query.isError&&query.data&&<><p>{query.data.students.length} alunos nesta data{!canSave?' · Consulta, sem registro de presença':''}</p><div className="teaching-roster">{query.data.students.map(student=><section key={student.id} className="teaching-student"><div><h2>{student.name}</h2><p>{student.presence??'Não registrada'}</p></div><div className="teaching-actions">{['Presente','Ausente'].map(status=><button key={status} aria-label={`${student.name}: ${status}`} aria-pressed={student.presence===status} disabled={busy||!canSave} onClick={()=>void save(student,status)}>{status}</button>)}</div></section>)}</div>{!query.data.students.length&&<p>Nenhuma matrícula válida para esta data.</p>}</>}</>}</>
+}
+export function TeacherAccess() {
+  const {user}=useAuth();const cache=useQueryClient();const query=useQuery({queryKey:['teaching-access',user?.id],queryFn:()=>apiFetch<Access>('/api/v1/teaching/access'),enabled:isManagement(user)});const [busy,setBusy]=useState(false);const [message,setMessage]=useState('');const [error,setError]=useState('')
+  async function save(event: React.FormEvent<HTMLFormElement>,userId: string) {event.preventDefault();const teamId=new FormData(event.currentTarget).get('teamId');setBusy(true);setMessage('');setError('');try{await apiFetch('/api/v1/teaching/access',{method:'PUT',body:JSON.stringify({userId,teamId:teamId||null})});await cache.invalidateQueries({queryKey:['teaching-access',user?.id]});setMessage('Vínculo atualizado. O acesso às turmas passa a seguir este cadastro.')}catch(e){setError(messageOf(e))}finally{setBusy(false)}}
+  return <main className="operation-page"><p className="eyebrow">ADMINISTRAÇÃO</p><h1>Acesso dos professores</h1><p>Vincule cada conta de professor ao cadastro correto da equipe. Confira a identidade antes de salvar: esse vínculo libera as turmas e a chamada.</p><Notice pending={query.isPending} error={query.error}/>{message&&<p role="status">{message}</p>}{error&&<p role="alert">{error}</p>}{!query.isError&&query.data&&<div className="teaching-grid">{query.data.users.map(person=><form className="teaching-card" key={person.id+':'+query.data.links.find(l=>l.userId===person.id)?.teamId} onSubmit={e=>void save(e,person.id)}><h2>{person.name}</h2><label>Cadastro na equipe<select name="teamId" defaultValue={query.data!.links.find(l=>l.userId===person.id)?.teamId??''} disabled={busy}><option value="">Sem vínculo · acesso às turmas bloqueado</option>{query.data!.team.map(member=><option key={member.id} value={member.id}>{member.name}</option>)}</select></label><button className="primary-link" disabled={busy}>Salvar vínculo</button></form>)}{!query.data.users.length&&<p>Nenhuma conta ativa com perfil de professor. Cadastre ou habilite a conta pelo processo administrativo de usuários.</p>}</div>}</main>
+}

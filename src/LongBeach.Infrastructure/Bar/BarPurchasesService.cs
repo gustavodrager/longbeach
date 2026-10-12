@@ -14,7 +14,7 @@ public sealed class BarPurchasesService(LongBeachDbContext db):IBarPurchases
     public async Task<IReadOnlyList<Purchase>> Purchases(CancellationToken ct)=>await db.Set<Purchase>().AsNoTracking().Include(x=>x.Items).OrderByDescending(x=>x.CreatedAtUtc).Take(100).ToListAsync(ct);
     public async Task<Purchase> Create(PurchaseInput input,Guid actor,CancellationToken ct)
     {
-        if(input.Items is null || input.Items.Count is 0 or >100) throw new BarRuleException("Informe de 1 a 100 itens.");
+        if(input.Items is null || input.Items.Count is 0 or >100 || input.Items.Select(x=>x.ProductId).Distinct().Count()!=input.Items.Count) throw new BarRuleException("Informe de 1 a 100 produtos sem repetir itens.");
         if(!await db.Set<Supplier>().AnyAsync(x=>x.Id==input.SupplierId,ct)) throw new BarRuleException("Fornecedor inexistente.");
         var purchase=new Purchase(input.SupplierId,input.Document,actor);
         foreach(var i in input.Items)
@@ -23,8 +23,16 @@ public sealed class BarPurchasesService(LongBeachDbContext db):IBarPurchases
             if(!product.ControlsStock) throw new BarRuleException("Compra de estoque exige produto estocável.");
             purchase.Items.Add(new PurchaseItem(purchase.Id,product,i.Quantity,i.PurchaseCost));
         }
-        purchase.Terms(input.Freight,input.Discount,input.PaymentMethod,input.AccountReference,input.PurchasedAtUtc);
+        purchase.Terms(input.Freight,input.Discount,input.PaymentMethod,input.AccountReference,input.PurchasedAtUtc,
+            input.Items.Where(x=>x.Total.HasValue).ToDictionary(x=>x.ProductId,x=>x.Total!.Value));
         db.Add(purchase);await db.SaveChangesAsync(ct);return purchase;
+    }
+    public async Task<Purchase> CorrectPaymentReference(Guid id,PurchasePaymentReferenceInput input,CancellationToken ct)
+    {
+        var purchase=await db.Set<Purchase>().Include(x=>x.Items).SingleOrDefaultAsync(x=>x.Id==id,ct)??throw new BarRuleException("Compra inexistente.");
+        if(input.Version!=purchase.Version)throw new BarRuleException("Compra alterada por outro usuário. Recarregue a lista.");
+        purchase.CorrectPaymentReference(input.PaymentMethod,input.AccountReference);
+        await db.SaveChangesAsync(ct);return purchase;
     }
     public async Task<Purchase> Cancel(Guid id,string reason,Guid actor,CancellationToken ct){var p=await db.Set<Purchase>().Include(x=>x.Items).SingleOrDefaultAsync(x=>x.Id==id,ct)??throw new BarRuleException("Compra inexistente.");p.Cancel(reason,actor);await db.SaveChangesAsync(ct);return p;}
     public async Task<Purchase> Receive(Guid id,ReceiptInput input,Guid actor,CancellationToken ct)

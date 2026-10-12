@@ -8,7 +8,8 @@ public sealed record TokenPrincipal(
     IReadOnlyCollection<string> Permissions,
     bool RequiresFirstAccess = false,
     string? Username = null,
-    DateTimeOffset? InitialAccessExpiresAtUtc = null);
+    DateTimeOffset? InitialAccessExpiresAtUtc = null,
+    bool GoogleLinked = false);
 
 public sealed record IssuedTokenPair(
     string AccessToken,

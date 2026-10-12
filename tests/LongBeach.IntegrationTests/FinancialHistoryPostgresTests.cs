@@ -11,6 +11,61 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace LongBeach.IntegrationTests;
 public sealed class FinancialHistoryPostgresTests
 {
+    [PostgresFact] public async Task Monthly_control_is_versioned_idempotent_audited_and_does_not_create_bank_or_finance_movements()
+    {
+        await using var db = Database(); await db.Database.MigrateAsync();
+        const string month = "2089-07";
+        await db.OperationalRecords.Where(x => x.Kind == MonthlyControlRules.Kind && x.Name == month).ExecuteDeleteAsync();
+        var service = new FinancialHistoryService(db, new NullAuditContext(), new DashboardClock(), new ConfigurationBuilder().Build());
+        var income = new MonthlyControlLine(Guid.NewGuid().ToString(), "Receita teste", "Receita", "Operação", "Arena", 10000, "Informado", "Conferência de teste", month);
+        var expense = income with { Id=Guid.NewGuid().ToString(), Label="Despesa teste", Direction="Despesa", AmountCents=15000, Basis="Estimado", SourceMonth="2089-06" };
+        var input = new MonthlyControlInput(0, [income,expense], "Sem movimentos financeiros");
+        var beforeHistory = await db.Database.SqlQuery<int>($"SELECT COUNT(*)::int AS \"Value\" FROM financial_observations").SingleAsync();
+        var beforeEntries = await db.OperationalRecords.CountAsync(x => x.Kind == "financeEntries");
+        var first = await service.SaveMonthlyControl(month, input, default);
+        Assert.Equal(1, first.Version); Assert.Equal(1,(await service.SaveMonthlyControl(month,input,default)).Version);
+        var updated = input with { Lines=[income,expense with { AmountCents=14000 }] };
+        await Assert.ThrowsAsync<MonthlyControlConflictException>(()=>service.SaveMonthlyControl(month,updated,default));
+        Assert.Equal(2,(await service.SaveMonthlyControl(month,updated with {Version=1},default)).Version);
+        Assert.Equal(2,(await service.MonthlyControl(month,default)).Control!.Version);
+        Assert.True(await db.AuditLogs.AnyAsync(x=>x.Action=="MonthlyFinancialControlSaved"));
+        Assert.Equal(beforeHistory,await db.Database.SqlQuery<int>($"SELECT COUNT(*)::int AS \"Value\" FROM financial_observations").SingleAsync());
+        Assert.Equal(beforeEntries,await db.OperationalRecords.CountAsync(x=>x.Kind=="financeEntries"));
+        await db.OperationalRecords.Where(x=>x.Kind==MonthlyControlRules.Kind && x.Name==month).ExecuteDeleteAsync();
+    }
+    [PostgresFact] public async Task Dashboard_balances_read_all_monthly_rows_and_latest_bank_date_independently()
+    {
+        await using var db = Database(); await db.Database.MigrateAsync();
+        await using var tx = await db.Database.BeginTransactionAsync();
+        var hash = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+        var row = new FinancialObservation("financial-observation-v1", "BRL", "Teste!A1", "consolidado", "despesas", "Teste", "Informado", new(2090,8,1), new(2090,8,31), "month", -100, "");
+        var batch = await Stage(db, hash, row);
+        var rows = Enumerable.Range(1,55).Select(i => row with { SourceCell = "Teste!A" + i }).ToList();
+        rows.Add(row with { SourceCell="Teste!B1", Metric="receitas-arena", AmountCents=6000 });
+        rows.Add(row with { SourceCell="Teste!B2", Metric="vendas-bar-bruto", AmountCents=2000 });
+        rows.Add(row with { SourceCell="Teste!C1", Series="saldos", Metric="Saldo Pagbank", Grain="snapshot", PeriodStart=new(2090,7,31), PeriodEnd=new(2090,7,31), AmountCents=13500 });
+        rows.Add(row with { SourceCell="Teste!C2", Series="saldos", Metric="Saldo C6", Grain="snapshot", PeriodStart=new(2090,8,31), PeriodEnd=new(2090,8,31), AmountCents=900 });
+        foreach (var item in rows) {
+            var json=JsonSerializer.Serialize(item);
+            await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO financial_observations(id,batch_id,source_sha256,source_cell,series,metric,state,period_start,period_end,amount_cents,payload,created_at_utc) VALUES({Guid.NewGuid()},{batch},{hash},{item.SourceCell},{item.Series},{item.Metric},{item.State},{item.PeriodStart},{item.PeriodEnd},{item.AmountCents},{json}::jsonb,{DateTimeOffset.UtcNow})");
+        }
+        var service = new FinancialHistoryService(db, new NullAuditContext(), new DashboardClock(), new ConfigurationBuilder().Build());
+        var result = await service.DashboardBalances(default);
+        Assert.Equal(57,result.General.Records); Assert.Equal(5500,result.General.ExpenseCents); Assert.Equal(2500,result.General.AmountCents);
+        Assert.Null(result.General.ExpensesByType);
+        Assert.Equal(13500,result.PagBank.AmountCents); Assert.Equal(new DateOnly(2090,7,31),result.PagBank.Date);
+        var review = new MonthlyControlDocument("2090-08", 1,
+            [new(Guid.NewGuid().ToString(),"Receita teste","Receita","Operação","Arena",20000,"Informado","Fonte teste","2090-08"),
+             new(Guid.NewGuid().ToString(),"Custo teste","Despesa","Fixa","Arena",22000,"Estimado","Referência teste","2090-07")],"Revisão",DateTimeOffset.UtcNow);
+        db.OperationalRecords.Add(new LongBeach.Domain.Operations.OperationalRecord(Guid.NewGuid(),MonthlyControlRules.Kind,"2090-08",JsonSerializer.Serialize(review,new JsonSerializerOptions(JsonSerializerDefaults.Web))));
+        await db.SaveChangesAsync();
+        var reviewed = await service.DashboardBalances(default);
+        Assert.Equal(-2000,reviewed.General.AmountCents); Assert.Equal(22000,reviewed.General.EstimatedExpenseCents);
+        Assert.Equal(13500,reviewed.PagBank.AmountCents); Assert.Equal("revisado",reviewed.General.Basis);
+        Assert.Equal(new MonthlyExpenseBreakdown(22000, 0, 0, 0, 0), reviewed.General.ExpensesByType);
+        await tx.RollbackAsync();
+    }
+    private sealed class DashboardClock : TimeProvider { public override DateTimeOffset GetUtcNow() => new(2090,9,1,12,0,0,TimeSpan.Zero); }
     [PostgresFact] public async Task Arena_summary_reads_all_rows_not_just_first_history_page_and_filters_month()
     {
         await using var db = Database(); await db.Database.MigrateAsync();

@@ -36,7 +36,7 @@ def main():
         raise ValueError('Atualização automática de chave limitada ao sandbox.')
     opener = urllib.request.build_opener(NoRedirect())
     results = {'ambiente': 'Sandbox' if 'sandbox.' in url else 'Production', 'pagamentos_ativados': config.get('Payments__PagBank__Enabled', 'false').lower() == 'true'}
-    for name, path in [('autenticacao', 'public-keys/card'), ('chave_webhook', 'public-keys/webhook')]:
+    for name, path in [('autenticacao', 'public-keys/card'), ('chave_webhook', 'public-keys?type=webhook')]:
         request = urllib.request.Request(url + path, headers={'Authorization': 'Bearer ' + token,
             'Accept': 'application/json', 'User-Agent': 'LongBeachOS-IntegrationCheck/1.0'})
         try:

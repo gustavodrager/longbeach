@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 2,
+  "observedOn": "2026-10-11",
+  "timezone": "America/Sao_Paulo",
+  "repository": "gustavodrager/longbeach",
+  "projectId": "b88a93d7-6964-4ac5-9590-7cef49598cf0",
+  "environmentId": "e32774e4-b03e-4a1f-bae7-3e79263f76d9",
+  "services": {
+    "api": {
+      "id": "10712f6a-4c60-406a-96c5-5175aabacac9",
+      "deploymentId": "6328fa55-f3b4-4f0d-8b50-fd42642233a3",
+      "rollbackDeploymentId": "a558c035-03d4-4240-a97f-5ce55e6ac8d1",
+      "commit": "4ff170e7dcc3feac06b74bc62f49e2ea3634aa0c",
+      "branch": "codex/google-binding-20261012",
+      "ciRun": "38191681036",
+      "rollbackCommit": "0559abd62d698359573996f609b6751bcfa24f5e",
+      "imageDigest": "sha256:16ebeb95f5aa7e8f841c51aa7f1a9ce589374e68c1f6394bd4d888dff1c85f54",
+      "readyCheck": {
+        "path": "/health/ready",
+        "status": 200,
+        "observedAtUtc": "2026-10-12T01:44:45.098913+00:00"
+      },
+      "databaseMigrationResult": "migration-runner-success-no-schema-changes-in-release",
+      "rollbackConstraint": "API 0559abd preserves confirmed Google links. Preserve data; prefer forward correction for authentication concurrency protection."
+    },
+    "web": {
+      "id": "12a5aa01-1a87-4899-8a58-653457c0a4cf",
+      "deploymentId": "d2860754-51cf-4cf4-a52a-d7de93a0ceaa",
+      "rollbackDeploymentId": "580842cf-88ea-4608-9262-cb133086031c",
+      "commit": "0559abd62d698359573996f609b6751bcfa24f5e",
+      "branch": "codex/bar-comandas-20261011",
+      "ciRun": "38165229855",
+      "rollbackCommit": "316ffe23eedcb7bdda91fc3e99362c444f093d6b",
+      "imageDigest": "sha256:00fe1eec60d12753ee4b34e6d4f96f12723b75f357681170a655bf8cf3fb42ea",
+      "readyCheck": {
+        "path": "/healthz",
+        "status": 200,
+        "observedAtUtc": "2026-10-12T01:44:45.098913+00:00"
+      }
+    }
+  },
+  "postgresImage": "ghcr.io/railwayapp-templates/postgres-ssl:18",
+  "paymentActivation": "disabled-by-default-flags-absent",
+  "pagbankApproval": "not-evidenced",
+  "edi": {
+    "enabledAccordingToReleaseRecord": true,
+    "credentialVariablesPresent": true,
+    "startDateVariablePresent": false,
+    "automaticCollectionReady": false,
+    "credentialValidation": "failed-local-precheck-at-startup",
+    "startupWarning": "PagBank EDI requires merchant credentials."
+  },
+  "productionRestoreEvidence": "not-verified",
+  "railwayTracingEnabled": false,
+  "verificationLimits": [
+    "Production data audit awaits verified SSH host identity.",
+    "Production backup restoration not verified.",
+    "Google binding fix deployed; real accounts require their next Google sign-in and a responsible-search check. No identity or financial test writes in production."
+  ],
+  "observationScope": "Google binding API fix published 2026-10-11 America/Sao_Paulo (2026-10-12 UTC). Deployment identity, health/auth/CORS and configuration preservation verified. Web unchanged. Integration/backup limitations carried forward; no payment activation changes.",
+  "ci": {
+    "unitTests": 195,
+    "integrationTests": 260,
+    "postgresVersions": [
+      17,
+      18
+    ],
+    "frontendTests": 279,
+    "converterTests": 11,
+    "applicationTestsDistinct": 734,
+    "result": "success"
+  },
+  "authenticatedUiVerification": {
+    "result": "passed-read-only",
+    "pwaUpdate": "applied-session-preserved",
+    "responsiveWidth": 390,
+    "horizontalOverflow": false,
+    "productionTestWrites": false,
+    "releaseScope": "Historical bar verification; no new authenticated UI sign-in in Google binding API release."
+  }
+}
