@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using LongBeach.Application.Auth;
 using LongBeach.Contracts.Auth;
+using LongBeach.Contracts.Bar;
 using LongBeach.Contracts.Portal;
 using LongBeach.Domain.Identity;
 using LongBeach.Domain.Operations;
@@ -101,6 +102,111 @@ public sealed class GoogleClientRegistrationTests
     }
 
     [PostgresFact]
+    public async Task Authorized_existing_staff_binding_is_audited_and_makes_them_available_as_bar_responsible()
+    {
+        foreach (var roleName in new[] { SystemRoles.Owner, SystemRoles.Administrator })
+        {
+            var email = $"{Guid.NewGuid()}@example.invalid";
+            var subject = Guid.NewGuid().ToString();
+            await using var factory = Factory(allowed: email);
+            using var client = factory.CreateClient(); await Prepare(factory);
+            await using var scope = factory.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+            var role = await db.Roles.SingleOrDefaultAsync(r => r.Name == roleName) ?? new Role(roleName);
+            var user = User.Create("Responsável fictício", email, "existing-hash"); user.AssignRole(role);
+            db.Users.Add(user); await db.SaveChangesAsync();
+            using var bar = factory.CreateClient();
+            bar.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header(SystemRoles.Owner);
+            var search = "/api/v1/bar/tabs/customers?search=" + Uri.EscapeDataString(email);
+            Assert.Empty((await bar.GetFromJsonAsync<TabCustomer[]>(search))!);
+
+            var response = await SignIn(client, Credential(subject, email));
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var session = (await response.Content.ReadFromJsonAsync<AuthResponse>())!;
+            Assert.Equal(user.Id, session.User.Id);
+            Assert.True(session.User.GoogleLinked);
+            Assert.Equal([roleName], session.User.Roles);
+            Assert.Equal(SystemPermissions.All.Order(), session.User.Permissions.Order());
+            client.DefaultRequestHeaders.Authorization = new("Bearer", session.AccessToken);
+            Assert.True((await client.GetFromJsonAsync<UserSummary>("/api/v1/auth/me"))!.GoogleLinked);
+            var responsible = Assert.Single((await bar.GetFromJsonAsync<TabCustomer[]>(search))!);
+            Assert.Equal(user.Id, responsible.Id);
+            Assert.DoesNotContain(email, responsible.EmailHint);
+            await db.Entry(user).ReloadAsync();
+            Assert.Equal(subject, user.GoogleSubject);
+            Assert.Equal("existing-hash", user.PasswordHash);
+            Assert.True(user.IsActive);
+            Assert.False(user.RequiresFirstAccess);
+
+            Assert.Equal(HttpStatusCode.OK, (await SignIn(client, Credential(subject, email))).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await SignIn(client, Credential("different-" + subject, email))).StatusCode);
+            Assert.Equal(1, await db.Users.CountAsync(u => u.NormalizedEmail == User.NormalizeEmail(email)));
+            var audit = Assert.Single(await db.AuditLogs.Where(a => a.Resource == "User" &&
+                a.ResourceId == user.Id.ToString() && a.Action == "Modified").ToListAsync());
+            Assert.Contains("GoogleSubject", audit.MetadataJson);
+            Assert.DoesNotContain(session.AccessToken, audit.MetadataJson);
+            Assert.False(await db.Set<LongBeach.Domain.Billing.BillingAccount>().AnyAsync(a => a.UserId == user.Id));
+            // After the initial binding, the subject is sufficient even without an email allowlist.
+            await using var returningFactory = Factory(false);
+            using var returningClient = returningFactory.CreateClient();
+            Assert.Equal(HttpStatusCode.OK, (await SignIn(returningClient, Credential(subject, email))).StatusCode);
+        }
+    }
+
+    [PostgresFact]
+    public async Task Allowlisted_email_does_not_bypass_token_validation_or_account_state()
+    {
+        var email = $"{Guid.NewGuid()}@example.invalid";
+        await using var factory = Factory(allowed: email);
+        using var client = factory.CreateClient(); await Prepare(factory);
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+        var user = User.Create("Restricted", email, "existing-hash");
+        db.Users.Add(user); await db.SaveChangesAsync();
+        var subject = Guid.NewGuid().ToString();
+        foreach (var credential in new[] { Credential(subject, email, verified: "false"),
+            Credential(subject, email, audience: "wrong"), Credential(subject, email, expired: true), Credential("", email) })
+            Assert.Contains((await SignIn(client, credential)).StatusCode, new[] { HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden });
+        user.Deactivate(); await db.SaveChangesAsync();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await SignIn(client, Credential(subject, email))).StatusCode);
+        await db.Entry(user).ReloadAsync();
+        Assert.Null(user.GoogleSubject); Assert.False(user.IsActive);
+        Assert.False(await db.RefreshTokens.AnyAsync(t => t.UserId == user.Id));
+
+        var pending = User.CreateForFirstAccess("Pending", "test-" + Guid.NewGuid().ToString("N"), "test-hash", DateTimeOffset.UtcNow.AddDays(1));
+        db.Users.Add(pending); await db.SaveChangesAsync();
+        await using var pendingFactory = Factory(allowed: pending.Email);
+        using var pendingClient = pendingFactory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await SignIn(pendingClient, Credential(subject, pending.Email))).StatusCode);
+        await db.Entry(pending).ReloadAsync();
+        Assert.Null(pending.GoogleSubject); Assert.True(pending.RequiresFirstAccess);
+    }
+
+    [PostgresFact]
+    public async Task Concurrent_binding_cannot_overwrite_subject_or_persist_a_losing_session()
+    {
+        await using var factory = Factory(); await Prepare(factory);
+        await using var firstScope = factory.Services.CreateAsyncScope();
+        await using var secondScope = factory.Services.CreateAsyncScope();
+        var first = firstScope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+        var second = secondScope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+        var user = User.Create("Concurrent", $"{Guid.NewGuid()}@example.invalid", "test-hash");
+        first.Users.Add(user); await first.SaveChangesAsync();
+        var stale = await second.Users.SingleAsync(u => u.Id == user.Id);
+        var winner = Guid.NewGuid().ToString();
+        user.LinkGoogle(winner, user.Email); await first.SaveChangesAsync();
+        stale.LinkGoogle(Guid.NewGuid().ToString(), stale.Email);
+        var tokenId = Guid.NewGuid();
+        second.Add(RefreshToken.Create(tokenId, stale.Id, tokenId, "test-hash", "test-csrf", DateTimeOffset.UtcNow.AddHours(8), null));
+        await Assert.ThrowsAsync<ConcurrencyConflictException>(() => new UserRepository(second).SaveChangesAsync());
+        await first.Entry(user).ReloadAsync();
+        Assert.Equal(winner, user.GoogleSubject);
+        Assert.False(await first.RefreshTokens.AnyAsync(t => t.Id == tokenId));
+        Assert.Single(await first.AuditLogs.Where(a => a.Resource == "User" && a.ResourceId == user.Id.ToString() && a.Action == "Modified").ToListAsync());
+        Assert.False(first.Database.HasPendingModelChanges());
+    }
+
+    [PostgresFact]
     public async Task Concurrent_first_sign_ins_create_one_identity()
     {
         await using var factory = Factory(); using var client = factory.CreateClient(); await Prepare(factory);
@@ -161,6 +267,8 @@ public sealed class GoogleClientRegistrationTests
         var response = await SignIn(client, Credential(Guid.NewGuid().ToString(), staffEmail));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains(SystemRoles.Manager, (await response.Content.ReadFromJsonAsync<AuthResponse>())!.User.Roles);
+        await db.Entry(staff).ReloadAsync();
+        Assert.NotNull(staff.GoogleSubject);
         Assert.False(await db.Users.AnyAsync(u => u.GoogleSubject == subject));
         // Registration can be rolled back without an email allowlist or locking out clients.
         await using var closedFactory = Factory(false);

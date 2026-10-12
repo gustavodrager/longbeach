@@ -1560,6 +1560,7 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(320)");
 
                     b.Property<string>("GoogleSubject")
+                        .IsConcurrencyToken()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 

@@ -15,7 +15,7 @@ public interface IAuthService
         string? ipAddress,
         CancellationToken cancellationToken = default,
         string? subject = null,
-        bool allowEmailMatch = true);
+        bool allowEmailMatch = false);
 
     Task<AuthSession> CompleteFirstAccessWithGoogleAsync(
         Guid userId, string subject, string email, string? ipAddress,
