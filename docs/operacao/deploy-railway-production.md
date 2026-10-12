@@ -1,5 +1,23 @@
 # Deploy de Production no Railway
 
+## Atendimento do bar — 2026-10-11
+
+Publicação autorizada pelo proprietário na conversa operacional. PR [#26](https://github.com/gustavodrager/longbeach/pull/26) integrado em `codex/saldos-pagina-inicial` (merge `a9a12334885581edc70dcf442330591f61630b5a`). API e web fixadas no commit validado `0559abd62d698359573996f609b6751bcfa24f5e`, branch `codex/bar-comandas-20261011`.
+
+Inclui abertura de comanda com responsável confirmado, vínculo com a área pessoal, consulta protegida de clientes, filtros e histórico de encerradas, avisos de pendências/antiguidade e identificação do destino durante a venda. Rascunhos permanecem separados por atendimento; falha de consulta e comanda encerrada bloqueiam novos lançamentos. Nenhuma migration ou ativação financeira nova.
+
+- CI [38165229855](https://github.com/gustavodrager/longbeach/actions/runs/38165229855) aprovada: 191 testes unitários, 257 de integração em PostgreSQL 17 e 18, 279 frontend e 11 conversores. São 727 testes distintos da aplicação, além dos conversores, builds, auditoria somente leitura e restauração sintética.
+- API: `a558c035-03d4-4240-a97f-5ce55e6ac8d1`, SUCCESS em 11/10 às 19:19 UTC, digest `sha256:e9632dd2a0056cbe75d713bf2f122b3713f11e19875b2647ccf060cd04d8341f`. Runner de migrations concluído com sucesso, sem mudanças de schema nesta release.
+- Web: `d2860754-51cf-4cf4-a52a-d7de93a0ceaa`, SUCCESS em 12/10 às 01:03 UTC (11/10 no Brasil), digest `sha256:00fe1eec60d12753ee4b34e6d4f96f12723b75f357681170a655bf8cf3fb42ea`.
+- API publicada e verificada antes da web. Os patches revisados mudaram somente branch/commit do serviço correspondente. Snapshots importados e planos sem divergência antes e depois de cada fase. Configurações restantes e nomes de variáveis comparados e preservados. Todos os seis serviços online, sem falhas recentes ou pendências; serviços auxiliares mantiveram seus deployments.
+- Às 01:03:51 UTC de 12/10, health da API, health da web e página inicial responderam 200. Listagem de comandas e busca de clientes responderam 401 sem sessão. CORS autorizou apenas a origem oficial entre as origens testadas, com credenciais, e rejeitou localhost.
+- No Chrome, sessão antiga expirou antes da promoção; nova entrada Google funcionou. Após a publicação, o botão Atualizar agora da PWA aplicou a versão mantendo a sessão. Conferidos venda avulsa, filtros de comandas, avisos, estado vazio de encerradas e formulário de abertura. Em 390 px, sem rolagem lateral. Nenhum erro de console na conferência final. Evidências visuais privadas ficam fora do Git.
+- Pendência observada: a busca de responsável pelo nome e e-mail exato da conta administrativa usada na conferência retornou vazia. O contrato exige `GoogleSubject` persistido; o login antigo permitido por e-mail não grava esse vínculo. A causa no registro de produção não foi auditada diretamente. Novos clientes Google e vínculo positivo foram testados na homologação local e nos testes automatizados. Não houve associação por inferência nem alteração de credencial em produção.
+
+Não foram criadas comandas, consumos, pagamentos ou vínculos de teste em produção. Os dados sintéticos permanecem locais. PagBank e suas pendências de homologação seguem sem alteração. Permanecem avisos de runtime sobre persistência das chaves de Data Protection e consultas de múltiplas coleções; não foram alterados neste deploy.
+
+Rollback compatível: web `580842cf-88ea-4608-9262-cb133086031c` e API `0e52c12c-c982-42e2-8dbc-691250a29e63`, ambas no commit `316ffe23eedcb7bdda91fc3e99362c444f093d6b`. Preferir reversão apenas da web, mantendo a API e os vínculos já gravados. Preservar banco, identidades e configuração Google; nunca restaurar a base local sobre produção. Sincronizar o snapshot e exigir plano sem divergências após retorno.
+
 ## Agenda semanal e experiências por perfil — 2026-10-10
 
 Publicação autorizada pelo proprietário na conversa operacional. PR [#25](https://github.com/gustavodrager/longbeach/pull/25) integrado em `codex/saldos-pagina-inicial` (merge `29a60d5f7163b78fc5bd41c31045cfee85e7f38e`). API e web fixadas no artefato `316ffe23eedcb7bdda91fc3e99362c444f093d6b`, branch `codex/perfis-acesso`. Inclui Agenda semanal, intervalos calculados no servidor, painéis de atividades, experiências de cliente/professor/bar/gestão, cadastro Google, solicitações e consolidação de páginas. Sem novas migrations.

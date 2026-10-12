@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "observedOn": "2026-10-09",
+  "observedOn": "2026-10-11",
   "timezone": "America/Sao_Paulo",
   "repository": "gustavodrager/longbeach",
   "projectId": "b88a93d7-6964-4ac5-9590-7cef49598cf0",
@@ -8,34 +8,34 @@
   "services": {
     "api": {
       "id": "10712f6a-4c60-406a-96c5-5175aabacac9",
-      "deploymentId": "086d5ae7-173d-4029-b052-e218c7770f36",
-      "rollbackDeploymentId": "a26c4f35-eebd-4e98-bf8f-e1b201034e83",
-      "commit": "78f9c81b7b07735289d711ce81fdf8a0c1b6279c",
-      "branch": "codex/unidades-negocio-20261008",
-      "ciRun": "37856181278",
-      "rollbackCommit": "47c233f149b97f7bfaaa8aa5ca24911dd39d3794",
-      "imageDigest": "sha256:b32336dfc255a6d29e2e1794ff2ab9cfa528512b71bf512b2887e92c6c8b4f2c",
+      "deploymentId": "a558c035-03d4-4240-a97f-5ce55e6ac8d1",
+      "rollbackDeploymentId": "0e52c12c-c982-42e2-8dbc-691250a29e63",
+      "commit": "0559abd62d698359573996f609b6751bcfa24f5e",
+      "branch": "codex/bar-comandas-20261011",
+      "ciRun": "38165229855",
+      "rollbackCommit": "316ffe23eedcb7bdda91fc3e99362c444f093d6b",
+      "imageDigest": "sha256:e9632dd2a0056cbe75d713bf2f122b3713f11e19875b2647ccf060cd04d8341f",
       "readyCheck": {
         "path": "/health/ready",
         "status": 200,
-        "observedAtUtc": "2026-10-08T23:13:58.334600496Z"
+        "observedAtUtc": "2026-10-12T01:03:51.768906Z"
       },
-      "databaseMigrationResult": "already-up-to-date",
-      "rollbackConstraint": "Keep compatible API 78f9c81 after unit classifications have been written; rollback to older API requires freezing writes and preserving new fields first."
+      "databaseMigrationResult": "migration-runner-success-no-schema-changes-in-release",
+      "rollbackConstraint": "Prefer reverting only the web while keeping API 0559abd and linked billing accounts. Preserve data and Google access; never restore local test data over production."
     },
     "web": {
       "id": "12a5aa01-1a87-4899-8a58-653457c0a4cf",
-      "deploymentId": "07a5e402-516a-44d4-8533-6411c721a579",
-      "rollbackDeploymentId": "9e93fce3-1a80-4b38-9488-cf1ccc8e495d",
-      "commit": "7f47d65cbc12289f2f004c10a94dfb1653d79134",
-      "branch": "codex/estoque-bar-unico-20261008",
-      "ciRun": "37858994813",
-      "rollbackCommit": "78f9c81b7b07735289d711ce81fdf8a0c1b6279c",
-      "imageDigest": "sha256:d65294da1601e0808b2772d0cd3b0d5740001dd9f6065d9df39b66476863b140",
+      "deploymentId": "d2860754-51cf-4cf4-a52a-d7de93a0ceaa",
+      "rollbackDeploymentId": "580842cf-88ea-4608-9262-cb133086031c",
+      "commit": "0559abd62d698359573996f609b6751bcfa24f5e",
+      "branch": "codex/bar-comandas-20261011",
+      "ciRun": "38165229855",
+      "rollbackCommit": "316ffe23eedcb7bdda91fc3e99362c444f093d6b",
+      "imageDigest": "sha256:00fe1eec60d12753ee4b34e6d4f96f12723b75f357681170a655bf8cf3fb42ea",
       "readyCheck": {
         "path": "/healthz",
-        "result": "Railway healthcheck succeeded",
-        "observedAtUtc": "2026-10-09T15:22:23.172291040Z"
+        "status": 200,
+        "observedAtUtc": "2026-10-12T01:03:51.768906Z"
       }
     }
   },
@@ -53,9 +53,28 @@
   "productionRestoreEvidence": "not-verified",
   "railwayTracingEnabled": false,
   "verificationLimits": [
-    "Authenticated production UI not verified; browser security check unavailable.",
     "Production data audit awaits verified SSH host identity.",
-    "Production backup restoration not verified."
+    "Production backup restoration not verified.",
+    "Administrative account did not appear in responsible search; persisted Google link requires separate verification. Positive customer linking tested locally, not written in production."
   ],
-  "observationScope": "Deployment identity and Railway health rechecked on 2026-10-09; integration and backup findings carried forward from 2026-10-08."
+  "observationScope": "Deployment identity, read-only health/auth/CORS checks and configuration preservation checked for bar release on 2026-10-11 America/Sao_Paulo (web completed 2026-10-12 UTC). Integration/backup limitations carried forward; no payment activation changes.",
+  "ci": {
+    "unitTests": 191,
+    "integrationTests": 257,
+    "postgresVersions": [
+      17,
+      18
+    ],
+    "frontendTests": 279,
+    "converterTests": 11,
+    "applicationTestsDistinct": 727,
+    "result": "success"
+  },
+  "authenticatedUiVerification": {
+    "result": "passed-read-only",
+    "pwaUpdate": "applied-session-preserved",
+    "responsiveWidth": 390,
+    "horizontalOverflow": false,
+    "productionTestWrites": false
+  }
 }

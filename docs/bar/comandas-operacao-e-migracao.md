@@ -1,5 +1,7 @@
 # Comandas, consumo, pagamentos e caixa
 
+Os três incrementos de 11/10/2026 abaixo foram publicados após homologação, no commit `0559abd62d698359573996f609b6751bcfa24f5e`. Os relatos locais preservam o estado de cada rodada. Evidências, limites e retorno estão em [publicação de produção](../operacao/deploy-railway-production.md#atendimento-do-bar--2026-10-11).
+
 Implementação adicional ao bar legado, conforme ADR-004. As tabelas de vendas e pagamentos históricos permanecem preservadas. O novo atendimento utiliza `/api/v1/bar/tabs`; autoatendimento utiliza `/api/v1/bar/client`, com credencial opaca no cabeçalho `X-LongBeach-Tab`. O QR da interface guarda essa credencial no fragmento do endereço, para evitar transmiti-la na URL HTTP. Não registrar esse cabeçalho em logs, proxies ou ferramentas de monitoramento.
 
 ## Fatos independentes
