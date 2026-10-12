@@ -1,5 +1,19 @@
 # Deploy de Production no Railway
 
+## Vínculo Google de contas autorizadas — 2026-10-11
+
+Publicação explicitamente autorizada pelo proprietário. PR [#27](https://github.com/gustavodrager/longbeach/pull/27) integrado em `codex/saldos-pagina-inicial` (merge `c0595c230da1b0509d6b68ff84c88a900c83d2c7`). Somente a API foi promovida, fixada no commit `4ff170e7dcc3feac06b74bc62f49e2ea3634aa0c`, branch `codex/google-binding-20261012`. Web permanece no commit `0559abd`, deployment `d2860754-51cf-4cf4-a52a-d7de93a0ceaa`.
+
+O próximo login Google válido de uma conta ativa autorizada por e-mail grava seu subject junto com a sessão e preserva papéis e histórico. Isso permite encontrá-la como responsável de comanda. Contas pendentes/inativas, tokens inválidos e vínculos conflitantes continuam rejeitados; uma gravação concorrente não sobrescreve o vínculo confirmado. A busca do bar mantém seus critérios.
+
+- CI [38191681036](https://github.com/gustavodrager/longbeach/actions/runs/38191681036) aprovada: 195 testes unitários, 260 de integração em PostgreSQL 17 e 18, 279 frontend e 11 conversores. São 734 testes distintos da aplicação, além dos conversores, builds, auditoria somente leitura e restauração sintética.
+- API: `6328fa55-f3b4-4f0d-8b50-fd42642233a3`, SUCCESS em 12/10 às 01:44:16 UTC (11/10 no Brasil), digest `sha256:16ebeb95f5aa7e8f841c51aa7f1a9ce589374e68c1f6394bd4d888dff1c85f54`. Runner confirmou banco atualizado e nenhuma migration aplicada.
+- Patch revisado: somente branch e commit da API. Configuração restante e nomes de variáveis preservados. Snapshot sincronizado e plano sem divergência. Todos os seis serviços online, sem falhas recentes ou trabalho pendente; demais deployments inalterados.
+- Às 01:44:45 UTC, health/live, health/ready, healthz da web e página inicial responderam 200. Comandas e busca de clientes responderam 401 sem sessão. CORS permitiu a origem oficial com credenciais e não permitiu localhost.
+- Nenhum login em nome dos titulares nem edição manual de vínculo nesta publicação. A conferência real restante exige sair e entrar novamente pelo Google e consultar a busca de responsáveis. Renovar a sessão antiga não grava o vínculo. Nenhuma comanda, consumo ou pagamento de teste criado em produção.
+
+PagBank permanece sem alteração. Avisos existentes de Data Protection e credenciais EDI continuam presentes. Rollback da API: deployment `a558c035-03d4-4240-a97f-5ce55e6ac8d1`, commit `0559abd62d698359573996f609b6751bcfa24f5e`. Preservar vínculos confirmados e dados; não restaurar banco local sobre produção. Preferir correção para frente para manter a proteção de concorrência. Reconciliar snapshot e plano após qualquer retorno.
+
 ## Atendimento do bar — 2026-10-11
 
 Publicação autorizada pelo proprietário na conversa operacional. PR [#26](https://github.com/gustavodrager/longbeach/pull/26) integrado em `codex/saldos-pagina-inicial` (merge `a9a12334885581edc70dcf442330591f61630b5a`). API e web fixadas no commit validado `0559abd62d698359573996f609b6751bcfa24f5e`, branch `codex/bar-comandas-20261011`.

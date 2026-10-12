@@ -8,7 +8,7 @@ export default defineRailway(() => {
   Postgres.networking = { privateNetworkEndpoint: "postgres" };
   const postgresVolume = volume("postgres-volume", { alerts: { usage: { "100": {}, "80": {}, "95": {} } }, allowOnlineResize: true, region: "europe-west4-drams3a", sizeMB: 5000 });
   const api = service("api", {
-    source: longbeach,
+    source: github("gustavodrager/longbeach", { branch: "codex/google-binding-20261012", commitSha: "4ff170e7dcc3feac06b74bc62f49e2ea3634aa0c" }),
     build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "deploy/api.Dockerfile" },
     healthcheck: "/health/ready",
     healthcheckTimeout: 300,

@@ -8,20 +8,20 @@
   "services": {
     "api": {
       "id": "10712f6a-4c60-406a-96c5-5175aabacac9",
-      "deploymentId": "a558c035-03d4-4240-a97f-5ce55e6ac8d1",
-      "rollbackDeploymentId": "0e52c12c-c982-42e2-8dbc-691250a29e63",
-      "commit": "0559abd62d698359573996f609b6751bcfa24f5e",
-      "branch": "codex/bar-comandas-20261011",
-      "ciRun": "38165229855",
-      "rollbackCommit": "316ffe23eedcb7bdda91fc3e99362c444f093d6b",
-      "imageDigest": "sha256:e9632dd2a0056cbe75d713bf2f122b3713f11e19875b2647ccf060cd04d8341f",
+      "deploymentId": "6328fa55-f3b4-4f0d-8b50-fd42642233a3",
+      "rollbackDeploymentId": "a558c035-03d4-4240-a97f-5ce55e6ac8d1",
+      "commit": "4ff170e7dcc3feac06b74bc62f49e2ea3634aa0c",
+      "branch": "codex/google-binding-20261012",
+      "ciRun": "38191681036",
+      "rollbackCommit": "0559abd62d698359573996f609b6751bcfa24f5e",
+      "imageDigest": "sha256:16ebeb95f5aa7e8f841c51aa7f1a9ce589374e68c1f6394bd4d888dff1c85f54",
       "readyCheck": {
         "path": "/health/ready",
         "status": 200,
-        "observedAtUtc": "2026-10-12T01:03:51.768906Z"
+        "observedAtUtc": "2026-10-12T01:44:45.098913+00:00"
       },
       "databaseMigrationResult": "migration-runner-success-no-schema-changes-in-release",
-      "rollbackConstraint": "Prefer reverting only the web while keeping API 0559abd and linked billing accounts. Preserve data and Google access; never restore local test data over production."
+      "rollbackConstraint": "API 0559abd preserves confirmed Google links. Preserve data; prefer forward correction for authentication concurrency protection."
     },
     "web": {
       "id": "12a5aa01-1a87-4899-8a58-653457c0a4cf",
@@ -35,7 +35,7 @@
       "readyCheck": {
         "path": "/healthz",
         "status": 200,
-        "observedAtUtc": "2026-10-12T01:03:51.768906Z"
+        "observedAtUtc": "2026-10-12T01:44:45.098913+00:00"
       }
     }
   },
@@ -55,19 +55,19 @@
   "verificationLimits": [
     "Production data audit awaits verified SSH host identity.",
     "Production backup restoration not verified.",
-    "Administrative account did not appear in responsible search; persisted Google link requires separate verification. Positive customer linking tested locally, not written in production."
+    "Google binding fix deployed; real accounts require their next Google sign-in and a responsible-search check. No identity or financial test writes in production."
   ],
-  "observationScope": "Deployment identity, read-only health/auth/CORS checks and configuration preservation checked for bar release on 2026-10-11 America/Sao_Paulo (web completed 2026-10-12 UTC). Integration/backup limitations carried forward; no payment activation changes.",
+  "observationScope": "Google binding API fix published 2026-10-11 America/Sao_Paulo (2026-10-12 UTC). Deployment identity, health/auth/CORS and configuration preservation verified. Web unchanged. Integration/backup limitations carried forward; no payment activation changes.",
   "ci": {
-    "unitTests": 191,
-    "integrationTests": 257,
+    "unitTests": 195,
+    "integrationTests": 260,
     "postgresVersions": [
       17,
       18
     ],
     "frontendTests": 279,
     "converterTests": 11,
-    "applicationTestsDistinct": 727,
+    "applicationTestsDistinct": 734,
     "result": "success"
   },
   "authenticatedUiVerification": {
@@ -75,6 +75,7 @@
     "pwaUpdate": "applied-session-preserved",
     "responsiveWidth": 390,
     "horizontalOverflow": false,
-    "productionTestWrites": false
+    "productionTestWrites": false,
+    "releaseScope": "Historical bar verification; no new authenticated UI sign-in in Google binding API release."
   }
 }
