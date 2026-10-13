@@ -24,7 +24,7 @@ afterEach(()=>vi.unstubAllEnvs())
 
 it('não apresenta cadastros operacionais ausentes como zero confirmado',async()=>{
   start('/')
-  for(const label of ['Reservas de hoje','Tempo de quadra disponível hoje','Valores vencidos a receber','Materiais para repor','Projetos com prazo vencido','Manutenções urgentes abertas']) {
+  for(const label of ['Reservas de hoje','Tempo de quadra disponível hoje','Lançamentos vencidos · valor original','Materiais para repor','Projetos com prazo vencido','Manutenções urgentes abertas']) {
     const card=screen.getByRole('link',{name:new RegExp(label)})
     expect(within(card).getByText('Ainda não disponível')).toBeInTheDocument()
   }

@@ -1,5 +1,9 @@
 # Deploy de Production no Railway
 
+## Atualização de 13/10/2026 — versão equalizada
+
+API e web de produção foram promovidas no commit `d1d3dd810b07f47f0cf52de1ef47b5163425a82d`, igual ao validado em Staging. A visão financeira separa a posição interna atual das referências históricas; os ambientes mantêm suas credenciais e dados próprios. CI aprovada, cópia local conferida e configuração sem divergências. Ver [registro completo, evidências e retorno](publicacao-equalizacao-2026-10-13.md).
+
 ## Atendimento do bar — 2026-10-11
 
 Publicação autorizada pelo proprietário na conversa operacional. PR [#26](https://github.com/gustavodrager/longbeach/pull/26) integrado em `codex/saldos-pagina-inicial` (merge `a9a12334885581edc70dcf442330591f61630b5a`). API e web fixadas no commit validado `0559abd62d698359573996f609b6751bcfa24f5e`, branch `codex/bar-comandas-20261011`.

@@ -11,6 +11,7 @@ public static class FinancialHistoryEndpoints
         var group=endpoints.MapGroup("/api/v1/financial-history").WithTags("Financial history").RequireAuthorization("Management");
         group.MapGet("/",(string? month,string? series,string? metric,int? page,IFinancialHistory service,CancellationToken ct)=>service.Report(month,series,metric,page??1,ct));
         group.MapGet("/dashboard-balances",(IFinancialHistory service,CancellationToken ct)=>service.DashboardBalances(ct));
+        group.MapGet("/current-position",(IFinancialHistory service,CancellationToken ct)=>service.CurrentPosition(ct));
         group.MapGet("/monthly-controls",(string? month,IFinancialHistory service,CancellationToken ct)=>service.MonthlyControl(month,ct));
         group.MapPut("/monthly-controls/{month}",async (string month,MonthlyControlInput input,IFinancialHistory service,CancellationToken ct)=> {
             try { return Results.Ok(await service.SaveMonthlyControl(month,input,ct)); }
