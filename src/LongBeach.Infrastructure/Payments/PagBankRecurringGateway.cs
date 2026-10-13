@@ -81,9 +81,11 @@ public sealed class PagBankRecurringGateway(HttpClient http, IConfiguration conf
     public async Task Refund(string paymentId, Guid operation, decimal amount, decimal previous, CancellationToken ct)
     {
         var path = "payments/" + Id(paymentId, "PAYM"); var p = await Request(HttpMethod.Get, path, null, null, ct);
-        if (previous != 0 || p.GetProperty("invoice").GetProperty("amount").GetProperty("value").GetInt64() != checked((long)(amount * 100))) throw new BarRuleException("Assinaturas permitem somente estorno total nesta integração.");
+        var invoiceAmount = p.GetProperty("invoice").GetProperty("amount");
+        if (previous != 0 || invoiceAmount.GetProperty("value").GetInt64() != checked((long)(amount * 100)) || S(invoiceAmount, "currency") != "BRL") throw new BarRuleException("Assinaturas permitem somente estorno total nesta integração.");
         if (S(p, "status") == "REFUNDED") return;
-        await Request(HttpMethod.Post, path + "/refunds", new { }, operation, ct);
+        // Sandbox currently requires amount even for the documented full-refund case.
+        await Request(HttpMethod.Post, path + "/refunds", new { amount = new { value = checked((long)(amount * 100)), currency = "BRL" } }, operation, ct);
         if (S(await Request(HttpMethod.Get, path, null, null, ct), "status") != "REFUNDED") throw new BarRuleException("Estorno de assinatura ainda não confirmado.");
     }
 }

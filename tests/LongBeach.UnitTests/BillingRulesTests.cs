@@ -40,6 +40,31 @@ public sealed class BillingRulesTests
         config["Payments:PagBank:Enabled"] = "false"; Assert.Equal("DECLINED", (await gateway.Get("ORDE_TEST", default)).State); await Assert.ThrowsAsync<BarRuleException>(() => gateway.CreateCard(reference, op, 100, new("Teste", "test@example.invalid", "12345678909"), "encrypted-test", default));
     }
     [Fact]
+    public async Task Recurring_refund_sends_full_validated_amount_and_does_not_repeat_confirmed_refund()
+    {
+        var operation = Guid.NewGuid(); var refunded = false; var posts = 0; var currency = "BRL";
+        using var http = new HttpClient(new Handler(async request =>
+        {
+            if (request.Method == HttpMethod.Post)
+            {
+                Assert.Equal("/payments/PAYM_TEST/refunds", request.RequestUri!.AbsolutePath);
+                Assert.Equal(operation.ToString("N"), request.Headers.GetValues("x-idempotency-key").Single());
+                using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+                Assert.Equal(1000, body.RootElement.GetProperty("amount").GetProperty("value").GetInt64());
+                Assert.Equal("BRL", body.RootElement.GetProperty("amount").GetProperty("currency").GetString());
+                posts++; refunded = true;
+            }
+            return Json(new { status = refunded ? "REFUNDED" : "APPROVED", invoice = new { amount = new { value = 1000, currency } } });
+        }));
+        var gateway = new PagBankRecurringGateway(http, Config(new() { ["Payments:PagBankSubscriptions:Token"] = "test" }));
+        await Assert.ThrowsAsync<BarRuleException>(() => gateway.Refund("PAYM_TEST", operation, 4, 0, default));
+        currency = "USD"; await Assert.ThrowsAsync<BarRuleException>(() => gateway.Refund("PAYM_TEST", operation, 10, 0, default));
+        Assert.Equal(0, posts); currency = "BRL";
+        await gateway.Refund("PAYM_TEST", operation, 10, 0, default);
+        await gateway.Refund("PAYM_TEST", operation, 10, 0, default);
+        Assert.Equal(1, posts);
+    }
+    [Fact]
     public async Task Webhook_refreshes_public_key_once_and_rejects_changed_bytes()
     {
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256); var requests = 0;

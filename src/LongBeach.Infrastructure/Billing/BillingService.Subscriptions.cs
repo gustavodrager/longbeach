@@ -141,14 +141,21 @@ public sealed partial class BillingService
     {
         // This product has a different webhook contract. The notification is only
         // a refresh hint: never use its amount/status/URLs as financial authority.
-        using var json=JsonDocument.Parse(body);if(!json.RootElement.TryGetProperty("resource",out var resource)||!resource.TryGetProperty("id",out var id))return false;
-        var providerId=id.GetString();var s=await db.Set<BillingSubscription>().SingleOrDefaultAsync(x=>x.ProviderId==providerId,ct);
-        if(s is null&&resource.TryGetProperty("reference_id",out var reference)&&Guid.TryParse(reference.GetString(),out var local))
+        using var json=JsonDocument.Parse(body);
+        if(json.RootElement.ValueKind!=JsonValueKind.Object||!json.RootElement.TryGetProperty("resource",out var resource)||resource.ValueKind!=JsonValueKind.Object||!resource.TryGetProperty("id",out var id)||id.ValueKind!=JsonValueKind.String)return false;
+        var providerId=id.GetString();
+        // Plan/customer/refund events share this endpoint; they are not subscription IDs.
+        if(providerId is null||!System.Text.RegularExpressions.Regex.IsMatch(providerId,"^SUBS_[A-Za-z0-9-]{1,80}$"))return false;
+        var s=await db.Set<BillingSubscription>().SingleOrDefaultAsync(x=>x.ProviderId==providerId,ct);
+        if(s is null&&resource.TryGetProperty("reference_id",out var reference)&&reference.ValueKind==JsonValueKind.String&&Guid.TryParse(reference.GetString(),out var local))
         {
             s=await db.Set<BillingSubscription>().SingleOrDefaultAsync(x=>x.Id==local,ct);if(s is null)return false;
             var remote=await recurring.Get(providerId!,ct);Validate(s,remote);
             await using var tx=await db.Database.BeginTransactionAsync(ct);await ArenaLock(ct);await db.Entry(s).ReloadAsync(ct);s.Bind(remote.Id);await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);
         }
-        if(s is null)return false;await SyncSubscription(s.Id,ct);return true;
+        // The durable provider binding is picked up by BillingWorker every minute,
+        // including after restarts. Fetching every invoice here exceeds the provider's
+        // callback timeout. Only authenticated reconciliation can change balances/state.
+        return s is not null;
     }
 }

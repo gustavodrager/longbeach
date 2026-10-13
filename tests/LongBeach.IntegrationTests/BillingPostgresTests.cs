@@ -78,6 +78,43 @@ public sealed class BillingPostgresTests
         await Assert.ThrowsAsync<BarRuleException>(() => service.Pay(manual.Account, Input(), manual.User, true, default));
     }
     [PostgresFact]
+    public async Task Subscription_hints_bind_only_validated_ids_and_defer_invoice_reconciliation_to_worker()
+    {
+        Guid subscriptionId, accountId, userId;
+        var gateway = new Gateway(); var recurring = new Recurring();
+        await using (var db = Database())
+        {
+            var seed = await Seed(db, gateway, recurring); accountId = seed.Account; userId = seed.User;
+            var service = Service(db, gateway, recurring); var account = await service.Account(accountId, userId, default);
+            var entry = JsonNode.Parse((await db.OperationalRecords.SingleAsync(x => x.Id == seed.Entry)).Payload)!;
+            var subscription = new BillingSubscription(accountId, Guid.NewGuid(), userId, "enrollments", Guid.Parse(entry["sourceId"]!.GetValue<string>()), 100, account.DueDate!.Value, DateTimeOffset.UtcNow);
+            db.Add(subscription); await db.SaveChangesAsync(); subscriptionId = subscription.Id;
+            var input = new SubscribeInput(subscription.OperationId, "Aluno teste", "test@example.invalid", "12345678909", "11999999999", "encrypted", true, 100, subscription.FirstDue, "123");
+            await recurring.Create(subscriptionId, input.OperationId, "PLAN_test", input, default);
+            byte[] Hint(string id) => JsonSerializer.SerializeToUtf8Bytes(new { resource = new { id, reference_id = subscriptionId, status = "CANCELED", amount = new { value = 999 } } });
+            Assert.False(await service.SubscriptionWebhook(Hint("CUST_test"), default));
+            Assert.False(await service.SubscriptionWebhook(JsonSerializer.SerializeToUtf8Bytes(new { resource = new { id = 3 } }), default));
+            recurring.WrongAmount = true;
+            await Assert.ThrowsAsync<BarRuleException>(() => service.SubscriptionWebhook(Hint("SUBS_" + subscriptionId), default));
+            Assert.Null(subscription.ProviderId);
+            recurring.WrongAmount = false;
+            recurring.FailInvoices = true;
+            Assert.True(await service.SubscriptionWebhook(Hint("SUBS_" + subscriptionId), default));
+            var calls = recurring.GetCalls;
+            Assert.True(await service.SubscriptionWebhook(Hint("SUBS_" + subscriptionId), default));
+            Assert.Equal(calls, recurring.GetCalls);
+            Assert.Equal("Creating", subscription.State);
+            Assert.Equal(0, (await service.Account(accountId, userId, default)).Paid);
+        }
+        // A fresh scope after a restart recovers the persisted binding without the webhook body.
+        recurring.FailInvoices = false;
+        recurring.Rows = [new("INVO_" + subscriptionId, 1, "PAID", 10000, "BRL", "PAYM_" + subscriptionId, "APPROVED")];
+        await using var recovered = Database(); var worker = Service(recovered, gateway, recurring);
+        await worker.Recover(default);
+        Assert.Equal(100, (await worker.Account(accountId, userId, default)).Paid);
+        Assert.Equal("ACTIVE", (await worker.Subscriptions(userId, default)).Single().State);
+    }
+    [PostgresFact]
     public async Task Subscription_cycles_are_unique_and_cancellation_requires_no_inflight_payment()
     {
         await using var db = Database(); var gateway = new Gateway(); var recurring = new Recurring(); var seed = await Seed(db, gateway, recurring); var service = Service(db, gateway, recurring); var a = await service.Account(seed.Account, seed.User, default);
@@ -175,12 +212,13 @@ public sealed class BillingPostgresTests
     private sealed class Recurring : IRecurringGateway
     {
         public bool Enabled => true; private RecurringState state = new("SUBS_test", "", "ACTIVE", 10000, "BRL"); public RecurringInvoice[] Rows = [];
+        public bool WrongAmount, FailInvoices; public int GetCalls;
         public Task<string?> PublicKey(CancellationToken ct) => Task.FromResult<string?>("test");
         public Task<string> CreatePlan(Guid reference, decimal amount, int trial, CancellationToken ct) => Task.FromResult("PLAN_test");
         public Task<RecurringState> Create(Guid reference, Guid op, string plan, SubscribeInput input, CancellationToken ct) { state = state with { Id = "SUBS_" + reference, Reference = reference.ToString() }; return Task.FromResult(state); }
-        public Task<RecurringState> Get(string id, CancellationToken ct) => Task.FromResult(state);
+        public Task<RecurringState> Get(string id, CancellationToken ct) { GetCalls++; return Task.FromResult(WrongAmount ? state with { Amount = state.Amount + 1 } : state); }
         public Task<RecurringState> Cancel(string id, Guid operation, CancellationToken ct) { state = state with { State = "CANCELED" }; return Task.FromResult(state); }
-        public Task<IReadOnlyList<RecurringInvoice>> Invoices(string id, CancellationToken ct) => Task.FromResult<IReadOnlyList<RecurringInvoice>>(Rows);
+        public Task<IReadOnlyList<RecurringInvoice>> Invoices(string id, CancellationToken ct) => FailInvoices ? throw new HttpRequestException("Callback must not fetch invoices") : Task.FromResult<IReadOnlyList<RecurringInvoice>>(Rows);
         public Task Refund(string id, Guid op, decimal amount, decimal previous, CancellationToken ct) => Task.CompletedTask;
     }
 }
