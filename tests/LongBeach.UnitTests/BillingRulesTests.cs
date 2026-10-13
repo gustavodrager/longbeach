@@ -43,7 +43,7 @@ public sealed class BillingRulesTests
     public async Task Webhook_refreshes_public_key_once_and_rejects_changed_bytes()
     {
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256); var requests = 0;
-        using var http = new HttpClient(new Handler(request => { requests++; Assert.Equal("?type=webhook", request.RequestUri!.Query); return Task.FromResult(Json(new { public_key = Convert.ToBase64String(key.ExportSubjectPublicKeyInfo()) })); }));
+        using var http = new HttpClient(new Handler(request => { requests++; Assert.Equal("/public-keys/webhook", request.RequestUri!.AbsolutePath); return Task.FromResult(Json(new { public_key = Convert.ToBase64String(key.ExportSubjectPublicKeyInfo()) })); }));
         var g = new PagBankPaymentGateway(http, Config(new() { ["Payments:PagBank:Token"] = "test", ["Payments:PagBank:RefreshWebhookKeys"] = "true" }));
         var body = Encoding.UTF8.GetBytes("{\"id\":\"ORDE_TEST\"}"); var signature = Convert.ToBase64String(key.SignData(body, HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence));
         Assert.True(await g.VerifyWebhookAsync(body, ["invalid," + signature], default)); Assert.True(await g.VerifyWebhookAsync(body, [signature], default)); Assert.False(await g.VerifyWebhookAsync([1, 2], [signature], default)); Assert.Equal(1, requests);

@@ -26,3 +26,13 @@ Publicar por commit fixado, testar login, recarga de sessão, consultas protegid
 O PagBank exige avaliação dos requests/responses: https://developer.pagbank.com.br/docs/solicitar-homologacao. Não enviar automaticamente o formulário, credenciais ou mensagens ao suporte. Recorrência depende de credencial própria e ensaio separado. Integração administrativa PagVendas depende de contrato oficial ainda não confirmado.
 
 Após o aceite, revogar a conta de avaliação e retirar a exposição pública quando não for mais necessária. Preservar evidências sanitizadas. Não promover banco, credenciais ou conta de homologação a produção.
+
+## Publicação e verificação em 13/10/2026
+
+Artefato `c0953ca4f0a5f5b33a7809712395914d4ee76b6d`, branch `codex/homologacao-pagbank-20261013`, revisão [PR #30](https://github.com/gustavodrager/longbeach/pull/30). Deploys SUCCESS: API `46c7751f-a68b-42f3-8c91-0c396eec543b`, web `c852987c-765c-4126-b2c1-f76e3c6c8cf5`, banco `29dea8e8-fcd9-4323-93f0-2029eb9cbdf3`. Production conserva seus deploys anteriores; nenhuma pendência de configuração em staging ou production.
+
+Login por HTTPS e recarga de sessão confirmados no Chrome. Consultas autenticadas retornaram 200; catálogo sem sessão retornou 401. A consulta da chave de cartão Sandbox funcionou e webhook sem assinatura retornou 401. Criados dois produtos fictícios (Água — TESTE, R$ 5; Lanche — TESTE, R$ 10), contagem inicial auditada de 100 unidades de cada no local Bar e caixa fictício. Uma venda avulsa de Água gerou o Pix Sandbox `ORDE_E7828D91-0575-49A4-BAC9-D8F3D71C6CD6`, exibindo QR Code e estado Pending. Nenhum pagamento real.
+
+Importante: criação do QR Code não comprova liquidação. Houve também chamadas externas ao webhook com resposta 401; sem registro dos headers não é possível afirmar se faltou assinatura ou se ela era inválida. Preservar a rejeição e esclarecer o formato enviado pelo Sandbox antes de declarar notificações homologadas. Cartão, estorno, idempotência externa e recorrência exigem ensaios adicionais.
+
+Validação local final: 244 testes unitários e 8 testes da tela de login aprovados; builds API/web aprovados. A primeira execução CI aprovou os 264 testes de integração PostgreSQL 17, mas apontou uma expectativa antiga de URL em BillingRulesTests (`?type=webhook`). Atualizada para o endpoint tipado `/public-keys/webhook`, validado no provedor, preservando as verificações criptográficas e de cache. Consultar a execução mais recente para o resultado global; não interpretar apenas o deploy como aprovação de toda a suíte.
