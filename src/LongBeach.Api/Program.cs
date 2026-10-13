@@ -25,6 +25,9 @@ using Microsoft.IdentityModel.Tokens;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+PagBankHomologation.Validate(builder.Configuration, builder.Environment);
+var prepareHomologation = args.Contains("--prepare-pagbank-homologation", StringComparer.OrdinalIgnoreCase);
+if (prepareHomologation && args.Length != 1) throw new InvalidOperationException("Run homologation preparation as its own command after migrations.");
 var ediBackfill = args.Contains("--pagbank-edi-backfill", StringComparer.OrdinalIgnoreCase);
 if (ediBackfill && args.Length != 1) throw new InvalidOperationException("Run EDI backfill as its own command.");
 var startupCommand = StartupCommandParser.Parse(args);
@@ -63,6 +66,15 @@ ConfigureHealthChecks(builder.Services, builder.Configuration);
 ConfigureRateLimiting(builder.Services);
 
 var app = builder.Build();
+
+if (prepareHomologation)
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    await PagBankHomologation.Prepare(scope.ServiceProvider.GetRequiredService<LongBeachDbContext>(),
+        scope.ServiceProvider.GetRequiredService<IPasswordHasher>(), app.Configuration, app.Environment);
+    app.Logger.LogInformation("Isolated PagBank homologation account prepared; existing credentials preserved.");
+    return;
+}
 
 if (ediBackfill)
 {

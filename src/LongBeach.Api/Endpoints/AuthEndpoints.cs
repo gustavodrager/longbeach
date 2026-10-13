@@ -16,14 +16,15 @@ public static class AuthEndpoints
     {
         var group = endpoints.MapGroup("/api/v1/auth").WithTags("Authentication");
 
-        group.MapGet("/options", (HttpContext context, IConfiguration configuration) =>
+        group.MapGet("/options", (HttpContext context, IConfiguration configuration, IHostEnvironment environment) =>
         {
             SetNoStore(context.Response);
             var enabled = configuration.GetValue<bool>("Authentication:Google:Enabled");
             return Results.Ok(new
             {
                 GoogleClientId = enabled ? configuration["Authentication:Google:ClientId"] : null,
-                ClientRegistrationEnabled = enabled && configuration.GetValue<bool>("Authentication:Google:ClientRegistrationEnabled")
+                ClientRegistrationEnabled = enabled && configuration.GetValue<bool>("Authentication:Google:ClientRegistrationEnabled"),
+                HomologationLoginEnabled = LongBeach.Infrastructure.Bootstrap.PagBankHomologation.Enabled(configuration, environment)
             });
         }).AllowAnonymous();
         group.MapPost("/login", LoginAsync).AllowAnonymous().RequireRateLimiting("auth-login");

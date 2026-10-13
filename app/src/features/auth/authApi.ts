@@ -73,7 +73,7 @@ export async function changePassword(passwords: PasswordChange) {
   return response
 }
 
-export type SignInOptions = { googleClientId: string | null; clientRegistrationEnabled: boolean }
+export type SignInOptions = { googleClientId: string | null; clientRegistrationEnabled: boolean; homologationLoginEnabled?: boolean }
 export function getSignInOptions() {
   return apiFetch<SignInOptions>('/api/v1/auth/options', undefined, false)
 }
