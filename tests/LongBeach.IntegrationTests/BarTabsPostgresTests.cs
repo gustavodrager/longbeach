@@ -13,6 +13,23 @@ using Microsoft.Extensions.Configuration;
 namespace LongBeach.IntegrationTests;
 public sealed class BarTabsPostgresTests
 {
+    [PostgresFact]
+    public async Task Notes_survive_replay_and_distinct_preparations_do_not_merge()
+    {
+        await using var f = await Fixture.Create();
+        var input = new OpenTabInput(Guid.NewGuid(), f.Location.Id, "Mesa teste", Notes: " Perto da quadra ");
+        var tab = await f.Tabs.Open(input, f.Actor, default);
+        Assert.Equal("Perto da quadra", tab.Notes);
+        Assert.Equal(tab.Id, (await f.Tabs.Open(input, f.Actor, default)).Id);
+        var add = new AddTabItemsInput(Guid.NewGuid(), [new(f.Product.Id, 1, "Sem gelo"), new(f.Product.Id, 1, "Com gelo")]);
+        var result = await f.Tabs.Add(tab.Id, add, f.Actor, null, default);
+        Assert.Equal(2, result.Items.Count);
+        Assert.Equal(new[] { "Com gelo", "Sem gelo" }, result.Items.Select(x => x.Notes).Order().ToArray());
+        Assert.Equal(2, (await f.Tabs.Add(tab.Id, add, f.Actor, null, default)).Items.Count);
+        await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Add(tab.Id, add with { Items = [new(f.Product.Id, 1, "Alterado")] }, f.Actor, null, default));
+        var access = await f.Tabs.IssueAccess(tab.Id, new(Guid.NewGuid()), f.Actor, default);
+        Assert.Equal("Perto da quadra", (await f.Tabs.Client(access.Token, default)).Notes);
+    }
     private const string ConnectionVariable="LONG_BEACH_TEST_DATABASE_URL";
     [PostgresFact]
     public async Task Tab_list_filters_before_paging_and_orders_pending_age_and_closing_time()

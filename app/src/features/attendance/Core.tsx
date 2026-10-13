@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode, type SetStateAction } from 'react'
 import { ApiError } from '../../lib/http'
 import type { CartLine } from './api'
+import '../prototype/prototype.css'
+import './attendance.css'
 export function BarFrame({ children }: { children: ReactNode }) { return <div className="ux-root ux-attendant lb-attendance"><div className="ux-page">{children}</div></div> }
 export function LoadState({ query }: { query: { isLoading: boolean; isError: boolean; error: Error | null; refetch: () => unknown } }) {
   return query.isLoading ? <p role="status">Carregando…</p> : query.isError ? <div className="ux-notice error" role="alert"><div><p>{query.error instanceof ApiError ? query.error.message : 'Não foi possível consultar os dados. Confira a conexão.'}</p><button className="ux-button secondary" onClick={() => void query.refetch()}>Tentar novamente</button></div></div> : null
@@ -9,7 +11,7 @@ export function LoadState({ query }: { query: { isLoading: boolean; isError: boo
 function readCart(key: string): CartLine[] {
   try {
     const saved: unknown = JSON.parse(sessionStorage.getItem(key) ?? '[]')
-    return Array.isArray(saved) ? saved.filter((row): row is CartLine => Boolean(row && typeof row.productId === 'string' && Number.isFinite(row.quantity) && row.quantity > 0 && row.quantity <= 999)) : []
+    return Array.isArray(saved) ? saved.filter((row): row is CartLine => Boolean(row && typeof row.productId === 'string' && Number.isFinite(row.quantity) && row.quantity > 0 && row.quantity <= 999 && (row.notes === undefined || typeof row.notes === 'string' && row.notes.length <= 500))) : []
   } catch { return [] }
 }
 export function useCart(scope: string, owner = 'client') {

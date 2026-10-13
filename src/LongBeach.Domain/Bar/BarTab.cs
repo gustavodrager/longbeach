@@ -5,12 +5,20 @@ namespace LongBeach.Domain.Bar;
 public sealed class BarTab : Entity
 {
     private BarTab() { }
-    public BarTab(Guid locationId, Guid actorId, string? name, string mode) : base(Guid.NewGuid())
+    public BarTab(Guid locationId, Guid actorId, string? name, string mode, string? notes = null) : base(Guid.NewGuid())
     {
         if (locationId == Guid.Empty || actorId == Guid.Empty) throw new BarRuleException("Local e atendente obrigatórios.");
         if (mode is not ("Tab" or "Immediate")) throw new BarRuleException("Tipo de conta inválido.");
         if ((name?.Trim().Length ?? 0) > 80) throw new BarRuleException("Nome deve ter até 80 caracteres.");
+        Notes = NormalizeNotes(notes);
         LocationId = locationId; ActorId = actorId; Name = name?.Trim() ?? ""; Mode = mode;
+    }
+    public string? Notes { get; private set; }
+    public static string? NormalizeNotes(string? value)
+    {
+        var text = value?.Trim();
+        if (text?.Length > 500) throw new BarRuleException("Observações devem ter até 500 caracteres.");
+        return string.IsNullOrEmpty(text) ? null : text;
     }
     public decimal Discount { get; private set; }
     public void Adjust(decimal amount) { EnsureOpen(); if (amount <= 0) throw new BarRuleException("Ajuste precisa ser maior que zero."); Discount += BarRules.Money(amount); Version++; }
@@ -36,16 +44,18 @@ public sealed class BarTab : Entity
 public sealed class BarTabItem : Entity
 {
     private BarTabItem() { }
-    public BarTabItem(Guid tabId, BarProduct product, decimal quantity, Guid? actor, bool client) : base(Guid.NewGuid())
+    public BarTabItem(Guid tabId, BarProduct product, decimal quantity, Guid? actor, bool client, string? notes = null) : base(Guid.NewGuid())
     {
         if (!product.Active) throw new BarRuleException("Produto indisponível.");
         if (product.SalePrice <= 0) throw new BarRuleException("Produto sem preço de venda. Cadastre um preço para vender; cortesias exigem supervisão.");
+        Notes = BarTab.NormalizeNotes(notes);
         TabId = tabId; ProductId = product.Id; Name = product.ShortName; Quantity = BarRules.Quantity(quantity);
         UnitPrice = product.SalePrice; UnitCost = product.AverageCost;
         Total = BarRules.Money(decimal.Round(UnitPrice * Quantity, 2)); ControlsStock = product.ControlsStock;
         Prepared = product.Prepared; Source = client ? "Selfservice" : "Attendant"; ActorId = actor;
     }
     public Guid TabId { get; private set; }
+    public string? Notes { get; private set; }
     public Guid ProductId { get; private set; }
     public string Name { get; private set; } = "";
     public decimal Quantity { get; private set; }

@@ -49,3 +49,13 @@ Concluída em **13/10/2026 às 16:16:37 UTC**. Conferência direta, somente de l
 - CI da PR aprovado no PostgreSQL 17, PostgreSQL 18 e frontend/PWA.
 
 O coletor periódico segue habilitado para D-1. A conferência contou documentos e datas, sem expor tokens, identificadores pessoais ou valores monetários.
+
+## Visão geral: carteira EDI e conta digital — 13/10/2026
+
+O manual oficial EDI 3.01.00, páginas 25–26, 28 e 36, identifica evento 07 como saldo inicial e 08 como saldo final. A carteira de liquidação da adquirência é explicitamente distinta da conta corrente digital. Fonte: https://developer.pagbank.com.br/docs/edi (manual vinculado: https://drive.google.com/file/d/1Hs5YwxM2Jy3MD2U_QsBqOaCnWzFa_5jC/view).
+
+O painel preserva `pagBank` como último extrato bancário importado, identificado como histórico, e acrescenta `pagBankWallet` como saldo final da carteira de vendas em D+1. Não substitui a conta bancária pelo EDI, não soma inicial/final nem datas diferentes, e não altera o resultado mensal.
+
+A consulta usa a última data completa até ontem e a última coleta validada dessa data. Confere estabelecimento configurado, todas as páginas, contagem, data dos registros, evento 08 único e precisão em centavos. Ausência, duplicidade ou falha de contrato produz indisponibilidade explícita, nunca zero presumido nem fallback silencioso para uma coleta antiga. O link abre os documentos na data exata; hashes e horário da coleta são preservados na resposta.
+
+O painel de conexões distingue coleta EDI, arquivos PagVendas, Pix, cartão e assinaturas. Não expõe credenciais e não habilita cobranças. Produção segue sem credenciais de Pedidos/Recorrência; catálogo, vendas detalhadas e estoque PagVendas dependem de arquivos conferidos ou contrato oficial de integração. Não há sincronização de comandas externas nem baixa de estoque a partir de totais EDI.

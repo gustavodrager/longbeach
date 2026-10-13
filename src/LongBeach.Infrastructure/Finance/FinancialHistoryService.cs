@@ -145,7 +145,7 @@ public sealed partial class FinancialHistoryService(LongBeachDbContext db, IAudi
             if (result.General.Month is null || string.CompareOrdinal(control.Month, result.General.Month) >= 0)
                 result = result with { General = MonthlyControlRules.Balance(control) };
         }
-        return result;
+        return result with { PagBankWallet = await WalletBalance(today, ct) };
     }
 
     public async Task<ArenaHistorySummary> ArenaSummary(string? month, CancellationToken ct)
@@ -182,13 +182,15 @@ public sealed partial class FinancialHistoryService(LongBeachDbContext db, IAudi
         await using(var command=await Command("SELECT last_success_utc,complete_through,failure_code FROM provider_sync_state WHERE provider='pagbank-edi'",ct))
         await using(var reader=await command.ExecuteReaderAsync(ct)) if(await reader.ReadAsync(ct))
         {last=reader.IsDBNull(0)?null:reader.GetFieldValue<DateTimeOffset>(0);complete=reader.IsDBNull(1)?null:reader.GetFieldValue<DateOnly>(1);failure=reader.IsDBNull(2)?null:reader.GetString(2);}
-        var configured=enabled && !string.IsNullOrWhiteSpace(config["Integrations:PagBankEdi:User"]) && config["Integrations:PagBankEdi:User"]!.All(char.IsAsciiDigit)
-            && !string.IsNullOrWhiteSpace(config["Integrations:PagBankEdi:Token"])
-            && DateOnly.TryParseExact(config["Integrations:PagBankEdi:StartDate"],"yyyy-MM-dd",System.Globalization.CultureInfo.InvariantCulture,System.Globalization.DateTimeStyles.None,out var start) && start>=new DateOnly(2000,1,1);
         var yesterday=DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime.AddHours(-3)).AddDays(-1);
+        var requirements=PagBankEdiConfiguration.Problems(config,yesterday).ToList();
+        var configured=enabled && requirements.Count==0;
+        if(!enabled)requirements.Add("Habilite a coleta EDI após conferir credencial e data inicial.");
         result.Add(new("PagBank EDI",!configured?"Aguardando configuração":failure is not null?"Requer atenção":last is null?"Aguardando primeira leitura":time.GetUtcNow()-last.Value>TimeSpan.FromHours(26)?"Coleta atrasada":complete is null||complete<yesterday?"Atualizando histórico":"Automático",
-            "Vendas, liquidações e saldos em D+1. Documentos originais preservados; classificação financeira depende de conciliação.",last,failure,complete));
-        result.Add(new("PagVendas","Exportação disponível","Histórico por exportação. API administrativa sem autenticação de navegador ainda não confirmada.",null,null,null));
+            "Vendas, liquidações e saldos em D+1. Documentos originais preservados; classificação financeira depende de conciliação.",last,failure,complete,"Produção",requirements));
+        result.AddRange(Payments.PaymentIntegrationDiagnostics.Read(config));
+        result.Add(new("PagVendas","Importação por arquivo","Produtos e resumos de vendas passam por conferência antes da aplicação. Não há sincronização automática de vendas ou estoque.",null,null,null,null,
+            ["Exporte o catálogo e os relatórios no PagVendas e confira os lotes em Importações.","Para automatizar vendas detalhadas e estoque, confirme com o PagVendas uma API oficial habilitada para a conta."]));
         return result;
     }
     public async Task<ProviderReport> ProviderRecords(string? date,int page,CancellationToken ct)

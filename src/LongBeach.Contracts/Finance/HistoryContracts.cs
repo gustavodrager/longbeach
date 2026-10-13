@@ -10,6 +10,6 @@ public sealed record HistoryPreview(Guid BatchId, string SourceName, bool Applie
 public sealed record HistoryReport(string Month, IReadOnlyList<string> Months, IReadOnlyList<HistoryTotal> Totals,
     IReadOnlyList<HistoryItem> Items, int Total, int Page, DateTimeOffset UpdatedAtUtc);
 public sealed record IntegrationStatus(string Provider, string State, string Detail, DateTimeOffset? LastSuccessUtc,
-    string? FailureCode, DateOnly? CompleteThrough);
+    string? FailureCode, DateOnly? CompleteThrough, string? Environment = null, IReadOnlyList<string>? Requirements = null);
 public sealed record ProviderRecord(string Movement, DateOnly Date, int SourcePage, string SourceSha256, System.Text.Json.JsonElement Data);
 public sealed record ProviderReport(string? Date, IReadOnlyList<string> Dates, IReadOnlyList<ProviderRecord> Items, int Total, int Page);

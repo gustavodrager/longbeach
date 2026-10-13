@@ -65,6 +65,28 @@ public sealed class FinancialHistoryPostgresTests
         Assert.Equal(new MonthlyExpenseBreakdown(22000, 0, 0, 0, 0), reviewed.General.ExpensesByType);
         await tx.RollbackAsync();
     }
+    [PostgresFact] public async Task Wallet_uses_latest_complete_collection_without_changing_digital_account_balance()
+    {
+        await using var db = Database(); await db.Database.MigrateAsync();
+        await using var tx = await db.Database.BeginTransactionAsync();
+        var day = new DateOnly(2090,8,31); var fetched = new DateTimeOffset(2090,9,1,8,0,0,TimeSpan.Zero);
+        await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO provider_sync_state(provider,complete_through) VALUES('pagbank-edi',{day}) ON CONFLICT(provider) DO UPDATE SET complete_through=EXCLUDED.complete_through");
+        foreach (var version in new[] { 1, 2 })
+        {
+            var payload = JsonSerializer.Serialize(new { pagination = new { page=1,totalPages=1,totalElements=2 }, detalhes = new[] {
+                new { estabelecimento=123,tipo_evento=7,data_movimentacao="2090-08-31",valor_saldo=100m },
+                new { estabelecimento=123,tipo_evento=8,data_movimentacao="2090-08-31",valor_saldo=version==1?99m:12.34m } } });
+            var hash = new string(version==1?'a':'b',64); var collected=fetched.AddMinutes(version);
+            await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO provider_documents(id,provider,movement,movement_date,page_number,source_sha256,payload,validated,fetched_at_utc) VALUES({Guid.NewGuid()},'pagbank-edi','balances',{day},1,{hash},{payload}::jsonb,true,{collected})");
+        }
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Integrations:PagBankEdi:User"]="123" }).Build();
+        var service = new FinancialHistoryService(db,new NullAuditContext(),new DashboardClock(),config);
+        var result = await service.DashboardBalances(default);
+        Assert.Equal(1234,result.PagBankWallet!.AmountCents); Assert.Equal(day,result.PagBankWallet.Date);
+        Assert.Equal(new string('b',64),Assert.Single(result.PagBankWallet.SourceHashes));
+        Assert.NotEqual(result.PagBankWallet.Date,result.PagBank.Date);
+        await tx.RollbackAsync();
+    }
     private sealed class DashboardClock : TimeProvider { public override DateTimeOffset GetUtcNow() => new(2090,9,1,12,0,0,TimeSpan.Zero); }
     [PostgresFact] public async Task Arena_summary_reads_all_rows_not_just_first_history_page_and_filters_month()
     {

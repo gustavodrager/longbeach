@@ -61,9 +61,9 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         return users.Select(x => new TabCustomer(x.Id, x.Name, x.Email[..1] + "***@" + x.Email.Split('@').Last())).ToArray();
     }
     public Task<TabResponse> Open(OpenTabInput input, Guid actor, CancellationToken ct) => Run(input.OperationId,
-        input.ResponsibleUserId is null
+        input.Notes is not null ? Hash(new { action = "open", input, actor }) : input.ResponsibleUserId is null
             ? Hash(new { action = "open", input = new { input.OperationId, input.LocationId, input.Name, input.Mode }, actor })
-            : Hash(new { action = "open", input, actor }), async () =>
+            : Hash(new { action = "open", input = new { input.OperationId, input.LocationId, input.Name, input.Mode, input.ResponsibleUserId }, actor }), async () =>
     {
         if (!await db.Set<StockLocation>().AnyAsync(x => x.Id == input.LocationId, ct)) throw new BarRuleException("Escolha um local de atendimento existente.");
         User? responsible = null;
@@ -73,7 +73,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             responsible = await db.Users.SingleOrDefaultAsync(x => x.Id == userId && x.IsActive && x.GoogleSubject != null && !x.RequiresFirstAccess, ct)
                 ?? throw new BarRuleException("Escolha um cliente ativo que já entrou com o Google.");
         }
-        var tab = new BarTab(input.LocationId, actor, string.IsNullOrWhiteSpace(input.Name) ? responsible?.Name[..Math.Min(80, responsible.Name.Length)] : input.Name, input.Mode);
+        var tab = new BarTab(input.LocationId, actor, string.IsNullOrWhiteSpace(input.Name) ? responsible?.Name[..Math.Min(80, responsible.Name.Length)] : input.Name, input.Mode, input.Notes);
         db.Add(tab); db.Add(new BarTabHistory(tab.Id, "Opened", actor));
         if (responsible is not null)
         {
@@ -105,16 +105,16 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     public async Task<TabResponse> Add(Guid id, AddTabItemsInput input, Guid? actor, string? accessToken, CancellationToken ct)
     {
         var scope = await Scope(id, actor, accessToken, ct);
-        return await Run(input.OperationId, Hash(new { action = "add", id, input, scope }), async () =>
+        return await Run(input.OperationId, input.Items?.Any(x => x.Notes is not null) == true ? Hash(new { action = "add", id, input, scope }) : Hash(new { action = "add", id, input = new { input.OperationId, Items = input.Items?.Select(x => new { x.ProductId, x.Quantity }), input.Deliver }, scope }), async () =>
         {
             var tab = await Lock(id, ct); tab.EnsureOpen();
             if (actor is null) await Scope(id, actor, accessToken, ct);
             if (input.Items is null || input.Items.Count is 0 or > 100) throw new BarRuleException("Escolha de 1 a 100 itens.");
-            var items = input.Items.GroupBy(x => x.ProductId).Select(g => new TabItemInput(g.Key, g.Sum(x => BarRules.Quantity(x.Quantity)))).ToArray();
+            var items = input.Items.GroupBy(x => new { x.ProductId, Notes = BarTab.NormalizeNotes(x.Notes) }).Select(g => new TabItemInput(g.Key.ProductId, g.Sum(x => BarRules.Quantity(x.Quantity)), g.Key.Notes)).ToArray();
             foreach (var request in items)
             {
                 var product = await db.Set<BarProduct>().SingleOrDefaultAsync(x => x.Id == request.ProductId, ct) ?? throw new BarRuleException("Produto inexistente.");
-                var item = new BarTabItem(tab.Id, product, request.Quantity, actor, actor is null);
+                var item = new BarTabItem(tab.Id, product, request.Quantity, actor, actor is null, request.Notes);
                 await EnsureAvailable(item, tab.LocationId, ct);
                 db.Add(item); db.Add(new BarTabHistory(tab.Id, "Requested", actor, item.Total, itemId: item.Id));
                 if (actor is not null) { await Accept(tab, item, actor.Value, ct); if (input.Deliver && !item.Prepared) await Fulfill(tab, item, actor.Value, ct); }
@@ -458,8 +458,8 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             select new TabResponsible(user.Id, user.Name)).SingleOrDefaultAsync(ct);
         return new(tab.Id, tab.Number, tab.Name, tab.Mode, tab.State, tab.LocationId, client ? Guid.Empty : tab.ActorId, totals.Total, totals.Paid, totals.Pending, totals.Due, totals.Payable, tab.CreatedAtUtc, tab.ClosedAtUtc,
             items.Select(x => new TabItemResponse(x.Id, x.TabId, x.ProductId, x.Name, x.Quantity, x.UnitPrice, x.Total, x.State, x.Source, client ? null : x.ActorId, x.CreatedAtUtc, x.AcceptedAtUtc, x.FulfilledAtUtc, x.Reason, costs ? x.UnitCost : null,
-                client || tab.State != "Open" ? [] : x.State == "Requested" ? ["accept", "reject"] : x.State == "Accepted" ? supervisor ? ["fulfill", "reverse"] : ["fulfill"] : x.State == "Fulfilled" && supervisor ? ["reverse"] : [], costs ? x.RecipeId : null, costs && x.RecipeId is not null ? recipeVersions.GetValueOrDefault(x.RecipeId.Value) : null)).ToArray(), paymentRows, client ? history.Select(x => x with { ActorId = null }).ToArray() : history,
-            tab.State != "Open" ? [] : client ? ["add", "pix"] : supervisor ? ["add", "pay", "close", "issueAccess", "adjust"] : ["add", "pay", "close", "issueAccess"], totals.Total + tab.Discount, tab.Discount, responsible);
+                client || tab.State != "Open" ? [] : x.State == "Requested" ? ["accept", "reject"] : x.State == "Accepted" ? supervisor ? ["fulfill", "reverse"] : ["fulfill"] : x.State == "Fulfilled" && supervisor ? ["reverse"] : [], costs ? x.RecipeId : null, costs && x.RecipeId is not null ? recipeVersions.GetValueOrDefault(x.RecipeId.Value) : null, x.Notes)).ToArray(), paymentRows, client ? history.Select(x => x with { ActorId = null }).ToArray() : history,
+            tab.State != "Open" ? [] : client ? ["add", "pix"] : supervisor ? ["add", "pay", "close", "issueAccess", "adjust"] : ["add", "pay", "close", "issueAccess"], totals.Total + tab.Discount, tab.Discount, responsible, tab.Notes);
     }
     private async Task<TabPaymentResponse> PublicPayment(BarTabPayment payment, CancellationToken ct, bool costs = false)
     {

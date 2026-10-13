@@ -48,3 +48,12 @@ it('não inventa classificação para um consolidado histórico sem detalhe', as
   wrap(); await screen.findByText('R$ 123,45')
   expect(screen.queryByRole('navigation', { name: 'Despesas por tipo' })).not.toBeInTheDocument()
 })
+
+it('separa carteira EDI do extrato da conta e abre a origem datada', async () => {
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ ...response, pagBankWallet: { amountCents: 0, date: '2026-10-12', collectedAtUtc: '2026-10-13T12:00:00Z', sourceHashes: ['hash'], issue: null } })))
+  wrap()
+  expect(await screen.findByText('R$ 0,00')).toBeInTheDocument()
+  expect(screen.getByText('R$ 123,45')).toBeInTheDocument()
+  expect(screen.getByText(/Este valor não acompanha o saldo atual/)).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: /Carteira de vendas PagBank/ })).toHaveAttribute('href', '/financeiro/historico?ediDate=2026-10-12#pagbank-edi')
+})
