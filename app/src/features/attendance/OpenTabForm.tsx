@@ -7,7 +7,7 @@ import { Feedback, Icon } from './components'
 import { postBar, useBarCommand, useBarData, type Named, type Tab, type TabCustomer } from './api'
 import { barLocation } from './serviceLocation'
 
-type Opening = { operationId: string; locationId: string; name: string; mode: 'Tab'; responsibleUserId?: string }
+type Opening = { operationId: string; locationId: string; name: string; mode: 'Tab'; notes?: string; responsibleUserId?: string }
 function restore(value: string): Opening | null {
   try {
     const row = JSON.parse(value) as Opening
@@ -22,6 +22,7 @@ export function OpenTabForm() {
   const [opening, setOpening] = useState(Boolean(pending))
   const [kind, setKind] = useState<'visitor' | 'customer'>('visitor')
   const [name, setName] = useState('')
+  const [notes, setNotes] = useState('')
   const [search, setSearch] = useState('')
   const [submittedSearch, setSubmittedSearch] = useState('')
   const [customer, setCustomer] = useState<TabCustomer | null>(null)
@@ -38,7 +39,7 @@ export function OpenTabForm() {
     if (openingRequest.current) return
     if (!pending && (!location || locations.isError || (kind === 'customer' && (!customer || !confirmed)))) return
     openingRequest.current = true
-    const input: Opening = pending ?? { operationId: crypto.randomUUID(), locationId: location!, name: name.trim() || (kind === 'customer' ? customer!.name.slice(0, 80) : ''), mode: 'Tab', ...(kind === 'customer' ? { responsibleUserId: customer!.id } : {}) }
+    const input: Opening = pending ?? { operationId: crypto.randomUUID(), locationId: location!, name: name.trim() || (kind === 'customer' ? customer!.name.slice(0, 80) : ''), mode: 'Tab', ...(notes.trim() ? { notes: notes.trim() } : {}), ...(kind === 'customer' ? { responsibleUserId: customer!.id } : {}) }
     setSaved(JSON.stringify(input))
     const result = await command.run(() => postBar<Tab>('/tabs', input))
     openingRequest.current = false
@@ -68,6 +69,7 @@ export function OpenTabForm() {
           {customer && <label className="ux-check"><input type="checkbox" checked={confirmed} disabled={locked} onChange={event => setConfirmed(event.target.checked)} />Confirmo que {customer.name} é o responsável e poderá ver o consumo e os pagamentos desta comanda na sua área.</label>}
         </section>}
         <label className="ux-field">Nome da pessoa ou do grupo (opcional)<input value={name} maxLength={80} disabled={locked} onChange={event => setName(event.target.value)} placeholder={customer && kind === 'customer' ? customer.name : 'Ex.: Visitante ou Turma de quinta'} /></label>
+        <label className="ux-field">Observações da comanda (opcional)<textarea value={notes} maxLength={500} disabled={locked} onChange={event => setNotes(event.target.value)} placeholder="Ex.: Mesa 3, perto da quadra" /></label>
         <p className="ux-note">Para uma comanda coletiva, informe o nome do grupo. O responsável selecionado responde pelo total; os demais integrantes não recebem acesso automaticamente. O consumo fica separado da mensalidade da quadra.</p>
         {kind === 'visitor' && <p className="ux-note">Sem vínculo automático à área de um cliente. A equipe poderá fornecer o QR desta comanda.</p>}
         <LoadState query={locations} />

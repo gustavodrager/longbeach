@@ -8,6 +8,7 @@ export type CatalogItem = {
   salePrice: number; favorite: boolean; displayOrder: number; imageUrl?: string; available: number | null; prepared: boolean
 }
 export type TabItem = {
+  notes?: string | null
   id: string; tabId: string; productId: string; name: string; quantity: number; unitPrice: number; total: number
   state: string; source: string; actorId?: string; createdAtUtc: string; acceptedAtUtc?: string; fulfilledAtUtc?: string; reason?: string
   allowedActions: string[]; recipeId?: string | null; recipeVersion?: number | null
@@ -19,6 +20,7 @@ export type TabPayment = {
 }
 export type TabCustomer = { id: string; name: string; emailHint: string }
 export type Tab = {
+  notes?: string | null
   responsible?: { id: string; name: string } | null
   id: string; number: number; name: string; mode: string; state: string; locationId: string; actorId: string
   total: number; paid: number; pending: number; due: number; payable: number; createdAtUtc: string; closedAtUtc?: string | null
@@ -32,7 +34,7 @@ export type CashClosing = { id: string; sessionId: string; expected: number; cou
 export type PageResult<T> = { items: T[]; page: number; pageSize: number; total: number }
 export type TabReportRow = { id: string; label: string; detail: string; date: string; amount?: number; count?: number; resource: string; resourceId: string }
 export type TabReport = { metric: string; title: string; value: number; unit: string; current: boolean; fromUtc: string; toUtc: string; updatedAtUtc: string; explanation: string; available?: boolean; rows: PageResult<TabReportRow> }
-export type CartLine = { productId: string; quantity: number }
+export type CartLine = { productId: string; quantity: number; notes?: string }
 export const money = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 export const dateTime = (value?: string) => value ? new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : 'Ainda não confirmado'
 export function parseAmount(value: string) { return /^\d+(?:[,.]\d{1,2})?$/.test(value.trim()) ? Math.round(Number(value.replace(',', '.')) * 100) / 100 : NaN }

@@ -92,3 +92,25 @@ Escolher ou trocar a comanda abre a lista de abertas. Cada atendimento conserva 
 Validação: 57 testes de interface aprovados, incluindo identidade nas duas etapas, destino exato do envio, visitante sem vínculo, isolamento de rascunhos, comanda encerrada e falha após consulta anterior. Tipos, frontend/PWA e API compilados. No navegador local, conferidos desktop, largura de 390 px sem rolagem lateral e confirmação por teclado. A comanda identificada como teste recebeu uma unidade de Água · homologação (R$ 5,00). O banco confirmou uma única linha aceita, eventos Requested/Accepted únicos e nenhum pagamento; o carrinho foi limpo após o sucesso. Esse registro permanece apenas na base local de demonstração.
 
 Não há alteração de contrato, banco ou regras comerciais neste incremento. Não publicado; PagBank permanece para etapa posterior.
+
+## Ajuste de fluxo PagVendas — 13/10/2026
+
+Incremento em `codex/comandas-saldo-20261013`, isolado das alterações de estoque e materiais em andamento.
+
+- Abertura aceita observação opcional (até 500 caracteres); cada item aceita sua instrução de preparo. Itens do mesmo produto com observações diferentes permanecem separados. Observações seguem para a consulta, cliente autorizado e fila de preparo. Os campos novos são opcionais, mantendo clientes anteriores compatíveis.
+- Conferência do pedido mostra a instrução antes do envio. Carrinho e chave de repetição preservam essa informação. Repetições antigas sem observações conservam o fingerprint original.
+- Recebimento oferece total, valor livre ou divisão entre 2–100 pessoas que ainda vão pagar. A primeira parte arredonda para cima em centavos; o restante exato fica disponível para pagamentos seguintes, cada qual com meio próprio. Trata-se de divisão por valor, sem atribuir dívida individual nem permitir acesso automático aos demais integrantes.
+- Conclusão e comprovante passam a orientar o recebimento restante e o encerramento explícito, somente após saldo zero, ausência de pagamentos/estornos pendentes e pedidos entregues ou resolvidos. Não há encerramento automático, baixa adicional de estoque no pagamento ou alteração retroativa de comandas.
+- Migração `20261013164058_TabObservations` adiciona somente duas colunas opcionais. Rollback é da aplicação, preservando as colunas e informações; não executar Down.
+- Não foi ativada taxa de serviço: a conta consultada não possui taxa definida. Desconto/cortesia mantém aprovação de supervisão.
+
+Validação: 93 testes de interface, 81 testes de integração focados e 26 testes unitários aprovados; builds da API e PWA. CI completo aprovado em PostgreSQL 17 e 18 e frontend/PWA no run 38433282574. Migração aplicada na base isolada antes da publicação.
+
+
+### Publicação e conferência — 13/10/2026
+
+PR: https://github.com/gustavodrager/longbeach/pull/29 (depende da PR 28). API publicada primeiro em `5ce7cbf35c757b4cf8c41c6f8c3758e4cb795e4d`, deployment `67349c91-372b-4fbd-ab2a-603d0191fbdb`, imagem `sha256:a7ca665853f89e16784c127600f2e6fcd18d018b75efbe9d17beccd4d668cb75`. Web final em `6cbdd1a3e406edb27dbbf4f46377a85a84b639e7`, deployment `a6770c1e-084b-4ddd-a8ec-947e2667c143`, saudável às 17:05 UTC. O segundo commit altera somente classe/CSS para evitar corte dos valores financeiros. Healthchecks API e web aprovados após publicação. Fontes fixadas por commit; nenhum segredo alterado.
+
+Conferência autenticada em produção: formulário mostra observações opcionais; recebimento oferece total, parte e divisão. Comanda existente de R$ 18,00 apresentou R$ 6,00 para a primeira de três pessoas e R$ 12,00 restantes. Nenhuma comanda, consumo, pagamento ou movimentação de estoque foi criada na verificação. Pix/crédito integrado permanecem desabilitados por falta de configuração.
+
+Rollback visual: restaurar web `5ce7cbf35c757b4cf8c41c6f8c3758e4cb795e4d`. Para rollback funcional, usar os artefatos anteriores registrados no histórico do Railway, preservando a migração e os dados de observações. Não executar Down. As alterações concorrentes de estoque e materiais na cópia principal foram preservadas; esta publicação está no worktree `longbeach-edi-fix`, branch `codex/comandas-saldo-20261013`.

@@ -12,10 +12,10 @@ public static class TabModel
         m.HasSequence<long>("bar_tab_numbers");
         var t = m.Entity<BarTab>(); t.ToTable("bar_tabs"); t.HasKey(x => x.Id); t.Property(x => x.Id).ValueGeneratedNever();
         t.Property(x => x.Number).HasDefaultValueSql("nextval('bar_tab_numbers')").ValueGeneratedOnAdd(); t.HasIndex(x => x.Number).IsUnique();
-        t.Property(x => x.Discount).HasPrecision(12, 2); t.Property(x => x.Name).HasMaxLength(80); t.Property(x => x.Mode).HasMaxLength(16); t.Property(x => x.State).HasMaxLength(16); t.Property(x => x.Version).IsConcurrencyToken();
+        t.Property(x => x.Notes).HasMaxLength(500); t.Property(x => x.Discount).HasPrecision(12, 2); t.Property(x => x.Name).HasMaxLength(80); t.Property(x => x.Mode).HasMaxLength(16); t.Property(x => x.State).HasMaxLength(16); t.Property(x => x.Version).IsConcurrencyToken();
         t.HasIndex(x => new { x.State, x.CreatedAtUtc }); t.HasOne<StockLocation>().WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
         var i = m.Entity<BarTabItem>(); i.ToTable("bar_tab_items"); i.HasKey(x => x.Id); i.Property(x => x.Id).ValueGeneratedNever();
-        i.Property(x => x.Name).HasMaxLength(80); i.Property(x => x.Source).HasMaxLength(24); i.Property(x => x.State).HasMaxLength(16); i.Property(x => x.Reason).HasMaxLength(500);
+        i.Property(x => x.Notes).HasMaxLength(500); i.Property(x => x.Name).HasMaxLength(80); i.Property(x => x.Source).HasMaxLength(24); i.Property(x => x.State).HasMaxLength(16); i.Property(x => x.Reason).HasMaxLength(500);
         i.Property(x => x.Quantity).HasPrecision(12, 3); i.Property(x => x.UnitPrice).HasPrecision(12, 2); i.Property(x => x.Total).HasPrecision(12, 2); i.Property(x => x.UnitCost).HasPrecision(18, 6); i.Property(x => x.Version).IsConcurrencyToken();
         i.HasIndex(x => new { x.TabId, x.State }); i.HasIndex(x => x.AcceptedAtUtc); i.HasOne<BarTab>().WithMany().HasForeignKey(x => x.TabId).OnDelete(DeleteBehavior.Restrict); i.HasOne<BarProduct>().WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
         var p = m.Entity<BarTabPayment>(); p.ToTable("bar_tab_payments"); p.HasKey(x => x.Id); p.Property(x => x.Id).ValueGeneratedNever();

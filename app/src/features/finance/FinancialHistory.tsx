@@ -1,3 +1,4 @@
+import { IntegrationStatusPanel } from './IntegrationStatusPanel'
 import { isManagement } from '../auth/access'
 import { useState } from 'react'
 import { EdiReprocessForm } from './EdiReprocessForm'
@@ -10,7 +11,6 @@ import { Disclosure, ModalPanel, RecordTable } from '../../components/management
 type Total = { series: string; metric: string; state: string; period: string; grain: string; amountCents: number; records: number }
 type Observation = { sourceCell: string; series: string; metric: string; label: string; state: string; periodStart: string; periodEnd: string; grain: string; amountCents: number; notes: string }
 type Report = { month: string; months: string[]; totals: Total[]; items: { id: string; sourceName: string; sourceSha256: string; data: Observation }[]; total: number; page: number; updatedAtUtc: string }
-type Integration = { provider: string; state: string; detail: string; lastSuccessUtc: string | null; failureCode: string | null; completeThrough: string | null }
 export type HistoryPreview = { batchId: string; sourceName: string; applied: boolean; confirmationToken: string; creates: number; matches: number; totals: Total[] }
 export const seriesLabels: Record<string, string> = { consolidado: 'Resumo mensal da arena', 'consolidado-com-dividas': 'Resumo mensal com parcelas de dívidas', 'compras-detalhadas': 'Compras detalhadas', 'servicos-detalhados': 'Pagamentos de serviços', saldos: 'Saldos e compromissos em uma data', alunos: 'Controle de alunos', mensalistas: 'Controle de mensalistas', aulas: 'Controle de aulas', 'pagvendas-vendas': 'Vendas registradas no PagVendas', 'pagbank-conta': 'Extrato bancário PagBank', 'despesas-fora-pagbank': 'Despesas pagas fora do PagBank' }
 const metrics: Record<string, string> = { 'vendas-bar-bruto': 'Vendas brutas do bar', 'receitas-consolidadas': 'Receitas do consolidado', despesas: 'Despesas informadas', 'receitas-arena': 'Outras receitas da arena', 'valor-informado': 'Valor no controle', 'valor-escalonavel': 'Valor escalonável das aulas', 'vendas-informadas': 'Vendas informadas no PagVendas' }
@@ -61,7 +61,6 @@ export function BankStatementOverview() {
 
 export function FinancialHistoryPage() {
   const { user } = useAuth(); const [params, setParams] = useSearchParams(); const query = useHistory(params)
-  const integrations = useQuery({ queryKey: ['financial-integrations', user?.id], queryFn: () => apiFetch<Integration[]>('/api/v1/financial-history/integrations'), enabled: Boolean(isManagement(user)), refetchInterval: 60_000 })
   const [open, setOpen] = useState<string | null>(null)
   if (!isManagement(user)) return <main className="operation-page arena-page"><p role="alert">Histórico disponível para a gestão.</p></main>
   const report = query.data; const page = report?.page ?? 1; const source=report?.items.find(item=>item.id===open)
@@ -76,14 +75,14 @@ export function FinancialHistoryPage() {
       <RecordTable label="Registros financeiros de origem" columns={['Descrição','Controle','Período / data','Estado na fonte','Valor','Origem']} rows={report.items.map(item=>({key:item.id,cells:[item.data.label,seriesLabels[item.data.series],<>{item.data.grain==='month'||item.data.grain==='estimate'?monthLabel(item.data.periodStart.slice(0,7)):item.data.periodStart.split('-').reverse().join('/')} {item.data.grain==='estimate'&&'· Referência'}</>,item.data.state,centsMoney(item.data.amountCents),<button type="button" aria-label={`Ver origem de ${item.data.label}`} onClick={()=>setOpen(item.id)}>Ver origem</button>]}))}/>
       {source&&<ModalPanel title="Origem do valor" onClose={()=>setOpen(null)}><div className="editor-body"><h3>{source.data.label} · {centsMoney(source.data.amountCents)}</h3><p>{source.sourceName}</p><p><strong>Referência:</strong> {source.data.sourceCell}</p><p>{source.data.notes}</p><Disclosure title="Identificação do arquivo"><code className="source-hash">SHA-256: {source.sourceSha256}</code></Disclosure></div></ModalPanel>}
       {!report.items.length && <p>Nenhum registro disponível neste filtro.</p>}<div className="arena-actions"><button type="button" disabled={page === 1} onClick={() => { const next = new URLSearchParams(params); next.set('page', String(page - 1)); setParams(next) }}>Anterior</button><span>Página {page}</span><button type="button" disabled={page * 50 >= report.total} onClick={() => { const next = new URLSearchParams(params); next.set('page', String(page + 1)); setParams(next) }}>Próxima</button></div></>}
-    <Disclosure title="Documentos originais do PagBank" lazy><PagBankDocuments /></Disclosure><section className="foundation-card source-status"><h2>Atualização das fontes</h2>{integrations.isError && <p role="alert">Não foi possível conferir as integrações.</p>}{integrations.data?.map(item => <article key={item.provider}><h3>{item.provider} · {item.state}</h3><p>Última leitura concluída: {item.lastSuccessUtc ? new Date(item.lastSuccessUtc).toLocaleString('pt-BR') : 'Aguardando configuração'}{item.completeThrough && ` · Completo até ${item.completeThrough}`}</p>{item.failureCode && <p role="alert">Falha: {item.failureCode}</p>}<Disclosure title="Detalhes da atualização"><p>{item.detail}</p></Disclosure></article>)}<Link to="/importacoes">Conferir e aplicar novos arquivos</Link></section>
+    <div id="pagbank-edi" /><Disclosure title="Documentos originais do PagBank" open={new URLSearchParams(window.location.search).has('ediDate')} lazy><PagBankDocuments /></Disclosure><IntegrationStatusPanel />
   </main>
 }
 
 
 type ProviderReport = { date: string | null; dates: string[]; total: number; page: number; items: { movement: string; date: string; sourcePage: number; sourceSha256: string; data: Record<string, unknown> }[] }
 function PagBankDocuments() {
-  const { user } = useAuth(); const [date, setDate] = useState(''); const [page, setPage] = useState(1)
+  const { user } = useAuth(); const [date, setDate] = useState(() => new URLSearchParams(window.location.search).get('ediDate') ?? ''); const [page, setPage] = useState(1)
   const query = useQuery({ queryKey: ['pagbank-documents', user?.id, date, page], queryFn: () => apiFetch<ProviderReport>(`/api/v1/financial-history/pagbank-edi?${new URLSearchParams({ ...(date ? { date } : {}), page: String(page) })}`), enabled: Boolean(isManagement(user)), refetchInterval: 60_000 })
   const report = query.data
   return <section className="foundation-card"><h2>Movimentos originais da API PagBank</h2><p>Documentos completos de vendas, liquidações, transferências e saldos. Os eventos permanecem separados; consulte os valores e códigos originais de cada movimento.</p>

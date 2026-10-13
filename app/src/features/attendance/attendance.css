@@ -147,3 +147,11 @@
 .lb-sale-destination .ux-button { flex-shrink:0; }
 .lb-sale-balance small { display:block; margin-top:6px; color:#625d53; }
 @media (max-width:800px) { .lb-sale-destination { flex-direction:column; } .lb-sale-destination>.ux-button { width:100%; } }
+
+.lb-payment-destination { border-bottom:1px solid #ded8cb; margin-bottom:18px; padding-bottom:12px; overflow-wrap:anywhere; }
+.lb-payment-destination h2 { margin-top:0; }
+.lb-close-confirmation { border-left:4px solid #f5be3d; padding:4px 16px; margin-top:16px; }
+
+.lb-item-notes { white-space: pre-wrap; overflow-wrap: anywhere; }
+.lb-product-notes { padding: 0 12px 12px; }
+.lb-attendance textarea { min-height: 64px; width: 100%; resize: vertical; }
