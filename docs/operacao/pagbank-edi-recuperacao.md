@@ -1,0 +1,51 @@
+# Recuperação do histórico EDI PagBank
+
+## Correção de 13/10/2026
+
+O endpoint `movement/v3.00/balances` retorna `estabelecimento` como número JSON. A coleta aceitava somente texto e interrompia o dia com `EDI_SCHEMA`, mesmo com HTTP 200 e `VALIDADO=true`. Confirmado por diagnóstico que revelou apenas nomes e tipos de campos, sem valores ou credenciais, em 01/09/2026 e 12/10/2026.
+
+O parser aceita string ou inteiro não negativo que corresponda exatamente ao estabelecimento configurado. Frações, notação exponencial, valores fora do limite inteiro e outros tipos continuam rejeitados. O payload original é preservado. Não há alteração de banco nem normalização silenciosa de identificadores.
+
+## Execução autorizada de recuperação
+
+Após promover a API por commit fixo, no console do serviço **api** do projeto **longbeach-os**, executar:
+
+```sh
+dotnet LongBeach.Api.dll --pagbank-edi-backfill
+```
+
+O comando usa exclusivamente as variáveis já configuradas (`Enabled`, `User`, `Token`, `StartDate`) e termina sem iniciar servidor, migrations ou outros workers. Não recebe credenciais na linha de comando. Prazo máximo: 30 minutos. Usa o mesmo lock, paginação, validação de estabelecimento, `VALIDADO`, limite de resposta, proveniência e transação por dia do coletor periódico.
+
+A execução explícita ignora o intervalo de espera do erro corrigido, sem modificar manualmente o cursor. Reaproveita os lotes de sete dias e a sobreposição de dois dias até alcançar D-1. A gravação é idempotente por conteúdo; dias só avançam após validar os quatro relatórios. Uma falha interrompe a execução com código de saída 1, registra o código de falha e preserva os dias concluídos. Nova execução retoma com segurança.
+
+A conclusão confirma disponibilidade e coleta dos documentos que o provedor declarou completos. Não transforma saldos em vendas, não movimenta estoque nem contabiliza recebimentos automaticamente; isso depende de classificação/conciliação. Respostas vazias devem ser confrontadas com a operação e, se necessário, com a liberação de retroativos pelo PagBank.
+
+## Validação
+
+- 20 testes unitários focados: inteiros/texto, tipos inválidos, divergência de estabelecimento e regras financeiras.
+- 12 testes de integração com PostgreSQL 17 isolado, sem testes ignorados: recuperação de 42 dias, 168 documentos, repetição sem duplicação, consulta dos saldos, rollback por estabelecimento incorreto, paginação, timeout e reprocessamento.
+- Build da API e frontend/PWA.
+
+## Rollback
+
+Restaurar a API ao commit anterior `4ff170e7dcc3feac06b74bc62f49e2ea3634aa0c`. Não apagar documentos já importados. A versão anterior volta a falhar diante de estabelecimentos numéricos; manter os dados para a próxima recuperação.
+
+## Publicação
+
+- PR: https://github.com/gustavodrager/longbeach/pull/28
+- API: commit `544318f89f45f0aac9ad2fae6609417b2e49a976`.
+- Railway: deployment `754a5d60-9abc-46e3-9f1b-c9dedc1caca3`, saudável em 13/10/2026 às 16:14 UTC.
+- Imagem: `sha256:124c3c281add1e3350c1d67b2f709cb784f8bdb1b7dd2c094b3f22782b7ab44e`.
+- Apenas a origem da API foi promovida; configuração EDI e início em `2026-09-01` preservados. API e web responderam aos healthchecks.
+
+## Resultado da importação
+
+Concluída em **13/10/2026 às 16:16:37 UTC**. Conferência direta, somente de leitura, do banco de produção:
+
+- Cursor: **2026-10-12**, `failure_code=NULL`, `failure_count=0`.
+- Período: **2026-09-01 a 2026-10-12**, 42 datas e 168 documentos validados (quatro relatórios por dia).
+- `transactional`: 229 registros; `financial`: 229; `cashouts`: 229; `balances`: 84.
+- Todos os relatórios cobrem 42 datas. Vendas/financeiro/saídas têm primeiro dia não vazio em 02/09; saldos começam em 01/09. As contagens dos relatórios não devem ser somadas como novas vendas.
+- CI da PR aprovado no PostgreSQL 17, PostgreSQL 18 e frontend/PWA.
+
+O coletor periódico segue habilitado para D-1. A conferência contou documentos e datas, sem expor tokens, identificadores pessoais ou valores monetários.

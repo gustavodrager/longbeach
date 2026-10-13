@@ -50,6 +50,31 @@ public sealed class PagBankEdiWorker(IServiceScopeFactory scopes,IHttpClientFact
     private DateOnly Yesterday => DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime.AddHours(-3)).AddDays(-1);
     public Task Run(string merchant,string token,DateOnly start,CancellationToken ct) => Collect(merchant,token,start,null,null,null,ct);
 
+    // Explicit operator recovery uses the same validation, locking, staging and
+    // per-day audit as the scheduler, but need not wait out a corrected failure.
+    public async Task<DateOnly> BackfillNow(CancellationToken ct)
+    {
+        var merchant=config["Integrations:PagBankEdi:User"];var token=config["Integrations:PagBankEdi:Token"];
+        if(!config.GetValue("Integrations:PagBankEdi:Enabled",false) || string.IsNullOrWhiteSpace(merchant)
+            || !merchant.All(char.IsAsciiDigit) || string.IsNullOrWhiteSpace(token)
+            || !DateOnly.TryParseExact(config["Integrations:PagBankEdi:StartDate"],"yyyy-MM-dd",System.Globalization.CultureInfo.InvariantCulture,System.Globalization.DateTimeStyles.None,out var start)
+            || start<new DateOnly(2000,1,1) || start>Yesterday)
+            throw new FinancialRuleException("EDI_CONFIGURATION");
+        var target=Yesterday;
+        DateOnly? previous=null;
+        do
+        {
+            await Collect(merchant,token,start,null,null,"Recuperação operacional explícita",ct,retryNow:true);
+            await using var scope=scopes.CreateAsyncScope();
+            var db=scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+            var cursor=await db.Database.SqlQuery<DateOnly?>($"SELECT complete_through AS \"Value\" FROM provider_sync_state WHERE provider='pagbank-edi'").SingleOrDefaultAsync(ct);
+            if(cursor>=target)return cursor.Value;
+            if(cursor is null || cursor==previous)throw new FinancialRuleException("EDI_COLLECTION_BUSY");
+            previous=cursor;
+            logger.LogInformation("PagBank EDI backfill validated through {CompleteThrough}",cursor);
+        }while(true);
+    }
+
     public async Task Reprocess(DateOnly from,DateOnly through,string reason,Guid actor,CancellationToken ct)
     {
         if(actor==Guid.Empty || string.IsNullOrWhiteSpace(reason) || reason.Trim().Length is < 3 or > 500)
@@ -61,7 +86,7 @@ public sealed class PagBankEdiWorker(IServiceScopeFactory scopes,IHttpClientFact
             throw new FinancialRuleException("EDI ainda não habilitado ou configurado.");
         await Collect(merchant,token,from,through,actor,reason.Trim(),ct);
     }
-    private async Task Collect(string merchant,string token,DateOnly start,DateOnly? replayThrough,Guid? actor,string? reason,CancellationToken ct)
+    private async Task Collect(string merchant,string token,DateOnly start,DateOnly? replayThrough,Guid? actor,string? reason,CancellationToken ct,bool retryNow=false)
     {
         await using var scope=scopes.CreateAsyncScope();var db=scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
         DateOnly? cursor=null;DateTimeOffset? lastAttempt=null;int failures=0;
@@ -73,7 +98,7 @@ public sealed class PagBankEdiWorker(IServiceScopeFactory scopes,IHttpClientFact
             await using var reader=await command.ExecuteReaderAsync(ct);
             if(await reader.ReadAsync(ct)){cursor=reader.IsDBNull(0)?null:reader.GetFieldValue<DateOnly>(0);lastAttempt=reader.IsDBNull(1)?null:reader.GetFieldValue<DateTimeOffset>(1);failures=reader.GetInt32(2);}
         }
-        if(replayThrough is null && failures>0 && lastAttempt.HasValue && time.GetUtcNow()-lastAttempt.Value<TimeSpan.FromMinutes(Math.Min(360,10*Math.Pow(2,Math.Min(failures,6)))))return;
+        if(!retryNow && replayThrough is null && failures>0 && lastAttempt.HasValue && time.GetUtcNow()-lastAttempt.Value<TimeSpan.FromMinutes(Math.Min(360,10*Math.Pow(2,Math.Min(failures,6)))))return;
         var from=replayThrough.HasValue?start:cursor?.AddDays(-2)??start;if(from<start)from=start;
         var until=replayThrough??from.AddDays(6);if(until>Yesterday)until=Yesterday;
         using var client=clients.CreateClient("PagBankEdi");

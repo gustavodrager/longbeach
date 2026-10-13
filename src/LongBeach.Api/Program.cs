@@ -25,6 +25,8 @@ using Microsoft.IdentityModel.Tokens;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+var ediBackfill = args.Contains("--pagbank-edi-backfill", StringComparer.OrdinalIgnoreCase);
+if (ediBackfill && args.Length != 1) throw new InvalidOperationException("Run EDI backfill as its own command.");
 var startupCommand = StartupCommandParser.Parse(args);
 var verifyGoogleOwners = args.Contains("--verify-google-owners", StringComparer.OrdinalIgnoreCase);
 var authorizeGoogleAccess = args.Contains("--authorize-google-access", StringComparer.OrdinalIgnoreCase);
@@ -61,6 +63,25 @@ ConfigureHealthChecks(builder.Services, builder.Configuration);
 ConfigureRateLimiting(builder.Services);
 
 var app = builder.Build();
+
+if (ediBackfill)
+{
+    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(30));
+    var collector = app.Services.GetRequiredService<LongBeach.Infrastructure.Finance.PagBankEdiWorker>();
+    try
+    {
+        var through = await collector.BackfillNow(timeout.Token);
+        app.Logger.LogInformation("PagBank EDI backfill completed through {CompleteThrough}.", through);
+    }
+    catch (Exception exception)
+    {
+        var code = exception is LongBeach.Application.Finance.FinancialRuleException rule ? rule.Message : "EDI_BACKFILL_FAILED";
+        await collector.RecordFailure(code, CancellationToken.None);
+        app.Logger.LogError("PagBank EDI backfill stopped: {FailureCode}.", code);
+        Environment.ExitCode = 1;
+    }
+    return;
+}
 
 if (authorizeGoogleAccess)
 {
