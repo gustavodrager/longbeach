@@ -73,6 +73,13 @@ public sealed class BarPaymentsService(LongBeachDbContext db,IPaymentGateway gat
         }
         await tx.CommitAsync(ct);return payment;
     }
+    public async Task<bool> RefreshNotificationHint(string orderId, CancellationToken ct)
+    {
+        var payment = await db.Set<BarPayment>().SingleOrDefaultAsync(x => x.ProviderId == orderId, ct);
+        if (payment is null) return tabs is not null && await tabs.RefreshNotificationHint(orderId, ct);
+        await Refresh(payment.Id, ct);
+        return true;
+    }
     public async Task<bool> Webhook(byte[] body,IEnumerable<string> signatures,CancellationToken ct)
     {
         if(!await gateway.VerifyWebhookAsync(body,signatures,ct))return false;

@@ -43,6 +43,15 @@ public sealed partial class BillingService
         }
         return await Account(id,null,ct);
     }
+    public async Task<bool> RefreshNotificationHint(string orderId, CancellationToken ct)
+    {
+        var payment = await db.Set<BillingPayment>().SingleOrDefaultAsync(x => x.ProviderId == orderId && x.Method != "Subscription", ct);
+        if (payment is null) return false;
+        var remote = await gateway.Get(payment.ProviderId!, ct);
+        Validate(payment, remote);
+        await Observe(payment, remote, ct);
+        return true;
+    }
     public async Task<bool> Webhook(byte[] body,IEnumerable<string> signatures,CancellationToken ct)
     {
         if(!await gateway.VerifyWebhookAsync(body,signatures,ct))return false;

@@ -11,6 +11,7 @@ public interface IBilling
     Task<AccountDto> Refresh(Guid id, Guid paymentId, Guid actor, bool own, CancellationToken ct);
     Task<AccountDto> Refund(Guid id, Guid paymentId, RefundInput input, Guid actor, CancellationToken ct);
     Task<bool> Webhook(byte[] body, IEnumerable<string> signatures, CancellationToken ct);
+    Task<bool> RefreshNotificationHint(string orderId, CancellationToken ct) => Task.FromResult(false);
     Task Recover(CancellationToken ct);
     Task<IReadOnlyList<SubscriptionDto>> Subscriptions(Guid userId, CancellationToken ct);
     Task<SubscriptionDto> Subscribe(Guid accountId, SubscribeInput input, Guid userId, CancellationToken ct);

@@ -13,6 +13,10 @@ public static class PagBankHomologation
     public static bool Enabled(IConfiguration config, IHostEnvironment environment) =>
         environment.IsStaging() && config.GetValue("Homologation:Enabled", false);
 
+    public static bool AllowsNotificationHints(IConfiguration config, IHostEnvironment environment) =>
+        Enabled(config, environment) && config["Payments:PagBank:BaseUrl"] == "https://sandbox.api.pagseguro.com/" &&
+        config.GetValue("Homologation:AllowUnsignedNotificationHints", false);
+
     public static void Validate(IConfiguration config, IHostEnvironment environment)
     {
         if (!config.GetValue("Homologation:Enabled", false)) return;
@@ -20,9 +24,11 @@ public static class PagBankHomologation
         if (!environment.IsStaging() || database.Database != "longbeach_pagbank_homolog" ||
             config["Payments:PagBank:BaseUrl"] != "https://sandbox.api.pagseguro.com/" ||
             config.GetValue("Integrations:PagBankEdi:Enabled", false) ||
-            config.GetValue("Payments:PagBankSubscriptions:Enabled", false) ||
+            (config.GetValue("Payments:PagBankSubscriptions:Enabled", false) &&
+                (config["Payments:PagBankSubscriptions:BaseUrl"] != "https://sandbox.api.assinaturas.pagseguro.com/" ||
+                 string.IsNullOrWhiteSpace(config["Payments:PagBankSubscriptions:Token"]))) ||
             config.GetValue("DemoMode:PublicOperationalData", false))
-            throw new InvalidOperationException("Homologation requires Staging, its exclusive database and PagBank Sandbox; EDI, subscriptions and public demo must be disabled.");
+            throw new InvalidOperationException("Homologation requires Staging, its exclusive database and PagBank Sandbox (including subscriptions); EDI and public demo must be disabled.");
     }
 
     public static async Task Prepare(LongBeachDbContext db, IPasswordHasher hasher, IConfiguration config, IHostEnvironment environment)

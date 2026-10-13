@@ -340,6 +340,16 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         foreach (var access in await db.Set<BarTabAccess>().Where(x => x.TabId == id && !x.Revoked).ToListAsync(ct)) access.Revoke();
         db.Add(new BarTabHistory(id, "AccessRevoked", actor, reason: input.Reason)); await db.SaveChangesAsync(ct); return await Public(tab, false, false, ct);
     }, ct);
+    public async Task<bool> RefreshNotificationHint(string orderId, CancellationToken ct)
+    {
+        // An unsigned hint can only refresh an already bound payment; its other fields are never trusted.
+        var payment = await db.Set<BarTabPayment>().SingleOrDefaultAsync(x => x.ProviderId == orderId, ct);
+        if (payment is null) return false;
+        if (payment.State != "Pending")
+            await ProviderCall(payment, payment.OperationId, () => gateway.Get(payment.ProviderId!, ct), ct);
+        await RefreshProviderPayment(payment.Id, ct);
+        return true;
+    }
     public async Task<bool> Webhook(byte[] body, IEnumerable<string> signatures, CancellationToken ct)
     {
         if (!await gateway.VerifyWebhookAsync(body, signatures,ct)) return false;

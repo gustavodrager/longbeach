@@ -29,6 +29,22 @@ public sealed class BillingPostgresTests
     }
     private static PayAccountInput Input(string method = "Pix") => new(Guid.NewGuid(), method, "Aluno teste", "billing@example.invalid", "12345678909", method == "CreditCard" ? "encrypted-card-only" : null);
     [PostgresFact]
+    public async Task Unsigned_hint_requires_bound_order_and_authoritative_amount_before_settlement()
+    {
+        await using var db = Database(); var gateway = new Gateway(); var seed = await Seed(db, gateway); var service = Service(db, gateway);
+        var account = await service.Pay(seed.Account, Input(), seed.User, true, default);
+        var payment = await db.Set<BillingPayment>().SingleAsync(x => x.Id == account.Payments.Single().Id);
+        Assert.False(await service.RefreshNotificationHint("ORDE_unknown", default));
+        gateway.State = "PAID"; gateway.WrongAmount = true;
+        await Assert.ThrowsAsync<BarRuleException>(() => service.RefreshNotificationHint(payment.ProviderId!, default));
+        Assert.Equal(0, (await service.Account(seed.Account, seed.User, default)).Paid);
+        gateway.WrongAmount = false;
+        Assert.True(await service.RefreshNotificationHint(payment.ProviderId!, default));
+        Assert.True(await service.RefreshNotificationHint(payment.ProviderId!, default));
+        Assert.Equal(100, (await service.Account(seed.Account, seed.User, default)).Paid);
+        Assert.False(await service.Webhook(System.Text.Encoding.UTF8.GetBytes("{}"), [], default));
+    }
+    [PostgresFact]
     public async Task Student_isolation_timeout_replay_authoritative_settlement_and_partial_refund()
     {
         await using var db = Database(); var gateway = new Gateway { Timeout = true }; var seed = await Seed(db, gateway); var service = Service(db, gateway); var input = Input(); var stranger = Guid.NewGuid();

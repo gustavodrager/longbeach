@@ -22,6 +22,34 @@ public class PagBankHomologationTests
     [Fact]
     public void AllowsOnlyIsolatedStaging() => PagBankHomologation.Validate(Config(), new EnvironmentStub());
 
+    [Fact]
+    public void NotificationHintsAreOptInAndNeverAvailableInProduction()
+    {
+        Assert.False(PagBankHomologation.AllowsNotificationHints(Config(), new EnvironmentStub()));
+        var config = Config("Homologation:AllowUnsignedNotificationHints", "true");
+        Assert.True(PagBankHomologation.AllowsNotificationHints(config, new EnvironmentStub()));
+        Assert.False(PagBankHomologation.AllowsNotificationHints(config, new EnvironmentStub { EnvironmentName = "Production" }));
+        var productionUrl = new ConfigurationBuilder().AddConfiguration(config).AddInMemoryCollection(new Dictionary<string, string?>
+            { ["Payments:PagBank:BaseUrl"] = "https://api.pagseguro.com/" }).Build();
+        Assert.False(PagBankHomologation.AllowsNotificationHints(productionUrl, new EnvironmentStub()));
+    }
+
+    [Theory]
+    [InlineData("https://sandbox.api.assinaturas.pagseguro.com/", "sandbox-test", true)]
+    [InlineData("https://api.assinaturas.pagseguro.com/", "sandbox-test", false)]
+    [InlineData("https://sandbox.api.assinaturas.pagseguro.com/", "", false)]
+    public void SubscriptionsRequireExplicitSandboxAndCredential(string url, string token, bool allowed)
+    {
+        var config = new ConfigurationBuilder().AddConfiguration(Config()).AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Payments:PagBankSubscriptions:Enabled"] = "true",
+            ["Payments:PagBankSubscriptions:BaseUrl"] = url,
+            ["Payments:PagBankSubscriptions:Token"] = token
+        }).Build();
+        if (allowed) PagBankHomologation.Validate(config, new EnvironmentStub());
+        else Assert.Throws<InvalidOperationException>(() => PagBankHomologation.Validate(config, new EnvironmentStub()));
+    }
+
     [Theory]
     [InlineData("Production")]
     [InlineData("Development")]

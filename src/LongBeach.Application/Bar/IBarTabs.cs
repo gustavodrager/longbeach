@@ -32,4 +32,5 @@ public interface IBarTabs
     Task<IReadOnlyList<TabCatalogProduct>> ClientCatalog(string token, CancellationToken ct);
     Task<TabReportResponse> Report(string metric, DateTimeOffset? fromUtc, DateTimeOffset? toUtc, int page, int pageSize, CancellationToken ct);
     Task<bool> Webhook(byte[] body, IEnumerable<string> signatures, CancellationToken ct);
+    Task<bool> RefreshNotificationHint(string orderId, CancellationToken ct) => Task.FromResult(false);
 }
