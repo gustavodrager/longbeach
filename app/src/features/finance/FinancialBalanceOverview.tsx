@@ -25,7 +25,7 @@ export function FinancialBalanceOverview() {
   return <section className="arena-dashboard-section" aria-labelledby="financial-balances-title">
     <div className="arena-section-heading"><div><p className="arena-section-eyebrow">Saldos e resultado</p><h2 id="financial-balances-title">Visão financeira</h2></div></div>
     {query.isError && <p role="alert">Não foi possível atualizar os saldos. Tente novamente.</p>}
-    <div className="arena-metric-grid">
+    <div className="arena-metric-grid arena-financial-grid">
       <Link className={`arena-metric ${bank?.amountCents == null ? 'arena-metric-unavailable' : ''}`} to={bankHref}>
         <span className="arena-metric-label">Saldo da conta PagBank · histórico</span><strong>{value(bank?.amountCents)}</strong>
         <small>{bank?.date ? `Saldo informado em ${bank.date.split('-').reverse().join('/')}` : 'Data do saldo a confirmar'}</small>

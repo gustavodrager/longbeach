@@ -25,6 +25,8 @@
 .arena-error { background:#fff0e9; border-color:#dba99a; color:#8d3124; }
 .arena-warning { background:#faedce; border-color:#cfaf63; color:#725112!important; }
 .arena-metric-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin:18px 0 28px; }
+.arena-metric-grid.arena-financial-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); }
+.arena-financial-grid .arena-metric { min-width:0; overflow-wrap:anywhere; }
 .arena-metric { display:flex; flex-direction:column; gap:10px; min-height:175px; padding:22px; text-decoration:none; background:var(--surface,#fffcf6); border:1px solid var(--line,#ded6c7); border-radius:16px; color:inherit; }
 .arena-metric:hover { border-color:#b39142; }
 .arena-metric strong { font-size:30px; font-weight:800; letter-spacing:-1px; }
