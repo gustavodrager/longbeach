@@ -1203,6 +1203,16 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("ConsentAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("CreationAttempted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<bool>("UpdateExistingCustomerCard")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -1251,7 +1261,7 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SourceKind", "SourceId")
                         .IsUnique()
-                        .HasFilter("\"State\" NOT IN ('CANCELED','EXPIRED')");
+                        .HasFilter("\"State\" NOT IN ('CANCELED','EXPIRED','Rejected')");
 
                     b.ToTable("billing_subscriptions", (string)null);
                 });

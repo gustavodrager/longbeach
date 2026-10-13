@@ -1,4 +1,6 @@
 using LongBeach.Application.Abstractions;
+using System.Security.Cryptography;
+using System.Text;
 using LongBeach.Domain.Identity;
 using LongBeach.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -47,21 +49,42 @@ public static class PagBankHomologation
             if (!user.IsActive || user.Name != "Avaliador PagBank — TESTE" || user.UserRoles.Count != 1 ||
                 !await db.Roles.AnyAsync(x => x.Id == user.UserRoles.First().RoleId && x.Name == SystemRoles.Administrator))
                 throw new InvalidOperationException("Existing reviewer conflicts with homologation; no account was changed.");
-            return;
         }
-        if (await db.Users.AnyAsync()) throw new InvalidOperationException("Initialize homologation only in a new database.");
-        var permissions = await db.Permissions.ToDictionaryAsync(x => x.Name);
-        foreach (var name in SystemPermissions.All)
-            if (!permissions.ContainsKey(name)) { var permission = new Permission(name); permissions.Add(name, permission); db.Permissions.Add(permission); }
-        var roles = await db.Roles.Include(x => x.RolePermissions).ToDictionaryAsync(x => x.Name);
-        foreach (var name in SystemRoles.All)
+        else
         {
-            if (!roles.TryGetValue(name, out var role)) { role = new Role(name); roles.Add(name, role); db.Roles.Add(role); }
-            foreach (var permission in ProfileAccess.Grants[name]) role.Grant(permissions[permission]);
+            if (await db.Users.AnyAsync()) throw new InvalidOperationException("Initialize homologation only in a new database.");
+            var permissions = await db.Permissions.ToDictionaryAsync(x => x.Name);
+            foreach (var name in SystemPermissions.All)
+                if (!permissions.ContainsKey(name)) { var permission = new Permission(name); permissions.Add(name, permission); db.Permissions.Add(permission); }
+            var roles = await db.Roles.Include(x => x.RolePermissions).ToDictionaryAsync(x => x.Name);
+            foreach (var name in SystemRoles.All)
+            {
+                if (!roles.TryGetValue(name, out var role)) { role = new Role(name); roles.Add(name, role); db.Roles.Add(role); }
+                foreach (var permission in ProfileAccess.Grants[name]) role.Grant(permissions[permission]);
+            }
+            user = User.Create("Avaliador PagBank — TESTE", email, hasher.Hash(password));
+            user.AssignRole(roles[SystemRoles.Administrator]);
+            db.Users.Add(user);
         }
-        user = User.Create("Avaliador PagBank — TESTE", email, hasher.Hash(password));
-        user.AssignRole(roles[SystemRoles.Administrator]);
-        db.Users.Add(user);
+        // A separate customer exercises recurrence without changing uncertain
+        // historical attempts owned by the reviewer. Student is the customer role.
+        const string customerEmail = "recorrencia@homolog.longbeach.invalid";
+        var customer = await db.Users.Include(x => x.UserRoles).SingleOrDefaultAsync(x => x.NormalizedEmail == User.NormalizeEmail(customerEmail));
+        if (customer is not null)
+        {
+            if (!customer.IsActive || customer.Name != "Cliente Recorrência — TESTE" || customer.UserRoles.Count != 1 ||
+                !await db.Roles.AnyAsync(x => x.Id == customer.UserRoles.First().RoleId && x.Name == SystemRoles.Student))
+                throw new InvalidOperationException("Existing recurring customer conflicts with homologation; no account was changed.");
+        }
+        else
+        {
+            var customerRole = db.Roles.Local.SingleOrDefault(x => x.Name == SystemRoles.Student) ??
+                await db.Roles.SingleAsync(x => x.Name == SystemRoles.Student);
+            var customerPassword = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(password + ":recorrencia-test")));
+            customer = User.Create("Cliente Recorrência — TESTE", customerEmail, hasher.Hash(customerPassword));
+            customer.AssignRole(customerRole);
+            db.Users.Add(customer);
+        }
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
     }

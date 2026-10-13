@@ -9,6 +9,7 @@ Autorizada pelo responsável em 13/10/2026, após revogar a limitação anterior
 - PostgreSQL 18: `Postgres-pbZb`, base nova `longbeach_pagbank_homolog`, volume próprio e sem proxy TCP público.
 - Web encaminha `/api/` à API privada, preservando login, cookie HttpOnly e proteção CSRF no mesmo domínio. O serviço web usa Dockerfile e nginx específicos desta homologação.
 - Credenciais de sessão e senha de avaliação geradas exclusivamente para este ambiente. Segredo Sandbox de Pedidos já validado, sem uso do token de produção. Nunca registrar esses valores neste documento.
+- Cliente fictício segregado para repetição de recorrência: `recorrencia@homolog.longbeach.invalid`, perfil Student, senha própria derivada do segredo exclusivo de homologação e entregue separadamente. Não possui gestão financeira.
 - Acesso individual do avaliador: `avaliador@homolog.longbeach.invalid`. Senha entregue separadamente pelo responsável. Conta fictícia Administrator, sem vínculo Google ou pessoas reais.
 
 ## Inicialização e segurança
@@ -50,7 +51,7 @@ O Sandbox de recorrência rejeitou a massa Visa publicada com `unprocessable_car
 
 A segunda assinatura efetivada, `SUBS_F5641612-1B5F-4E0B-AEFB-CF5098496F20`, foi criada integralmente pela API do sistema com massa oficial válida: primeira cobrança de R$ 10 aprovada, cancelamento pela tela do cliente confirmado e estorno integral pela API corrigida confirmado. Pagamento local `fc20b166-7512-42c9-9b5f-dc52b0597733` terminou Refunded, R$ 10 estornados, R$ 0 pagos e nenhuma devolução pendente. Ambas as assinaturas efetivadas estão CANCELED no PagBank.
 
-Duas tentativas sem assinatura externa foram preservadas como evidência: CPF já cadastrado (`8f41c136-505a-45e7-bbdc-35d751d5c639`) e CPF inválido de um exemplo da documentação (`18a62af9-db76-4a95-bf05-8b0702435c0c`). O provedor retornou 409 e retentativas da mesma chave passaram a retornar `idempotency_key_validation`. Nenhuma delas gerou cobrança. O sistema ainda precisa tratar reutilização segura de assinante existente e rejeição definitiva de criação, em vez de manter essas tentativas em Creating. Não usar a aprovação da primeira assinatura como evidência de que a nova adesão de CPF já cadastrado funciona.
+Duas tentativas sem assinatura externa foram preservadas como evidência: CPF já cadastrado (`8f41c136-505a-45e7-bbdc-35d751d5c639`) e CPF inválido de um exemplo da documentação (`18a62af9-db76-4a95-bf05-8b0702435c0c`). O provedor retornou 409 e retentativas da mesma chave passaram a retornar `idempotency_key_validation`. Nenhuma assinatura correspondente foi localizada nas consultas realizadas. As respostas originais completas não foram persistidas; erros posteriores de idempotência e ausência na lista não comprovam rejeição definitiva da primeira chamada. Essas duas intenções permanecem Creating até confirmação do provedor. A correção abaixo não libera retroativamente operações incertas.
 
 A retomada automática de estornos de comandas também foi corrigida: valores `3` e `3.00` restaurados do PostgreSQL não podem ser interpretados como operações diferentes. A repetição confere comanda, pagamento, operador, valor e motivo contra o registro persistido antes de reutilizar seu fingerprint original, preservando compatibilidade com solicitações já pendentes e rejeitando alterações de operação.
 
@@ -60,4 +61,17 @@ Referências: [autenticidade](https://developer.pagbank.com.br/reference/validac
 
 ### Pendências para aprovação oficial
 
-Tratar nova adesão com CPF já cadastrado e recuperação de criação definitivamente rejeitada. Revalidar estornos dos cartões avulsos quando o Sandbox disponibilizar a operação; reunir os requests/responses sanitizados e encaminhar pelo responsável ao PagBank. Ciclos mensais futuros têm cobertura automatizada, mas não foram observados no Sandbox durante este ensaio. A aprovação oficial, credenciais de produção e callback assinado continuam dependendo do PagBank. Não marcar homologação oficial como concluída por conta de deploy ou de aprovação de testes internos.
+Obter confirmação do PagBank sobre as duas intenções antigas sem resposta original completa e revalidar estornos dos cartões avulsos quando o Sandbox disponibilizar a operação; reunir os requests/responses sanitizados e encaminhar pelo responsável ao PagBank. Ciclos mensais futuros têm cobertura automatizada, mas não foram observados no Sandbox durante este ensaio. A aprovação oficial, credenciais de produção e callback assinado continuam dependendo do PagBank. Não marcar homologação oficial como concluída por conta de deploy ou de aprovação de testes internos.
+
+
+### Correção de adesões e consulta de pendências
+
+A adesão consulta o assinante pelo documento e só reutiliza cadastro com referência do próprio usuário ou de uma assinatura local desse usuário. Documento, nome ou e-mail isolados não autorizam alteração do cliente. O novo cartão é atualizado pelo endpoint de dados de pagamento antes da assinatura com customer.id; o campo de cartão embutido na criação seria ignorado pelo PagBank para cliente existente. Há consentimento opcional explícito, persistido por operação, para o alcance da atualização nas demais mensalidades do mesmo assinante.
+
+Plano, atualização do cartão e criação usam chaves distintas. Um bloqueio de sessão PostgreSQL por responsável cobre as chamadas externas; outra adesão do mesmo responsável fica bloqueada enquanto alguma criação enviada permanecer incerta, inclusive após timeout/reinício. CPF/CNPJ inválido é recusado antes de registrar uma intenção.
+
+Falha de validação conhecida na primeira resposta de criação ou atualização de cartão gera estado Rejected com motivo sanitizado. A tentativa e sua chave permanecem terminais; uma correção usa nova intenção. Timeout, erro de idempotência e resposta desconhecida continuam Creating. O indicador CreationAttempted é salvo antes do envio. A retomada consulta a referência e nunca reenvia uma cobrança incerta com outro criptograma. A migration marca conservadoramente todas as intenções antigas como já enviadas.
+
+A tela distingue retomada anterior ao envio, rejeição e consulta de operação enviada. O endpoint autenticado `POST /api/v1/me/billing/subscriptions/{id}/refresh` consulta apenas a assinatura do próprio usuário, sem pedir cartão ou CVV. Uma referência positiva validada recupera o vínculo; ausência na lista mantém a pendência. O worker também recupera vínculos por referência. Pagamentos integralmente estornados permanecem no histórico e não impedem nova adesão válida após cancelamento.
+
+Consulta de 13/10 às 15:45 BRT: os estornos avulsos Visa R$ 4 e Mastercard R$ 5 seguem sem confirmação, com erro 40005/idempotency_key_in_use nas mesmas operações após a indisponibilidade 40008. Conservar recebido R$ 10/R$ 5, estornado zero e pendente R$ 4/R$ 5; não gerar outra chave para aparentar sucesso. Requests/responses sanitizados e rascunho de suporte estão nos artefatos locais; nenhum chamado foi enviado.

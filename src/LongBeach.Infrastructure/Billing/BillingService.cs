@@ -116,7 +116,7 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
         var refunds=await db.Set<BillingRefund>().Where(x=>x.State=="Pending"&&paymentIds.Contains(x.PaymentId)).ToListAsync(ct);
         var pending=payments.Where(x=>x.State=="Pending").Sum(x=>x.Amount);
         var (kind,source)=await BillingSource(db,p,ct);
-        var subscriptionId=await db.Set<BillingSubscription>().Where(x=>x.SourceKind==kind&&x.SourceId==source&&x.State!="CANCELED"&&x.State!="EXPIRED").Select(x=>(Guid?)x.Id).SingleOrDefaultAsync(ct);
+        var subscriptionId=await db.Set<BillingSubscription>().Where(x=>x.SourceKind==kind&&x.SourceId==source&&x.State!="CANCELED"&&x.State!="EXPIRED"&&x.State!="Rejected").Select(x=>(Guid?)x.Id).SingleOrDefaultAsync(ct);
         return new(a.Id,a.Kind,a.SourceId,Text(p,"name"),Date(p,"dueDate"),total,paid,pending,Text(p,"status")=="Cancelado"?0:Math.Max(0,total-paid-pending),Text(p,"status"),payments.Select(p=>Dto(p) with { RefundPending=refunds.Where(r=>r.PaymentId==p.Id).Sum(r=>r.Amount) }).ToArray(),Text(p,"sourceKind") is "enrollments" or "rentalMonths",a.UserId,Text(p,"month"),subscriptionId);
     }
     private static AccountPaymentDto Dto(BillingPayment p)=>new(p.Id,p.OperationId,p.Method,p.Amount,p.State,p.Refunded,p.PixText,p.QrImageUrl,p.ExpiresAtUtc,p.PaidAtUtc,p.State=="Pending"&&p.ProviderId==null);
@@ -146,7 +146,7 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
             {
                 Require(Eligible(p)&&Text(p,"status")=="Pendente","Esta conta não está pendente.");
                 var (kind,source)=await BillingSource(db,p,ct);
-                Require(!await db.Set<BillingSubscription>().AnyAsync(x=>x.SourceId==source&&x.SourceKind==kind&&x.State!="CANCELED"&&x.State!="EXPIRED",ct),"Há assinatura vinculada. Resolva a cobrança automática antes de pagar avulso.");
+                Require(!await db.Set<BillingSubscription>().AnyAsync(x=>x.SourceId==source&&x.SourceKind==kind&&x.State!="CANCELED"&&x.State!="EXPIRED"&&x.State!="Rejected",ct),"Há assinatura vinculada. Resolva a cobrança automática antes de pagar avulso.");
                 var account=await Account(id,null,ct);Require(account.Pending==0&&account.Payable>0,"Pagamento já iniciado ou conta quitada.");
                 Require(input.Amount==null||input.Amount==account.Payable,"Reservas e mensalidades devem ser pagas pelo saldo integral.");
                 Require(input.Method=="Pix"?gateway.Enabled:gateway.CardEnabled,"Forma de pagamento ainda não habilitada.");

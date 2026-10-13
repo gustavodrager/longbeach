@@ -24,6 +24,13 @@ public sealed class BillingAuthorizationTests
     [InlineData("/api/v1/portal/options")]
     public async Task Billing_always_requires_individual_login(string path)
     { await using var f = new LongBeachWebApplicationFactory(); using var c = f.CreateClient(); Assert.Equal(HttpStatusCode.Unauthorized, (await c.GetAsync(path)).StatusCode); }
+    [Fact]
+    public async Task Subscription_refresh_requires_login_even_without_a_request_body()
+    {
+        await using var f = new LongBeachWebApplicationFactory(); using var c = f.CreateClient();
+        var response = await c.PostAsync("/api/v1/me/billing/subscriptions/00000000-0000-4000-8000-000000000001/refresh", null);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
     [Theory]
     [InlineData("/api/v1/bar/tabs/customers?search=cliente") ]
     [InlineData("/api/v1/billing/accounts")]
