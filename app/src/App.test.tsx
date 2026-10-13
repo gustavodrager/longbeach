@@ -16,6 +16,11 @@ function jsonResponse(body: unknown, status = 200) {
 function withOperationalReads(authHandler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
     if (String(input).endsWith('/api/v1/auth/options')) return Promise.resolve(jsonResponse({ googleClientId: 'test-client', clientRegistrationEnabled: true }))
+    if (String(input).endsWith('/api/v1/financial-history/current-position') && !init?.method) {
+      const empty = { amountCents: 0, records: 0, overdueCents: 0, overdueRecords: 0, confirmedPaymentsCents: 0 }
+      return Promise.resolve(jsonResponse({ date: '2026-10-13', readAtUtc: '2026-10-13T12:00:00Z', lastRecordChangeAtUtc: null, registeredEntries: 0, receivable: empty, payable: empty, currentBank: { amountCents: null, asOfUtc: null, status: 'NotConnected', issue: 'Saldo atual da conta não conectado.' }, entries: [] }))
+    }
+    if (String(input).includes('/api/v1/bar/tabs/reports/') && !init?.method) return Promise.resolve(jsonResponse({ value: 0, unit: 'money', current: true, updatedAtUtc: '2026-10-13T12:00:00Z', rows: { items: [], total: 0, page: 1, pageSize: 1 } }))
     if (String(input).includes('/api/v1/financial-history') && !init?.method) return Promise.resolve(jsonResponse({ month: '2026-08', months: [], items: [], totals: [], total: 0, page: 1 }))
     if (String(input).includes('/api/v1/operations/') && !init?.method) return Promise.resolve(jsonResponse([]))
     return authHandler(input, init)
