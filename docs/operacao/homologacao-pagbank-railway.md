@@ -75,3 +75,21 @@ Falha de validação conhecida na primeira resposta de criação ou atualizaçã
 A tela distingue retomada anterior ao envio, rejeição e consulta de operação enviada. O endpoint autenticado `POST /api/v1/me/billing/subscriptions/{id}/refresh` consulta apenas a assinatura do próprio usuário, sem pedir cartão ou CVV. Uma referência positiva validada recupera o vínculo; ausência na lista mantém a pendência. O worker também recupera vínculos por referência. Pagamentos integralmente estornados permanecem no histórico e não impedem nova adesão válida após cancelamento.
 
 Consulta de 13/10 às 15:45 BRT: os estornos avulsos Visa R$ 4 e Mastercard R$ 5 seguem sem confirmação, com erro 40005/idempotency_key_in_use nas mesmas operações após a indisponibilidade 40008. Conservar recebido R$ 10/R$ 5, estornado zero e pendente R$ 4/R$ 5; não gerar outra chave para aparentar sucesso. Requests/responses sanitizados e rascunho de suporte estão nos artefatos locais; nenhum chamado foi enviado.
+
+
+### Resultado do reuso de assinante (16:11 BRT)
+
+API e web publicadas somente em staging no commit `4b7cb3a960733bb1a570d03242f0da13f19e21f1`, deploys `4d8dc352-a0e9-4fc1-95c6-26962aa44429` e `c79977bb-22be-47bd-9028-ee1ccf1f71e9`, ambos SUCCESS. CI [38452064007](https://github.com/gustavodrager/longbeach/actions/runs/38452064007) aprovado em frontend e PostgreSQL 17/18.
+
+Ensaio pelo sistema com o cliente fictício segregado:
+
+- Documento inválido bloqueado antes da criação de intenção.
+- Cadastro PagBank de outro usuário recusado, mesmo com autorização de troca de cartão: Rejected, sem cobrança.
+- Primeira adesão `7fd8fbd4-e1f9-4ed0-a1c1-f0377297bd28`: cobrança de R$ 10 aprovada; cancelamento e estorno integral confirmados.
+- Nova adesão do mesmo documento sem consentimento separado: Rejected, sem cobrança, permitindo nova tentativa.
+- Reuso autorizado `0467a04c-dba6-4c20-8564-e327e8d2e914`: atualização do cartão, assinatura e primeira fatura de R$ 10 aprovadas; cancelamento e estorno integral confirmados.
+- Conta final: R$ 0 pagos, R$ 0 em confirmação e dois pagamentos Refunded de R$ 10 cada. As duas assinaturas efetivadas neste ensaio estão CANCELED. O saldo a pagar de R$ 10 representa a mensalidade fictícia reaberta pelo estorno, não uma cobrança nova.
+
+Evidência sanitizada local: `outputs/homologacao-recorrencia-reuso-2026-10-13.json` no workspace de operação. Não contém senha, token, CPF ou dados do cartão. A tela das duas intenções antigas foi conferida: consulta sem cartão, sem cancelamento artificial e sem novo POST de cobrança.
+
+Produção preservada: API `67349c91-372b-4fbd-ab2a-603d0191fbdb`/`5ce7cbf`, web `a6770c1e-084b-4ddd-a8ec-947e2667c143`/`6cbdd1a`.
