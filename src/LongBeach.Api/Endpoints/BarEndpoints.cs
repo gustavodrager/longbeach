@@ -70,7 +70,13 @@ public static class BarEndpoints
             if(h.Request.ContentLength > 65536) return Results.StatusCode(413);
             using var body = new MemoryStream(); var buffer = new byte[4096]; int read;
             while((read=await h.Request.Body.ReadAsync(buffer,ct))>0) { if(body.Length+read>65536) return Results.StatusCode(413); await body.WriteAsync(buffer.AsMemory(0,read),ct); }
-            return (await billing.Webhook(body.ToArray(),h.Request.Headers["x-payload-signature"].Select(x=>x??""),ct) || await s.Webhook(body.ToArray(),h.Request.Headers["x-payload-signature"].Select(x=>x??""),ct)) ? Results.Ok() : Results.Unauthorized();
+            var signatures = h.Request.Headers["x-payload-signature"].Select(x => x ?? "").ToArray();
+            var accepted = await billing.Webhook(body.ToArray(), signatures, ct) || await s.Webhook(body.ToArray(), signatures, ct);
+            // Diagnostic metadata only: never log payloads, signatures or credentials.
+            h.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("PagBankWebhook")
+                .LogInformation("PagBank webhook accepted={Accepted} payloadSignaturePresent={PayloadSignaturePresent} legacySignaturePresent={LegacySignaturePresent} bodyBytes={BodyBytes}",
+                    accepted, signatures.Any(x => !string.IsNullOrWhiteSpace(x)), h.Request.Headers.ContainsKey("x-authenticity-token"), body.Length);
+            return accepted ? Results.Ok() : Results.Unauthorized();
         }).AllowAnonymous().RequireRateLimiting("public-demo-write");
         return endpoints;
     }
