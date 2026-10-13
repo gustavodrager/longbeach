@@ -69,20 +69,48 @@ public sealed class EdiRecoveryPostgresTests
         using var scopes=new ServiceCollection().AddSingleton(TimeProvider.System).AddDbContext<LongBeachDbContext>(o=>o.UseNpgsql("Host=127.0.0.1;Port=1;Database=unavailable;Username=test;Password=test;Timeout=1")).BuildServiceProvider();
         await Worker(scopes,new Feed()).RecordFailure("EDI_NETWORK",default);
     }
+    [PostgresFact] public async Task Explicit_backfill_recovers_numeric_balances_after_failure_and_covers_all_days_once()
+    {
+        await using var db=Database();await Reset(db);using var scopes=Scopes();
+        var config=Config();config["Integrations:PagBankEdi:StartDate"]=Yesterday.AddDays(-41).ToString("yyyy-MM-dd");
+        var feed=new Feed{NumericBalances=true};
+        var worker=new PagBankEdiWorker(scopes.GetRequiredService<IServiceScopeFactory>(),feed,config,TimeProvider.System,NullLogger<PagBankEdiWorker>.Instance);
+        await worker.RecordFailure("EDI_SCHEMA",default);
+        Assert.Equal(Yesterday,await worker.BackfillNow(default));
+        Assert.Equal(Yesterday,await worker.BackfillNow(default));
+        Assert.Equal(168,await db.Database.SqlQuery<int>($"SELECT COUNT(*)::int AS \"Value\" FROM provider_documents WHERE provider='pagbank-edi'").SingleAsync());
+        Assert.Equal(42,await db.Database.SqlQuery<int>($"SELECT COUNT(DISTINCT movement_date)::int AS \"Value\" FROM provider_documents WHERE provider='pagbank-edi'").SingleAsync());
+        Assert.Equal(0,await db.Database.SqlQuery<int>($"SELECT failure_count AS \"Value\" FROM provider_sync_state WHERE provider='pagbank-edi'").SingleAsync());
+        var service=new FinancialHistoryService(db,new NullAuditContext(),TimeProvider.System,config);
+        var report=await service.ProviderRecords(Yesterday.ToString("yyyy-MM-dd"),1,default);
+        Assert.Equal(1,report.Total);
+        Assert.Single(report.Items);
+    }
+    [PostgresFact] public async Task Wrong_numeric_merchant_rolls_back_all_feeds_for_the_day()
+    {
+        await using var db=Database();await Reset(db);using var scopes=Scopes();
+        var worker=Worker(scopes,new Feed{NumericBalances=true,WrongMerchant=true});
+        Assert.Equal("EDI_MERCHANT_MISMATCH",(await Assert.ThrowsAsync<FinancialRuleException>(()=>worker.Run("123","test-only",Yesterday,default))).Message);
+        Assert.Equal(0,await db.Database.SqlQuery<int>($"SELECT COUNT(*)::int AS \"Value\" FROM provider_documents WHERE provider='pagbank-edi'").SingleAsync());
+    }
     private sealed class FastDeadlineClock:TimeProvider
     {
         public override ITimer CreateTimer(TimerCallback callback,object? state,TimeSpan dueTime,TimeSpan period)=>base.CreateTimer(callback,state,TimeSpan.FromMilliseconds(50),period);
     }
     private sealed class Feed:IHttpClientFactory
     {
-        public DateOnly? FailDay;public bool HangBody;
+        public DateOnly? FailDay;public bool HangBody;public bool NumericBalances;public bool WrongMerchant;
         public HttpClient CreateClient(string name)=>new(new Handler(this));
         private sealed class Handler(Feed owner):HttpMessageHandler
         {
             protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)
             {
                 var day=DateOnly.Parse(request.RequestUri!.Segments[^1]);
-                var response=new HttpResponseMessage(HttpStatusCode.OK){Content=owner.HangBody?new StreamContent(new HangingStream()):new StringContent(JsonSerializer.Serialize(new{detalhes=Array.Empty<object>(),pagination=new{page=1,totalPages=0,totalElements=0}}))};
+                var numeric=owner.NumericBalances && request.RequestUri.AbsolutePath.Contains("/balances/");
+                var payload=numeric
+                    ? JsonSerializer.Serialize(new{detalhes=new[]{new{estabelecimento=owner.WrongMerchant?999:123,tipo_evento=1,valor_saldo=0}},pagination=new{page=1,totalPages=1,totalElements=1}})
+                    : JsonSerializer.Serialize(new{detalhes=Array.Empty<object>(),pagination=new{page=1,totalPages=0,totalElements=0}});
+                var response=new HttpResponseMessage(HttpStatusCode.OK){Content=owner.HangBody?new StreamContent(new HangingStream()):new StringContent(payload)};
                 response.Headers.Add("VALIDADO",day==owner.FailDay?"false":"true");return Task.FromResult(response);
             }
         }
