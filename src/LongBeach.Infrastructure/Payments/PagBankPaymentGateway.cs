@@ -92,10 +92,19 @@ public sealed partial class PagBankPaymentGateway(HttpClient http, IConfiguratio
                 entry.NextRefresh=now.AddMinutes(5);
                 try
                 {
-                    using var response=await http.GetAsync("public-keys?type=webhook",ct);response.EnsureSuccessStatusCode();
-                    using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));var key=json.RootElement.GetProperty("public_key").GetString()!;
-                    using var ec=ECDsa.Create();ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(key),out _);
-                    if(entry.Current!=key){entry.Previous=entry.Current;entry.PreviousUntil=now.AddDays(7);entry.Current=key;}
+                    using var response=await http.GetAsync("public-keys/webhook",ct);response.EnsureSuccessStatusCode();
+                    using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+                    if(json.RootElement.ValueKind==JsonValueKind.Object && json.RootElement.TryGetProperty("public_key",out var material)
+                        && material.ValueKind==JsonValueKind.String && PaymentIntegrationDiagnostics.ValidWebhookKey(material.GetString()))
+                    {
+                        var key=material.GetString()!;
+                        if(entry.Current!=key)
+                        {
+                            // Preserve the provisioned key during the first rotation too.
+                            entry.Previous=entry.Current??config["Payments:PagBank:WebhookPublicKey"];
+                            entry.PreviousUntil=now.AddDays(7);entry.Current=key;
+                        }
+                    }
                 }
                 catch(Exception e)when(!ct.IsCancellationRequested&&e is HttpRequestException or TaskCanceledException or JsonException or CryptographicException or FormatException){/* Keep last trusted key on network failure. */}
             }
@@ -108,10 +117,12 @@ public sealed partial class PagBankPaymentGateway(HttpClient http, IConfiguratio
         if(string.IsNullOrWhiteSpace(key))return false;
         try
         {
-            using var ecdsa=ECDsa.Create();ecdsa.ImportSubjectPublicKeyInfo(Convert.FromBase64String(key),out _);
+            var bytes=Convert.FromBase64String(key);
+            using var ecdsa=ECDsa.Create();ecdsa.ImportSubjectPublicKeyInfo(bytes,out var read);
+            if(read!=bytes.Length)return false;
             foreach(var signature in signatures.SelectMany(x=>x.Split(',',StringSplitOptions.TrimEntries|StringSplitOptions.RemoveEmptyEntries)))
             {
-                try{if(ecdsa.VerifyData(body,Convert.FromBase64String(signature),HashAlgorithmName.SHA256,DSASignatureFormat.Rfc3279DerSequence))return true;}catch(FormatException){}
+                try{if(ecdsa.VerifyData(body,Convert.FromBase64String(signature),HashAlgorithmName.SHA256,DSASignatureFormat.Rfc3279DerSequence))return true;}catch(FormatException){}catch(CryptographicException){}
             }
         }catch(FormatException){}catch(CryptographicException){}
         return false;

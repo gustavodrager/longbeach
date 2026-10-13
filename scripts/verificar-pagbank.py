@@ -5,6 +5,7 @@ import base64
 import json
 import os
 from pathlib import Path
+import subprocess
 import urllib.error
 import urllib.request
 
@@ -12,6 +13,19 @@ import urllib.request
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
+
+
+def valid_webhook_key(key):
+    if not isinstance(key, str) or not key:
+        return False
+    try:
+        raw = base64.b64decode(key, validate=True)
+        # Parse the public key too: merely finding an EC OID is not validation.
+        result = subprocess.run(['openssl', 'pkey', '-pubin', '-inform', 'DER', '-text', '-noout'],
+                                input=raw, capture_output=True, timeout=5, check=False)
+        return result.returncode == 0 and b'ASN1 OID:' in result.stdout and b'\x06\x07\x2a\x86\x48\xce\x3d\x02\x01' in raw
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return False
 
 
 def main():
@@ -36,7 +50,7 @@ def main():
         raise ValueError('Atualização automática de chave limitada ao sandbox.')
     opener = urllib.request.build_opener(NoRedirect())
     results = {'ambiente': 'Sandbox' if 'sandbox.' in url else 'Production', 'pagamentos_ativados': config.get('Payments__PagBank__Enabled', 'false').lower() == 'true'}
-    for name, path in [('autenticacao', 'public-keys/card'), ('chave_webhook', 'public-keys?type=webhook')]:
+    for name, path in [('autenticacao', 'public-keys/card'), ('chave_webhook', 'public-keys/webhook')]:
         request = urllib.request.Request(url + path, headers={'Authorization': 'Bearer ' + token,
             'Accept': 'application/json', 'User-Agent': 'LongBeachOS-IntegrationCheck/1.0'})
         try:
@@ -47,7 +61,7 @@ def main():
                     valid = isinstance(key, str) and bool(key)
                 else:
                     # OID id-ecPublicKey: não aceitar uma chave RSA de cartões como chave de webhook.
-                    valid = isinstance(key, str) and b'\x06\x07\x2a\x86\x48\xce\x3d\x02\x01' in base64.b64decode(key, validate=True)
+                    valid = valid_webhook_key(key)
                 results[name] = {'http': response.status, 'validada': valid}
                 if name == 'chave_webhook' and valid and args.save_webhook_key:
                     config['Payments__PagBank__WebhookPublicKey'] = key
