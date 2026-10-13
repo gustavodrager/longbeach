@@ -61,6 +61,10 @@ Referências: [autenticidade](https://developer.pagbank.com.br/reference/validac
 
 ### Pendências para aprovação oficial
 
+O chamado principal de homologação é **1459066548**. Nos e-mails fornecidos pelo responsável: a triagem de 07/10 não identificou exposição de dados sensíveis, aceitou os identificadores e encaminhou os boletos para análise manual, dispensando o reenvio dos logs de Crédito, Débito e Pix; em 08/10, Alan informou que os logs estavam como esperado e pediu confirmação dos meios Crédito/Pix; em 09/10, solicitou um ajuste apresentado em `image.png`. O conteúdo dessa imagem ainda não está disponível nesta revisão. Esses retornos não confirmam aprovação final nem permitem identificar o ajuste sem a imagem.
+
+O chamado **1457129394** é da ativação EDI, confirmada pelo suporte em 07/10, e não da homologação de cobranças. A importação autorizada de 01/09 a 12/10/2026 já foi concluída (42 dias, 168 documentos; ver `pagbank-edi-recuperacao.md`). Nova conferência somente de leitura dos logs em 13/10 mostrou os quatro relatórios de 12/10 respondendo HTTP 200 às 16:26 BRT. Nenhuma credencial foi alterada ou reproduzida neste registro.
+
 Obter confirmação do PagBank sobre as duas intenções antigas sem resposta original completa e revalidar estornos dos cartões avulsos quando o Sandbox disponibilizar a operação; aguardar a análise do chamado **1464208386**, enviado com os requests/responses sanitizados em 13/10/2026. O recibo informa retorno em até **48 horas úteis**. Ciclos mensais futuros têm cobertura automatizada, mas não foram observados no Sandbox durante este ensaio. A aprovação oficial, credenciais de produção e callback assinado continuam dependendo do PagBank. Não marcar homologação oficial como concluída por conta de deploy ou de aprovação de testes internos.
 
 
