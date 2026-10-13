@@ -61,7 +61,7 @@ Referências: [autenticidade](https://developer.pagbank.com.br/reference/validac
 
 ### Pendências para aprovação oficial
 
-Obter confirmação do PagBank sobre as duas intenções antigas sem resposta original completa e revalidar estornos dos cartões avulsos quando o Sandbox disponibilizar a operação; reunir os requests/responses sanitizados e encaminhar pelo responsável ao PagBank. Ciclos mensais futuros têm cobertura automatizada, mas não foram observados no Sandbox durante este ensaio. A aprovação oficial, credenciais de produção e callback assinado continuam dependendo do PagBank. Não marcar homologação oficial como concluída por conta de deploy ou de aprovação de testes internos.
+Obter confirmação do PagBank sobre as duas intenções antigas sem resposta original completa e revalidar estornos dos cartões avulsos quando o Sandbox disponibilizar a operação; aguardar a análise do chamado **1464208386**, enviado com os requests/responses sanitizados em 13/10/2026. O recibo informa retorno em até **48 horas úteis**. Ciclos mensais futuros têm cobertura automatizada, mas não foram observados no Sandbox durante este ensaio. A aprovação oficial, credenciais de produção e callback assinado continuam dependendo do PagBank. Não marcar homologação oficial como concluída por conta de deploy ou de aprovação de testes internos.
 
 
 ### Correção de adesões e consulta de pendências
@@ -74,7 +74,7 @@ Falha de validação conhecida na primeira resposta de criação ou atualizaçã
 
 A tela distingue retomada anterior ao envio, rejeição e consulta de operação enviada. O endpoint autenticado `POST /api/v1/me/billing/subscriptions/{id}/refresh` consulta apenas a assinatura do próprio usuário, sem pedir cartão ou CVV. Uma referência positiva validada recupera o vínculo; ausência na lista mantém a pendência. O worker também recupera vínculos por referência. Pagamentos integralmente estornados permanecem no histórico e não impedem nova adesão válida após cancelamento.
 
-Consulta de 13/10 às 15:45 BRT: os estornos avulsos Visa R$ 4 e Mastercard R$ 5 seguem sem confirmação, com erro 40005/idempotency_key_in_use nas mesmas operações após a indisponibilidade 40008. Conservar recebido R$ 10/R$ 5, estornado zero e pendente R$ 4/R$ 5; não gerar outra chave para aparentar sucesso. Requests/responses sanitizados e rascunho de suporte estão nos artefatos locais; nenhum chamado foi enviado.
+Consulta de 13/10 às 15:45 BRT: os estornos avulsos Visa R$ 4 e Mastercard R$ 5 seguem sem confirmação, com erro 40005/idempotency_key_in_use nas mesmas operações após a indisponibilidade 40008. Conservar recebido R$ 10/R$ 5, estornado zero e pendente R$ 4/R$ 5; não gerar outra chave para aparentar sucesso. Requests/responses sanitizados foram anexados ao chamado **1464208386**, enviado com autorização pelo formulário oficial Pipefy. A tela confirmou recebimento por PagBank Internet S.A.; o recibo das 16:26 BRT, fornecido pelo usuário, confirmou o número e o prazo de até 48 horas úteis. O registro local está em `outputs/pagbank-suporte-status-2026-10-13.json`, com comprovante `outputs/pagbank-suporte-enviado-2026-10-13.png` no workspace principal. O chamado inclui também as duas intenções de assinatura sem confirmação; seu recebimento não encerra essas pendências nem representa aprovação da homologação.
 
 
 ### Resultado do reuso de assinante (16:11 BRT)
