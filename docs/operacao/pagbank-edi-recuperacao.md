@@ -79,3 +79,15 @@ Prévia local iniciada a partir de `longbeach-edi-fix` (base publicada mais corr
 Verificação: API saudável; interface autenticada abriu Minha área; consultas de perfil, agenda, solicitações e contas responderam 200 com dados locais. A sessão disponível é de área pessoal; não foram concedidos papéis nem criados consumos. Correção de chaves: 26 testes unitários e 3 testes Python aprovados; builds API e frontend aprovados. Ainda não comprova checkout completo ou notificações do PagBank.
 
 O formulário oficial exige URL/instruções de acesso e evidências de requests/responses. Localhost não é acessível pelo time PagBank; eventual túnel HTTPS restrito ou ambiente hospedado só deve ser preparado quando necessário e autorizado. Não enviar o formulário declarando um ambiente externo inexistente. Recorrência e acesso administrativo PagVendas seguem dependentes de validação/liberação oficial. Nenhum chamado foi enviado nesta rodada.
+
+## Visão financeira atual — semântica da aplicação
+
+A seção principal consulta a posição registrada no Long Beach OS a cada 30 segundos, com atualização manual. `GET /api/v1/financial-history/current-position` exige gestão e lê contas e pagamentos no mesmo snapshot transacional. A receber considera somente lançamentos pendentes e abate pagamentos `Approved`/`Refunded` das contas de quadra vinculadas, líquidos dos estornos confirmados. Pix pendente não reduz a dívida. A pagar considera lançamentos pendentes, com todos os vencimentos. A composição por conta mostra valor original, pagamentos líquidos e saldo; a soma dos detalhes corresponde ao card. Nenhuma dessas consultas cria lançamento, baixa ou cobrança.
+
+Comandas a receber e dinheiro físico nos caixas abertos usam os relatórios operacionais existentes do bar, sem somá-los ao Financeiro ou ao EDI. Zero significa ausência de saldo nos registros dessa fonte, acompanhado de contagem; não afirma inexistência de vendas ou obrigações fora do sistema. As comandas externas do PagVendas não têm sincronização em tempo real.
+
+O horário da consulta e o da última alteração registrada são campos separados. Falha de atualização oculta os valores anteriores na posição atual. O extrato bancário e o resultado mensal permanecem em histórico recolhido, com a data original. A carteira EDI permanece identificada como último dia validado em D+1, com data do saldo e horário da coleta; não inclui as vendas do dia corrente.
+
+`currentBank` permanece indisponível (`NotConnected`, valor e data nulos). O endpoint legado de transferência `/transfer/balance` não foi ativado como fonte de saldo da conta digital: é necessário validar contrato, elegibilidade e significado antes de qualquer integração. A aplicação não extrapola saldo atual a partir do extrato antigo ou de movimentos da carteira EDI.
+
+Validação local desta mudança: 42 testes frontend afetados, 12 testes de regras financeiras e 2 testes de integração (autorização e PostgreSQL descartável) aprovados; builds da API e frontend concluídos. Publicação deve seguir a promoção de artefato identificado registrada no runbook de release.
