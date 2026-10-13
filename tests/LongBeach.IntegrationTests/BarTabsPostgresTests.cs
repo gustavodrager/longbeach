@@ -244,7 +244,13 @@ public sealed class BarTabsPostgresTests
         var refund=new TabRefundInput(Guid.NewGuid(),3,"Estorno de teste"); f.Gateway.ConfirmRefund=false;
         await Assert.ThrowsAsync<BarPaymentConfirmationPendingException>(()=>f.Tabs.Refund(tab.Id,payment.Id,refund,f.Actor,default));
         Assert.Equal("Pending",(await f.Db.Set<BarTabRefund>().SingleAsync(x=>x.OperationId==refund.OperationId)).State); Assert.Equal(0,(await f.Tabs.Get(tab.Id,false,default)).Due);
-        f.Gateway.ConfirmRefund=true; await f.Tabs.Refund(tab.Id,payment.Id,refund,f.Actor,default); await f.Tabs.Refund(tab.Id,payment.Id,refund,f.Actor,default);
+        f.Db.ChangeTracker.Clear();
+        var persisted = await f.Db.Set<BarTabRefund>().AsNoTracking().SingleAsync(x => x.OperationId == refund.OperationId);
+        var recovered = new TabRefundInput(persisted.OperationId, persisted.Amount, persisted.Reason);
+        await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Refund(tab.Id, payment.Id, recovered with { Amount = 4 }, f.Actor, default));
+        await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Refund(tab.Id, payment.Id, recovered with { Reason = "Outro motivo" }, f.Actor, default));
+        await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Refund(tab.Id, payment.Id, recovered, Guid.NewGuid(), default));
+        f.Gateway.ConfirmRefund=true; await f.Tabs.Refund(tab.Id,payment.Id,recovered,f.Actor,default); await f.Tabs.Refund(tab.Id,payment.Id,refund,f.Actor,default);
         Assert.Equal(3,(await f.Tabs.Get(tab.Id,false,default)).Due); Assert.Equal(1,await f.Db.Set<BarTabHistory>().CountAsync(x=>x.TabId==tab.Id&&x.Kind=="PaymentRefunded"));
         await f.Tabs.Refund(tab.Id,payment.Id,new(Guid.NewGuid(),2,"Outro estorno parcial"),f.Actor,default); Assert.Equal(5,(await f.Tabs.Get(tab.Id,false,default)).Due);
     }
