@@ -29,3 +29,23 @@ A conclusão confirma disponibilidade e coleta dos documentos que o provedor dec
 ## Rollback
 
 Restaurar a API ao commit anterior `4ff170e7dcc3feac06b74bc62f49e2ea3634aa0c`. Não apagar documentos já importados. A versão anterior volta a falhar diante de estabelecimentos numéricos; manter os dados para a próxima recuperação.
+
+## Publicação
+
+- PR: https://github.com/gustavodrager/longbeach/pull/28
+- API: commit `544318f89f45f0aac9ad2fae6609417b2e49a976`.
+- Railway: deployment `754a5d60-9abc-46e3-9f1b-c9dedc1caca3`, saudável em 13/10/2026 às 16:14 UTC.
+- Imagem: `sha256:124c3c281add1e3350c1d67b2f709cb784f8bdb1b7dd2c094b3f22782b7ab44e`.
+- Apenas a origem da API foi promovida; configuração EDI e início em `2026-09-01` preservados. API e web responderam aos healthchecks.
+
+## Resultado da importação
+
+Concluída em **13/10/2026 às 16:16:37 UTC**. Conferência direta, somente de leitura, do banco de produção:
+
+- Cursor: **2026-10-12**, `failure_code=NULL`, `failure_count=0`.
+- Período: **2026-09-01 a 2026-10-12**, 42 datas e 168 documentos validados (quatro relatórios por dia).
+- `transactional`: 229 registros; `financial`: 229; `cashouts`: 229; `balances`: 84.
+- Todos os relatórios cobrem 42 datas. Vendas/financeiro/saídas têm primeiro dia não vazio em 02/09; saldos começam em 01/09. As contagens dos relatórios não devem ser somadas como novas vendas.
+- CI da PR aprovado no PostgreSQL 17, PostgreSQL 18 e frontend/PWA.
+
+O coletor periódico segue habilitado para D-1. A conferência contou documentos e datas, sem expor tokens, identificadores pessoais ou valores monetários.
