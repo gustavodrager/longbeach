@@ -12,7 +12,7 @@ public static class BillingWriteGuard
         if(saved is null)
         {
             var (sourceKind,sourceId)=await BillingService.BillingSource(db,incoming,ct);
-            var subscription=await db.Set<BillingSubscription>().SingleOrDefaultAsync(x=>x.SourceKind==sourceKind&&x.SourceId==sourceId&&x.State!="CANCELED"&&x.State!="EXPIRED",ct);
+            var subscription=await db.Set<BillingSubscription>().SingleOrDefaultAsync(x=>x.SourceKind==sourceKind&&x.SourceId==sourceId&&x.State!="CANCELED"&&x.State!="EXPIRED"&&x.State!="Rejected",ct);
             if(subscription is not null)
             {
                 if(!DateOnly.TryParseExact(incoming["month"]+"-01","yyyy-MM-dd",out var month))throw new BarRuleException("Confira a competência da assinatura.");
@@ -26,6 +26,6 @@ public static class BillingWriteGuard
         var account=await db.Set<BillingAccount>().SingleOrDefaultAsync(x=>x.Kind=="Quadra"&&x.SourceId==id,ct);
         if(account is not null&&await db.Set<BillingPayment>().AnyAsync(x=>x.AccountId==account.Id&&x.State!="Canceled",ct))throw new BarRuleException("Este lançamento tem pagamento integrado. Use consulta ou estorno para alterar o recebimento.");
         var (kind,source)=await BillingService.BillingSource(db,old,ct);
-        if(await db.Set<BillingSubscription>().AnyAsync(x=>x.SourceKind==kind&&x.SourceId==source&&x.State!="CANCELED"&&x.State!="EXPIRED",ct))throw new BarRuleException("Há assinatura vinculada. Cancele e concilie antes de alterar a cobrança.");
+        if(await db.Set<BillingSubscription>().AnyAsync(x=>x.SourceKind==kind&&x.SourceId==source&&x.State!="CANCELED"&&x.State!="EXPIRED"&&x.State!="Rejected",ct))throw new BarRuleException("Há assinatura vinculada. Cancele e concilie antes de alterar a cobrança.");
     }
 }

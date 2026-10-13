@@ -9,9 +9,10 @@ import type { AuthUser } from '../features/auth/types'
 
 const clients: QueryClient[] = []
 const signInWithGoogle = vi.fn()
+const signIn = vi.fn()
 function mount(page = <LoginPage />, user: AuthUser | null = null) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }); clients.push(client)
-  return render(<QueryClientProvider client={client}><AuthContext.Provider value={{ user, isBootstrapping: false, signIn: vi.fn(), signOut: vi.fn(), signInWithGoogle, changePassword: vi.fn(), completeFirstAccessWithGoogle: vi.fn() }}><MemoryRouter>{page}</MemoryRouter></AuthContext.Provider></QueryClientProvider>)
+  return render(<QueryClientProvider client={client}><AuthContext.Provider value={{ user, isBootstrapping: false, signIn, signOut: vi.fn(), signInWithGoogle, changePassword: vi.fn(), completeFirstAccessWithGoogle: vi.fn() }}><MemoryRouter>{page}</MemoryRouter></AuthContext.Provider></QueryClientProvider>)
 }
 function options(enabled = true) { return new Response(JSON.stringify({ googleClientId: 'test-client', clientRegistrationEnabled: enabled }), { status: 200 }) }
 function google() {
@@ -70,4 +71,15 @@ it('erro no script Google não sugere entrar com senha', async () => {
   fireEvent.error(document.querySelector('script[data-google-identity]')!)
   expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível carregar o Google')
   expect(screen.getByRole('alert')).not.toHaveTextContent(/senha/)
+})
+
+it('acesso de homologação usa autenticação existente somente quando autorizado pela API', async () => {
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ googleClientId: null, clientRegistrationEnabled: false, homologationLoginEnabled: true }), { status: 200 }))
+  signIn.mockResolvedValue(undefined)
+  mount()
+  fireEvent.change(await screen.findByLabelText('E-mail de teste'), { target: { value: 'reviewer@example.invalid' } })
+  fireEvent.change(screen.getByLabelText('Senha de teste'), { target: { value: 'synthetic-password-for-unit-test' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Entrar na homologação' }))
+  await waitFor(() => expect(signIn).toHaveBeenCalledWith({ email: 'reviewer@example.invalid', password: 'synthetic-password-for-unit-test' }))
+  expect(screen.queryByText(/Google está indisponível/)).not.toBeInTheDocument()
 })

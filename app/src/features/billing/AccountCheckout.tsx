@@ -1,16 +1,17 @@
 import { useAuth } from '../auth/authContext'
 import { useRef, useState } from 'react'
-import type { Account, Config, Payment } from './api'
+import type { Account, Config, Payment, Subscription } from './api'
 import { post, date } from './api'
 import { CardFields, emptyCard } from './CardFields'
 import { encryptCard } from './card'
 import { money } from '../attendance/api'
-export function AccountCheckout({ account, config, base, resume, subscription = false, subscriptionOperationId, done }: { account: Account; config: Config; base: string; resume?: Payment; subscription?: boolean; subscriptionOperationId?: string; done: () => Promise<unknown> }) {
+export function AccountCheckout({ account, config, base, resume, subscription = false, subscriptionOperationId, subscriptionUpdateExistingCustomerCard = false, subscriptionUpdated, done }: { account: Account; config: Config; base: string; resume?: Payment; subscription?: boolean; subscriptionOperationId?: string; subscriptionUpdateExistingCustomerCard?: boolean; subscriptionUpdated?: (value: Subscription) => Promise<void>; done: () => Promise<unknown> }) {
   const { user } = useAuth()
   const [method, setMethod] = useState(resume?.method ?? (subscription || !config.pixEnabled ? 'CreditCard' : 'Pix'))
   const [card, setCard] = useState(emptyCard); const [busy, setBusy] = useState(false); const [error, setError] = useState('')
   const [name, setName] = useState(user?.name ?? ''); const [email, setEmail] = useState(user?.email ?? ''); const [taxId, setTaxId] = useState(''); const [phone, setPhone] = useState(''); const [consent, setConsent] = useState(false)
-  const [amount, setAmount] = useState(String(resume?.amount ?? account.payable)); const [started, setStarted] = useState(false)
+  const [updateExistingCustomerCard, setUpdateExistingCustomerCard] = useState(subscription && Boolean(subscriptionOperationId) && subscriptionUpdateExistingCustomerCard)
+  const [amount, setAmount] = useState(String(resume?.amount ?? account.payable)); const [started, setStarted] = useState(subscription && Boolean(subscriptionOperationId))
   const operation = useRef(resume?.operationId ?? subscriptionOperationId ?? crypto.randomUUID())
   const submitting = useRef(false)
   const submittedAmount = useRef<number | undefined>(undefined)
@@ -24,9 +25,12 @@ export function AccountCheckout({ account, config, base, resume, subscription = 
       const securityCode = subscription ? card.securityCode : undefined
       setCard(emptyCard); setStarted(true)
       submittedAmount.current ??= resume?.amount ?? total
-      await post(`${base}/accounts/${account.id}/${subscription ? 'subscriptions' : 'payments'}`, subscription
-        ? { operationId: operation.current, name, email, taxId, phone, encryptedCard, securityCode, consent, expectedAmount: account.total, expectedFirstDue: account.dueDate }
-        : { operationId: operation.current, method, name, email, taxId, encryptedCard, amount: submittedAmount.current })
+      if (subscription) {
+        const result = await post<Subscription>(`${base}/accounts/${account.id}/subscriptions`, { operationId: operation.current, name, email, taxId, phone, encryptedCard, securityCode, consent, updateExistingCustomerCard, expectedAmount: account.total, expectedFirstDue: account.dueDate })
+        await subscriptionUpdated?.(result)
+      } else {
+        await post(`${base}/accounts/${account.id}/payments`, { operationId: operation.current, method, name, email, taxId, encryptedCard, amount: submittedAmount.current })
+      }
       await done()
     } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível confirmar. Consulte a conta antes de repetir.'); await done() }
     finally { submitting.current = false; setBusy(false) }
@@ -42,6 +46,7 @@ export function AccountCheckout({ account, config, base, resume, subscription = 
     {subscription && <label className="ux-field">Telefone com DDD<input required inputMode="tel" pattern="[0-9]{10,11}" maxLength={11} value={phone} disabled={busy} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} /></label>}
     {method === 'CreditCard' && <CardFields value={card} change={setCard} disabled={busy} />}
     {subscription && <label><input type="checkbox" required checked={consent} disabled={busy} onChange={e => setConsent(e.target.checked)} /> Autorizo a cobrança mensal de {money(account.total)} no cartão. Posso cancelar cobranças futuras na minha área.</label>}
+    {subscription && <label><input type="checkbox" checked={updateExistingCustomerCard} disabled={busy || started} onChange={e => setUpdateExistingCustomerCard(e.target.checked)} /> Se este CPF ou CNPJ já estiver cadastrado no PagBank, autorizo atualizar o cartão usado nas outras mensalidades automáticas deste mesmo assinante. Esta autorização é opcional.</label>}
     {error && <p role="alert">{error}</p>}
     <button className="ux-button primary" disabled={busy || (subscription ? !config.subscriptionsEnabled : method === 'Pix' ? !config.pixEnabled : !config.cardEnabled)}>{busy ? 'Confirmando…' : subscription ? 'Autorizar cobrança mensal' : resume || started ? 'Retomar o mesmo pagamento' : 'Confirmar pagamento'}</button>
     {started && <p role="status">Se houver falha, retome esta operação. Não inicie uma segunda cobrança.</p>}

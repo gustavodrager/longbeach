@@ -70,7 +70,28 @@ public static class BarEndpoints
             if(h.Request.ContentLength > 65536) return Results.StatusCode(413);
             using var body = new MemoryStream(); var buffer = new byte[4096]; int read;
             while((read=await h.Request.Body.ReadAsync(buffer,ct))>0) { if(body.Length+read>65536) return Results.StatusCode(413); await body.WriteAsync(buffer.AsMemory(0,read),ct); }
-            return (await billing.Webhook(body.ToArray(),h.Request.Headers["x-payload-signature"].Select(x=>x??""),ct) || await s.Webhook(body.ToArray(),h.Request.Headers["x-payload-signature"].Select(x=>x??""),ct)) ? Results.Ok() : Results.Unauthorized();
+            var signatures = h.Request.Headers["x-payload-signature"].Select(x => x ?? "").ToArray();
+            var accepted = await billing.Webhook(body.ToArray(), signatures, ct) || await s.Webhook(body.ToArray(), signatures, ct);
+            var refreshedFromHint = false;
+            if (!accepted && signatures.All(string.IsNullOrWhiteSpace) && !h.Request.Headers.ContainsKey("x-authenticity-token") &&
+                LongBeach.Infrastructure.Bootstrap.PagBankHomologation.AllowsNotificationHints(
+                    h.RequestServices.GetRequiredService<IConfiguration>(), h.RequestServices.GetRequiredService<IHostEnvironment>()))
+            {
+                try
+                {
+                    using var notification = System.Text.Json.JsonDocument.Parse(body.ToArray());
+                    if (notification.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                        notification.RootElement.TryGetProperty("id", out var id) && id.ValueKind == System.Text.Json.JsonValueKind.String &&
+                        id.GetString() is { } order && System.Text.RegularExpressions.Regex.IsMatch(order, "^ORDE_[A-Za-z0-9-]{1,80}$"))
+                        refreshedFromHint = await billing.RefreshNotificationHint(order, ct) || await s.RefreshNotificationHint(order, ct);
+                }
+                catch (System.Text.Json.JsonException) { /* Untrusted malformed hints remain unauthorized. */ }
+            }
+            // Diagnostic metadata only: never log payloads, signatures or credentials.
+            h.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("PagBankWebhook")
+                .LogInformation("PagBank webhook accepted={Accepted} refreshedFromHint={RefreshedFromHint} payloadSignaturePresent={PayloadSignaturePresent} legacySignaturePresent={LegacySignaturePresent} bodyBytes={BodyBytes}",
+                    accepted, refreshedFromHint, signatures.Any(x => !string.IsNullOrWhiteSpace(x)), h.Request.Headers.ContainsKey("x-authenticity-token"), body.Length);
+            return accepted ? Results.Ok() : refreshedFromHint ? Results.Accepted() : Results.Unauthorized();
         }).AllowAnonymous().RequireRateLimiting("public-demo-write");
         return endpoints;
     }

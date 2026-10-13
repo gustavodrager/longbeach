@@ -43,6 +43,15 @@ public sealed partial class BillingService
         }
         return await Account(id,null,ct);
     }
+    public async Task<bool> RefreshNotificationHint(string orderId, CancellationToken ct)
+    {
+        var payment = await db.Set<BillingPayment>().SingleOrDefaultAsync(x => x.ProviderId == orderId && x.Method != "Subscription", ct);
+        if (payment is null) return false;
+        var remote = await gateway.Get(payment.ProviderId!, ct);
+        Validate(payment, remote);
+        await Observe(payment, remote, ct);
+        return true;
+    }
     public async Task<bool> Webhook(byte[] body,IEnumerable<string> signatures,CancellationToken ct)
     {
         if(!await gateway.VerifyWebhookAsync(body,signatures,ct))return false;
@@ -66,6 +75,12 @@ public sealed partial class BillingService
         foreach(var r in refunds)
         {
             try{var p=await db.Set<BillingPayment>().SingleAsync(x=>x.Id==r.PaymentId,ct);await Refund(p.AccountId,p.Id,new(r.OperationId,r.Amount,r.Reason),r.ActorId,ct);}catch(Exception ex)when(!ct.IsCancellationRequested){logger.LogWarning("Billing recovery deferred: {FailureType}",ex.GetType().Name);db.ChangeTracker.Clear();}
+        }
+        var unbound=await db.Set<BillingSubscription>().Where(x=>x.ProviderId==null&&x.State=="Creating"&&x.CreationAttempted).Select(x=>x.Id).ToListAsync(ct);
+        foreach(var id in unbound)
+        {
+            try{var s=await db.Set<BillingSubscription>().SingleAsync(x=>x.Id==id,ct);await RecoverSubscriptionBinding(s,ct);}
+            catch(Exception ex)when(!ct.IsCancellationRequested){logger.LogWarning("Subscription binding recovery deferred: {FailureType}",ex.GetType().Name);db.ChangeTracker.Clear();}
         }
         var subscriptions=await db.Set<BillingSubscription>().Where(x=>x.ProviderId!=null).Select(x=>x.Id).ToListAsync(ct);
         foreach(var id in subscriptions) {try{await SyncSubscription(id,ct);}catch(Exception ex)when(!ct.IsCancellationRequested){logger.LogWarning("Billing recovery deferred: {FailureType}",ex.GetType().Name);db.ChangeTracker.Clear();}}

@@ -75,8 +75,8 @@ public sealed class BillingRefund : Entity
 public sealed class BillingSubscription : Entity
 {
     private BillingSubscription() { }
-    public BillingSubscription(Guid accountId, Guid operationId, Guid userId, string sourceKind, Guid sourceId, decimal amount, DateOnly firstDue, DateTimeOffset consentAt) : base(Guid.NewGuid())
-    { AccountId = accountId; OperationId = operationId; UserId = userId; SourceKind = sourceKind; SourceId = sourceId; Amount = amount; FirstDue = firstDue; ConsentAtUtc = consentAt; }
+    public BillingSubscription(Guid accountId, Guid operationId, Guid userId, string sourceKind, Guid sourceId, decimal amount, DateOnly firstDue, DateTimeOffset consentAt, bool updateExistingCustomerCard = false) : base(Guid.NewGuid())
+    { AccountId = accountId; OperationId = operationId; UserId = userId; SourceKind = sourceKind; SourceId = sourceId; Amount = amount; FirstDue = firstDue; ConsentAtUtc = consentAt; UpdateExistingCustomerCard = updateExistingCustomerCard; }
     public Guid AccountId { get; private set; }
     public Guid OperationId { get; private set; }
     public Guid UserId { get; private set; }
@@ -88,11 +88,16 @@ public sealed class BillingSubscription : Entity
     public string State { get; private set; } = "Creating";
     public string? ProviderId { get; private set; }
     public string? PlanId { get; private set; }
+    public bool UpdateExistingCustomerCard { get; private set; }
+    public bool CreationAttempted { get; private set; }
+    public string? FailureReason { get; private set; }
     public Guid? CancelOperationId { get; private set; }
     public int Version { get; private set; }
     public void Plan(string id) { PlanId = id; Version++; }
-    public void Bind(string id) { if (ProviderId is not null && ProviderId != id) throw new BarRuleException("Assinatura divergente."); ProviderId = id; Version++; }
-    public void Observe(string state) { if (State != "CANCELED") State = state; Version++; }
+    public void BeginCreation() { if (State != "Creating" || CreationAttempted) throw new BarRuleException("Esta adesão já foi enviada. Consulte sua confirmação."); CreationAttempted = true; Version++; }
+    public void Reject(string reason) { if (ProviderId is not null || State != "Creating") throw new BarRuleException("Concilie a assinatura já vinculada."); State = "Rejected"; FailureReason = BarRules.Text(reason, 300, "Motivo"); Version++; }
+    public void Bind(string id) { if (State == "Rejected" || (ProviderId is not null && ProviderId != id)) throw new BarRuleException("Assinatura divergente."); ProviderId = id; Version++; }
+    public void Observe(string state) { if (State is not ("CANCELED" or "Rejected")) State = state; Version++; }
     public void Cancel(Guid operation) { if (operation == Guid.Empty) throw new BarRuleException("Operação obrigatória."); CancelOperationId ??= operation; State = "CancelPending"; Version++; }
 }
 

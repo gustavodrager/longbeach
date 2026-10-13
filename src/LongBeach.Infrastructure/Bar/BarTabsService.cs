@@ -240,9 +240,20 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         {
             try
             {
-                await OperationLock(input.OperationId, ct); await CheckOperation(input.OperationId, fingerprint, ct); var tab = await Lock(id, ct);
-                payment = await db.Set<BarTabPayment>().SingleOrDefaultAsync(x => x.Id == paymentId && x.TabId == id, ct) ?? throw new BarRuleException("Pagamento não pertence a esta comanda.");
+                await OperationLock(input.OperationId, ct);
                 refund = await db.Set<BarTabRefund>().SingleOrDefaultAsync(x => x.OperationId == input.OperationId, ct) ?? null!;
+                if (refund is not null)
+                {
+                    // PostgreSQL restores numeric scale (3 becomes 3.00), and the
+                    // domain trims reasons. Compare persisted business values before
+                    // reusing the original fingerprint, including legacy intents.
+                    if (refund.TabId != id || refund.PaymentId != paymentId || refund.ActorId != actor
+                        || refund.Amount != BarRules.Money(input.Amount) || refund.Reason != BarRules.Text(input.Reason, 500, "Motivo do estorno"))
+                        throw new BarRuleException("Chave reutilizada para outro estorno.");
+                    fingerprint = refund.Fingerprint;
+                }
+                await CheckOperation(input.OperationId, fingerprint, ct); var tab = await Lock(id, ct);
+                payment = await db.Set<BarTabPayment>().SingleOrDefaultAsync(x => x.Id == paymentId && x.TabId == id, ct) ?? throw new BarRuleException("Pagamento não pertence a esta comanda.");
                 if (refund is not null)
                 {
                     if (refund.Fingerprint != fingerprint) throw new BarRuleException("Chave reutilizada para outro estorno.");
@@ -340,6 +351,16 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         foreach (var access in await db.Set<BarTabAccess>().Where(x => x.TabId == id && !x.Revoked).ToListAsync(ct)) access.Revoke();
         db.Add(new BarTabHistory(id, "AccessRevoked", actor, reason: input.Reason)); await db.SaveChangesAsync(ct); return await Public(tab, false, false, ct);
     }, ct);
+    public async Task<bool> RefreshNotificationHint(string orderId, CancellationToken ct)
+    {
+        // An unsigned hint can only refresh an already bound payment; its other fields are never trusted.
+        var payment = await db.Set<BarTabPayment>().SingleOrDefaultAsync(x => x.ProviderId == orderId, ct);
+        if (payment is null) return false;
+        if (payment.State != "Pending")
+            await ProviderCall(payment, payment.OperationId, () => gateway.Get(payment.ProviderId!, ct), ct);
+        await RefreshProviderPayment(payment.Id, ct);
+        return true;
+    }
     public async Task<bool> Webhook(byte[] body, IEnumerable<string> signatures, CancellationToken ct)
     {
         if (!await gateway.VerifyWebhookAsync(body, signatures,ct)) return false;

@@ -1,6 +1,8 @@
 using LongBeach.Contracts.Billing;
 namespace LongBeach.Application.Billing;
 public sealed record RecurringState(string Id,string Reference,string State,long Amount,string Currency);
+public sealed record RecurringCustomer(string Id,string Reference,string TaxId);
+public sealed class RecurringCreationRejectedException(string message) : Exception(message);
 public sealed record RecurringInvoice(string Id,int Occurrence,string State,long Amount,string Currency,string? PaymentId,string? PaymentState, bool SafeToRelease = false);
 public interface IRecurringGateway
 {
@@ -8,6 +10,9 @@ public interface IRecurringGateway
     Task<string?> PublicKey(CancellationToken ct);
     Task<string> CreatePlan(Guid reference,decimal amount,int trialDays,CancellationToken ct);
     Task<RecurringState> Create(Guid reference,Guid operation,string plan,SubscribeInput input,CancellationToken ct);
+    Task<RecurringCustomer?> FindCustomer(string taxId,CancellationToken ct) => Task.FromResult<RecurringCustomer?>(null);
+    Task<RecurringState?> FindSubscription(Guid reference,CancellationToken ct) => Task.FromResult<RecurringState?>(null);
+    Task<RecurringState> CreateForCustomer(Guid reference,Guid operation,string plan,SubscribeInput input,RecurringCustomer customer,CancellationToken ct) => throw new NotSupportedException();
     Task<RecurringState> Get(string id,CancellationToken ct);
     Task<RecurringState> Cancel(string id,Guid operation,CancellationToken ct);
     Task<IReadOnlyList<RecurringInvoice>> Invoices(string id,CancellationToken ct);

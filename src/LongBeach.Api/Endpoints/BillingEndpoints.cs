@@ -16,6 +16,7 @@ public static class BillingEndpoints
         me.MapPost("/accounts/{id:guid}/payments/{paymentId:guid}/refresh", (Guid id, Guid paymentId, HttpContext h, IBilling s, CancellationToken ct) => s.Refresh(id, paymentId, Actor(h), true, ct));
         me.MapGet("/subscriptions", (HttpContext h, IBilling s, CancellationToken ct) => s.Subscriptions(Actor(h), ct));
         me.MapPost("/accounts/{id:guid}/subscriptions", (Guid id, SubscribeInput i, HttpContext h, IBilling s, CancellationToken ct) => s.Subscribe(id, i, Actor(h), ct));
+        me.MapPost("/subscriptions/{id:guid}/refresh", (Guid id, HttpContext h, IBilling s, CancellationToken ct) => s.RefreshSubscription(id, Actor(h), ct));
         me.MapPost("/subscriptions/{id:guid}/cancel", (Guid id, CancelSubscriptionInput i, HttpContext h, IBilling s, CancellationToken ct) => s.Cancel(id, i, Actor(h), ct));
         var admin = endpoints.MapGroup("/api/v1/billing").RequireAuthorization(SystemPermissions.FinanceRead).WithTags("Recebimentos");
         admin.MapGet("/accounts", (IBilling s, CancellationToken ct) => s.Accounts(null, ct));

@@ -1,4 +1,6 @@
-# Homologação local — decisão vigente
+# Homologação local — histórico
+
+Em 13/10/2026 o responsável autorizou novamente a homologação externa no Railway para avaliação do PagBank. A prévia local é preservada; a decisão vigente e os recursos exclusivos estão em [Homologação PagBank no Railway](homologacao-pagbank-railway.md). As restrições locais abaixo registram a decisão anterior.
 
 O usuário escolheu manter a aplicação e o banco de homologação no computador. A proposta de provisionar staging no Railway foi substituída; nenhum deploy hospedado foi executado. Google é usado como provedor externo de autenticação, com projeto próprio na conta institucional da arena.
 
