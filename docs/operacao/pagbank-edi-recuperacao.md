@@ -59,3 +59,10 @@ O painel preserva `pagBank` como último extrato bancário importado, identifica
 A consulta usa a última data completa até ontem e a última coleta validada dessa data. Confere estabelecimento configurado, todas as páginas, contagem, data dos registros, evento 08 único e precisão em centavos. Ausência, duplicidade ou falha de contrato produz indisponibilidade explícita, nunca zero presumido nem fallback silencioso para uma coleta antiga. O link abre os documentos na data exata; hashes e horário da coleta são preservados na resposta.
 
 O painel de conexões distingue coleta EDI, arquivos PagVendas, Pix, cartão e assinaturas. Não expõe credenciais e não habilita cobranças. Produção segue sem credenciais de Pedidos/Recorrência; catálogo, vendas detalhadas e estoque PagVendas dependem de arquivos conferidos ou contrato oficial de integração. Não há sincronização de comandas externas nem baixa de estoque a partir de totais EDI.
+
+
+### Conferência da visão geral publicada
+
+Em 13/10/2026, conferência autenticada confirmou carteira EDI com saldo final **R$ 0,00 em 12/10/2026**, coleta às 13:56:21 de Brasília. O saldo **R$ 2.365,66 de 30/09/2026** permanece identificado como histórico da conta digital. O resultado mensal de setembro permanece **-R$ 1.154,07**, receitas R$ 11.147,87 menos despesas R$ 12.301,94; não foi substituído pela carteira EDI. O link da carteira abriu os documentos originais com filtro `ediDate=2026-10-12`, exibindo 29 movimentos dos quatro relatórios separados.
+
+Publicação, versões, testes e rollback estão registrados em `docs/bar/comandas-operacao-e-migracao.md`, seção de 13/10/2026. O painel distingue recursos ativos das pendências: Pix, cartão e recorrência exigem credenciais/homologação; sincronização direta de catálogo, estoque, vendas detalhadas e comandas PagVendas exige contrato/API oficial disponível. Os fluxos atuais por arquivo permanecem sujeitos à conferência. Não está implantada atualização automática do saldo da conta corrente digital.

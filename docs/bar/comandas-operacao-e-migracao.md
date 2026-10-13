@@ -104,4 +104,13 @@ Incremento em `codex/comandas-saldo-20261013`, isolado das alterações de estoq
 - Migração `20261013164058_TabObservations` adiciona somente duas colunas opcionais. Rollback é da aplicação, preservando as colunas e informações; não executar Down.
 - Não foi ativada taxa de serviço: a conta consultada não possui taxa definida. Desconto/cortesia mantém aprovação de supervisão.
 
-Validação local: testes do fluxo de atendimento e divisão, observações persistidas/repetidas em PostgreSQL, permissões e acesso do cliente; builds da API e PWA. Publicação e verificação serão registradas após sua conclusão.
+Validação: 93 testes de interface, 81 testes de integração focados e 26 testes unitários aprovados; builds da API e PWA. CI completo aprovado em PostgreSQL 17 e 18 e frontend/PWA no run 38433282574. Migração aplicada na base isolada antes da publicação.
+
+
+### Publicação e conferência — 13/10/2026
+
+PR: https://github.com/gustavodrager/longbeach/pull/29 (depende da PR 28). API publicada primeiro em `5ce7cbf35c757b4cf8c41c6f8c3758e4cb795e4d`, deployment `67349c91-372b-4fbd-ab2a-603d0191fbdb`, imagem `sha256:a7ca665853f89e16784c127600f2e6fcd18d018b75efbe9d17beccd4d668cb75`. Web final em `6cbdd1a3e406edb27dbbf4f46377a85a84b639e7`, deployment `a6770c1e-084b-4ddd-a8ec-947e2667c143`, saudável às 17:05 UTC. O segundo commit altera somente classe/CSS para evitar corte dos valores financeiros. Healthchecks API e web aprovados após publicação. Fontes fixadas por commit; nenhum segredo alterado.
+
+Conferência autenticada em produção: formulário mostra observações opcionais; recebimento oferece total, parte e divisão. Comanda existente de R$ 18,00 apresentou R$ 6,00 para a primeira de três pessoas e R$ 12,00 restantes. Nenhuma comanda, consumo, pagamento ou movimentação de estoque foi criada na verificação. Pix/crédito integrado permanecem desabilitados por falta de configuração.
+
+Rollback visual: restaurar web `5ce7cbf35c757b4cf8c41c6f8c3758e4cb795e4d`. Para rollback funcional, usar os artefatos anteriores registrados no histórico do Railway, preservando a migração e os dados de observações. Não executar Down. As alterações concorrentes de estoque e materiais na cópia principal foram preservadas; esta publicação está no worktree `longbeach-edi-fix`, branch `codex/comandas-saldo-20261013`.
