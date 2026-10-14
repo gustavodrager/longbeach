@@ -56,4 +56,4 @@ Incremento sem migration, alteração de credenciais ou ativação de pagamentos
 
 Validação local: interface completa (328 testes), regras afetadas (113 testes unitários), persistência/histórico/auditoria e fluxos de cobrança/recorrência em PostgreSQL 17 descartável. Builds da API e web aprovados. Nenhum dado bancário real foi alterado.
 
-Esta revisão de 14/10/2026 está implementada e validada localmente; ainda não foi promovida para homologação ou produção. A publicação deve preservar as demais alterações entregues por outras frentes desde a versão anterior.
+Revisão promovida em 14/10/2026 para API e web de homologação e produção no commit `ee803b7a2300af27f6f43dcc07dc0e194c701194`, preservando a versão de notas recebidas entregue pela outra frente. CI completa aprovada; salvamento e recarga de Pix da Quadra/C6 e PagVendas/Bar conferidos com um único lançamento fictício cancelado em staging. Evidências e retorno no [registro de publicação](../operacao/publicacao-recebimentos-2026-10-14.md). Dados e credenciais permanecem separados entre os ambientes.
