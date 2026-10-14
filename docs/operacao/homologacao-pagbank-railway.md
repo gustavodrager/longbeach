@@ -18,6 +18,8 @@ Executar `dotnet LongBeach.Api.dll --migrate-only` no pré-deploy controlado e d
 
 Migrations e seed automáticos em réplicas permanecem desligados. O acesso por senha é apresentado somente quando a API confirma Staging + Homologation. Produção mantém a tela Google. Endpoints protegidos continuam exigindo autenticação e permissões.
 
+Ao equalizar com o módulo de notas recebidas, definir `Fiscal__Environment=2` na API de staging. Apenas XMLs fiscais fictícios de homologação (`tpAmb=2`) são aceitos nesse ambiente; produção mantém o padrão `1`. A migration fiscal é aditiva e não importa documentos automaticamente.
+
 Pix e cartão usam exclusivamente `https://sandbox.api.pagseguro.com/`. Callback: `https://web-homolog-staging.up.railway.app/api/v1/integrations/pagbank/webhook`. EDI de produção e demonstração pública estão desativados. Recorrência só pode ser habilitada com credencial configurada e endpoint exato `https://sandbox.api.assinaturas.pagseguro.com/`; qualquer outro endpoint impede a inicialização da homologação.
 
 ## Critério de entrega
