@@ -52,7 +52,7 @@ public static class BarEndpoints
         bar.MapPost("/sales/{id:guid}/refund", async (Guid id, RefundInput i, HttpContext h, IBarSales s, CancellationToken ct) => { await s.Refund(id,i,Actor(h),ct); return Results.NoContent(); }).RequireAuthorization(SystemPermissions.BarRefundApprove);
         bar.MapGet("/suppliers", (IBarPurchases s, CancellationToken ct) => s.Suppliers(ct)).RequireAuthorization(SystemPermissions.BarPurchasesManage);
         bar.MapPost("/suppliers", (LocationInput i,IBarPurchases s,CancellationToken ct)=>s.CreateSupplier(i.Name,ct)).RequireAuthorization(SystemPermissions.BarPurchasesManage);
-        bar.MapGet("/purchases", (IBarPurchases s,CancellationToken ct)=>s.Purchases(ct)).RequireAuthorization(SystemPermissions.BarPurchasesManage);
+        bar.MapGet("/purchases", (string? document,IBarPurchases s,CancellationToken ct)=>s.Purchases(ct,document)).RequireAuthorization(SystemPermissions.BarPurchasesManage);
         bar.MapPost("/purchases", (PurchaseInput i,HttpContext h,IBarPurchases s,CancellationToken ct)=>s.Create(i,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarPurchasesManage);
         bar.MapPost("/purchases/{id:guid}/payment-reference", (Guid id,PurchasePaymentReferenceInput i,IBarPurchases s,CancellationToken ct)=>s.CorrectPaymentReference(id,i,ct)).RequireAuthorization(SystemPermissions.BarPurchasesManage);
         bar.MapPost("/purchases/{id:guid}/cancel",(Guid id,ApprovalInput i,HttpContext h,IBarPurchases s,CancellationToken ct)=>s.Cancel(id,i.Reason,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarPurchasesManage);

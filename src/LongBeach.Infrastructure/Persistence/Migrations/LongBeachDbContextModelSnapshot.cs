@@ -1203,18 +1203,15 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("ConsentAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("CreationAttempted")
                         .HasColumnType("boolean");
 
                     b.Property<string>("FailureReason")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
-
-                    b.Property<bool>("UpdateExistingCustomerCard")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateOnly>("FirstDue")
                         .HasColumnType("date");
@@ -1238,6 +1235,9 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.Property<string>("State")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<bool>("UpdateExistingCustomerCard")
+                        .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -1424,6 +1424,99 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                         .HasFilter("\"State\" IN ('Open','Reopened')");
 
                     b.ToTable("cash_sessions", (string)null);
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Fiscal.ReceivedInvoice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccessKey")
+                        .IsRequired()
+                        .HasMaxLength(44)
+                        .HasColumnType("character varying(44)");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DataJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.Property<Guid>("ImportedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("IssuedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(9)
+                        .HasColumnType("character varying(9)");
+
+                    b.Property<byte[]>("OriginalXml")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid?>("PurchaseId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PurchaseRequestHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Unclassified");
+
+                    b.Property<string>("RecipientTaxId")
+                        .IsRequired()
+                        .HasMaxLength(14)
+                        .HasColumnType("character varying(14)");
+
+                    b.Property<int>("ReviewVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<string>("SupplierName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccessKey")
+                        .IsUnique();
+
+                    b.HasIndex("PurchaseId")
+                        .IsUnique();
+
+                    b.HasIndex("RecipientTaxId", "CreatedAtUtc");
+
+                    b.ToTable("received_invoices", (string)null);
                 });
 
             modelBuilder.Entity("LongBeach.Domain.Identity.Permission", b =>
@@ -2312,12 +2405,19 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                         .HasMaxLength(160)
                         .HasColumnType("character varying(160)");
 
+                    b.Property<string>("TaxId")
+                        .HasMaxLength(14)
+                        .HasColumnType("character varying(14)");
+
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
                     b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.HasIndex("TaxId")
                         .IsUnique();
 
                     b.ToTable("suppliers", (string)null);
@@ -2582,6 +2682,14 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                         .HasForeignKey("RegisterId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Fiscal.ReceivedInvoice", b =>
+                {
+                    b.HasOne("LongBeach.Domain.Purchases.Purchase", null)
+                        .WithMany()
+                        .HasForeignKey("PurchaseId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("LongBeach.Domain.Identity.RefreshToken", b =>

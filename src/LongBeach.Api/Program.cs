@@ -193,6 +193,7 @@ app.MapClientPortalEndpoints();
 app.MapTeachingEndpoints();
 app.MapBillingEndpoints();
 app.MapBarEndpoints();
+app.MapReceivedInvoiceEndpoints();
 app.MapBarTabsEndpoints();
 app.MapImportEndpoints();
 app.MapFinancialHistoryEndpoints();

@@ -22,6 +22,7 @@ const BarCountsPage = lazy(() => import('./features/bar/BarPages').then(module =
 const BarCashPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarCashPage })))
 const BarSalesPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarSalesPage })))
 const BarLossesPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarLossesPage })))
+const ReceivedInvoicesPage = lazy(() => import('./features/fiscal/ReceivedInvoicesPage').then(module => ({ default: module.ReceivedInvoicesPage })))
 const BarPurchasesPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarPurchasesPage })))
 const BarReconciliationPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarReconciliationPage })))
 const BarRecipesPage = lazy(() => import('./features/bar/RecipePage').then(module => ({ default: module.BarRecipesPage })))
@@ -126,6 +127,7 @@ function OperationalRoutes() {
     {!demoMode && <Route path="minhas-contas" element={<LegacyDestination to="/minha-area/pagamentos" />} />}
     {!demoMode && <Route path="recebimentos" element={bar('finance:read', <BillingPage admin />)} />}
     {!demoMode && <Route path="recebimentos/conciliacao" element={bar('finance:read', <SettlementsPage />)} />}
+    {!demoMode && <Route path="notas-recebidas" element={<Permission permission="fiscal:invoices:manage"><ReceivedInvoicesPage /></Permission>} />}
     <Route path="financeiro/historico" element={<FinancialHistoryPage />} />
     <Route path="financeiro/controle-mensal" element={<MonthlyControlPage />} />
     <Route path="alunos" element={arena('students', <StudentsPage />)} />
@@ -172,6 +174,7 @@ function OperationalRoutes() {
         <Route path="caixa" element={bar('bar:supervise', <BarCashPage />)} />
         <Route path="vendas" element={bar('bar:sales:read', <BarSalesPage />)} />
         <Route path="perdas" element={bar('bar:stock:output', <BarLossesPage />)} />
+        <Route path="notas-recebidas" element={<Navigate to="/notas-recebidas" replace />} />
         <Route path="compras" element={bar('bar:purchases:manage', <BarPurchasesPage />)} />
         <Route path="indicadores" element={bar('bar:finance:read', <BarOverviewPage />)} />
         <Route path="indicadores/:metric" element={bar('bar:finance:read', <BarReportPage />)} />
