@@ -117,7 +117,13 @@ public sealed class AuditSaveChangesInterceptor(
         using var doc = JsonDocument.Parse(payload);
         string? Read(string key, params string[] allowed) => doc.RootElement.TryGetProperty(key, out var value)
             && value.ValueKind == JsonValueKind.String && allowed.Contains(value.GetString()) ? value.GetString() : null;
-        return new { AllocationScope = Read("allocationScope", "Unit", "Shared", "Unclassified"), BusinessUnitId = Read("businessUnitId", "bar", "quadra") };
+        return new
+        {
+            AllocationScope = Read("allocationScope", "Unit", "Shared", "Unclassified"),
+            BusinessUnitId = Read("businessUnitId", "bar", "quadra"),
+            ReceiptSource = Read("receiptSource", "PagBankTerminal", "PagVendas", "CourtPix"),
+            ReceivingAccount = Read("receivingAccount", "PagBank", "C6")
+        };
     }
 
     private static object? SafeValue(string propertyName, object? value) =>

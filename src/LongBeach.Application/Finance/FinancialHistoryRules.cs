@@ -30,7 +30,8 @@ public static class FinancialHistoryRules
     public static HistoryTotal[] Totals(IEnumerable<FinancialObservation> rows) => rows
         .GroupBy(x => (x.Series,x.Metric,x.State,Period:x.PeriodStart.ToString(x.Grain=="snapshot" ? "yyyy-MM-dd" : "yyyy-MM"),x.Grain))
         .OrderBy(x=>x.Key.Period).ThenBy(x=>x.Key.Series).ThenBy(x=>x.Key.Metric)
-        .Select(x=>new HistoryTotal(x.Key.Series,x.Key.Metric,x.Key.State,x.Key.Period,x.Key.Grain,x.Sum(v=>v.AmountCents),x.Count())).ToArray();
+        .Select(x=>new HistoryTotal(x.Key.Series,x.Key.Metric,x.Key.State,x.Key.Period,x.Key.Grain,x.Sum(v=>v.AmountCents),x.Count(),
+            ExternalBusinessAllocationRules.FromHistory(x.Key.Series,x.Key.Metric))).ToArray();
     public static string Fingerprint(string hash, IEnumerable<FinancialObservation> items) => Convert.ToHexStringLower(
         SHA256.HashData(Encoding.UTF8.GetBytes(hash + JsonSerializer.Serialize(items.OrderBy(x=>x.SourceCell,StringComparer.Ordinal)))));
 }

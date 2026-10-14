@@ -77,3 +77,11 @@ Catálogo e imagens foram importados com proveniência em fluxo independente. A 
 Migration `20261006010000_FinancialHistory` adiciona tabelas próprias por job controlado. O downgrade preserva os documentos; uma reversão de versão do aplicativo não deve apagar evidências. Para parar o coletor, desabilitar `Integrations__PagBankEdi__Enabled` e reiniciar a API. Não apagar observações ou cursores para tentar corrigir valores. Promover somente revisão testada, API antes da web; verificar readiness e snapshot Railway conforme o runbook de produção.
 
 Verificação: testes de regras, períodos, estados, fontes sobrepostas, autorização Owner, transação/idempotência/auditoria PostgreSQL, paginação EDI, integralidade, estabelecimento, conversão XLSX e interface de consulta.
+
+## Destinação Bar/Quadra — regra de 14/10/2026
+
+Conforme o proprietário, vendas na maquininha PagBank ou no PagVendas são do Bar. Aulas, mensalidades e demais serviços da Quadra recebidos via Pix no PagBank ou C6 são da Quadra. Pix na maquininha/PagVendas continua Bar. O banco de destino não determina a unidade, e transferências/liquidações não constituem receita adicional.
+
+A API de histórico fornece `businessUnitId` derivado nos itens e totais reconhecidos, sem modificar `FinancialObservation` nem o fingerprint original. PagVendas e vendas brutas identificadas do Bar → `bar`; controles de alunos, mensalistas e aulas → `quadra`; extratos, saldos, resumos genéricos e documentos EDI sem canal comprovado → nulo. A tela conserva fontes e estados separados.
+
+O financeiro operacional permite informar origem e conta de recebimento para registrar a regra explicitamente, com validação e auditoria. O cadastro não importa o extrato C6, não confirma Pix e não cria uma segunda receita quando houver cobrança ou venda já registrada. Detalhes em [ADR-008](../adr/ADR-008-unidades-de-negocio-bar-e-quadra.md).

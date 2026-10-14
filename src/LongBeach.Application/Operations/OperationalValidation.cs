@@ -137,6 +137,8 @@ public static class OperationalValidation
             case "financeEntries":
                 var allocationError = LongBeach.Application.Finance.BusinessAllocationRules.Validate(body);
                 if (allocationError is not null) return allocationError;
+                var receiptError = LongBeach.Application.Finance.FinancialReceiptRules.Validate(body);
+                if (receiptError is not null) return receiptError;
                 if (!Money(body, "amount") || Number(body, "amount") == 0 || !Date(body, "dueDate", out _) || !Status(body, "Pendente", "Pago", "Cancelado") || !new[] { "Receber", "Pagar" }.Contains(Text(body, "direction")) || !new[] { "Bar", "Escola", "Locações", "Arena" }.Contains(Text(body, "origin"))) return "Confira o valor, o vencimento, a origem e o estado do lançamento.";
                 if (Text(body, "status") == "Pago" && (!Date(body, "paidDate", out var paidDate) || paidDate > today)) return "Informe a data do pagamento confirmado, até o dia de hoje.";
                 if (!string.IsNullOrEmpty(Text(body, "sourceId")))
