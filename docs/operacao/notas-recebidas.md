@@ -1,6 +1,6 @@
 # Notas recebidas — importação de XML
 
-Preparado para publicação em 14/10/2026 sobre a versão financeira em produção. Decisão: [ADR-011](../adr/ADR-011-notas-recebidas.md).
+Publicado em produção em 14/10/2026, commit `1a239e89ac10bcf85f085c5fe6a7b91d9a7672be`, sobre a versão financeira vigente. Decisão: [ADR-011](../adr/ADR-011-notas-recebidas.md).
 
 ## Uso
 
@@ -45,3 +45,14 @@ Preparar um adaptador separado de entrada que use a distribuição de DF-e e ent
 
 Certificado e senha devem ficar em armazenamento de segredos do servidor, nunca no frontend, repositório, logs ou chat. A validação de autenticidade e o estado consultado devem ser registrados separadamente da inspeção local, com data e origem da evidência.
 
+
+## Publicação de 14/10/2026
+
+- API: `9c3d890d-22d7-413f-95bd-70fd66841538`; web: `cac7a00c-dc05-40d8-9e9f-25ddb89391ad`; ambos concluídos com sucesso e healthchecks saudáveis.
+- Migration consolidada aplicada pelo job de pré-publicação às 11:56 UTC.
+- CI do commit publicado aprovado em PostgreSQL 17/18 e React/PWA: execução `38559047849`. Localmente, 293 testes unitários e 292 testes de integração passaram com avisos tratados como erros.
+- Dependência transitiva System.Security.Cryptography.Pkcs fixada em 9.0.21 conforme a correção de segurança da Microsoft, sem suprimir auditoria.
+- Duas notas reais recebidas pelo e-mail corporativo foram importadas pela interface autenticada, com CNPJ conferido. Permanecem a classificar; nenhuma compra, entrada de estoque ou pagamento foi criado. Arquivos, valores e evidências ficam fora do Git.
+- Backup anterior à publicação baixado, hash conferido e restauração completa validada em PostgreSQL 18 isolado.
+- Configuração Railway atualizada por pull e plan sem diferenças, com segredos preservados.
+- Navegadores com a versão antiga do PWA podem precisar fechar as abas da aplicação e reabrir para ativar a atualização pendente.

@@ -1,6 +1,6 @@
 # ADR-011 — Caixa geral de notas da Arena e destinação das compras
 
-Status: aceito; preparado para publicação em 14/10/2026.
+Status: aceito; publicado em 14/10/2026.
 
 ## Contexto
 
