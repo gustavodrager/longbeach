@@ -6,6 +6,8 @@ public sealed class Supplier : Entity
     private Supplier() { }
     public Supplier(string name) : base(Guid.NewGuid()) => Name = BarRules.Text(name,160,"Fornecedor");
     public string Name {get; private set;} = "";
+    public string? TaxId {get; private set;}
+    public void SetTaxId(string value) => TaxId = BarRules.Text(value, 14, "CPF/CNPJ");
 }
 public sealed class Purchase : Entity
 {

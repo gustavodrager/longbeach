@@ -80,6 +80,10 @@ public sealed class AuditSaveChangesInterceptor(
 
     private static object BuildChanges(EntityEntry entry)
     {
+        if (entry.Entity is LongBeach.Domain.Fiscal.ReceivedInvoice invoice)
+            return new { invoice.Id, invoice.ContentHash, invoice.ImportedBy, invoice.PurchaseId,
+                PurposeBefore = entry.State == EntityState.Added ? null : entry.Property(nameof(invoice.Purpose)).OriginalValue,
+                invoice.Purpose, invoice.ReviewVersion, Data = "[OMITTED: fiscal document]" };
         if (entry.Entity is OperationalRecord record)
         {
             if (record.Kind == "financeEntries")

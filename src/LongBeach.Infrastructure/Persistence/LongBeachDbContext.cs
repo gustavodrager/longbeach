@@ -29,6 +29,7 @@ public sealed class LongBeachDbContext(
         CashModel.Configure(modelBuilder);
         SalesModel.Configure(modelBuilder);
         PurchaseModel.Configure(modelBuilder);
+        ReceivedInvoiceModel.Configure(modelBuilder);
         PaymentModel.Configure(modelBuilder);
         TabModel.Configure(modelBuilder);
         RecipeModel.Configure(modelBuilder);

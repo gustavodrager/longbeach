@@ -1,0 +1,11 @@
+.received-invoices { max-width: 1100px; margin-inline: auto; }
+.invoice-key { overflow-wrap: anywhere; font-size: .85rem; }
+.invoice-lines, .invoice-fieldset { display: grid; gap: 1rem; }
+.invoice-fieldset { border: 0; padding: 0; min-width: 0; }
+.invoice-lines article, .invoice-mapping { border-top: 1px solid #d9e0e3; padding-block: .75rem; }
+.invoice-lines h3, .invoice-mapping h3 { margin: .25rem 0; font-size: 1rem; }
+.invoice-summary p, .invoice-lines p { margin-block: .5rem; }
+.invoice-list { list-style: none; padding: 0; display: grid; gap: .65rem; }
+.invoice-list button { width: 100%; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.received-invoices select, .received-invoices input { max-width: 100%; min-width: 0; }
+.received-invoices button { min-height: 44px; }

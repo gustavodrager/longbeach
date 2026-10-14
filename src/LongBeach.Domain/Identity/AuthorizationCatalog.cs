@@ -21,6 +21,7 @@ public static class SystemRoles
 
 public static class SystemPermissions
 {
+    public const string ReceivedInvoicesManage = "fiscal:invoices:manage";
     public const string BarStockOutput = "bar:stock:output";
     public const string BarStockRead = "bar:stock:read";
     public const string BarStockManage = "bar:stock:manage";
@@ -55,7 +56,7 @@ public static class SystemPermissions
         EmployeesRead, EmployeesWrite,
         InventoryRead, InventoryWrite,
         ProjectsRead, ProjectsWrite,
-        FinanceRead, FinanceWrite,
+        FinanceRead, FinanceWrite, ReceivedInvoicesManage,
         UsersManage, AuditRead
     ];
 }

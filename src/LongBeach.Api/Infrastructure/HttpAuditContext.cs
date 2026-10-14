@@ -8,7 +8,7 @@ public sealed class HttpAuditContext(IHttpContextAccessor accessor) : IAuditCont
     private HttpContext? HttpContext => accessor.HttpContext;
 
     public Guid? UserId =>
-        Guid.TryParse(HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
+        Guid.TryParse(HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? HttpContext?.User.FindFirstValue("sub"), out var id)
             ? id
             : null;
 
