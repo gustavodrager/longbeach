@@ -11,7 +11,7 @@ public sealed class BarPurchasesService(LongBeachDbContext db):IBarPurchases
 {
     public async Task<IReadOnlyList<Supplier>> Suppliers(CancellationToken ct)=>await db.Set<Supplier>().AsNoTracking().OrderBy(x=>x.Name).ToListAsync(ct);
     public async Task<Supplier> CreateSupplier(string name,CancellationToken ct) {var s=new Supplier(name);db.Add(s);await db.SaveChangesAsync(ct);return s;}
-    public async Task<IReadOnlyList<Purchase>> Purchases(CancellationToken ct)=>await db.Set<Purchase>().AsNoTracking().Include(x=>x.Items).OrderByDescending(x=>x.CreatedAtUtc).Take(100).ToListAsync(ct);
+    public async Task<IReadOnlyList<Purchase>> Purchases(CancellationToken ct, string? document = null)=>await db.Set<Purchase>().AsNoTracking().Include(x=>x.Items).Where(x => document == null || x.Document == document).OrderByDescending(x=>x.CreatedAtUtc).Take(100).ToListAsync(ct);
     public async Task<Purchase> Create(PurchaseInput input,Guid actor,CancellationToken ct)
     {
         if(input.Items is null || input.Items.Count is 0 or >100 || input.Items.Select(x=>x.ProductId).Distinct().Count()!=input.Items.Count) throw new BarRuleException("Informe de 1 a 100 produtos sem repetir itens.");

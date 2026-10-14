@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { BarPurchasesPage } from './BarPages'
+vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: null }) }))
 
 it('corrige a referência de compra recebida com versão e sem repetir recebimento',async()=>{
   const purchase={id:'purchase',version:3,document:'Nota teste',state:'Received',supplierId:'supplier',paymentMethod:'Pix',accountReference:'Proprietário teste',total:100,freight:0,discount:0,items:[{productId:'product',quantity:24,received:24,purchaseUnit:'un'}]}

@@ -15,6 +15,7 @@ export const managementNavigation: NavigationGroup[] = [
   ] },
   { label: 'Financeiro', icon: 'wallet', href: '/financeiro', children: [
     { label: 'Recebimentos', href: '/recebimentos', permission: 'finance:read', related: [{ label: 'Conciliação PagBank', href: '/recebimentos/conciliacao', permission: 'finance:read' }] }, { label: 'Lançamentos', href: '/financeiro', kind: 'financeEntries' }, { label: 'Controle mensal', href: '/financeiro/controle-mensal', owner: true }, { label: 'Histórico', href: '/financeiro/historico', owner: true },
+    { label: 'Notas recebidas', href: '/notas-recebidas', permission: 'fiscal:invoices:manage' },
   ] },
   { label: 'Bar', icon: 'bar', href: '/bar/indicadores', children: [
     { label: 'Resumo', href: '/bar/indicadores', permission: 'bar:finance:read' },

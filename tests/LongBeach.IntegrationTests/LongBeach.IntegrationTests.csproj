@@ -27,4 +27,5 @@
     <ProjectReference Include="..\..\src\LongBeach.Domain\LongBeach.Domain.csproj" />
     <ProjectReference Include="..\..\src\LongBeach.Infrastructure\LongBeach.Infrastructure.csproj" />
   </ItemGroup>
+  <ItemGroup><Compile Include="../Fixtures/InvoiceFixture.cs" Link="InvoiceFixture.cs" /></ItemGroup>
 </Project>
