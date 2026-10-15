@@ -19,7 +19,9 @@ export function dayAvailability(row?: CourtScheduleRow) {
   if (row.schedulePending || row.availableMinutes === null || !row.freeIntervals) return 'A confirmar'
   return row.availableMinutes === 0 ? 'Sem horários livres' : 'Funcionamento confirmado'
 }
-export function reservationUrl(date: string, court: string, start: string, end: string) {
-  const params = new URLSearchParams({ date, court, start, end: clockTime(Math.min(minuteOf(start) + 60, minuteOf(end))), view: 'week' })
+export function reservationUrl(date: string, court: string, start: string, end: string, view: 'week' | 'day' | 'list' = 'week', context?: URLSearchParams) {
+  const params = new URLSearchParams(context)
+  for (const key of ['acao', 'registro', 'secao']) params.delete(key)
+  for (const [key, value] of Object.entries({ date, court, start, end: clockTime(Math.min(minuteOf(start) + 60, minuteOf(end))), view })) params.set(key, value)
   return `/agenda/novo?${params}`
 }
