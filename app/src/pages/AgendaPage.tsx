@@ -46,6 +46,7 @@ function AgendaDayListPage() {
   const courtId = data.courts.length === 1 ? data.courts[0].id : filters.params.get('court') ?? ''
   const groupId = filters.params.get('group') ?? ''
   const reservationsOnly = filters.params.get('activity') === 'reservations'
+  const lessonsOnly = ['classes', 'aula'].includes(filters.params.get('activity') ?? '')
   const showLessons = !reservationsOnly && !filters.status && !groupId
   const rangeDays = (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000 + 1
   const validPeriod = validDate(from) && validDate(to) && rangeDays >= 1 && rangeDays <= 366
@@ -59,7 +60,7 @@ function AgendaDayListPage() {
   const matches = (text: string) => text.toLocaleLowerCase('pt-BR').includes(query)
   const courts = data.courts.filter(court => !courtId || court.id === courtId)
   const groupRows = data.reservations.filter(item => item.groupId === groupId)
-  const rows = data.reservations.filter(item => (list ? item.date >= from && item.date <= to : item.date === date)
+  const rows = data.reservations.filter(item => !lessonsOnly && (list ? item.date >= from && item.date <= to : item.date === date)
     && (list || item.status !== 'Cancelada') && (!courtId || item.courtId === courtId) && (!groupId || item.groupId === groupId)
     && (!filters.status || item.status === filters.status)
     && matches(`${item.name} ${item.customerName} ${item.groupTitle ?? ''}`)
@@ -89,7 +90,7 @@ function AgendaDayListPage() {
     })
   }
   entries.sort((a, b) => `${a.date}${a.time}${a.key}`.localeCompare(`${b.date}${b.time}${b.key}`))
-  const activeFilters = [data.courts.length > 1 && courtId, filters.status, query, groupId, reservationsOnly].filter(Boolean).length
+  const activeFilters = [data.courts.length > 1 && courtId, filters.status, query, groupId, reservationsOnly || lessonsOnly].filter(Boolean).length
   const clearFilters = filters.href('/agenda', { court: '', status: '', q: '', group: '', activity: '', page: '' })
   const renderEntries = (items: Entry[]) => <div className="arena-slots">{items.map(entry => <div key={entry.key}>{entry.node}</div>)}</div>
 
@@ -105,7 +106,7 @@ function AgendaDayListPage() {
     <div className="agenda-options">
       <Disclosure title={`Filtros${activeFilters ? ` · ${activeFilters} ${activeFilters === 1 ? 'ativo' : 'ativos'}` : ''}`}><div className="arena-toolbar">
         {!list && <Field label="Dia" type="date" value={date} onChange={value => filters.set('date', value)} />}
-        <Field label="Mostrar" value={reservationsOnly ? 'reservations' : ''} onChange={value => filters.set('activity', value)} options={[{ value: '', label: 'Reservas, bloqueios e aulas' }, { value: 'reservations', label: 'Somente reservas' }]} />
+        <Field label="Mostrar" value={reservationsOnly ? 'reservations' : lessonsOnly ? 'classes' : ''} onChange={value => filters.set('activity', value)} options={[{ value: '', label: 'Reservas, bloqueios e aulas' }, { value: 'reservations', label: 'Somente reservas' }, { value: 'classes', label: 'Somente aulas' }]} />
         {data.courts.length > 1 && <Field label="Quadra" value={courtId} onChange={value => filters.set('court', value)} options={[{ value: '', label: 'Todas as quadras' }, ...data.courts.map(court => ({ value: court.id, label: court.name }))]} />}
         <Field label="Situação da reserva" value={filters.status} onChange={value => filters.set('status', value)} options={[{ value: '', label: 'Todas' }, 'Confirmada', 'Chegou', 'Concluída', 'Cancelada', 'Bloqueio']} />
         <Search filters={filters} placeholder="Buscar reserva, cliente ou aula…" />

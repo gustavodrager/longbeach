@@ -19,7 +19,7 @@ export function WeeklyAgenda() {
   const dates = weekDates(valid ? date : today())
   const query = useCourtScheduleRange(dates[0], dates[6], valid)
   const [selected, setSelected] = useState<AgendaSelection | null>(null)
-  const activity = filters.params.get('activity') ?? ''
+  const activity = filters.params.get('activity') === 'classes' ? 'aula' : filters.params.get('activity') ?? ''
   const search = filters.query.trim().toLocaleLowerCase('pt-BR')
   const groupId = filters.params.get('group') ?? ''
   const legacyCourt = data.courts.length > 1 ? filters.params.get('court') : null

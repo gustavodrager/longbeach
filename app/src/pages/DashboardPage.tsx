@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../features/auth/authContext'
+import { barHome, hasPermission, isManagement } from '../features/auth/access'
+import { DashboardBarAttention } from '../features/attendance/DashboardBarAttention'
 import { BarArenaMetrics } from '../features/attendance/BarArenaMetrics'
 import { FinancialBalanceOverview } from '../features/finance/FinancialBalanceOverview'
 import { StockValuation } from '../features/bar/StockValuation'
@@ -7,42 +9,40 @@ import { BankStatementOverview, FinancialHistoryOverview } from '../features/fin
 import { ArenaHistoryOverview } from '../features/finance/ArenaHistoryOverview'
 import { useCourtSchedule } from '../features/arena/queries'
 import { useOperations, type OperationalKind } from '../features/operations/DemoDataProvider'
-import { AreaIcon, Feedback, Field, currency, displayDate, quantity, today, useFilters, validDate, type AreaIconName } from './arenaUi'
-import { Disclosure } from '../components/managementUi'
+import { Feedback, Field, currency, displayDate, quantity, today, useFilters, validDate } from './arenaUi'
+import { Disclosure, useContextSearchParams } from '../components/managementUi'
+import './dashboard.css'
 
-function Metric({ label, value, to, period, updated, note, attention = false }: { label: string; value: string | null; to: string; period: string; updated: string; note?: string; attention?: boolean }) {
-  return <Link className={`arena-metric ${attention && value !== null ? 'arena-metric-attention' : ''} ${value === null ? 'arena-metric-unavailable' : ''}`} to={to}>
-    <span className="arena-metric-label">{attention && value !== null && <span className="arena-metric-symbol" aria-hidden="true">!</span>}{label}</span>
-    <strong>{value ?? 'Ainda não disponível'}</strong>
-    <small>{period}</small>
+function Metric({ label, value, to, action, note }: { label: string; value: string; to: string; action: string; note?: string }) {
+  return <Link className={`arena-metric${/\d/.test(value) ? '' : ' arena-metric-unavailable'}`} to={to}>
+    <span className="arena-metric-label">{label}</span><strong>{value}</strong>
     {note && <small>{note}</small>}
-    <small className="arena-metric-update">Atualizado: {value === null ? 'aguardando dados' : updated}</small>
-    <span className="arena-link-label">Ver detalhes <span aria-hidden="true">→</span></span>
+    <span className="arena-link-label">{action} <span aria-hidden="true">→</span></span>
   </Link>
 }
-const formatUpdated = (value?: string | null) => value ? new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : 'Aguardando a fonte de dados'
+const formatUpdated = (value: string) => new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
 
 export function DashboardPage() {
-  const data = useOperations(); const { user } = useAuth(); const filters = useFilters(); const day = today()
-  const from = filters.params.get('from') ?? day; const to = filters.params.get('to') ?? day; const schedule = useCourtSchedule(day)
-  const demo = import.meta.env.VITE_DEMO_MODE === 'true'
-  const barHref = demo ? '/prototipo/gestao' : user?.permissions.includes('bar:finance:read') ? linkBarPeriod('/bar/indicadores', from, to) : user?.permissions.includes('bar:sales:operate') ? '/atendimento/vender' : user?.permissions.includes('bar:stock:read') ? '/bar/estoque' : user?.permissions.includes('bar:supervise') ? '/bar/caixa' : user?.permissions.includes('bar:catalog:write') ? '/bar/produtos' : user?.permissions.includes('bar:sales:read') ? '/atendimento/comandas' : user?.permissions.includes('bar:cash:operate') ? '/atendimento/caixa' : null
+  const data = useOperations()
+  const { user } = useAuth()
+  const filters = useFilters()
+  const [, setParams] = useContextSearchParams()
+  const day = today()
+  const from = filters.params.get('from') ?? day
+  const to = filters.params.get('to') ?? day
+  const schedule = useCourtSchedule(day)
   const valid = validDate(from) && validDate(to) && from <= to
   const loaded = data.dataUpdatedAt !== null && data.persistenceStatus !== 'connecting' && data.persistenceStatus !== 'error'
   const readable = (kind: OperationalKind) => data.canRead(kind) && loaded
-  const scheduleCourts = schedule.data?.courts ?? []
-  const availabilityReady = readable('courts') && data.courts.length > 0 && scheduleCourts.length === data.courts.length && !schedule.isError && scheduleCourts.every(court => typeof court.availableMinutes === 'number')
-  const schedulePending = scheduleCourts.some(court => court.availableMinutes === null)
-  const count = (kind: OperationalKind, value: number) => readable(kind) && data[kind].length > 0 ? value.toLocaleString('pt-BR') : null
-  const cash = (value: number) => readable('financeEntries') && data.financeEntries.length > 0 ? currency(value) : null
+  const unavailable = data.persistenceStatus === 'error' ? 'Falha ao carregar' : 'Carregando…'
+  const count = (kind: OperationalKind, value: number) => !readable(kind) ? unavailable : data[kind].length === 0 ? 'Sem cadastros' : quantity(value)
+  const cash = (value: number) => !readable('financeEntries') ? unavailable : data.financeEntries.length === 0 ? 'Sem lançamentos' : currency(value)
   const link = (path: string, params: Record<string, string> = {}) => `${path}?${new URLSearchParams({ from, to, ...params })}`
+  const agenda = `/agenda?${new URLSearchParams({ date: day, view: 'day' })}`
+  const barHref = import.meta.env.VITE_DEMO_MODE === 'true' ? '/prototipo/gestao' : barHome(user)
   const inPeriod = (date: string) => date >= from && date <= to
   const pending = data.financeEntries.filter(item => item.status === 'Pendente')
   const realized = data.financeEntries.filter(item => item.status === 'Pago' && inPeriod(item.paidDate))
-  const overdueProjects = data.projects.filter(item => item.dueDate && item.dueDate < day && !['Concluído', 'Cancelado'].includes(item.status))
-  const urgentMaintenance = data.maintenance.filter(item => item.priority === 'Urgente' && !['Concluída', 'Cancelada'].includes(item.status))
-  const lowMaterials = data.inventory.filter(item => item.quantity <= item.minimum)
-  const overdueReceivables = pending.filter(item => item.direction === 'Receber' && item.dueDate < day).reduce((sum, item) => sum + item.amount, 0)
   const activeClasses = data.classes.filter(item => item.status === 'Ativa' && (!item.startDate || item.startDate <= day))
   const classIds = new Set(activeClasses.map(item => item.id))
   const activeEnrollments = data.enrollments.filter(item => item.status === 'Ativa' && item.startDate <= day && classIds.has(item.classId))
@@ -51,68 +51,85 @@ export function DashboardPage() {
     const minutes = (value: string) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5))
     return total + (minutes(item.endTime) - minutes(item.startTime)) / 60
   }, 0)
-  const modules: [string, string, string, OperationalKind, AreaIconName][] = [
-    ['Agenda e recepção', 'Disponibilidade, reservas e chegada de clientes.', '/agenda', 'reservations', 'agenda'],
-    ['Mensalistas', 'Integrantes, encontros, mensalidades e consumo do grupo.', '/mensalistas', 'rentalGroups', 'team'],
-    ['Aulas', 'Alunos, turmas, matrículas e presença.', '/escola', 'classes', 'school'],
-    ['Financeiro', 'Contas, recebimentos e despesas.', '/financeiro', 'financeEntries', 'finance'],
-    ['Equipe', 'Pessoas, funções e acordos de pagamento.', '/equipe', 'team', 'team'],
-    ['Materiais da arena', 'Material esportivo, limpeza e equipamentos.', '/administracao/materiais', 'inventory', 'materials'],
-    ['Projetos', 'Tarefas, responsáveis e prazos.', '/projetos', 'projects', 'projects'],
-    ['Manutenção', 'Serviços e cuidados com a infraestrutura.', '/manutencao', 'maintenance', 'maintenance'],
+  const scheduleCourts = schedule.data?.courts ?? []
+  const availabilityReady = readable('courts') && data.courts.length > 0 && scheduleCourts.length === data.courts.length && !schedule.isError && scheduleCourts.every(court => typeof court.availableMinutes === 'number')
+  const availability = !loaded ? unavailable : !data.courts.length ? 'Sem quadras' : schedule.isError ? 'Falha ao carregar' : schedule.isPending ? 'Carregando…' : 'Agenda a conferir'
+  const time = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date())
+  const nextBlocks = scheduleCourts.flatMap(court => court.blocks.filter(block => block.source !== 'Bloqueio' && block.endTime > time).map(block => ({ ...block, courtId: court.courtId }))).sort((a, b) => a.startTime.localeCompare(b.startTime)).slice(0, 3)
+  const attention = [
+    { kind: 'financeEntries' as const, count: pending.filter(item => item.direction === 'Receber' && item.dueDate < day).length, title: 'Cobranças vencidas', note: 'Confira o saldo restante após pagamentos.', to: '/financeiro?direction=Receber&status=Pendente&overdue=1&range=all', action: 'Conferir cobranças' },
+    { kind: 'inventory' as const, count: data.inventory.filter(item => item.quantity <= item.minimum).length, title: 'Materiais para repor', note: 'Estoque no mínimo ou abaixo dele.', to: '/administracao/materiais?low=1', action: 'Revisar materiais' },
+    { kind: 'projects' as const, count: data.projects.filter(item => item.dueDate && item.dueDate < day && !['Concluído', 'Cancelado'].includes(item.status)).length, title: 'Projetos com prazo vencido', note: 'Projetos em aberto após o prazo.', to: '/projetos?overdue=1', action: 'Revisar projetos' },
+    { kind: 'maintenance' as const, count: data.maintenance.filter(item => item.priority === 'Urgente' && !['Concluída', 'Cancelada'].includes(item.status)).length, title: 'Manutenções urgentes abertas', note: 'Serviços urgentes ainda não concluídos.', to: '/manutencao?priority=Urgente&status=open', action: 'Ver manutenções' },
+  ].filter(item => data.canRead(item.kind))
+  const alerts = attention.filter(item => readable(item.kind) && item.count > 0)
+  const emptyAreas = attention.filter(item => readable(item.kind) && data[item.kind].length === 0)
+  const hasMonitoredRecords = attention.some(item => readable(item.kind) && data[item.kind].length > 0)
+  const weekStart = new Date(`${day}T12:00:00Z`)
+  weekStart.setUTCDate(weekStart.getUTCDate() - (weekStart.getUTCDay() + 6) % 7)
+  const periods = [
+    { label: 'Hoje', from: day },
+    { label: 'Esta semana', from: weekStart.toISOString().slice(0, 10) },
+    { label: 'Este mês', from: `${day.slice(0, 7)}-01` },
   ]
-  const updated = formatUpdated(data.dataUpdatedAt); const period = `${displayDate(from)} a ${displayDate(to)}`
-  return <main className="operation-page arena-page dashboard">
-    <header className="dashboard-heading"><h1>Visão geral</h1><time dateTime={day}>{new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: 'long' }).format(new Date())}</time></header>
+  const selectPeriod = (start: string) => {
+    const next = new URLSearchParams(filters.params)
+    next.set('from', start); next.set('to', day); next.delete('page')
+    setParams(next, { preventScrollReset: true })
+  }
+  const period = from === to ? displayDate(from) : `${displayDate(from)} a ${displayDate(to)}`
+  return <main className="operation-page arena-page dashboard dashboard-overview">
+    <header className="dashboard-heading"><div><h1>Visão geral</h1><p>Acompanhe o dia e o que precisa da sua atenção.</p></div><time dateTime={day}>{new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: 'long' }).format(new Date())}</time></header>
     <Feedback />
-    <FinancialBalanceOverview />
-    <StockValuation compact />
-    <Disclosure title="Histórico e movimentos de origem" lazy><FinancialHistoryOverview /><BankStatementOverview /></Disclosure>
-    <ArenaHistoryOverview />
-    {data.canRead('rentalGroups') && <section className="arena-dashboard-section" aria-labelledby="rental-groups-dashboard"><div className="arena-section-heading"><h2 id="rental-groups-dashboard">Grupos mensalistas</h2><Link to="/mensalistas">Gerenciar grupos →</Link></div><div className="arena-metric-grid"><Metric label="Grupos ativos" value={count('rentalGroups', data.rentalGroups.filter(g => g.status === 'Ativo' && g.startDate <= day && (!g.endDate || g.endDate >= day)).length)} to="/mensalistas" period="Acordos cadastrados" updated={updated} note={data.rentalGroups.length ? 'Veja integrantes, calendário e cobranças de cada turma.' : 'Cadastre os grupos e seus integrantes para acompanhar aluguel e bar.'} /></div></section>}
+    <section className="arena-dashboard-section dashboard-today" aria-labelledby="arena-today">
+      <div className="arena-section-heading"><div><p className="arena-section-eyebrow">01 · Operação</p><h2 id="arena-today">Hoje na arena</h2></div><div className="dashboard-actions">{data.canRead('reservations') && <Link className="primary-link" to={agenda}>Abrir agenda →</Link>}{hasPermission(user, 'bar:sales:operate') && <Link className="secondary-link" to="/atendimento/vender">Atendimento →</Link>}</div></div>
+      <div className="arena-metric-grid dashboard-today-grid">
+        {data.canRead('reservations') && <Metric label="Reservas de hoje" value={count('reservations', data.reservations.filter(item => item.date === day && !['Cancelada', 'Bloqueio'].includes(item.status)).length)} to={`${agenda}&activity=reservations`} action="Ver reservas" note="Confirmadas, com chegada ou concluídas" />}
+        {data.canRead('courts') && <Metric label="Tempo de quadra disponível hoje" value={availabilityReady ? `${quantity(scheduleCourts.reduce((sum, court) => sum + (court.availableMinutes ?? 0), 0) / 60)} h` : availability} to={agenda} action="Consultar horários" note={availabilityReady ? 'Total livre no dia, após reservas, bloqueios e aulas' : loaded && !data.courts.length ? 'Cadastre as quadras e seus horários de funcionamento.' : 'A disponibilidade depende da conferência da agenda.'} />}
+        {data.canRead('classes') && <Metric label="Turmas com aula hoje" value={count('classes', activeClasses.filter(item => item.weekDay === new Date(`${day}T12:00:00Z`).getUTCDay()).length)} to={`${agenda}&activity=classes`} action="Ver aulas na agenda" note="Conforme a grade semanal ativa" />}
+      </div>
+      {readable('courts') && !schedule.isError && nextBlocks.length > 0 && <div className="dashboard-next"><Disclosure title="Em andamento e próximos horários"><ol>{nextBlocks.map(block => <li key={`${block.courtId}:${block.source}:${block.sourceId}:${block.startTime}`}><Link to={`${agenda}&court=${encodeURIComponent(block.courtId)}`}><time>{block.startTime}–{block.endTime}</time><span>{block.source}<small>{data.courts.find(court => court.id === block.courtId)?.name ?? 'Quadra'}</small></span>{block.startTime <= time && <span className="dashboard-badge">Em andamento</span>}<span aria-hidden="true">→</span></Link></li>)}</ol></Disclosure></div>}
+      {data.dataUpdatedAt && <p className="dashboard-updated">Operação consultada em {formatUpdated(data.dataUpdatedAt)}{data.refreshFailed ? ' · Última leitura preservada; atualização pendente.' : ''}</p>}
+    </section>
 
-    {readable('classes') && activeClasses.length > 0 && <section className="arena-dashboard-section" aria-labelledby="current-school-grade">
-      <div className="arena-section-heading"><div><p className="arena-section-eyebrow">Escola · cadastros atuais</p><h2 id="current-school-grade">Grade de aulas atual</h2></div></div>
-      <div className="arena-metric-grid">
-        <Metric label="Turmas ativas" value={String(activeClasses.length)} to="/escola?status=Ativa" period="Grade semanal atual" updated={updated} note={`${quantity(classHours)} h de aulas por semana`} />
-        {readable('enrollments') && <>
-          <Metric label="Vagas ocupadas nas turmas" value={`${activeEnrollments.length}/${schoolCapacity}`} to="/escola?status=Ativa" period="Grade semanal atual" updated={updated} note={`${Math.max(0, schoolCapacity - activeEnrollments.length)} vagas livres. Uma matrícula ocupa uma vaga na turma.`} />
-          <Metric label="Alunos na grade atual" value={String(new Set(activeEnrollments.map(item => item.studentId)).size)} to="/escola/matriculas?status=Ativa" period="Matrículas ativas" updated={updated} note="Cada aluno contado uma vez, mesmo que participe de mais de uma turma." />
-        </>}
-      </div>
+    {(attention.length > 0 || hasPermission(user, 'bar:finance:read')) && <section className="arena-dashboard-section dashboard-attention" aria-labelledby="arena-attention"><div className="arena-section-heading"><h2 id="arena-attention">Precisa de atenção</h2></div>
+      <DashboardBarAttention />
+      {attention.length > 0 && (!loaded ? <p role="status">{unavailable}. As pendências serão exibidas após a consulta.</p> : <>
+        {alerts.length > 0 ? <ul className="dashboard-alerts">{alerts.map(item => <li key={item.kind}><Link to={item.to}><span className="dashboard-alert-count">{item.count}</span><span><strong>{item.title}</strong><small>{item.note}</small></span><span className="dashboard-alert-action">{item.action} →</span></Link></li>)}</ul> : <p className="dashboard-calm">{hasMonitoredRecords ? 'Nenhuma pendência nos cadastros consultados.' : 'Cadastros ainda não disponíveis para acompanhar pendências.'}</p>}
+        {emptyAreas.length > 0 && <Disclosure title="Cadastros a completar" count={emptyAreas.length}><ul className="dashboard-empty-areas">{emptyAreas.map(item => <li key={item.kind}><span><strong>{({ financeEntries: 'Financeiro', inventory: 'Materiais', projects: 'Projetos', maintenance: 'Manutenção' })[item.kind]}</strong><small>Sem cadastros · acompanhamento ainda não iniciado</small></span><Link to={item.to.split('?')[0]}>Abrir cadastro →</Link></li>)}</ul></Disclosure>}
+      </>)}
     </section>}
-    <section className="arena-dashboard-section" aria-labelledby="arena-attention">
-      <div className="arena-section-heading"><div><p className="arena-section-eyebrow">01 · Operação de hoje</p><h2 id="arena-attention">Atenção agora</h2></div><p>Agora · atualizado: {updated}</p></div>
-      <div className="arena-metric-grid">
-        {data.canRead('reservations') && <Metric label="Reservas de hoje" value={count('reservations', data.reservations.filter(item => item.date === day && !['Cancelada', 'Bloqueio'].includes(item.status)).length)} to={link('/agenda', { date: day, view: 'day', activity: 'reservations' })} period="Agora · hoje" updated={updated} note={data.reservations.length ? "Reservas confirmadas, com chegada ou concluídas" : "Agenda ainda sem reservas cadastradas. Confirme a grade atual para carregar os horários."} />}
-        {data.canRead('courts') && <Metric label="Tempo de quadra disponível hoje" value={availabilityReady ? `${quantity(scheduleCourts.reduce((sum, court) => sum + (court.availableMinutes ?? 0), 0) / 60)} h` : null} to={link('/agenda', { date: day, view: 'day' })} period="Agora · hoje" updated={formatUpdated(schedule.data?.updatedAtUtc)} note={schedulePending ? `${quantity(scheduleCourts.reduce((sum, court) => sum + (court.operatingMinutes ?? 0), 0) / 60)} h de funcionamento hoje. Horas livres aguardam conferência da agenda.` : data.courts.length ? "Tempo livre após reservas, bloqueios e aulas" : "Faltam as quadras e seus horários de funcionamento."} />}
-        {data.canRead('financeEntries') && <Metric label="Lançamentos vencidos · valor original" value={cash(overdueReceivables)} to={link('/financeiro', { direction: 'Receber', status: 'Pendente', overdue: '1', range: 'all' })} period="Agora" updated={updated} attention={overdueReceivables > 0} note={data.financeEntries.length ? "Valor original antes dos pagamentos parciais. Confira o saldo pendente na Visão financeira acima." : "Faltam cobranças com valor devido e vencimento. Valor pago na planilha não informa a dívida."} />}
-        {data.canRead('inventory') && <Metric label="Materiais para repor" value={count('inventory', lowMaterials.length)} to={link('/administracao/materiais', { low: '1' })} period="Agora · quantidade de materiais" updated={updated} attention={lowMaterials.length > 0} note={data.inventory.length ? undefined : 'Faltam quantidades atuais e estoque mínimo dos materiais da arena.'} />}
-        {data.canRead('projects') && <Metric label="Projetos com prazo vencido" value={count('projects', overdueProjects.length)} to={link('/projetos', { overdue: '1' })} period="Agora" updated={updated} attention={overdueProjects.length > 0} note={data.projects.length ? undefined : 'Cadastre os projetos e os prazos para acompanhar atrasos.'} />}
-        {data.canRead('maintenance') && <Metric label="Manutenções urgentes abertas" value={count('maintenance', urgentMaintenance.length)} to={link('/manutencao', { priority: 'Urgente', status: 'open' })} period="Agora" updated={updated} attention={urgentMaintenance.length > 0} note={data.maintenance.length ? undefined : 'Cadastre os serviços de manutenção e suas prioridades.'} />}
-      </div>
-    </section>
+
+    <FinancialBalanceOverview compact />
     <section className="arena-dashboard-section" aria-labelledby="arena-results">
-      <div className="arena-section-heading"><div><p className="arena-section-eyebrow">02 · Acompanhar resultados</p><h2 id="arena-results">Resultados no período</h2></div><p>Atualizado: {updated}</p></div>
-      <div className="arena-toolbar arena-period-toolbar"><Field label="De" type="date" value={from} onChange={value => filters.set('from', value)} /><Field label="Até" type="date" value={to} onChange={value => filters.set('to', value)} /><span className="arena-hint">Horário de Brasília<br />Datas inicial e final incluídas</span></div>
-      {!valid ? <p className="arena-message arena-error" role="alert">Escolha um período válido. A data final precisa ser igual ou posterior à inicial.</p> : <div className="arena-metric-grid">
-        {data.canRead('financeEntries') && <>
-          <Metric label="Recebimentos registrados" value={cash(realized.filter(item => item.direction === 'Receber').reduce((sum, item) => sum + item.amount, 0))} to={link('/financeiro', { direction: 'Receber', status: 'Pago', dateField: 'paidDate' })} period={period} updated={updated} note="Entradas marcadas como pagas" />
-          <Metric label="Despesas pagas" value={cash(realized.filter(item => item.direction === 'Pagar').reduce((sum, item) => sum + item.amount, 0))} to={link('/financeiro', { direction: 'Pagar', status: 'Pago', dateField: 'paidDate' })} period={period} updated={updated} />
-          <Metric label="Lançamentos por vencimento · valor original" value={cash(pending.filter(item => item.direction === 'Receber' && inPeriod(item.dueDate)).reduce((sum, item) => sum + item.amount, 0))} to={link('/financeiro', { direction: 'Receber', status: 'Pendente', dateField: 'dueDate' })} period={period} updated={updated} note="Contas pendentes pelo vencimento, antes dos pagamentos parciais. O saldo atual está na Visão financeira." />
-        </>}
-        {data.canRead('reservations') && <Metric label="Reservas no período" value={count('reservations', data.reservations.filter(item => inPeriod(item.date) && !['Cancelada', 'Bloqueio'].includes(item.status)).length)} to={link('/agenda', { view: 'list', activity: 'reservations' })} period={period} updated={updated} />}
-      </div>}
-      <p className="arena-hint arena-data-note">Recebimentos registrados, consumo do bar e saldo bancário têm origens diferentes. Cada detalhe mostra os registros que compõem seu total.</p>
+      <div className="arena-section-heading"><div><p className="arena-section-eyebrow">03 · Desempenho</p><h2 id="arena-results">Resultados no período</h2></div><p>Registros do sistema</p></div>
+      <div className="dashboard-period-presets" role="group" aria-label="Períodos rápidos">{periods.map(item => <button key={item.label} type="button" aria-pressed={periods.find(candidate => candidate.from === from && to === day)?.label === item.label} onClick={() => selectPeriod(item.from)}>{item.label}</button>)}</div>
+      <div className="arena-toolbar arena-period-toolbar"><Field label="De" type="date" value={from} onChange={value => filters.set('from', value)} /><Field label="Até" type="date" value={to} onChange={value => filters.set('to', value)} /><span className="arena-hint">Datas incluídas · horário de Brasília<br />Este filtro altera apenas os resultados abaixo.</span></div>
+      {!valid ? <p className="arena-message arena-error" role="alert">Escolha um período válido. A data final precisa ser igual ou posterior à inicial.</p> : <>
+        <p className="dashboard-period-label">{period}</p>
+        <div className="arena-metric-grid">
+          {data.canRead('financeEntries') && <>
+            <Metric label="Recebimentos registrados" value={cash(realized.filter(item => item.direction === 'Receber').reduce((sum, item) => sum + item.amount, 0))} to={link('/financeiro', { direction: 'Receber', status: 'Pago', dateField: 'paidDate' })} action="Conferir recebimentos" note="Lançamentos marcados como pagos" />
+            <Metric label="Despesas pagas" value={cash(realized.filter(item => item.direction === 'Pagar').reduce((sum, item) => sum + item.amount, 0))} to={link('/financeiro', { direction: 'Pagar', status: 'Pago', dateField: 'paidDate' })} action="Conferir despesas" />
+          </>}
+          {data.canRead('reservations') && <Metric label="Reservas no período" value={count('reservations', data.reservations.filter(item => inPeriod(item.date) && !['Cancelada', 'Bloqueio'].includes(item.status)).length)} to={link('/agenda', { view: 'list', activity: 'reservations' })} action="Abrir reservas do período" />}
+        </div>
+        {hasPermission(user, 'bar:finance:read') && <BarArenaMetrics from={from} to={to} compact />}
+        <p className="arena-hint">Financeiro e bar têm fontes separadas. Consulte a composição antes de comparar ou somar valores.</p>
+      </>}
     </section>
-    {valid && <BarArenaMetrics from={from} to={to} />}
-    <section className="arena-dashboard-section" aria-labelledby="arena-areas">
-      <div className="arena-section-heading"><div><p className="arena-section-eyebrow">03 · Gerenciar a arena</p><h2 id="arena-areas">Áreas da arena</h2></div><p>Consultar, cadastrar e acompanhar</p></div>
-      <div className="arena-modules">
-        {modules.filter(module => data.canRead(module[3])).map(([title, description, href, , icon]) => <Link className="arena-module arena-area-module" key={title} to={link(href)}><AreaIcon name={icon} /><h3>{title}</h3><p>{description}</p><span className="arena-link-label">Abrir área <span aria-hidden="true">→</span></span></Link>)}
-        {barHref && <Link className="arena-module arena-area-module" to={barHref}><AreaIcon name="bar" /><h3>Bar e caixa</h3><p>{demo ? 'Explore atendimento e gestão em uma demonstração.' : 'Vendas, comandas, estoque e recebimentos.'}</p><span className="arena-link-label">{demo ? 'Abrir demonstração' : 'Abrir bar'} <span aria-hidden="true">→</span></span></Link>}
-      </div>
+
+    <section className="arena-dashboard-section dashboard-more" aria-labelledby="arena-more"><div className="arena-section-heading"><div><p className="arena-section-eyebrow">04 · Consultas</p><h2 id="arena-more">Mais sobre a arena</h2></div></div>
+      {(data.canRead('rentalGroups') || data.canRead('classes')) && <Disclosure title="Mensalistas e grade de aulas atual">
+        {data.canRead('rentalGroups') && <Metric label="Grupos ativos" value={count('rentalGroups', data.rentalGroups.filter(g => g.status === 'Ativo' && g.startDate <= day && (!g.endDate || g.endDate >= day)).length)} to="/mensalistas" action="Gerenciar grupos" note="Acordos cadastrados atualmente" />}
+        {readable('classes') && activeClasses.length > 0 && <section aria-labelledby="current-school-grade"><h3 id="current-school-grade">Grade de aulas atual</h3><div className="arena-metric-grid">
+          <Metric label="Turmas ativas" value={String(activeClasses.length)} to="/escola?status=Ativa" action="Consultar turmas" note={`${quantity(classHours)} h de aulas por semana`} />
+          {readable('enrollments') && <><Metric label="Vagas ocupadas nas turmas" value={`${activeEnrollments.length}/${schoolCapacity}`} to="/escola?status=Ativa" action="Consultar vagas" note={`${Math.max(0, schoolCapacity - activeEnrollments.length)} vagas livres`} /><Metric label="Alunos na grade atual" value={String(new Set(activeEnrollments.map(item => item.studentId)).size)} to="/escola/matriculas?status=Ativa" action="Ver matrículas" note="Cada aluno contado uma vez" /></>}
+        </div></section>}
+      </Disclosure>}
+      {hasPermission(user, 'bar:finance:read') && <Disclosure title="Estoque do bar e potencial de venda" lazy><StockValuation compact /></Disclosure>}
+      {isManagement(user) && <Disclosure title="Histórico das planilhas e movimentos de origem" lazy><p className="dashboard-history-notice">Referências históricas. As datas pertencem às fontes importadas e podem ser diferentes entre os indicadores.</p><ArenaHistoryOverview /><Disclosure title="Histórico financeiro e extratos" lazy><FinancialHistoryOverview /><BankStatementOverview /></Disclosure></Disclosure>}
+      <nav className="dashboard-shortcuts" aria-label="Áreas da arena">{data.canRead('reservations') && <Link to="/agenda">Agenda →</Link>}{data.canRead('rentalGroups') && <Link to="/mensalistas">Mensalistas →</Link>}{data.canRead('classes') && <Link to="/escola">Aulas →</Link>}{data.canRead('financeEntries') && <Link to="/financeiro">Financeiro →</Link>}{barHref && <Link to={barHref}>Bar e caixa →</Link>}</nav>
     </section>
   </main>
 }
-const linkBarPeriod = (path: string, from: string, to: string) => `${path}?${new URLSearchParams({ de: from, ate: to })}`

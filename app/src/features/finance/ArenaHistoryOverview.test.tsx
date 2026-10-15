@@ -17,7 +17,7 @@ it('mostra referências diferentes, valores pagos, horas semanais e origem de ca
   expect(await screen.findByText('R$ 260,00')).toBeInTheDocument()
   expect(screen.getByText('R$ 720,00')).toBeInTheDocument()
   const lessons = screen.getByText('Aulas registradas').closest('a')!
-  expect(within(lessons).getByText('março de 2026')).toBeInTheDocument()
+  expect(within(lessons).getByText('Referência: março de 2026')).toBeInTheDocument()
   expect(lessons).toHaveAttribute('href', '/financeiro/historico?month=2026-03&series=aulas')
   expect(screen.getByText('6 h/semana')).toBeInTheDocument()
   expect(screen.getByText('Média de 3,8 alunos por aula registrada')).toBeInTheDocument()
@@ -30,7 +30,7 @@ it('filtra o mês sem reaproveitar aulas antigas nem transformar ausência em ze
   await userEvent.selectOptions(screen.getByLabelText('Mês dos controles'), '2026-09')
   await waitFor(() => expect(screen.getAllByText('Sem registros no período')).toHaveLength(2))
   expect(fetch.mock.calls.some(([url]) => String(url).includes('/arena-summary?month=2026-09'))).toBe(true)
-  expect(screen.queryByText('março de 2026', { selector: 'small' })).not.toBeInTheDocument()
+  expect(screen.queryByText('Referência: março de 2026', { selector: 'small' })).not.toBeInTheDocument()
 })
 it('resposta vazia não inventa receitas, contagens ou horários', async () => {
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ months: [], students: null, rentals: null, lessons: null }), { headers: { 'Content-Type': 'application/json' } }))

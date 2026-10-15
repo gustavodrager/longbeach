@@ -12,9 +12,9 @@ const report = { metric: 'cash', value: 12.34, unit: 'money', current: true, upd
 function mockSources(current: unknown = position, bar: unknown = report) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async input => new Response(JSON.stringify(String(input).includes('/current-position') ? current : bar)))
 }
-function wrap() {
+function wrap(compact = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return { client, ...render(<QueryClientProvider client={client}><MemoryRouter><CurrentFinancialMetrics /></MemoryRouter></QueryClientProvider>) }
+  return { client, ...render(<QueryClientProvider client={client}><MemoryRouter><CurrentFinancialMetrics compact={compact} /></MemoryRouter></QueryClientProvider>) }
 }
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); auth.roles = ['Owner'] })
 
@@ -55,6 +55,7 @@ it('atualiza as três fontes e oculta valores anteriores quando a nova leitura f
   const fetch = mockSources(); wrap()
   await screen.findByText('Não conectado')
   await userEvent.click(screen.getByRole('button', { name: /A receber · financeiro/ }))
+  await userEvent.click(screen.getByRole('button', { name: /Fechar Contas a receber/ }))
   fetch.mockRejectedValue(new Error('offline'))
   await userEvent.click(screen.getByRole('button', { name: 'Atualizar agora' }))
   await screen.findByRole('alert')
@@ -75,4 +76,17 @@ it('reconsulta automaticamente a cada 30 segundos e não permite consulta pela e
   expect(fetch).toHaveBeenCalledTimes(6)
   view.unmount(); fetch.mockClear(); auth.roles = ['Operations']; wrap()
   expect(fetch).not.toHaveBeenCalled()
+})
+
+it('resumo compacto mantém os saldos líquidos e concentra a atualização no cabeçalho global', async () => {
+  mockSources(); wrap(true)
+  const receivable = await screen.findByRole('button', { name: /A receber · financeiro.*40,00/ })
+  expect(screen.queryByRole('button', { name: 'Atualizar agora' })).not.toBeInTheDocument()
+  expect(screen.queryByText('Saldo atual da conta PagBank')).not.toBeInTheDocument()
+  expect(screen.getByText(/Conta PagBank:/).closest('p')).toHaveTextContent('Não conectado')
+  await userEvent.click(receivable)
+  expect(screen.getByRole('table', { name: 'Composição do saldo pendente' })).toHaveTextContent('R$ 40,00')
+  expect(receivable).toHaveAttribute('aria-expanded', 'true')
+  await userEvent.click(screen.getByRole('button', { name: /Fechar Contas a receber/ }))
+  expect(screen.queryByRole('table')).not.toBeInTheDocument()
 })
