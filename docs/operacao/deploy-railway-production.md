@@ -1,5 +1,9 @@
 # Deploy de Production no Railway
 
+## Atualização de 15/10/2026 — Agenda
+
+Web de produção fixada em `2ec1a67d4f037791427f44de437e3e0c6dd007b3`, com dia atual no celular, navegação entre dias, grade semanal com cabeçalhos fixos e filtros explícitos. CI aprovada. API e banco preservados. Ver [publicação, validação e retorno](publicacao-agenda-2026-10-15.md).
+
 ## Atualização de 15/10/2026 — Visão Geral
 
 Interface de produção fixada em `aa00f3134c65d005a5303e92490b3cf38088c791`, com operação do dia e pendências no topo, resumo financeiro compacto e layout responsivo. CI aprovada. API e banco preservados, sem migrations. Ver [publicação, validação e retorno](publicacao-visao-geral-2026-10-15.md).
