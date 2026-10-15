@@ -15,7 +15,7 @@ const monthLabel = (value: string) => new Intl.DateTimeFormat('pt-BR', { month: 
 const sourceLink = (month: string, series: string) => `/financeiro/historico?${new URLSearchParams({ month, series })}`
 
 function Card({ title, value, month, series, children }: { title: string; value: string | null; month?: string; series: string; children?: ReactNode }) {
-  const content = <><span className="arena-metric-label">{title}</span><strong>{value ?? 'Sem dados completos'}</strong><small>{month ? monthLabel(month) : 'Sem registros no período'}</small>{children}{month && <span className="arena-link-label">Conferir controle →</span>}</>
+  const content = <><span className="arena-metric-label">{title}</span><strong>{value ?? 'Sem dados completos'}</strong><small className="dashboard-reference-date">{month ? `Referência: ${monthLabel(month)}` : 'Sem registros no período'}</small>{children}{month && <span className="arena-link-label">Conferir controle →</span>}</>
   return month ? <Link className={`arena-metric ${value === null ? 'arena-metric-unavailable' : ''}`} to={sourceLink(month, series)}>{content}</Link>
     : <div className="arena-metric arena-metric-unavailable">{content}</div>
 }
