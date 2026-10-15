@@ -527,3 +527,26 @@ it('o atalho das aulas de hoje abre somente a composição da grade do dia', asy
   expect(screen.queryByRole('button', { name: /Reserva fora do filtro/ })).not.toBeInTheDocument()
   expect(screen.getByLabelText('Mostrar')).toHaveValue('classes')
 })
+
+
+it('selecionar somente aulas limpa filtros antigos de reserva e mantém a seleção entre visualizações', async () => {
+  localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({ courts: [court], classes: [fridayClass], reservations: [fridayReservation] }))
+  start('/agenda?view=list&from=2026-10-09&to=2026-10-09&date=2026-10-09&status=Confirmada&group=grupo-antigo')
+  const user = userEvent.setup()
+  await user.selectOptions(screen.getByLabelText('Mostrar'), 'classes')
+  expect(await screen.findByRole('button', { name: /Aula de sexta/ })).toBeInTheDocument()
+  expect(screen.getByLabelText('Situação da reserva')).toHaveValue('')
+  expect(screen.getByTestId('route')).not.toHaveTextContent('group=')
+  expect(screen.queryByRole('button', { name: /Locação de sexta/ })).not.toBeInTheDocument()
+  await user.selectOptions(screen.getByLabelText('Visualização'), 'week')
+  expect(await screen.findByRole('button', { name: /Aula de sexta/ })).toBeInTheDocument()
+})
+
+it('selecionar aulas na semana remove filtros antigos de situação e grupo', async () => {
+  localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({ courts: [court], classes: [fridayClass], reservations: [fridayReservation] }))
+  start('/agenda?date=2026-10-09&status=Confirmada&group=grupo-antigo')
+  await userEvent.setup().selectOptions(screen.getByLabelText('Destacar atividade'), 'aula')
+  expect(await screen.findByRole('button', { name: /Aula de sexta/ })).toBeInTheDocument()
+  expect(screen.getByTestId('route')).not.toHaveTextContent('status=')
+  expect(screen.getByTestId('route')).not.toHaveTextContent('group=')
+})

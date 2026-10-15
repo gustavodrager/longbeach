@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Disclosure } from '../components/managementUi'
+import { Disclosure, useContextSearchParams } from '../components/managementUi'
 import { useOperations } from '../features/operations/DemoDataProvider'
 import { useCourtSchedule, useCourtScheduleRange } from '../features/arena/queries'
 import type { CourtScheduleRow, Reservation } from '../features/arena/types'
@@ -39,6 +39,14 @@ function AgendaDayListPage() {
   const [selected, setSelected] = useState<AgendaSelection | null>(null)
   const data = useOperations()
   const filters = useFilters()
+  const [, setParams] = useContextSearchParams()
+  const setActivity = (value: string) => {
+    const next = new URLSearchParams(filters.params)
+    value ? next.set('activity', value) : next.delete('activity')
+    if (['classes', 'aula'].includes(value)) { next.delete('status'); next.delete('group') }
+    next.delete('page')
+    setParams(next, { preventScrollReset: true })
+  }
   const date = filters.params.get('date') ?? today()
   const from = filters.params.get('from') ?? date
   const to = filters.params.get('to') ?? date
@@ -106,7 +114,7 @@ function AgendaDayListPage() {
     <div className="agenda-options">
       <Disclosure title={`Filtros${activeFilters ? ` · ${activeFilters} ${activeFilters === 1 ? 'ativo' : 'ativos'}` : ''}`}><div className="arena-toolbar">
         {!list && <Field label="Dia" type="date" value={date} onChange={value => filters.set('date', value)} />}
-        <Field label="Mostrar" value={reservationsOnly ? 'reservations' : lessonsOnly ? 'classes' : ''} onChange={value => filters.set('activity', value)} options={[{ value: '', label: 'Reservas, bloqueios e aulas' }, { value: 'reservations', label: 'Somente reservas' }, { value: 'classes', label: 'Somente aulas' }]} />
+        <Field label="Mostrar" value={reservationsOnly ? 'reservations' : lessonsOnly ? 'classes' : ''} onChange={setActivity} options={[{ value: '', label: 'Reservas, bloqueios e aulas' }, { value: 'reservations', label: 'Somente reservas' }, { value: 'classes', label: 'Somente aulas' }]} />
         {data.courts.length > 1 && <Field label="Quadra" value={courtId} onChange={value => filters.set('court', value)} options={[{ value: '', label: 'Todas as quadras' }, ...data.courts.map(court => ({ value: court.id, label: court.name }))]} />}
         <Field label="Situação da reserva" value={filters.status} onChange={value => filters.set('status', value)} options={[{ value: '', label: 'Todas' }, 'Confirmada', 'Chegou', 'Concluída', 'Cancelada', 'Bloqueio']} />
         <Search filters={filters} placeholder="Buscar reserva, cliente ou aula…" />
