@@ -1,5 +1,9 @@
 # Deploy de Production no Railway
 
+## Atualização de 16/10/2026 — Mensalistas
+
+Web de produção fixada em `772f83eac5a971b647639e52b95cb033e1412fd7`, com filtros, pendências explícitas, ficha centrada nos encontros e cadastro por seções. CI e conferência autenticada desktop/móvel aprovadas. API e banco preservados. Ver [publicação, validação e retorno de Mensalistas](mensalistas-quadra.md#publicação-da-revisão-uxui--2026-10-16).
+
 ## Atualização de 15/10/2026 — Agenda
 
 Web de produção fixada em `2ec1a67d4f037791427f44de437e3e0c6dd007b3`, com dia atual no celular, navegação entre dias, grade semanal com cabeçalhos fixos e filtros explícitos. CI aprovada. API e banco preservados. Ver [publicação, validação e retorno](publicacao-agenda-2026-10-15.md).
