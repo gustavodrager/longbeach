@@ -50,6 +50,16 @@ public sealed class BusinessAllocationRulesTests
     }
 
     [Fact]
+    public void Older_client_null_classification_preserves_the_reviewed_allocation()
+    {
+        const string saved = """{"origin":"Arena","allocationScope":"Unit","businessUnitId":"bar"}""";
+        var incoming = JsonNode.Parse("""{"origin":"Arena","allocationScope":null,"businessUnitId":null}""")!.AsObject();
+        BusinessAllocationRules.PreserveOmitted(incoming, saved);
+        Assert.Equal("Unit", incoming["allocationScope"]!.GetValue<string>());
+        Assert.Equal("bar", incoming["businessUnitId"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void Monthly_classification_never_changes_amounts_or_allocates_shared_expenses()
     {
         var income = new MonthlyControlLine(Guid.NewGuid().ToString(), "Receita", "Receita", "Operação", "Bar", 10000, "Informado", "Teste", null, "Unit", "bar");

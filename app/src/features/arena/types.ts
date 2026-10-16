@@ -1,4 +1,5 @@
 import type { BusinessAllocation } from '../finance/businessUnits'
+import type { FinancialReceipt } from '../finance/receiptSources'
 export type Court = { id: string; version?: number; costsVisible?: boolean; name: string; sport: string; status: 'Disponível' | 'Manutenção'; openingTime: string; closingTime: string; operatingDays?: number[]; scheduleConfirmed?: boolean; hourlyRentalAmount?: number | null; weekendPackageAmount?: number | null; weekendPackageHours?: number | null; weekendPackageLatestEndTime?: string | null }
 export type Reservation = {
   id: string; version?: number; costsVisible?: boolean; name: string; courtId: string; date: string; startTime: string; endTime: string
@@ -17,7 +18,7 @@ export type ArenaClass = {
 }
 export type Enrollment = { id: string; version?: number; costsVisible?: boolean; name: string; studentId: string; classId: string; startDate: string; endDate?: string; status: 'Ativa' | 'Encerrada'; monthlyAmount: number | null }
 export type Presence = { id: string; version?: number; costsVisible?: boolean; name: string; classId: string; studentId: string; date: string; status: 'Presente' | 'Ausente' }
-export type FinanceEntry = BusinessAllocation & {
+export type FinanceEntry = BusinessAllocation & FinancialReceipt & {
   id: string; version?: number; costsVisible?: boolean; name: string; direction: 'Receber' | 'Pagar'; origin: 'Bar' | 'Escola' | 'Locações' | 'Arena'
   amount: number; dueDate: string; status: 'Pendente' | 'Pago' | 'Cancelado'; paidDate: string; notes: string
   sourceId?: string; sourceKind?: 'rentalMonths' | 'enrollments' | 'reservations' | 'projects' | 'maintenance'; month?: string

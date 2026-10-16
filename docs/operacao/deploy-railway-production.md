@@ -1,5 +1,9 @@
 # Deploy de Production no Railway
 
+## Atualização de 14/10/2026 — recebimentos Bar/Quadra
+
+API e web de produção e homologação fixadas no commit `ee803b7a2300af27f6f43dcc07dc0e194c701194`, preservando notas recebidas. A origem identifica maquininha PagBank/PagVendas como Bar e Pix dos serviços da Quadra como Quadra, com conta PagBank ou C6. CI e teste de persistência em staging aprovados. Sem nova migration em produção e sem integração C6 ativada. Ver [publicação, verificação e retorno](publicacao-recebimentos-2026-10-14.md).
+
 ## Atualização de 13/10/2026 — versão equalizada
 
 API e web de produção foram promovidas no commit `d1d3dd810b07f47f0cf52de1ef47b5163425a82d`, igual ao validado em Staging. A visão financeira separa a posição interna atual das referências históricas; os ambientes mantêm suas credenciais e dados próprios. CI aprovada, cópia local conferida e configuração sem divergências. Ver [registro completo, evidências e retorno](publicacao-equalizacao-2026-10-13.md).

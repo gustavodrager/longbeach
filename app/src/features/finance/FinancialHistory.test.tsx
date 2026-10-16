@@ -52,3 +52,20 @@ it('falha de leitura não apresenta valores fictícios de zero', async () => {
   expect((await screen.findAllByRole('alert'))[0]).toHaveTextContent('Não foi possível atualizar')
   expect(screen.queryByText('R$ 0,00')).not.toBeInTheDocument()
 })
+
+it('mostra a unidade derivada sem atribuir Pix genérico ou saldo à Quadra', async () => {
+  const rows = [
+    { id:'bar',unit:'bar',series:'pagvendas-vendas',label:'Pix no PagVendas' },
+    { id:'court',unit:'quadra',series:'alunos',label:'Mensalidade teste' },
+    { id:'unknown',unit:null,series:'pagbank-conta',label:'Pix sem origem confirmada' },
+  ]
+  vi.spyOn(globalThis,'fetch').mockImplementation(async input => new Response(JSON.stringify(String(input).includes('/integrations') ? [] : {
+    ...report,total:3,totals:[],items:rows.map(row=>({...report.items[0],id:row.id,businessUnitId:row.unit,data:{...report.items[0].data,series:row.series,label:row.label}})),
+  })))
+  wrap(<FinancialHistoryPage />)
+  const table=await screen.findByRole('table',{name:'Registros financeiros de origem'})
+  expect(table).toHaveTextContent('Unidade')
+  expect(screen.getByText('Pix no PagVendas').closest('tr')).toHaveTextContent('Bar')
+  expect(screen.getByText('Mensalidade teste').closest('tr')).toHaveTextContent('Quadra')
+  expect(screen.getByText('Pix sem origem confirmada').closest('tr')).toHaveTextContent('Sem unidade atribuída')
+})

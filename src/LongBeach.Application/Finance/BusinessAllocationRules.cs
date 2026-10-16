@@ -38,6 +38,9 @@ public static class BusinessAllocationRules
 
     public static void PreserveOmitted(JsonObject incoming, string? previous)
     {
+        // Known receipt sources have their own explicit allocation validation. Older
+        // clients may serialize unknown allocation as null, so keep preserving those.
+        if (incoming["receiptSource"] is JsonValue receipt && receipt.TryGetValue<string>(out var source) && FinancialReceiptRules.BusinessUnitFor(source) is not null) return;
         if (previous is null || incoming["allocationScope"] is not null || incoming["businessUnitId"] is not null) return;
         var saved = JsonNode.Parse(previous)!.AsObject();
         foreach (var key in new[] { "allocationScope", "businessUnitId" })

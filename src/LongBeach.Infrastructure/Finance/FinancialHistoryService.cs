@@ -111,7 +111,12 @@ public sealed partial class FinancialHistoryService(LongBeachDbContext db, IAudi
             ORDER BY o.period_start,o.series,o.source_cell,o.id
             """,ct,first,first.AddMonths(1).AddDays(-1),series,metric))
         await using(var reader=await command.ExecuteReaderAsync(ct))
-            while(await reader.ReadAsync(ct)){using var json=JsonDocument.Parse(reader.GetString(4));items.Add(new(reader.GetGuid(0),reader.GetGuid(1),reader.GetString(2),reader.GetString(3).Trim(),FinancialHistoryRules.Parse(json.RootElement)));}
+            while(await reader.ReadAsync(ct))
+            {
+                using var json=JsonDocument.Parse(reader.GetString(4));var observation=FinancialHistoryRules.Parse(json.RootElement);
+                items.Add(new(reader.GetGuid(0),reader.GetGuid(1),reader.GetString(2),reader.GetString(3).Trim(),observation,
+                    ExternalBusinessAllocationRules.FromHistory(observation.Series,observation.Metric)));
+            }
         return new(month,months,FinancialHistoryRules.Totals(items.Select(x=>x.Data)),items.Skip((page-1)*50).Take(50).ToArray(),items.Count,page,time.GetUtcNow());
     }
     public async Task<DashboardBalances> DashboardBalances(CancellationToken ct)
@@ -216,6 +221,8 @@ public sealed partial class FinancialHistoryService(LongBeachDbContext db, IAudi
         await using(var reader=await command.ExecuteReaderAsync(ct))while(await reader.ReadAsync(ct))
         {
             using var json=JsonDocument.Parse(reader.GetString(3));
+            // PagBank also processes court payments. Without verified capture-channel
+            // evidence, an EDI document cannot be allocated from its provider alone.
             rows.Add(new(reader.GetString(0),day,reader.GetInt32(1),reader.GetString(2).Trim(),json.RootElement.Clone()));
         }
         return new(date,dates,rows,total,page);

@@ -54,6 +54,12 @@ public sealed class FinancialHistoryPostgresTests
         Assert.Equal(57,result.General.Records); Assert.Equal(5500,result.General.ExpenseCents); Assert.Equal(2500,result.General.AmountCents);
         Assert.Null(result.General.ExpensesByType);
         Assert.Equal(13500,result.PagBank.AmountCents); Assert.Equal(new DateOnly(2090,7,31),result.PagBank.Date);
+        var barHistory=await service.Report("2090-08","consolidado","vendas-bar-bruto",1,default);
+        Assert.Equal("bar",Assert.Single(barHistory.Items).BusinessUnitId);Assert.Equal("bar",Assert.Single(barHistory.Totals).BusinessUnitId);
+        var genericIncome=await service.Report("2090-08","consolidado","receitas-arena",1,default);
+        Assert.Null(Assert.Single(genericIncome.Items).BusinessUnitId);Assert.Null(Assert.Single(genericIncome.Totals).BusinessUnitId);
+        var bankBalance=await service.Report("2090-08","saldos","Saldo C6",1,default);
+        Assert.Null(Assert.Single(bankBalance.Items).BusinessUnitId);
         var review = new MonthlyControlDocument("2090-08", 1,
             [new(Guid.NewGuid().ToString(),"Receita teste","Receita","Operação","Arena",20000,"Informado","Fonte teste","2090-08"),
              new(Guid.NewGuid().ToString(),"Custo teste","Despesa","Fixa","Arena",22000,"Estimado","Referência teste","2090-07")],"Revisão",DateTimeOffset.UtcNow);
@@ -117,6 +123,7 @@ public sealed class FinancialHistoryPostgresTests
         var row=new FinancialObservation("financial-observation-v1","BRL","Teste!G2","alunos",metric,"Aluno teste","Não Pago",new(2045,8,1),new(2045,8,31),"month",12345,"");
         var batch=await Stage(db,hash,row);var service=new FinancialHistoryService(db,new NullAuditContext(),TimeProvider.System,new ConfigurationBuilder().Build());
         var preview=await service.Preview(batch,default);
+        Assert.Equal("quadra",Assert.Single(preview.Totals).BusinessUnitId);
         await Assert.ThrowsAsync<FinancialRuleException>(()=>service.Apply(batch,"stale",default));
         Assert.Equal(0,await db.Database.SqlQuery<int>($"SELECT COUNT(*)::int AS \"Value\" FROM financial_observations WHERE source_sha256={hash}").SingleAsync());
         await service.Apply(batch,preview.ConfirmationToken,default);await service.Apply(batch,preview.ConfirmationToken,default);
@@ -125,6 +132,12 @@ public sealed class FinancialHistoryPostgresTests
         Assert.Equal(1,await db.Database.SqlQuery<int>($"SELECT COUNT(*)::int AS \"Value\" FROM financial_observations WHERE source_sha256={hash}").SingleAsync());
         Assert.True(await db.AuditLogs.AnyAsync(x=>x.Action=="FinancialHistoryApplied"&&x.ResourceId==batch.ToString()));
         var report=await service.Report("2045-08","alunos",metric,1,default);Assert.Single(report.Items);Assert.Equal("Não Pago",report.Totals.Single().State);Assert.Equal(12345,report.Totals.Single().AmountCents);
+        Assert.Equal("quadra",report.Items.Single().BusinessUnitId);Assert.Equal("quadra",report.Totals.Single().BusinessUnitId);
+        Assert.Equal(row,report.Items.Single().Data);Assert.Equal(hash,report.Items.Single().SourceSha256);
+        var storedPayload=await db.Database.SqlQuery<string>($"SELECT payload::text AS \"Value\" FROM financial_observations WHERE source_sha256={hash}").SingleAsync();
+        using(var stored=JsonDocument.Parse(storedPayload))Assert.Equal(row,FinancialHistoryRules.Parse(stored.RootElement));
+        Assert.DoesNotContain("BusinessUnitId",storedPayload);
+        Assert.Equal(preview.ConfirmationToken,repeated.ConfirmationToken);
         var changed=await Stage(db,hash,row with{State="Pago"});await Assert.ThrowsAsync<FinancialRuleException>(()=>service.Preview(changed,default));
         var overlap=await Stage(db,new string('f',64),row);await Assert.ThrowsAsync<FinancialRuleException>(()=>service.Preview(overlap,default));
         Assert.Equal("NeedsReview",await db.Database.SqlQuery<string>($"SELECT status AS \"Value\" FROM import_batches WHERE id={overlap}").SingleAsync());
@@ -145,6 +158,7 @@ public sealed class FinancialHistoryPostgresTests
         Assert.Equal(5,await db.Database.SqlQuery<int>($"SELECT COUNT(*)::int AS \"Value\" FROM provider_documents WHERE provider='pagbank-edi'").SingleAsync());
         await worker.Run("123","test-only",yesterday,default);Assert.Equal(5,await db.Database.SqlQuery<int>($"SELECT COUNT(*)::int AS \"Value\" FROM provider_documents WHERE provider='pagbank-edi'").SingleAsync());
         var service=new FinancialHistoryService(db,new NullAuditContext(),TimeProvider.System,new ConfigurationBuilder().Build());var report=await service.ProviderRecords(null,1,default);Assert.Equal(5,report.Total);
+        Assert.All(report.Items,item=>Assert.Null(item.BusinessUnitId));
         Assert.True(await db.AuditLogs.AnyAsync(x=>x.Action=="ProviderDocumentsCollected"));
         factory.Foreign=true;await Assert.ThrowsAsync<FinancialRuleException>(()=>worker.Run("123","test-only",yesterday,default));
         Assert.Equal(5,await db.Database.SqlQuery<int>($"SELECT COUNT(*)::int AS \"Value\" FROM provider_documents WHERE provider='pagbank-edi'").SingleAsync());

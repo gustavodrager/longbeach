@@ -269,6 +269,35 @@ it('salva destinação compartilhada sem transformar o custo em duas despesas',a
   })
 })
 
+it.each(['PagBank', 'C6'])('registra Pix da Quadra na conta %s sem dar baixa automática', async account => {
+  const user=userEvent.setup();start('/financeiro/novo')
+  await user.type(screen.getByLabelText('Descrição do lançamento'),'Aula particular teste')
+  await user.selectOptions(screen.getByLabelText('Origem do recebimento'),'CourtPix')
+  expect(screen.getByLabelText('Unidade de negócio / destinação')).toHaveValue('quadra')
+  expect(screen.getByLabelText('Conta de recebimento')).toBeRequired()
+  await user.selectOptions(screen.getByLabelText('Conta de recebimento'),account)
+  await user.clear(screen.getByLabelText('Valor (R$)'));await user.type(screen.getByLabelText('Valor (R$)'),'120')
+  await user.click(screen.getByRole('button',{name:'Salvar lançamento'}))
+  await waitFor(()=>expect(JSON.parse(localStorage.getItem('longbeach-os-demo-v1')!).financeEntries[0]).toMatchObject({
+    receiptSource:'CourtPix',receivingAccount:account,businessUnitId:'quadra',allocationScope:'Unit',amount:120,status:'Pendente',paidDate:'',
+  }))
+  expect(screen.getByText('Pix de aula, mensalidade ou serviço da Quadra')).toBeInTheDocument()
+})
+
+it('maquininha e PagVendas fixam Bar; trocar para despesa remove os dados de recebimento', async () => {
+  const user=userEvent.setup();start('/financeiro/novo')
+  for(const source of ['PagBankTerminal','PagVendas']) {
+    await user.selectOptions(screen.getByLabelText('Origem do recebimento'),source)
+    expect(screen.getByLabelText('Unidade de negócio / destinação')).toHaveValue('bar')
+  }
+  await user.selectOptions(screen.getByLabelText('Conta de recebimento'),'C6')
+  await user.selectOptions(screen.getByLabelText('Tipo'),'Pagar')
+  expect(screen.queryByLabelText('Origem do recebimento')).not.toBeInTheDocument()
+  await user.selectOptions(screen.getByLabelText('Tipo'),'Receber')
+  expect(screen.getByLabelText('Origem do recebimento')).toHaveValue('')
+  expect(screen.getByLabelText('Conta de recebimento')).toHaveValue('')
+})
+
 const fridayClass={id:'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',name:'Aula de sexta',sport:'Futevôlei',courtId:court.id,weekDay:5,startDate:'2026-10-09',startTime:'17:00',endTime:'18:00',teacherId:'',capacity:6,studentIds:[],status:'Ativa',notes:''}
 const fridayReservation={id:'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',name:'Locação de sexta',courtId:court.id,date:'2026-10-09',startTime:'19:00',endTime:'20:00',customerName:'Grupo teste',phone:'',amount:100,status:'Confirmada',notes:''}
 

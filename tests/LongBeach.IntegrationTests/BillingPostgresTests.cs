@@ -29,6 +29,47 @@ public sealed class BillingPostgresTests
     }
     private static PayAccountInput Input(string method = "Pix") => new(Guid.NewGuid(), method, "Aluno teste", "billing@example.invalid", "12345678909", method == "CreditCard" ? "encrypted-card-only" : null);
     [PostgresFact]
+    public async Task Assigned_court_account_preserves_classification_before_and_after_payment_creation()
+    {
+        await using var db = Database(); var gateway = new Gateway(); var seed = await Seed(db, gateway);
+        var saved = (await db.OperationalRecords.SingleAsync(x => x.Id == seed.Entry)).Payload;
+        foreach (var paid in new[] { false, true })
+        {
+            if (paid) await Service(db, gateway).Pay(seed.Account, Input(), seed.User, true, default);
+            var contradictory = JsonNode.Parse(saved)!.AsObject(); contradictory["origin"] = "Arena";
+            contradictory["allocationScope"] = "Unit"; contradictory["businessUnitId"] = "bar";
+            contradictory["receiptSource"] = "PagVendas";
+            var error = await Assert.ThrowsAsync<BarRuleException>(() => BillingWriteGuard.Check(db, seed.Entry, contradictory, saved, default));
+            Assert.Contains("conta da Quadra", error.Message);
+            var compatible = JsonNode.Parse(saved)!.AsObject(); compatible["allocationScope"] = "Unit"; compatible["businessUnitId"] = "quadra";
+            compatible["receiptSource"] = "CourtPix"; compatible["receivingAccount"] = "PagBank";
+            await BillingWriteGuard.Check(db, seed.Entry, compatible, saved, default);
+        }
+        Assert.Equal(1, gateway.Created);
+    }
+
+    [PostgresFact]
+    public async Task Bar_receipt_cannot_become_a_court_account_or_start_a_court_payment()
+    {
+        await using var db = Database(); var gateway = new Gateway(); var seed = await Seed(db, gateway); var service = Service(db, gateway);
+        var template = JsonNode.Parse((await db.OperationalRecords.SingleAsync(x => x.Id == seed.Entry)).Payload)!.AsObject();
+        foreach (var receiptSource in new[] { "PagBankTerminal", "PagVendas" })
+        {
+            var id = Guid.NewGuid(); var body = template.DeepClone().AsObject(); body["id"] = id.ToString(); body["origin"] = "Arena";
+            body["allocationScope"] = "Unit"; body["businessUnitId"] = "bar"; body["receiptSource"] = receiptSource;
+            db.Add(new OperationalRecord(id, "financeEntries", "Venda do Bar", body.ToJsonString())); await db.SaveChangesAsync();
+            Assert.DoesNotContain((await service.Candidates(default)).Accounts, candidate => candidate.Id == id);
+            var assignError = await Assert.ThrowsAsync<BarRuleException>(() => service.Assign(new("Quadra", id, seed.User), seed.User, default));
+            Assert.Contains("Escolha uma cobrança", assignError.Message);
+
+            // Guard payment initiation even if a historical account had an inconsistent link.
+            var oldAccount = new BillingAccount("Quadra", id, seed.User, null, seed.User); db.Add(oldAccount); await db.SaveChangesAsync();
+            Assert.False((await service.Account(oldAccount.Id, seed.User, default)).RecurringEligible);
+            await Assert.ThrowsAsync<BarRuleException>(() => service.Pay(oldAccount.Id, Input(), seed.User, true, default));
+        }
+        Assert.Equal(0, gateway.Created);
+    }
+    [PostgresFact]
     public async Task Unsigned_hint_requires_bound_order_and_authoritative_amount_before_settlement()
     {
         await using var db = Database(); var gateway = new Gateway(); var seed = await Seed(db, gateway); var service = Service(db, gateway);

@@ -1,7 +1,9 @@
 using System.Data;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using LongBeach.Application.Bar;
 using LongBeach.Application.Billing;
+using LongBeach.Application.Finance;
 using LongBeach.Contracts.Bar;
 using LongBeach.Contracts.Billing;
 using LongBeach.Domain.Bar;
@@ -54,7 +56,13 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
         candidates.AddRange(await db.Set<BarTab>().Where(x=>!assigned.Contains(x.Id) && x.State=="Open").Select(x=>new AccountCandidate("Bar",x.Id,"Comanda "+x.Number+" · "+x.Name)).ToListAsync(ct));
         return new(candidates,await db.Users.Where(x=>x.IsActive).OrderBy(x=>x.Name).Select(x=>new BillingPerson(x.Id,x.Name)).ToListAsync(ct),await db.OperationalRecords.Where(x=>x.Kind=="students").OrderBy(x=>x.Name).Select(x=>new BillingPerson(x.Id,x.Name)).ToListAsync(ct));
     }
-    private static bool Eligible(JsonObject p) => Text(p,"direction")=="Receber" && Text(p,"status")!="Cancelado" && Text(p,"sourceKind") is "reservations" or "enrollments" or "rentalMonths";
+    internal static bool CourtEntry(JsonObject p)
+    {
+        var body = JsonSerializer.SerializeToElement(p);
+        return Text(p,"direction")=="Receber" && Text(p,"sourceKind") is "reservations" or "enrollments" or "rentalMonths"
+            && BusinessAllocationRules.Validate(body) is null && FinancialReceiptRules.Validate(body) is null;
+    }
+    private static bool Eligible(JsonObject p) => CourtEntry(p) && Text(p,"status")!="Cancelado";
     public async Task<AccountDto> Assign(AssignAccountInput input, Guid actor, CancellationToken ct)
     {
         await using var tx=await db.Database.BeginTransactionAsync(ct); await ArenaLock(ct);
@@ -117,7 +125,7 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
         var pending=payments.Where(x=>x.State=="Pending").Sum(x=>x.Amount);
         var (kind,source)=await BillingSource(db,p,ct);
         var subscriptionId=await db.Set<BillingSubscription>().Where(x=>x.SourceKind==kind&&x.SourceId==source&&x.State!="CANCELED"&&x.State!="EXPIRED"&&x.State!="Rejected").Select(x=>(Guid?)x.Id).SingleOrDefaultAsync(ct);
-        return new(a.Id,a.Kind,a.SourceId,Text(p,"name"),Date(p,"dueDate"),total,paid,pending,Text(p,"status")=="Cancelado"?0:Math.Max(0,total-paid-pending),Text(p,"status"),payments.Select(p=>Dto(p) with { RefundPending=refunds.Where(r=>r.PaymentId==p.Id).Sum(r=>r.Amount) }).ToArray(),Text(p,"sourceKind") is "enrollments" or "rentalMonths",a.UserId,Text(p,"month"),subscriptionId);
+        return new(a.Id,a.Kind,a.SourceId,Text(p,"name"),Date(p,"dueDate"),total,paid,pending,Text(p,"status")=="Cancelado"?0:Math.Max(0,total-paid-pending),Text(p,"status"),payments.Select(p=>Dto(p) with { RefundPending=refunds.Where(r=>r.PaymentId==p.Id).Sum(r=>r.Amount) }).ToArray(),Eligible(p) && Text(p,"sourceKind") is "enrollments" or "rentalMonths",a.UserId,Text(p,"month"),subscriptionId);
     }
     private static AccountPaymentDto Dto(BillingPayment p)=>new(p.Id,p.OperationId,p.Method,p.Amount,p.State,p.Refunded,p.PixText,p.QrImageUrl,p.ExpiresAtUtc,p.PaidAtUtc,p.State=="Pending"&&p.ProviderId==null);
     private static void ValidatePayer(PayAccountInput i)
