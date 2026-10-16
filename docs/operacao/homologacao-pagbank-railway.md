@@ -129,3 +129,19 @@ Ensaio pelo sistema com o cliente fictício segregado:
 Evidência sanitizada local: `outputs/homologacao-recorrencia-reuso-2026-10-13.json` no workspace de operação. Não contém senha, token, CPF ou dados do cartão. A tela das duas intenções antigas foi conferida: consulta sem cartão, sem cancelamento artificial e sem novo POST de cobrança.
 
 Produção preservada: API `67349c91-372b-4fbd-ab2a-603d0191fbdb`/`5ce7cbf`, web `a6770c1e-084b-4ddd-a8ec-947e2667c143`/`6cbdd1a`.
+
+
+## Retorno do suporte e revalidação de estornos — 16/10/2026
+
+O responsável forneceu o retorno de Alan/PagBank: transações de Sandbox ficaram travadas na sincronização por falha do mock no cálculo de custos; a correção definitiva depende da engenharia. O paliativo orientado é criar nova transação acima de R$ 150,00. Isso não altera limites nem regras de pagamento em produção.
+
+A rodada de revalidação usa somente Mastercard fictício oficial e R$ 200,00 no Sandbox, com identificadores novos persistidos antes de cada operação. Journals, referências e tentativas antigas são preservados; não trocar chaves de estornos incertos. O pagamento de R$ 200,00 foi aprovado, mas o paliativo não resolveu o estorno nesta rodada; a homologação continua sem aprovação oficial.
+
+
+Resultado real: criação em 16/10/2026 às 17:29 BRT retornou HTTP 201, `ORDE_DC92D04F-E9A3-4E15-90BD-07518AEC8B8C` / `CHAR_F851D06E-0DC9-4275-994F-A911A9BA1C07`, estado PAID, BRL 20000 centavos. Foi enviado um único cancelamento integral de 20000 centavos às 17:29:54 BRT, com a chave persistida `16fc1813-40a0-4451-a1a7-f7a8d59dcc3b`: HTTP 400, código `40008`, `refund_temporarily_unavailable`, descrição `Transaction is not found.`. Consultas posteriores, inclusive após cerca de um minuto, mantiveram PAID e refunded=0. Nenhum POST foi repetido e nenhuma chave foi trocada.
+
+A captura completa e sanitizada está em `outputs/pagbank-order-estorno-200-2026-10-16.json` no workspace operacional. O journal exclusivo está em `.runtime.local/order-homolog-20261016/journal.json`; 61 verificações offline e build sem avisos/erros validaram o harness antes da rede. O ensaio executou a classe de integração atual diretamente contra o Sandbox, sem criar registros de pagamento no banco de staging e sem comprovar callbacks para este pedido. O segundo ensaio pelo sistema ficou preparado, sem execução, após a falha do paliativo; não criar outra cobrança para mascarar o bloqueio externo.
+
+Nenhum código, configuração, banco ou pagamento de produção foi alterado. A confirmação dos estornos anteriores, a correção definitiva do Sandbox e o aceite oficial permanecem com o PagBank. Preparar o novo resultado para retorno ao suporte; não considerar a preparação do arquivo como mensagem enviada.
+
+Auditoria final do pacote: 11 pares HTTP completos, um POST de criação e um de estorno, sem repetição. Foram conferidos 68 campos sensíveis, zero falhas de redação, zero cabeçalhos fora da allowlist e ausência do token/fixtures em memória. Pacote e journal consistentes, modo 0600; SHA-256 do pacote `813aa9c8dc1f8605a6ae00a0d15c358f143b67f5cc531879e8bf26ec33147560`. Resposta preparada em `outputs/pagbank-resposta-paliativo-200-2026-10-16.txt`; não enviada.
