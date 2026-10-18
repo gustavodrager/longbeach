@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
-import { Disclosure } from '../components/managementUi'
+import { Disclosure, useContextSearchParams } from '../components/managementUi'
 import { useCourtScheduleRange } from '../features/arena/queries'
 import { clockTime, dayAvailability, minuteOf, moveDate, reservationUrl, weekDates } from '../features/arena/agenda'
 import type { CourtScheduleBlock } from '../features/arena/types'
@@ -14,12 +14,20 @@ const hours = (minutes: number) => `${quantity(minutes / 60)} h`
 
 export function WeeklyAgenda() {
   const data = useOperations(), filters = useFilters()
+  const [, setParams] = useContextSearchParams()
+  const setActivity = (value: string) => {
+    const next = new URLSearchParams(filters.params)
+    value ? next.set('activity', value) : next.delete('activity')
+    if (['classes', 'aula'].includes(value)) { next.delete('status'); next.delete('group') }
+    next.delete('page')
+    setParams(next, { preventScrollReset: true })
+  }
   const date = filters.params.get('date') ?? today()
   const valid = validDate(date) && date >= '0001-01-08' && date <= '9999-12-24'
   const dates = weekDates(valid ? date : today())
   const query = useCourtScheduleRange(dates[0], dates[6], valid)
   const [selected, setSelected] = useState<AgendaSelection | null>(null)
-  const activity = filters.params.get('activity') ?? ''
+  const activity = filters.params.get('activity') === 'classes' ? 'aula' : filters.params.get('activity') ?? ''
   const search = filters.query.trim().toLocaleLowerCase('pt-BR')
   const groupId = filters.params.get('group') ?? ''
   const legacyCourt = data.courts.length > 1 ? filters.params.get('court') : null
@@ -68,7 +76,7 @@ export function WeeklyAgenda() {
       {complete && <p className="agenda-breakdown">Locações: {summary('locacao')} · Bloqueios: {summary('bloqueio')}{unclassified && ' · Classificação de reservas incompleta'}</p>}
       {rows.some(row => row.hasConflict) && <p className="arena-message arena-error" role="alert">Há sobreposições ou atividades fora do funcionamento. As durações por atividade podem se sobrepor; o total ocupado não duplica os minutos.</p>}
       {!availableKnown && complete && <p className="arena-hint">Os horários vazios ficam a confirmar até a conferência do funcionamento e dos cadastros. {data.canWrite('courts') && <Link to="/agenda/funcionamento">Conferir funcionamento →</Link>}</p>}
-      <div className="agenda-options"><Disclosure title={filtered ? 'Filtros · ativos' : 'Filtros'}><div className="arena-toolbar"><Field label="Data de referência" type="date" value={date} onChange={value => filters.set('date',value)} /><Field label="Destacar atividade" value={activity} onChange={value => filters.set('activity',value)} options={[{value:'',label:'Todas'}, {value:'aula',label:'Aulas'}, {value:'mensalista',label:'Mensalistas'}, {value:'locacao',label:'Locações'}, {value:'bloqueio',label:'Bloqueios'}, {value:'livre',label:'Horários livres'}]} /><Field label="Buscar atividade" value={filters.query} onChange={value => filters.set('q',value)} />{filtered && <Link to={filters.href('/agenda', { activity:'',q:'',status:'',group:'' })}>Limpar filtros</Link>}</div></Disclosure><Disclosure title="Mais opções"><div className="arena-actions">{data.canWrite('reservations') && <Link to={filters.href('/agenda/recorrentes/novo', { date, court: data.courts.length === 1 ? data.courts[0].id : '' })}>Reservas semanais de um grupo →</Link>}{data.canRead('courts') && <Link to="/agenda/funcionamento">Funcionamento →</Link>}</div></Disclosure></div>
+      <div className="agenda-options"><Disclosure title={filtered ? 'Filtros · ativos' : 'Filtros'}><div className="arena-toolbar"><Field label="Data de referência" type="date" value={date} onChange={value => filters.set('date',value)} /><Field label="Destacar atividade" value={activity} onChange={setActivity} options={[{value:'',label:'Todas'}, {value:'aula',label:'Aulas'}, {value:'mensalista',label:'Mensalistas'}, {value:'locacao',label:'Locações'}, {value:'bloqueio',label:'Bloqueios'}, {value:'livre',label:'Horários livres'}]} /><Field label="Buscar atividade" value={filters.query} onChange={value => filters.set('q',value)} />{filtered && <Link to={filters.href('/agenda', { activity:'',q:'',status:'',group:'' })}>Limpar filtros</Link>}</div></Disclosure><Disclosure title="Mais opções"><div className="arena-actions">{data.canWrite('reservations') && <Link to={filters.href('/agenda/recorrentes/novo', { date, court: data.courts.length === 1 ? data.courts[0].id : '' })}>Reservas semanais de um grupo →</Link>}{data.canRead('courts') && <Link to="/agenda/funcionamento">Funcionamento →</Link>}</div></Disclosure></div>
       <div className="agenda-legend" aria-label="Legenda">{Object.entries(labels).map(([key,label]) => <span key={key} className={`legend-${key}`}>{label}</span>)}<span>A confirmar</span></div>
       {filtered && <p className="arena-hint">Resultados destacados. As demais atividades continuam ocupando seus horários; o resumo considera a semana inteira.</p>}
       {!data.canRead('courts') ? <p>Acesso às aulas e à disponibilidade restrito.</p> : failed ? <p role="alert" className="arena-message arena-error">Agenda incompleta. Não foi possível conferir os horários. <button className="text-button" onClick={() => { void data.reload(); void query.refetch() }}>Tentar novamente</button></p> : !query.data ? <p role="status">Consultando a semana…</p> : !rows.length ? <Empty>Cadastre o funcionamento para consultar a disponibilidade.</Empty> : <div className="agenda-week-grid" style={{ '--agenda-height': `${end - begin}px` } as CSSProperties}>

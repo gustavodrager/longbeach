@@ -467,7 +467,7 @@ it('aceita exatamente 366 dias e mantém o fim exclusivo na consulta',()=>{
 
 it('fonte indisponível nunca aparece como zero nas métricas globais do bar',async()=>{
   vi.spyOn(globalThis,'fetch').mockImplementation(async input=>json({metric:String(input),value:0,unit:'money',current:false,available:false,updatedAtUtc:createdAtUtc,rows:{items:[],page:1,pageSize:1,total:0}}))
-  mount('/',{...actor,permissions:['bar:finance:read']})
+  mount('/',{...actor,roles:['BarFinance'],permissions:['bar:finance:read']})
   await waitFor(()=>expect(screen.getAllByText('Ainda não disponível')).toHaveLength(4))
   expect(screen.queryByText(/R\$\s*0,00/)).not.toBeInTheDocument()
   expect(screen.getByRole('link',{name:/Consumo confirmado/})).toHaveAttribute('href','/bar/indicadores/consumption?de=2026-10-01&ate=2026-10-04')
