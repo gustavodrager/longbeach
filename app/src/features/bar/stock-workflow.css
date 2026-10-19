@@ -54,3 +54,37 @@
   .stock-count-list button { padding:10px; font-size:14px; }
   .stock-count-workbench .compact-filters > * { flex-basis:100%; }
 }
+
+/* Keep quantities and shortcuts in one place throughout the count. */
+.management-dialog.stock-quick-panel { width:min(1100px,100vw); max-width:100vw; }
+.stock-quick-panel .stock-count-progress { grid-template-columns:1fr auto; gap:4px 12px; padding:10px 12px; }
+.stock-quick-panel .stock-count-progress progress { grid-column:1/-1; height:6px; }
+.stock-quick-filters { display:flex; align-items:end; flex-wrap:wrap; gap:12px; margin-top:12px; }
+.stock-quick-filters > label { flex:1 1 220px; }
+.stock-quick-tabs { display:flex; flex-wrap:wrap; gap:6px; }
+.stock-quick-tabs button { min-height:44px; border:1px solid var(--line); border-radius:9px; background:white; padding:8px 12px; font:inherit; }
+.stock-quick-tabs button[aria-pressed=true] { background:var(--gold); font-weight:700; }
+.stock-quick-hint { font-size:13px; color:var(--muted); margin:10px 0 0; }
+.stock-count-list.stock-quick-list article { display:grid; grid-template-columns:minmax(0,1fr) 150px 310px; gap:6px 16px; scroll-margin-block:16px 110px; }
+.stock-quick-value label { display:block; font-size:13px; margin-bottom:4px; }
+.stock-quick-value input { box-sizing:border-box; width:100%; min-height:44px; padding:8px 12px; border:1px solid var(--line); border-radius:10px; font:inherit; font-size:18px; background:white; color:var(--ink); scroll-margin-block:70px 150px; }
+.stock-quick-value input[aria-invalid=true] { border-color:#a42a21; }
+.stock-quick-shortcuts { display:flex; flex-wrap:wrap; gap:6px; }
+.stock-quick-state { grid-column:2/-1; font-size:13px; color:var(--muted); overflow-wrap:anywhere; }
+.stock-quick-state[role=alert] { color:#a42a21; }
+.stock-quick-panel .stock-count-footer { display:flex; justify-content:space-between; align-items:center; gap:12px; padding-bottom:max(12px,env(safe-area-inset-bottom)); }
+.stock-quick-panel .stock-count-footer p { margin:0; font-size:13px; }
+@media(max-width:700px) {
+  .management-dialog.stock-quick-panel { width:100vw; height:100dvh; max-height:100dvh; margin:0; border-radius:0; }
+  .stock-quick-panel .stock-count-progress { grid-template-columns:1fr; }
+  .stock-quick-panel .stock-count-progress span { font-size:12px; }
+  .stock-quick-filters { gap:8px; }
+  .stock-quick-tabs { width:100%; gap:4px; }
+  .stock-quick-tabs button { flex:1; padding:8px 6px; font-size:13px; }
+  .stock-count-list.stock-quick-list article { grid-template-columns:minmax(0,1fr) 100px; gap:8px; }
+  .stock-quick-shortcuts { grid-column:1/-1; }
+  .stock-quick-shortcuts button { font-size:13px; padding:8px 12px; }
+  .stock-quick-state { grid-column:1/-1; }
+  .stock-quick-panel .stock-count-footer { gap:8px; }
+  .stock-quick-panel .stock-count-footer button { padding:10px; font-size:13px; }
+}

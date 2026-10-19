@@ -106,3 +106,17 @@ Validação autenticada em produção:
 Evidências privadas fora do Git: `outputs/estoque-producao-2026-10-19` no workspace principal, com estoque desktop/móvel, histórico móvel, contagem e revisão de saída. Viewport restaurado e Estoque de produção deixado aberto.
 
 Rollback: primeiro web `1cf01108-711c-47bc-b80d-0f1122da2368`, depois, se necessário, API `6d64b183-9d3f-4c5c-b73a-a1c1e23b18a8`, ambas no commit `70425bfdde8547c56d92228c727abdd65e603289`, branch `codex/bar-ux-20261019`. Não reverter somente a API enquanto a web depende do novo histórico e dos campos de saldo. Preservar banco e credenciais; sincronizar snapshot e conferir plano sem divergências após retorno.
+
+## Contagem rápida — implementação local em 19 de outubro de 2026
+
+O inventário agora permite editar as quantidades na própria lista. Sair do campo ou pressionar Enter salva; Enter avança para o próximo produto visível. Atalhos “Igual ao registrado” e “Zerar” confirmam itens já conferidos fisicamente. Saldo registrado zero apresenta somente “Zerar”. Campo pendente permanece vazio, sem assumir zero. Valores aceitam vírgula ou ponto e até três casas decimais.
+
+A lista não tem paginação. Abre em Todos, com pendentes primeiro, busca e filtros rápidos. Ordem e seleção ficam estáveis durante o salvamento; reaplicar um filtro atualiza sua seleção. Painel amplo no desktop e tela inteira no celular, mantendo cores e componentes Long Beach. A revisão das diferenças e a aprovação continuam separadas da digitação.
+
+Uma fila serializa os PUTs existentes por inventário, sem bloquear os outros campos. Revisões por item preservam digitação recente diante de respostas atrasadas; Enter/blur e atalhos repetidos não duplicam a mesma gravação. Atualização de cache limitada ao item confirmado, cancelando consultas antigas da lista para evitar regressão de valores. Erros preservam o rascunho e oferecem nova tentativa. Fechamento é protegido enquanto há alterações; revisão exige todas as quantidades confirmadas, sem gravações pendentes. Nenhum contrato da API, regra de aprovação, permissão ou migration foi alterado.
+
+Validação automatizada: suíte completa de 374 testes frontend aprovada antes da última proteção contra consulta antiga; após essa proteção e a deduplicação de atalhos, 17 testes afetados aprovados. Cobertura inclui rede lenta, respostas antigas, falha/nova tentativa, fila interrompida ao desmontar, vírgula/ponto/zero, quantidades inválidas, Enter/foco, filtros estáveis, 107 produtos, atalhos e guarda de fechamento. Builds finais da web/PWA e API aprovados; API sem avisos ou erros.
+
+Validação no Chrome com API real e banco local exclusivo `longbeach_stock_ux`: desktop de 1470 px, celular emulado em 390 e 320 px. Contagem de 107 produtos, zero explícito, decimal 1,125, atalhos, pesquisa, avanço por Enter e recarga preservando valores. Consulta direta ao PostgreSQL confirmou quatro itens salvos (0; 2; 0; 1,125) e nenhum movimento de ajuste para o inventário em andamento. Sem transbordamento horizontal, foco visível e campos declarados com teclado decimal; console final sem avisos ou erros. Não houve teste em aparelho físico.
+
+Evidências locais: `outputs/contagem-rapida-2026-10-19`, no workspace principal. Prévia em `http://localhost:5322/bar/inventario`, com dados exclusivamente fictícios. Esta etapa não enviou alterações ao GitHub nem publicou em produção.
