@@ -33,7 +33,7 @@ public sealed class BarCatalogService(LongBeachDbContext db) : IBarCatalog
         BarProduct product;
         if (id is null)
         {
-            product = new BarProduct(input.Code, input.Name, input.ShortName, input.CategoryId, input.SaleUnit,
+            product = new BarProduct(string.IsNullOrWhiteSpace(input.Code) ? $"LB-{Guid.NewGuid():N}" : input.Code, input.Name, input.ShortName, input.CategoryId, input.SaleUnit,
                 input.PurchaseUnit, input.ConversionFactor, input.SalePrice, input.AverageCost, input.MinimumStock,
                 input.ControlsStock, input.Favorite, input.DisplayOrder);
             if (!input.Active) product.Change(input.Name, input.ShortName, input.CategoryId, input.SaleUnit, input.PurchaseUnit,

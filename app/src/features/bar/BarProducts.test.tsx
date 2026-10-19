@@ -29,3 +29,24 @@ it('lista antes de editar, pagina e preserva os campos complementares no salvame
   expect(screen.getByRole('searchbox')).toHaveValue('Produto')
   client.clear()
 })
+
+
+it('cadastra com quatro campos principais e envia defaults sem exigir códigos',async()=>{
+ const response=(value:unknown)=>new Response(JSON.stringify(value));
+ const api=vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{
+  if(init?.method==='POST')return response({});
+  return response(String(input).endsWith('/categories')?[{id:'c',name:'Bebidas'}]:[]);
+ });
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/bar/produtos?acao=novo']}><BarProductsPage/></MemoryRouter></QueryClientProvider>);
+ await screen.findByLabelText('Nome');
+ fireEvent.change(screen.getByLabelText('Nome'),{target:{value:'Água mineral'}});
+ fireEvent.change(screen.getAllByLabelText('Categoria').at(-1)!,{target:{value:'c'}});
+ fireEvent.change(screen.getByLabelText('Preço de venda (R$)'),{target:{value:'5'}});
+ expect(screen.queryByLabelText('Código interno')).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Salvar produto'}));
+ await waitFor(()=>expect(api.mock.calls.some(([,init])=>init?.method==='POST')).toBe(true));
+ const write=api.mock.calls.find(([,init])=>init?.method==='POST');
+ expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({code:'',name:'Água mineral',shortName:'Água mineral',categoryId:'c',saleUnit:'un',purchaseUnit:'un',conversionFactor:1,averageCost:0,minimumStock:0,controlsStock:true,active:true});
+ client.clear();
+});

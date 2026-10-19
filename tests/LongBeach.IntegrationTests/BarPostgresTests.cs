@@ -16,6 +16,23 @@ public sealed class PostgresFactAttribute : FactAttribute
 public sealed class BarPostgresTests
 {
     [PostgresFact]
+    public async Task Product_code_is_automatic_unique_and_preserved_when_editing()
+    {
+        await using var db = Database(); await db.Database.MigrateAsync();
+        var service = new BarCatalogService(db);
+        var category = await service.CreateCategory(new CategoryInput("Auto code " + Guid.NewGuid()), default);
+        var input = new ProductInput("", "Produto automático", "Produto", category.Id, "un", "un", 1, 5, 0, 0, true, false, 0);
+        var first = await service.SaveProduct(null, input, default);
+        var second = await service.SaveProduct(null, input, default);
+        Assert.StartsWith("LB-", first.Product.Code);
+        Assert.NotEqual(first.Product.Code, second.Product.Code);
+        var edited = await service.SaveProduct(first.Product.Id, input with { Name = "Novo nome", Version = first.Product.Version }, default);
+        Assert.Equal(first.Product.Code, edited.Product.Code);
+        db.ChangeTracker.Clear();
+        Assert.Equal(first.Product.Code, (await db.Set<BarProduct>().SingleAsync(x => x.Id == first.Product.Id)).Code);
+    }
+
+    [PostgresFact]
     public async Task Stock_valuation_reads_received_costs_reservations_and_missing_initial_cost_without_writes()
     {
         await using var db = Database(); await db.Database.MigrateAsync();
