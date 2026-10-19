@@ -644,7 +644,7 @@ it('identifica a comanda e o responsável na escolha e revisão e envia somente 
  const destination=await screen.findByRole('region',{name:'Destino do pedido'});
  expect(within(destination).getByRole('heading',{name:'Comanda 104 · Grupo de teste'})).toBeInTheDocument();
  expect(within(destination).getByText('Responsável: Responsável Teste')).toBeInTheDocument();
- expect(within(destination).getByText(/Saldo atual da comanda/)).toHaveTextContent('12,50');
+ expect(within(destination).getByText(/Saldo atual/)).toHaveTextContent('12,50');
  fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}));
  expect(within(screen.getByRole('region',{name:'Destino do pedido'})).getByText('Responsável: Responsável Teste')).toBeInTheDocument();
  expect(screen.getByText('1 × Água')).toBeInTheDocument();
@@ -660,7 +660,7 @@ it('o nome da comanda não implica responsável e venda avulsa não herda a iden
  expect(await screen.findByText('Sem responsável vinculado à área do cliente.')).toBeInTheDocument();
  cleanup();mount('/atendimento/vender');
  expect(await screen.findByRole('heading',{name:'Venda avulsa'})).toBeInTheDocument();
- expect(screen.getByText('Ao registrar, será criada uma comanda separada, sem responsável vinculado.')).toBeInTheDocument();
+ expect(screen.getByText('Nova comanda sem responsável ao registrar.')).toBeInTheDocument();
  expect(screen.queryByText('Grupo de teste')).not.toBeInTheDocument();
 });
 

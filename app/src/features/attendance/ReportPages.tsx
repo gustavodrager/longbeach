@@ -13,7 +13,8 @@ import './attendance.css'
 import './reports.css'
 import { Feedback, Header, ItemStatus, PaymentStatus, Summary } from './components'
 import { dateTime, money, parseAmount, paymentLabels, postBar, useBarCommand, useBarData, useIntent, type PageResult, type Tab, type TabReport, type TabReportRow } from './api'
-const currentMetrics = [['open-tabs', 'Comandas abertas'], ['orders', 'Pedidos aguardando equipe'], ['pending-payments', 'Pagamentos pendentes'], ['low-stock', 'Estoque baixo'], ['cash', 'Dinheiro nos caixas']]
+const currentMetrics = [['open-tabs', 'Comandas abertas'], ['orders', 'Pedidos aguardando equipe'], ['pending-payments', 'Pagamentos pendentes'], ['low-stock-bar', 'Estoque baixo no Bar'], ['cash', 'Dinheiro nos caixas']]
+const isCurrentMetric = (metric: string) => currentMetrics.some(([key]) => key === metric) || ['low-stock', 'receivable', 'requests', 'pending', 'lowStock'].includes(metric)
 const periodMetrics = [['consumption', 'Consumo confirmado'], ['received', 'Recebimentos confirmados'], ['refunds', 'Estornos confirmados'], ['fees', 'Taxas conciliadas'], ['cash-differences', 'Diferenças de caixa']]
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
 function ReportFrame({ children }: { children: ReactNode }) {
@@ -39,32 +40,41 @@ function PeriodFilter() {
 export function BarOverviewPage() {
   const [params] = useSearchParams(); const { user } = useAuth(); const period = reportPeriod(params); const periodError = reportPeriodError(params)
   const metrics = [...currentMetrics, ...periodMetrics]
-  const queries = useQueries({ queries: metrics.map(([metric]) => ({ queryKey: ['bar-runtime', user?.id, `/tabs/reports/${metric}?${period}`], queryFn: () => apiFetch<TabReport>(`/api/v1/bar/tabs/reports/${metric}?${period}&pageSize=1`), enabled: Boolean(user) && !periodError, refetchInterval: 30_000 })) })
+  const queries = useQueries({ queries: metrics.map(([metric]) => {
+    const current = isCurrentMetric(metric)
+    const path = `/tabs/reports/${metric}?${current ? '' : period}&pageSize=1`
+    return { queryKey: ['bar-runtime', user?.id, path], queryFn: () => apiFetch<TabReport>(`/api/v1/bar${path}`), enabled: Boolean(user) && (current || !periodError), refetchInterval: 30_000 }
+  }) })
   const cards = (entries: string[][], current: boolean) => <div className="arena-metric-grid bar-report-metrics">{entries.map(([metric, title]) => {
     const query = queries[metrics.findIndex(row => row[0] === metric)], report = query.data
     const available = report && report.available !== false
     return <Link className={`arena-metric ${available ? '' : 'arena-metric-unavailable'}`} key={metric} to={`/bar/indicadores/${metric}?${params}`}>
       <span className="arena-metric-label">{title}</span>
       <strong>{available ? report.unit === 'money' ? money(report.value) : quantity(report.value) : query.isLoading ? 'Carregando…' : 'Ainda não disponível'}</strong>
-      <small>{current ? 'Agora' : periodLabel(params)}</small>
+      <small>{metric === 'low-stock-bar' ? 'Somente estoque do atendimento' : current ? 'Agora' : periodLabel(params)}</small>
       <small className="arena-metric-update">{query.isError ? 'Não foi possível atualizar. Confira os detalhes.' : report ? `Atualizado: ${dateTime(report.updatedAtUtc)}` : 'Aguardando dados'}</small>
       <span className="arena-link-label">Ver detalhes <span aria-hidden="true">→</span></span>
     </Link>
   })}</div>
   return <ReportFrame>
     <Heading eyebrow="Gestão do bar" title="Resumo do bar" description="Acompanhe as comandas, os recebimentos e o que precisa de atenção." />
-    <StockValuation />
-    <PeriodFilter />
-    {periodError ? <p className="arena-message arena-error" role="alert">{periodError}</p> : <>
+    <nav className="bar-operation-actions arena-actions" aria-label="Ações do Bar">
+      <Link className="primary-button" to="/atendimento/vender">Vender</Link>
+      <Link className="secondary-link" to="/atendimento/comandas">Comandas</Link>
+      <Link className="secondary-link" to="/atendimento/pedidos">Pedidos</Link>
+      <Link className="secondary-link" to="/atendimento/caixa">Meu caixa</Link>
+    </nav>
       <section className="arena-dashboard-section" aria-labelledby="bar-attention">
         <div className="arena-section-heading"><div><p className="arena-section-eyebrow">01 · Operação atual</p><h2 id="bar-attention">Atenção agora</h2></div><p>Situação atual, independente do período</p></div>
         {cards(currentMetrics, true)}
+        <p className="bar-stock-scope arena-hint">O alerta de estoque considera apenas o Bar. <Link to="/bar/indicadores/low-stock">Conferir todos os locais →</Link></p>
       </section>
       <section className="arena-dashboard-section" aria-labelledby="bar-results">
-        <div className="arena-section-heading"><div><p className="arena-section-eyebrow">02 · Acompanhar resultados</p><h2 id="bar-results">Resultados no período</h2></div><p>{periodLabel(params)}</p></div>
-        {cards(periodMetrics, false)}
+        <div className="arena-section-heading"><div><p className="arena-section-eyebrow">02 · Acompanhar resultados</p><h2 id="bar-results">Resultados no período</h2></div><p>{periodError ? 'Confira as datas abaixo' : periodLabel(params)}</p></div>
+        <PeriodFilter />
+        {periodError ? <p className="arena-message arena-error" role="alert">{periodError}</p> : cards(periodMetrics, false)}
       </section>
-    </>}
+    <StockValuation />
     <section className="operation-card bar-report-records" aria-labelledby="bar-records">
       <h2 id="bar-records">Conferir os registros</h2>
       <div className="arena-actions"><Link className="secondary-link" to="/atendimento/comandas">Comandas →</Link><Link className="secondary-link" to="/bar/vendas">Vendas históricas →</Link><Link className="secondary-link" to="/bar/estoque">Estoque do bar →</Link><Link className="secondary-link" to="/bar/caixa">Caixas da equipe →</Link></div>
@@ -75,13 +85,16 @@ export function BarOverviewPage() {
 }
 export function BarReportPage() {
   const { metric = '' } = useParams(); const [params, setParams] = useSearchParams(); const location = useLocation(); const page = Math.max(1, Number(params.get('pagina')) || 1)
-  const periodError = reportPeriodError(params); const query = useBarData<TabReport>(`/tabs/reports/${encodeURIComponent(metric)}?${reportPeriod(params)}&page=${page}&pageSize=20`, !periodError); const report = periodError ? undefined : query.data
+  const current = isCurrentMetric(metric)
+  const periodError = current ? null : reportPeriodError(params); const query = useBarData<TabReport>(`/tabs/reports/${encodeURIComponent(metric)}?${current ? '' : reportPeriod(params)}&page=${page}&pageSize=20`, !periodError); const report = periodError ? undefined : query.data
   const changePage = (number: number) => { const next = new URLSearchParams(params); next.set('pagina', String(number)); setParams(next) }
   const source = (row: TabReportRow) => `${row.resource === 'tab' ? `/atendimento/comandas/${row.resourceId}` : `/bar/registros/${row.resource}/${row.resourceId}`}?retorno=${encodeURIComponent(location.pathname + location.search)}`
   return <ReportFrame>
     <nav className="breadcrumb" aria-label="Retornar"><Link to={`/bar/indicadores?${params}`}>← Voltar ao resumo do bar</Link></nav>
     <Heading eyebrow="Indicadores do bar" title={report?.title || 'Detalhes do indicador'} description="Confira os registros que compõem este resultado." />
-    <PeriodFilter />
+    {!current && <PeriodFilter />}
+    {metric === 'low-stock-bar' && <p className="arena-hint">Somente estoque do Bar. <Link to="/bar/indicadores/low-stock">Conferir todos os locais →</Link></p>}
+    {metric === 'low-stock' && <p className="arena-hint"><Link to="/bar/indicadores/low-stock-bar">Ver apenas o estoque do Bar →</Link></p>}
     {periodError && <p className="arena-message arena-error" role="alert">{periodError}</p>}
     <LoadState query={query} />
     {report && <>

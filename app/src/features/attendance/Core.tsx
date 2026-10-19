@@ -3,7 +3,7 @@ import { ApiError } from '../../lib/http'
 import type { CartLine } from './api'
 import '../prototype/prototype.css'
 import './attendance.css'
-export function BarFrame({ children }: { children: ReactNode }) { return <div className="ux-root ux-attendant lb-attendance"><div className="ux-page">{children}</div></div> }
+export function BarFrame({ children, className = '' }: { children: ReactNode; className?: string }) { return <div className={`ux-root ux-attendant lb-attendance ${className}`}><div className="ux-page">{children}</div></div> }
 export function LoadState({ query }: { query: { isLoading: boolean; isError: boolean; error: Error | null; refetch: () => unknown } }) {
   return query.isLoading ? <p role="status">Carregando…</p> : query.isError ? <div className="ux-notice error" role="alert"><div><p>{query.error instanceof ApiError ? query.error.message : 'Não foi possível consultar os dados. Confira a conexão.'}</p><button className="ux-button secondary" onClick={() => void query.refetch()}>Tentar novamente</button></div></div> : null
 }

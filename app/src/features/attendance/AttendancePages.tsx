@@ -47,7 +47,7 @@ function SellOrder({ tabId }: { tabId: string | null }) {
     if (result.ok) { setPendingOrder(''); intent(`open:${fingerprint}`, true); intent(`add:${fingerprint}:${deliver}`, true); setCart([]); setReview(false); navigate(deliver && !tabId ? `/atendimento/receber/${result.value.id}` : `/atendimento/comandas/${result.value.id}`) }
     else if (result.error instanceof ApiError && [400, 422].includes(result.error.status)) setPendingOrder('')
   }
-  return <BarFrame><Header title={targetKnown ? `Vender · Comanda ${target.data!.number}` : 'Vender'} description="Toque no produto. Depois confira o pedido." back={tabId ? `/atendimento/comandas/${encodeURIComponent(tabId)}` : undefined} /><WorkflowSteps current={review ? 'review' : 'products'} />
+  return <BarFrame className="lb-sell"><Header title={targetKnown ? `Vender · Comanda ${target.data!.number}` : 'Vender'} description="Toque no produto. Depois confira o pedido." back={tabId ? `/atendimento/comandas/${encodeURIComponent(tabId)}` : undefined} /><WorkflowSteps current={review ? 'review' : 'products'} />
     <LoadState query={locations} /><LoadState query={catalog} />{tabId && <LoadState query={target} />}<Feedback {...command} />{pendingOrder && <p className="ux-notice warning" role="status">Este pedido precisa ser confirmado. Repita o mesmo registro antes de alterar os produtos.</p>}
     {(!tabId || targetKnown) && <SaleDestination tab={tabId ? target.data : undefined} locked={command.busy || Boolean(pendingOrder)} hasDraft={cart.length > 0} />}
     {tabId && targetKnown && target.data?.state !== 'Open' && <p className="ux-notice warning" role="status">Esta comanda está encerrada e não recebe novos produtos. Consulte o consumo em Voltar ou escolha uma comanda aberta.</p>}

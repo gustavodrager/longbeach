@@ -1,5 +1,9 @@
 # Deploy de Production no Railway
 
+## Atualização de 19/10/2026 — fluxo do Bar
+
+API e web de produção fixadas em `70425bfdde8547c56d92228c727abdd65e603289`, com ações e pendências no topo, consultas atuais independentes do período, estoque baixo restrito ao Bar e atendimento responsivo. CI aprovada em PostgreSQL 17/18 e frontend; conferência autenticada no desktop e celular emulado concluída. Sem nova migration. Ver [publicação, validação e retorno do Bar](indicadores-bar-visual.md#publicação-do-fluxo-do-bar--19-de-outubro-de-2026).
+
 ## Atualização de 16/10/2026 — Mensalistas
 
 Web de produção fixada em `772f83eac5a971b647639e52b95cb033e1412fd7`, com filtros, pendências explícitas, ficha centrada nos encontros e cadastro por seções. CI e conferência autenticada desktop/móvel aprovadas. API e banco preservados. Ver [publicação, validação e retorno de Mensalistas](mensalistas-quadra.md#publicação-da-revisão-uxui--2026-10-16).
