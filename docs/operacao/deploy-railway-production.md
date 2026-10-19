@@ -1,5 +1,9 @@
 # Deploy de Production no Railway
 
+## Atualização de 19/10/2026 — campos em branco no inventário
+
+API e web fixadas em `077181e87f7cda2a94f635f530f694f1e98dbb16`, com encerramento parcial e campos em branco convertidos em zero na aprovação. API publicada antes da web; CI aprovada em PostgreSQL 17/18 e frontend. Conferência autenticada desktop e celular emulado em 320/390 px concluída, preservando as quantidades reais. Sem migration. Ver [publicação e retorno do encerramento com campos em branco](indicadores-bar-visual.md#publicação-do-encerramento-com-campos-em-branco--19-de-outubro-de-2026).
+
 ## Atualização de 19/10/2026 — contagem rápida
 
 Web fixada em `d50df5b76a6cfa36c802344251431a64d59dfafc`, com quantidades editáveis na lista, Enter para avançar, atalhos e salvamento por item. CI aprovada; conferência autenticada no desktop e celular emulado em 320/390 px concluída, sem editar quantidades em produção. API preservada em `af76a0a8902807d56eaeaf3e1db92004a9dd72bd`, sem migration. Ver [publicação e retorno da contagem rápida](indicadores-bar-visual.md#publicação-da-contagem-rápida--19-de-outubro-de-2026).
