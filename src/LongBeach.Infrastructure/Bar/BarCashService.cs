@@ -12,10 +12,32 @@ using Microsoft.EntityFrameworkCore;
 namespace LongBeach.Infrastructure.Bar;
 public sealed class BarCashService(LongBeachDbContext db) : IBarCash
 {
+    public async Task<CashHistoryPage> History(string? search, string? state, int page, CancellationToken ct)
+    {
+        var query = from session in db.Set<CashSession>().AsNoTracking()
+                    join register in db.Set<CashRegister>() on session.RegisterId equals register.Id
+                    join owner in db.Users on session.OpenedBy equals owner.Id into owners
+                    from user in owners.DefaultIfEmpty()
+                    select new { session.Id, session.OpenedBy, Responsible = user == null ? "Responsável indisponível" : user.Name, Register = register.Name, session.Terminal, session.State, session.Opening, session.Expected, session.CreatedAtUtc };
+        if (state == "open") query = query.Where(x => x.State != "Closed");
+        if (state == "closed") query = query.Where(x => x.State == "Closed");
+        if (!string.IsNullOrWhiteSpace(search)) { var term = search.Trim().ToLower(); query = query.Where(x => x.Responsible.ToLower().Contains(term) || x.Register.ToLower().Contains(term) || x.Terminal.ToLower().Contains(term)); }
+        var total = await query.CountAsync(ct);
+        var rows = await query.OrderBy(x => x.State == "Closed").ThenByDescending(x => x.CreatedAtUtc).ThenBy(x => x.Id).Skip((Math.Clamp(page, 1, 100000) - 1) * 20).Take(20).ToListAsync(ct);
+        return new(rows.Select(x => new CashHistoryRow(x.Id,x.OpenedBy,x.Responsible,x.Register,x.Terminal,x.State,x.Opening,x.Expected,x.CreatedAtUtc)).ToArray(), total);
+    }
+    public async Task<CashDetails> Details(Guid id, CancellationToken ct)
+    {
+        var session = await Session(id, ct);
+        var movements = await db.Set<CashMovement>().AsNoTracking().Where(x => x.SessionId == id).OrderByDescending(x => x.CreatedAtUtc).Select(x => new CashLedgerRow(x.Id, x.Kind, x.Amount, x.Reason, x.CreatedAtUtc)).ToListAsync(ct);
+        var closings = await db.Set<CashClosing>().AsNoTracking().Where(x => x.SessionId == id).OrderByDescending(x => x.CreatedAtUtc).Select(x => new CashClosingRow(x.Id, x.Expected, x.Counted, x.Difference, x.Reason, x.CreatedAtUtc)).ToListAsync(ct);
+        var pending = await db.Set<BarSale>().AnyAsync(x => x.SessionId == id && x.State == "AwaitingPayment", ct);
+        return new(movements, closings, pending, session.Expected);
+    }
     public async Task<IReadOnlyList<CashRegister>> Registers(CancellationToken ct) => await db.Set<CashRegister>().AsNoTracking().ToListAsync(ct);
     public async Task<CashRegister> CreateRegister(string name, CancellationToken ct) { var register = new CashRegister(name); db.Add(register); await db.SaveChangesAsync(ct); return register; }
-    public async Task<IReadOnlyList<CashSession>> Sessions(CancellationToken ct) => await db.Set<CashSession>().AsNoTracking().OrderByDescending(x => x.CreatedAtUtc).Take(100).ToListAsync(ct);
-    public async Task<IReadOnlyList<CashSession>> Sessions(Guid actor, bool all, CancellationToken ct) => await db.Set<CashSession>().AsNoTracking().Where(x => all || x.OpenedBy == actor).OrderByDescending(x => x.CreatedAtUtc).Take(100).ToListAsync(ct);
+    public async Task<IReadOnlyList<CashSession>> Sessions(CancellationToken ct) => await db.Set<CashSession>().AsNoTracking().OrderBy(x => x.State == "Closed").ThenByDescending(x => x.CreatedAtUtc).Take(100).ToListAsync(ct);
+    public async Task<IReadOnlyList<CashSession>> Sessions(Guid actor, bool all, CancellationToken ct) => await db.Set<CashSession>().AsNoTracking().Where(x => all || x.OpenedBy == actor).OrderBy(x => x.OpenedBy != actor).ThenBy(x => x.State == "Closed").ThenByDescending(x => x.CreatedAtUtc).Take(100).ToListAsync(ct);
     public async Task<CashSession> Open(OpenCashInput input, Guid actor, CancellationToken ct)
     {
         var id = await Operation(input.OperationId, new { action = "cashOpen", input, actor }, async () =>
@@ -44,12 +66,15 @@ public sealed class BarCashService(LongBeachDbContext db) : IBarCash
     }
     public async Task<CashClosing> Close(Guid id, CloseCashInput input, Guid actor, bool supervisor, CancellationToken ct)
     {
-        var closingId = await Operation(input.OperationId, new { action = "cashClose", id, input, actor, supervisor }, async () =>
+        // Keep fingerprints of older clients stable when the optional balance check is absent.
+        object fingerprintInput = input.Expected is null ? new { input.Counted, input.Reason, input.OperationId } : input;
+        var closingId = await Operation(input.OperationId, new { action = "cashClose", id, input = fingerprintInput, actor, supervisor }, async () =>
         {
             var session = await LockedSession(id, ct);
             if (session.OpenedBy != actor && !supervisor) throw new BarRuleException("Você só pode fechar o próprio caixa.");
             if (session.OpenedBy != actor) BarRules.Text(input.Reason, 500, "Motivo do fechamento pela supervisão");
             if(await db.Set<BarSale>().AnyAsync(x=>x.SessionId==id && x.State=="AwaitingPayment",ct)) throw new BarRuleException("Há cobrança Pix pendente; consulte antes de fechar o caixa.");
+            if (input.Expected is not null && input.Expected != session.Expected) throw new BarRuleException("O saldo mudou. Atualize o saldo e confira a diferença antes de confirmar novamente.");
             var closing = new CashClosing(session, input.Counted, input.Reason, actor, supervisor);
             db.Add(closing);
             if(closing.Difference!=0) { db.Add(CashMovement.ClosingDifference(session,closing,actor)); db.Add(new LongBeach.Domain.Payments.BarEvent("CashDifferenceApproved",closing.Id,closing.Difference)); }

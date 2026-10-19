@@ -23,6 +23,7 @@ function stockApi(locations = stockLocations) {
       { productId: 'water', locationId: 'warehouse', name: 'Água', quantity: 20, reserved: 0, available: 20, low: false },
     ])
     if (path.endsWith('/catalog')) return response([{ id: 'water', name: 'Água', controlsStock: true }])
+    if (path.includes('/cash/history')) return response({items:[],total:0})
     if (path.endsWith('/cash/registers')) return response([{ id: 'register', name: 'Principal' }])
     if (path.includes('/purchases/history')) return response({page:1,pageSize:20,total:1,awaiting:1,partial:0,completed:0,items:[{ id: 'purchase', document: 'Compra de teste', state: 'Ordered', total: 10, freight: 0, discount: 0, items: [{ productId: 'water', quantity: 2, received: 0, purchaseUnit: 'un' }] }]})
     return response([])
@@ -59,7 +60,7 @@ it.each([
   }
   if (endpoint === '/cash/sessions') {
     await u.selectOptions(within(dialog).getByLabelText('Caixa físico'), 'register')
-    await u.type(within(dialog).getByLabelText('Terminal'), 'Balcão')
+    await u.type(within(dialog).getByLabelText('Identificação do turno'), 'Balcão')
     await u.type(within(dialog).getByLabelText('Fundo inicial (R$)'), '10')
   }
   if (endpoint === '/stock/losses') await u.click(within(dialog).getByRole('button', { name: 'Conferir saída' }))

@@ -1,5 +1,9 @@
 # Deploy de Production no Railway
 
+## Atualização de 19/10/2026 — Caixas do Bar
+
+API e web fixadas em `8e1eb31608dec8b6e5a921e11f912fe58e962e7f`. CI aprovada em PostgreSQL 17/18 e frontend; API publicada antes da web. Conferência autenticada desktop e celular emulado 320/390 px concluída, sem movimentações de teste em produção. Sem migration. Ver [publicação, validação e retorno de Caixas](caixas-bar-ux-2026-10-19.md).
+
 ## Atualização de 19/10/2026 — Compras do Bar
 
 API e web fixadas em `ec6d867b3f3a2529b318caffe4385d65d24abcd3`. CI aprovada, API publicada antes da web e saúde confirmada. Conferência autenticada desktop e celular emulado 320/390 px concluída, sem registros de teste em produção. Sem migration. Ver [publicação, validação e retorno de Compras](compras-bar-ux-2026-10-19.md).
