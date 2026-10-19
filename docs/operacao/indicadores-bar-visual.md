@@ -79,3 +79,30 @@ Validação: 363 testes frontend aprovados; após os ajustes finais de apresenta
 Navegador Chrome com frontend local, API real e banco PostgreSQL exclusivo de teste (`longbeach_stock_ux`), contendo 24 produtos fictícios: desktop de 1470 px e celular emulado em 390 e 320 px. Foram executados salvamento e recarga de contagem zero, conclusão de contagem de 24 itens, revisão e aprovação de 16 diferenças, bloqueio de saída acima do saldo, perda no desktop e consumo interno na interface móvel. Conferência direta no banco confirmou os movimentos de 11 para 10 unidades e o zero contado. Histórico exibiu essas gravações e sua segunda página. Sem transbordamento horizontal nas telas móveis verificadas; console sem avisos ou erros. Não houve teste em aparelho físico nem gravação de dados em produção.
 
 Evidências fora do Git em `outputs/estoque-melhorias-2026-10-19`, no workspace principal. Prévia local em `http://localhost:5322/bar/estoque`, com dados fictícios. Esta etapa não enviou alterações ao GitHub nem publicou em produção. Para futura publicação, promover API antes da web, pois a nova interface depende de `stock/movement-history` e dos campos adicionais de saldo; rollback da web deve preceder o da API.
+
+## Publicação do Estoque do Bar — 19 de outubro de 2026
+
+Publicação autorizada pelo proprietário, na branch `codex/estoque-bar-ux-20261019`. [PR #38](https://github.com/gustavodrager/longbeach/pull/38) aberto sobre a branch do Bar já publicada (PR #37), sem merge. API fixada em `af76a0a8902807d56eaeaf3e1db92004a9dd72bd`; web em `7f7bc1a15ade7e753e30c82c9c67c9488a183ad6`.
+
+A conferência em produção encontrou um produto inativo exibido como identificador na contagem existente. A correção usa os nomes e unidades dos saldos como base, complementados pelo catálogo ativo; pesquisa e ordenação também usam essa identidade. Teste de regressão incluído. Não altera os itens ou quantidades da contagem nem exige nova versão da API.
+
+[CI da implementação](https://github.com/gustavodrager/longbeach/actions/runs/39230786502) e [CI da correção final](https://github.com/gustavodrager/longbeach/actions/runs/39244101097) aprovadas nas três etapas. Resultado final: 339 testes unitários, 300 de integração em PostgreSQL 17 e 18, 364 frontend e 14 conversores, além de builds, migrations/readiness, auditoria somente leitura e restauração de backup sintético. Sem migration nova nesta entrega.
+
+Publicação em sequência, API antes da web:
+
+- API: deployment `1e49969e-b0f7-48b3-9a35-0dad3af56951`, `SUCCESS` às 11:12:32 UTC. `/health/ready` respondeu `Healthy`, HTTP 200; histórico sem autenticação respondeu 401.
+- Web inicial: `22ce0f0e-9c0c-43c3-8b95-fbaada1024fb`, `SUCCESS` às 11:18:37 UTC.
+- Web final com a correção dos nomes: `fdf7e4d1-1e9c-42ba-9752-7ee68a049472`, `SUCCESS` às 11:36:37 UTC. `/healthz` respondeu `ok`; bundle `index-BTH8akjq.js` confirmado no domínio público e no Chrome.
+- Patches alteraram somente a fonte dos serviços correspondentes. Snapshot importado e diff revisado após cada etapa; plano final sem divergências. Demais configurações, nomes de variáveis e domínios preservados. Banco e serviços auxiliares mantiveram seus deployments. Seis serviços em `SUCCESS`, sem trabalho pendente na conferência final.
+
+Validação autenticada em produção:
+
+- Desktop de 1470 px: saldos, filtros de disponibilidade e alerta legado, histórico paginado e período inclusivo. Intervalo inválido apresenta orientação e bloqueia a consulta. Local e saldos antes/depois aparecem no histórico.
+- Celular emulado no Chrome: estoque e histórico em 390 px; contagem e conferência de saída em 320 px, sem transbordamento horizontal nas telas verificadas. Motivo do movimento ocupa a largura disponível.
+- Contagem existente preservada: busca e paginação, edição de um produto com campo vazio, zero não preenchido automaticamente e revisão bloqueada enquanto há pendências. Na versão final, nomes e unidades legíveis substituem o identificador que aparecia na lista.
+- Saída acima do disponível bloqueada; quantidade válida apresenta saldo projetado na revisão. Rascunho descartado antes de confirmar. Nenhuma contagem foi salva/aprovada/cancelada e nenhum movimento real foi criado para teste. Gravações completas foram verificadas no banco local sintético, conforme a seção anterior.
+- Atualização da PWA aplicada; a sessão precisou de nova entrada Google na conferência final, concluída com acesso de gestão. Console final sem avisos ou erros. Validação móvel por emulação, sem aparelho físico.
+
+Evidências privadas fora do Git: `outputs/estoque-producao-2026-10-19` no workspace principal, com estoque desktop/móvel, histórico móvel, contagem e revisão de saída. Viewport restaurado e Estoque de produção deixado aberto.
+
+Rollback: primeiro web `1cf01108-711c-47bc-b80d-0f1122da2368`, depois, se necessário, API `6d64b183-9d3f-4c5c-b73a-a1c1e23b18a8`, ambas no commit `70425bfdde8547c56d92228c727abdd65e603289`, branch `codex/bar-ux-20261019`. Não reverter somente a API enquanto a web depende do novo histórico e dos campos de saldo. Preservar banco e credenciais; sincronizar snapshot e conferir plano sem divergências após retorno.

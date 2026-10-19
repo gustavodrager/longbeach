@@ -1,5 +1,9 @@
 # Deploy de Production no Railway
 
+## Atualização de 19/10/2026 — Estoque do Bar
+
+API fixada em `af76a0a8902807d56eaeaf3e1db92004a9dd72bd` e web em `7f7bc1a15ade7e753e30c82c9c67c9488a183ad6`: alertas consistentes, contagem guiada, histórico paginado e conferência de perdas/consumo. A web inclui nomes de produtos inativos em contagens antigas. CI aprovada em PostgreSQL 17/18 e frontend; validação autenticada no desktop e celular emulado concluída, sem movimentos de teste em produção. Sem nova migration. Ver [publicação, validação e retorno do Estoque](indicadores-bar-visual.md#publicação-do-estoque-do-bar--19-de-outubro-de-2026).
+
 ## Atualização de 19/10/2026 — fluxo do Bar
 
 API e web de produção fixadas em `70425bfdde8547c56d92228c727abdd65e603289`, com ações e pendências no topo, consultas atuais independentes do período, estoque baixo restrito ao Bar e atendimento responsivo. CI aprovada em PostgreSQL 17/18 e frontend; conferência autenticada no desktop e celular emulado concluída. Sem nova migration. Ver [publicação, validação e retorno do Bar](indicadores-bar-visual.md#publicação-do-fluxo-do-bar--19-de-outubro-de-2026).
