@@ -6,8 +6,13 @@ public interface IBarPurchases
     Task<IReadOnlyList<Supplier>> Suppliers(CancellationToken ct);
     Task<Supplier> CreateSupplier(string name,CancellationToken ct);
     Task<IReadOnlyList<Purchase>> Purchases(CancellationToken ct, string? document = null);
+    Task<IReadOnlyList<PurchaseProduct>> Products(CancellationToken ct);
+    Task<PurchaseHistory> History(string? search, string? state, string? document, int page, CancellationToken ct);
+    Task<Purchase?> Find(Guid id, CancellationToken ct);
     Task<Purchase> Create(PurchaseInput input,Guid actor,CancellationToken ct);
     Task<Purchase> CorrectPaymentReference(Guid id,PurchasePaymentReferenceInput input,CancellationToken ct);
     Task<Purchase> Cancel(Guid id,string reason,Guid actor,CancellationToken ct);
     Task<Purchase> Receive(Guid id,ReceiptInput input,Guid actor,CancellationToken ct);
 }
+
+public sealed record PurchaseHistory(IReadOnlyList<Purchase> Items, int Page, int PageSize, int Total, int Awaiting, int Partial, int Completed);

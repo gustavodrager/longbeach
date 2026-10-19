@@ -24,7 +24,7 @@ function stockApi(locations = stockLocations) {
     ])
     if (path.endsWith('/catalog')) return response([{ id: 'water', name: 'Água', controlsStock: true }])
     if (path.endsWith('/cash/registers')) return response([{ id: 'register', name: 'Principal' }])
-    if (path.endsWith('/purchases')) return response([{ id: 'purchase', document: 'Compra de teste', state: 'Ordered', total: 10, freight: 0, discount: 0, items: [{ productId: 'water', quantity: 2, received: 0, purchaseUnit: 'un' }] }])
+    if (path.includes('/purchases/history')) return response({page:1,pageSize:20,total:1,awaiting:1,partial:0,completed:0,items:[{ id: 'purchase', document: 'Compra de teste', state: 'Ordered', total: 10, freight: 0, discount: 0, items: [{ productId: 'water', quantity: 2, received: 0, purchaseUnit: 'un' }] }]})
     return response([])
   })
 }
