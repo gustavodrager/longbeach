@@ -153,5 +153,25 @@
 .lb-close-confirmation { border-left:4px solid #f5be3d; padding:4px 16px; margin-top:16px; }
 
 .lb-item-notes { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Cash amounts keep their cents together, with room for larger balances. */
+.lb-attendance .ux-summary.lb-cash-summary { grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); }
+.lb-attendance .lb-cash-summary dd { white-space:nowrap; overflow-wrap:normal; font-variant-numeric:tabular-nums; }
+.lb-sale-help { margin-top:8px; font-size:14px; }
+.lb-attendance .lb-sale-help summary { min-height:44px; display:flex; align-items:center; text-decoration:underline; }
+.lb-sale-help p { margin:4px 0 8px; }
+@media (max-width:800px) {
+  .lb-sell .ux-page-header { margin-bottom:12px; }
+  .lb-sell .ux-page-header h1 { font-size:28px; }
+  .lb-sell .ux-description { font-size:16px; margin:6px 0 0; }
+  .lb-sell .lb-order-steps { margin-bottom:14px; }
+  .lb-sell .lb-sale-destination { padding:12px 14px; gap:10px; margin-bottom:16px; border-radius:16px; }
+  .lb-sale-destination h2 { margin:0 0 4px; font-size:20px; }
+  .lb-sale-destination p { margin:4px 0; font-size:14px; line-height:1.4; }
+  .lb-sale-destination>.ux-button { min-height:44px; padding:10px 12px; font-size:16px; }
+}
+@media (max-width:359px) {
+  .lb-attendance .ux-summary { grid-template-columns:minmax(0,1fr); }
+}
 .lb-product-notes { padding: 0 12px 12px; }
 .lb-attendance textarea { min-height: 64px; width: 100%; resize: vertical; }

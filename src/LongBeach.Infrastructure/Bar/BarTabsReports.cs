@@ -66,7 +66,7 @@ public sealed partial class BarTabsService
         (page, pageSize) = Paging(page, pageSize);
         await using var snapshot = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead, ct);
         var tabs = db.Set<BarTab>().AsNoTracking(); var items = db.Set<BarTabItem>().AsNoTracking(); var payments = db.Set<BarTabPayment>().AsNoTracking();
-        var current = metric is "receivable" or "pending" or "lowStock" or "cash" or "requests" or "open-tabs" or "orders";
+        var current = metric is "receivable" or "pending" or "lowStock" or "low-stock-bar" or "cash" or "requests" or "open-tabs" or "orders";
         IQueryable<ReportProjection> query; var title = ""; var explanation = ""; var unit = "money";
         switch (metric)
         {
@@ -111,9 +111,20 @@ public sealed partial class BarTabsService
                         where consumed - t.Discount > paid
                         select new ReportProjection { Id = t.Id, Label = "Comanda " + t.Number + (t.Name == "" ? "" : " · " + t.Name), Detail = "Saldo ainda não confirmado", Date = now, Amount = consumed - t.Discount - paid, Count = null, Resource = "tab", ResourceId = t.Id }; break;
             case "lowStock":
-                title = "Estoque baixo agora"; explanation = "Produto/local no mínimo ou abaixo; reservas já são descontadas."; unit = "count";
+            case "low-stock-bar":
+                Guid? barLocationId = null;
+                if (metric == "low-stock-bar")
+                {
+                    var locations = await db.Set<StockLocation>().AsNoTracking().Where(l => l.Name.Trim().ToLower() == "bar").Select(l => l.Id).ToListAsync(ct);
+                    if (locations.Count != 1) throw new BarRuleException("Estoque Bar não configurado de forma única.");
+                    barLocationId = locations.Single();
+                }
+                title = barLocationId.HasValue ? "Estoque baixo no Bar" : "Estoque baixo em todos os locais";
+                explanation = barLocationId.HasValue ? "Produtos no mínimo ou abaixo no estoque do Bar; reservas já são descontadas." : "Contagem por produto e local, incluindo Bar e estoques anteriores. Um produto pode aparecer em mais de um local; reservas já são descontadas.";
+                unit = "count";
                 query = from p in db.Set<BarProduct>().AsNoTracking() where p.Active && p.ControlsStock && (!p.Prepared || !db.Set<BarRecipeVersion>().Any(r=>r.ProductId==p.Id))
                         from l in db.Set<StockLocation>().AsNoTracking()
+                        where !barLocationId.HasValue || l.Id == barLocationId.Value
                         join b in db.Set<StockBalance>().AsNoTracking() on new { ProductId = p.Id, LocationId = l.Id } equals new { b.ProductId, b.LocationId } into balances
                         from b in balances.DefaultIfEmpty()
                         let available = b == null ? 0 : b.Quantity - b.Reserved

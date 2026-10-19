@@ -26,3 +26,17 @@ Publicação em sequência, API antes da web:
 Cada patch alterou somente o SHA do serviço correspondente. Snapshots importados e planos conferidos após cada etapa, sem drift. Sem migration nem alteração dos outros serviços. Rollback disponível para `f20cc73d43fff7d6fe1b58318c567aac5bb3bf8f`: API `927a665f-0dce-45e4-b695-412eeb9ef917` e web `3e670832-aab5-4d45-b618-ff07558a6774`.
 
 Validação visual local em 360, 390, 768 e 1440 px sem transbordamento, com pesquisa e foco visível por teclado. Após atualizar a PWA, produção confirmou os novos cartões no Início e no Bar, o atalho entre as telas, as duas páginas da composição e o filtro de custos pendentes. A soma visível dos produtos confere com os cartões; dados faltantes e incompletos aparecem explicitamente. Console sem erros ou avisos na conferência final. Nenhum lançamento financeiro, venda ou movimento de estoque foi criado para teste. Evidência visual e dados reais permanecem fora do Git.
+
+## Fluxo do Bar — melhorias locais de 19 de outubro de 2026
+
+O resumo começa pelas ações Vender, Comandas, Pedidos e Meu caixa e pelos indicadores atuais. Os resultados por período vêm depois, seguidos da avaliação do estoque. Datas inválidas bloqueiam somente os resultados históricos; as consultas atuais e seus detalhes não enviam o intervalo de datas à API. O retorno ao resumo preserva o filtro para correção.
+
+O indicador `low-stock-bar` usa o único local cujo nome normalizado é Bar. Conta produtos ativos com controle de estoque no mínimo ou abaixo, descontando reservas e mantendo a regra existente para receitas. Ausência ou ambiguidade do local gera indisponibilidade, não um zero. `low-stock` permanece disponível como consulta de todos os locais, com explicação de que a contagem é por produto/local. Nenhum saldo é movido ou recalculado por escrita.
+
+No atendimento, a identificação do destino permanece visível, com explicações adicionais em “Sobre este pedido”. O cabeçalho móvel ocupa menos espaço. Os valores de Meu caixa usam cartões que se ajustam à largura, sem separar os centavos; em 320 px, os resumos passam para uma coluna.
+
+Validação local: 358 testes frontend aprovados; 18 testes existentes de comandas em PostgreSQL 17 e dois novos testes de estoque aprovados. Os novos testes usam schemas isolados e cobrem exclusão de outros locais, reservas, saldo ausente, paginação, normalização do nome e cadastro ausente/duplicado. Builds da API e web/PWA aprovados. A restauração dos testes em ambiente restrito emitiu NU1900 ao consultar a auditoria NuGet; a compilação final da API teve zero avisos e erros.
+
+Navegador com API fictícia: desktop e larguras de 390 e 320 px; consulta atual durante período inválido, detalhe do estoque e consulta de todos os locais, rascunho/conferência e ajuda contextual. Sem transbordamento horizontal nas telas verificadas; valores de caixa inteiros em 320 px. Em 390 px, “Atenção agora” começa a aproximadamente 574 px do início, contra aproximadamente 2.042 px antes. Console sem avisos ou erros na conferência final. Evidências fora do Git em `outputs/bar-melhorias-2026-10-19` no workspace principal.
+
+Esta etapa não publicou em produção. Para publicar, promover primeiro a API com suporte a `low-stock-bar` e depois a web, ambas fixadas por commit. Não há migration nova. O rollback da web pode ser feito antes da API; o indicador antigo continua compatível.
