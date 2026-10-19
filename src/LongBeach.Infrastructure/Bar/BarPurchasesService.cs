@@ -12,6 +12,33 @@ public sealed class BarPurchasesService(LongBeachDbContext db):IBarPurchases
     public async Task<IReadOnlyList<Supplier>> Suppliers(CancellationToken ct)=>await db.Set<Supplier>().AsNoTracking().OrderBy(x=>x.Name).ToListAsync(ct);
     public async Task<Supplier> CreateSupplier(string name,CancellationToken ct) {var s=new Supplier(name);db.Add(s);await db.SaveChangesAsync(ct);return s;}
     public async Task<IReadOnlyList<Purchase>> Purchases(CancellationToken ct, string? document = null)=>await db.Set<Purchase>().AsNoTracking().Include(x=>x.Items).Where(x => document == null || x.Document == document).OrderByDescending(x=>x.CreatedAtUtc).Take(100).ToListAsync(ct);
+    public Task<Purchase?> Find(Guid id, CancellationToken ct) => db.Set<Purchase>().AsNoTracking().Include(p => p.Items).SingleOrDefaultAsync(p => p.Id == id, ct);
+    public async Task<IReadOnlyList<PurchaseProduct>> Products(CancellationToken ct) =>
+        await db.Set<BarProduct>().AsNoTracking().Where(p => p.ControlsStock).OrderBy(p => p.Name)
+            .Select(p => new PurchaseProduct(p.Id, p.Name, p.Code, p.PurchaseUnit, p.SaleUnit, p.ConversionFactor, p.Active)).ToListAsync(ct);
+    public async Task<PurchaseHistory> History(string? search, string? state, string? document, int page, CancellationToken ct)
+    {
+        var query = db.Set<Purchase>().AsNoTracking().Where(p => document == null || p.Document == document);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(p => p.Document.ToLower().Contains(term) || db.Set<Supplier>().Any(s => s.Id == p.SupplierId && s.Name.ToLower().Contains(term)));
+        }
+        var awaiting = await query.CountAsync(p => p.State == "Ordered", ct);
+        var partial = await query.CountAsync(p => p.State == "PartiallyReceived", ct);
+        var completed = await query.CountAsync(p => p.State == "Received" || p.State == "Canceled", ct);
+        query = state switch {
+            "awaiting" => query.Where(p => p.State == "Ordered"),
+            "partial" => query.Where(p => p.State == "PartiallyReceived"),
+            "completed" => query.Where(p => p.State == "Received" || p.State == "Canceled"),
+            _ => query
+        };
+        var total = await query.CountAsync(ct); const int size = 20;
+        page = Math.Clamp(page, 1, Math.Max(1, (total + size - 1) / size));
+        var items = await query.Include(p => p.Items).OrderBy(p => p.State == "Ordered" || p.State == "PartiallyReceived" ? 0 : 1)
+            .ThenByDescending(p => p.CreatedAtUtc).ThenBy(p => p.Id).Skip((page - 1) * size).Take(size).ToListAsync(ct);
+        return new(items, page, size, total, awaiting, partial, completed);
+    }
     public async Task<Purchase> Create(PurchaseInput input,Guid actor,CancellationToken ct)
     {
         if(input.Items is null || input.Items.Count is 0 or >100 || input.Items.Select(x=>x.ProductId).Distinct().Count()!=input.Items.Count) throw new BarRuleException("Informe de 1 a 100 produtos sem repetir itens.");

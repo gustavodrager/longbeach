@@ -123,6 +123,30 @@ public sealed class BarStockAlertPostgresTests
         Assert.Equal(changed ? 0 : 1, await db.Set<StockMovement>().CountAsync(x => x.OriginId == count.Id));
     }
 
+    [PostgresFact]
+    public async Task Purchase_history_keeps_old_pending_and_filters_before_paging()
+    {
+        await using var database = await Database.Create(); var db = database.Context;
+        var supplier = new LongBeach.Domain.Purchases.Supplier("Distribuidora Teste");
+        var category = new BarProductCategory("Compra teste");
+        var product = new BarProduct("pack", "Caixa teste", "Caixa", category.Id, "un", "caixa", 12, 5, 1, 0, true, false, 0);
+        db.AddRange(supplier, category, product); await db.SaveChangesAsync();
+        var service = new BarPurchasesService(db); var actor = Guid.NewGuid();
+        var pending = await service.Create(new(supplier.Id, "Pendente antiga", [new(product.Id, 2, 10)]), actor, default);
+        for(var i=0;i<105;i++) { var p=new LongBeach.Domain.Purchases.Purchase(supplier.Id, "Finalizada " + i, actor); p.Cancel("Teste",actor); db.Add(p); }
+        await db.SaveChangesAsync();
+        var all=await service.History(null,null,null,1,default);
+        Assert.Equal(106,all.Total); Assert.Equal(20,all.Items.Count); Assert.Equal(pending.Id,all.Items[0].Id);
+        var filtered=await service.History("distribuidora","awaiting",null,8,default);
+        Assert.Equal(1,filtered.Total); Assert.Equal(1,filtered.Page); Assert.Equal(pending.Id,Assert.Single(filtered.Items).Id);
+        Assert.Empty((await service.History("inexistente",null,null,1,default)).Items);
+        Assert.Equal(6,(await service.History(null,null,null,6,default)).Items.Count);
+        Assert.Equal("caixa",Assert.Single(await service.Products(default)).PurchaseUnit);
+        Assert.Equal(12,Assert.Single(await service.Products(default)).ConversionFactor);
+        Assert.Equal(pending.Id,(await service.Find(pending.Id,default))!.Id);
+        Assert.Null(await service.Find(Guid.NewGuid(),default));
+    }
+
     private sealed class Database(string connectionString, string schema, LongBeachDbContext context) : IAsyncDisposable
     {
         public LongBeachDbContext Context { get; } = context;

@@ -4,3 +4,5 @@ public sealed record PurchasePaymentReferenceInput(string PaymentMethod, string?
 public sealed record PurchaseInput(Guid SupplierId, string Document, IReadOnlyList<PurchaseItemInput> Items,decimal Freight=0,decimal Discount=0,string PaymentMethod="Pending",string? AccountReference=null,DateTimeOffset? PurchasedAtUtc=null);
 public sealed record ReceiptItemInput(Guid ProductId, decimal Quantity);
 public sealed record ReceiptInput(Guid LocationId, Guid OperationId, IReadOnlyList<ReceiptItemInput> Items);
+
+public sealed record PurchaseProduct(Guid Id, string Name, string Code, string PurchaseUnit, string SaleUnit, decimal ConversionFactor, bool Active);
