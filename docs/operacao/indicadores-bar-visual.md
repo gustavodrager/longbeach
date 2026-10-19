@@ -40,3 +40,26 @@ Validação local: 358 testes frontend aprovados; 18 testes existentes de comand
 Navegador com API fictícia: desktop e larguras de 390 e 320 px; consulta atual durante período inválido, detalhe do estoque e consulta de todos os locais, rascunho/conferência e ajuda contextual. Sem transbordamento horizontal nas telas verificadas; valores de caixa inteiros em 320 px. Em 390 px, “Atenção agora” começa a aproximadamente 574 px do início, contra aproximadamente 2.042 px antes. Console sem avisos ou erros na conferência final. Evidências fora do Git em `outputs/bar-melhorias-2026-10-19` no workspace principal.
 
 Esta etapa não publicou em produção. Para publicar, promover primeiro a API com suporte a `low-stock-bar` e depois a web, ambas fixadas por commit. Não há migration nova. O rollback da web pode ser feito antes da API; o indicador antigo continua compatível.
+
+## Publicação do fluxo do Bar — 19 de outubro de 2026
+
+Publicação autorizada pelo proprietário. Alterações enviadas na branch `codex/bar-ux-20261019`, com revisão aberta no [PR #37](https://github.com/gustavodrager/longbeach/pull/37), baseada em `codex/mensalistas-ux-20261016`. API e web fixadas no commit `70425bfdde8547c56d92228c727abdd65e603289`. O PR permanece aberto; publicação por commit não depende de integração da branch.
+
+[CI 39222948602](https://github.com/gustavodrager/longbeach/actions/runs/39222948602) aprovada: 339 testes unitários e 298 de integração em PostgreSQL 17 e 18, 358 frontend, 14 conversores, builds, migrations/readiness, auditoria somente leitura e restauração de backup sintético. São 995 testes distintos da aplicação, além dos conversores.
+
+Publicação em sequência:
+
+- API: deployment `6d64b183-9d3f-4c5c-b73a-a1c1e23b18a8`, `SUCCESS` às 08:41:43 UTC. `/health/ready` respondeu `Healthy`, HTTP 200, antes da promoção da web. O novo detalhe `low-stock-bar` foi conferido na sessão de gestão ainda com a interface anterior.
+- Web: deployment `1cf01108-711c-47bc-b80d-0f1122da2368`, `SUCCESS` às 08:46:24 UTC. `/healthz` respondeu `ok`, HTTP 200. Bundle servido e ativo no Chrome: `index-DuM-6X0a.js`.
+- Cada patch revisado alterou apenas branch/commit do serviço correspondente. Snapshot importado após cada etapa, com planos sem divergências. Configurações além da fonte, nomes de variáveis e domínios comparados com a linha de base e preservados. Os seis serviços ficaram online, sem falhas recentes ou trabalho pendente; banco e serviços auxiliares conservaram seus deployments.
+
+Conferência autenticada em produção:
+
+- Desktop de 1470 px: atualização pelo aviso da PWA preservou a sessão; ações e atenção aparecem no topo. Um período inválido mantém os indicadores atuais disponíveis. O detalhe do estoque abre sem filtro de datas, e o retorno preserva o intervalo inválido para correção. Filtro restaurado ao dia atual ao final.
+- O estoque do Bar e a consulta de todos os locais apresentam contagens distintas e explicações de escopo corretas. Nenhum movimento de estoque é criado pela consulta.
+- Celular emulado no Chrome: resumo e venda em 390 × 844; caixa, comandas e pedidos em 320 × 844. Sem transbordamento horizontal nas telas verificadas. Produtos visíveis na primeira tela da venda; valores completos do caixa em uma coluna na largura mínima. Estados vazios de comandas e pedidos conferidos.
+- Console sem avisos ou erros na conferência final. Nenhuma comanda, venda, pagamento ou movimentação de caixa foi criada para teste. Não havia comanda aberta para repetir em produção a ajuda de destino; esse cenário foi validado localmente com dados fictícios. A validação móvel foi por emulação, sem teste em aparelho físico.
+
+Evidências privadas fora do Git: `outputs/bar-producao-2026-10-19` no workspace principal, com resumo desktop/móvel, venda móvel e caixa em 320 px. Viewport restaurado e navegador deixado no resumo de produção.
+
+Rollback compatível: primeiro a web anterior, deployment `01e5fb4a-8d35-4997-b7e5-9a86b6b64f60`, commit `772f83eac5a971b647639e52b95cb033e1412fd7`, branch `codex/mensalistas-ux-20261016`. Se necessário, depois a API anterior, deployment `b48d5990-4bde-4a3d-ae57-384401e9114d`, commit `ee803b7a2300af27f6f43dcc07dc0e194c701194`, branch `codex/recebimentos-bar-quadra-20261014`. Não reverter a API isoladamente enquanto a web depende de `low-stock-bar`. Preservar dados, banco e credenciais; sincronizar o snapshot e conferir plano sem divergências após retorno.
