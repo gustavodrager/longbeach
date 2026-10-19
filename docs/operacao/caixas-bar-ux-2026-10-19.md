@@ -1,6 +1,6 @@
 # Caixas do Bar — implementação e validação local, 19/10/2026
 
-Entrega local dos cinco pontos de UX, sem publicação nesta etapa.
+Cinco pontos de UX publicados em produção após autorização do proprietário e CI aprovada. Revisão: https://github.com/gustavodrager/longbeach/pull/41.
 
 ## Comportamento
 
@@ -26,3 +26,18 @@ Novas leituras protegidas por `bar:supervise`: `/api/v1/bar/cash/history` e `/ap
 - Emulação não substitui teste de teclado em aparelho físico. Nenhuma escrita de teste em produção.
 
 Evidências locais fora do Git: `../../outputs/caixas-ux-2026-10-19/`, incluindo desktop, retirada em 390 px e fechamento final em 320/390 px.
+
+## Publicação em produção — 19/10/2026
+
+- API e web fixadas em `8e1eb31608dec8b6e5a921e11f912fe58e962e7f`, branch `codex/caixas-bar-ux-20261019`.
+- CI [39304477876](https://github.com/gustavodrager/longbeach/actions/runs/39304477876) aprovada: 340 unitários, 309 integrações em cada PostgreSQL 17/18, 389 frontend, builds, saúde, auditoria e restauração fictícia.
+- API deployment `0dea9412-0758-4644-bc86-a4aff5b8227a`: SUCCESS em 19:27:38 UTC; `/health/ready` Healthy.
+- Web deployment `879eea5e-71cb-456e-98fb-5c1e588603a2`: SUCCESS em 19:34:02 UTC; `/healthz` ok; bundle público `index-CbLQtwdz.js`.
+- Histórico anônimo responde 401. Fontes dos dois serviços confirmadas no commit aprovado, sem mudanças pendentes. Snapshot importado e plano sem divergências após cada etapa.
+- Conferência autenticada em produção: nova listagem, responsável, abertura, saldo, movimentos existentes e painel de fechamento; desktop e celular emulado 320/390 px, teclado decimal configurado, sem overflow horizontal ou erros de console capturados. Atualização do PWA aplicada pela interface.
+- Não foram digitadas contagens nem confirmados movimentos, abertura ou fechamento em produção. Caixa e saldo reais preservados. A página ficou aberta para validação manual do proprietário.
+- Capturas privadas fora do Git: `../../outputs/caixas-producao-2026-10-19/`.
+
+### Retorno
+
+Restaurar primeiro a web ao commit `ec6d867b3f3a2529b318caffe4385d65d24abcd3`, branch `codex/compras-bar-ux-20261019`, deployment anterior `345545c0-4344-4331-bc2c-d746bbf90c68`. A API nova é compatível e pode permanecer. Se necessário, restaurar a API ao mesmo commit, deployment anterior `2c71a04f-02ef-42b6-af80-2851432476de`. Sem migration; preservar o banco e movimentos reais, conferir saúde e reimportar o snapshot.
