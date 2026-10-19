@@ -6,6 +6,7 @@ public interface IBarStock
     Task<IReadOnlyList<StockLocation>> Locations(CancellationToken ct);
     Task<StockLocation> CreateLocation(LocationInput input, CancellationToken ct);
     Task<object> Balances(bool costs, CancellationToken ct);
+    Task<object> MovementHistory(Guid? locationId, string? search, string? kind, DateOnly? from, DateOnly? to, int page, CancellationToken ct);
     Task<object> Movements(bool costs, CancellationToken ct);
     Task<StockValuationResponse> Valuation(CancellationToken ct);
     Task Transfer(TransferInput input, Guid actor, CancellationToken ct);

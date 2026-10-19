@@ -1,0 +1,56 @@
+.stock-page .page-heading p:empty { display:none; }
+.stock-actions { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px; }
+.stock-actions a,.stock-count-card button,.stock-count-list button,.stock-count-footer button { min-height:44px; padding:10px 16px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); font:inherit; font-weight:700; text-decoration:none; }
+.stock-actions a:first-child,.stock-count-footer .primary-button { background:var(--gold); }
+.stock-overview { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.stock-overview > span { display:flex; flex-direction:column; padding:12px 16px; background:#fffcf6; border:1px solid var(--line); border-radius:12px; font-size:13px; }
+.stock-overview strong { font-size:24px; }
+.stock-page small,.stock-count-list span { display:block; color:var(--muted); margin-top:4px; }
+.stock-page .stock-alert,.stock-count-workbench .stock-alert { color:#825313; font-weight:700; }
+.stock-balances td:last-child { font-size:20px; font-variant-numeric:tabular-nums; }
+.stock-movements td { max-width:300px; }
+.stock-movements details p,.stock-movements small { overflow-wrap:anywhere; }
+.stock-movements summary { cursor:pointer; padding-block:10px; }
+.stock-count-card { display:flex; justify-content:space-between; align-items:center; gap:16px; }
+.stock-count-card h2 { margin-bottom:8px!important; }
+.stock-count-card p { margin:4px 0; }
+.stock-count-progress { display:grid; gap:6px; padding:14px; border:1px solid var(--line); background:#fffcf6; border-radius:12px; }
+.stock-count-progress progress { width:100%; accent-color:#a67816; }
+.stock-count-progress span { font-size:14px; color:var(--muted); }
+.stock-count-list article { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 0; border-bottom:1px solid var(--line); }
+.stock-count-list article > div { min-width:0; overflow-wrap:anywhere; }
+.stock-count-list button { flex-shrink:0; }
+.stock-count-list span { font-size:13px; }
+.stock-count-workbench .arena-pagination,.stock-page .arena-pagination { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-block:16px; }
+.stock-count-workbench .arena-pagination button,.stock-page .arena-pagination button { min-height:44px; border:1px solid var(--line); border-radius:8px; padding:8px 12px; background:#fff; color:var(--ink); }
+.stock-count-workbench button:disabled,.stock-page button:disabled { opacity:.55; cursor:not-allowed; }
+.stock-count-editor,.stock-review { margin-top:20px; }
+.stock-count-footer { position:sticky; bottom:0; background:var(--page,#f8f4eb); padding:12px 0; border-top:1px solid var(--line); }
+.stock-context { padding:12px; background:#fffcf6; border:1px solid var(--line); border-radius:10px; }
+.stock-output { margin-top:16px; }
+.stock-review p { overflow-wrap:anywhere; }
+@media(max-width:700px) {
+  .app-shell:has(.stock-page) .module-navigation { flex-wrap:nowrap; overflow-x:auto; padding-block:6px 0; }
+  .app-shell:has(.stock-page) .module-navigation a { white-space:nowrap; flex-shrink:0; }
+  .app-shell .stock-page { padding-top:12px; }
+  .app-shell .stock-page.arena-page:not(.dashboard) .page-heading { margin-bottom:12px; padding-bottom:8px; }
+  .stock-page .page-heading .eyebrow { display:none; }
+  .stock-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin-bottom:12px; gap:6px; }
+  .stock-actions a { display:flex; align-items:center; justify-content:center; text-align:center; }
+  .stock-actions a { font-size:13px; padding:10px; }
+  .stock-overview { gap:6px; }
+  .stock-overview > span { padding:8px; font-size:12px; line-height:1.35; }
+  .stock-overview strong { font-size:22px; }
+  .stock-page .section-tabs { margin:12px 0; }
+  .stock-page .compact-filters { gap:8px; margin:10px 0; }
+  .stock-page .compact-filters > .search-box { flex-basis:150px; }
+  .stock-page .compact-filters select { font-size:14px; padding-inline:8px; }
+  .stock-history-filters > * { flex-basis:calc(50% - 8px); }
+  .stock-balances tr { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .stock-balances td:first-child { grid-column:1/-1; }
+  .stock-movements td:last-child { grid-column:1/-1; max-width:none; }
+  .stock-count-card { align-items:stretch; flex-direction:column; }
+  .stock-count-list article { gap:8px; }
+  .stock-count-list button { padding:10px; font-size:14px; }
+  .stock-count-workbench .compact-filters > * { flex-basis:100%; }
+}
