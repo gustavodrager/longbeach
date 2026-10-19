@@ -120,3 +120,23 @@ Validação automatizada: suíte completa de 374 testes frontend aprovada antes 
 Validação no Chrome com API real e banco local exclusivo `longbeach_stock_ux`: desktop de 1470 px, celular emulado em 390 e 320 px. Contagem de 107 produtos, zero explícito, decimal 1,125, atalhos, pesquisa, avanço por Enter e recarga preservando valores. Consulta direta ao PostgreSQL confirmou quatro itens salvos (0; 2; 0; 1,125) e nenhum movimento de ajuste para o inventário em andamento. Sem transbordamento horizontal, foco visível e campos declarados com teclado decimal; console final sem avisos ou erros. Não houve teste em aparelho físico.
 
 Evidências locais: `outputs/contagem-rapida-2026-10-19`, no workspace principal. Prévia em `http://localhost:5322/bar/inventario`, com dados exclusivamente fictícios. Esta etapa não enviou alterações ao GitHub nem publicou em produção.
+
+## Publicação da contagem rápida — 19 de outubro de 2026
+
+Publicação autorizada pelo proprietário. Branch `codex/contagem-rapida-20261019`, [PR #39](https://github.com/gustavodrager/longbeach/pull/39) aberto sobre a branch do Estoque já publicada (PR #38), sem merge. Web fixada no commit `d50df5b76a6cfa36c802344251431a64d59dfafc`. API preservada em `af76a0a8902807d56eaeaf3e1db92004a9dd72bd`, deployment `1e49969e-b0f7-48b3-9a35-0dad3af56951`.
+
+[CI 39250159843](https://github.com/gustavodrager/longbeach/actions/runs/39250159843) aprovada nas três etapas: 375 testes frontend, 339 unitários .NET, 300 de integração em PostgreSQL 17 e 18 e 14 conversores, além de builds, migrations/readiness, auditoria somente leitura e restauração sintética. Sem nova migration nesta entrega.
+
+Web Railway: deployment `c317144c-104a-48a9-b01b-036c7a6173ff`, `SUCCESS` às 13:26:49 UTC. Bundle `index-CfvP0Dl3.js` confirmado no domínio oficial e no Chrome após aplicar “Atualizar agora” da PWA. A sessão de gestão permaneceu disponível. Web `/healthz` respondeu `ok`; API `/health/ready`, `Healthy`.
+
+O patch revisado alterou somente branch e commit da web. Snapshot importado antes e após a promoção, diff revisado e plano sem divergências. Configuração restante, nomes de variáveis e domínios preservados. Banco, API e serviços auxiliares conservaram seus deployments; seis serviços em `SUCCESS` e nenhum trabalho pendente na conferência final.
+
+Conferência autenticada em produção:
+
+- Desktop de 1470 px: 107 campos diretamente na lista, pendentes vazios e atalhos corretos. Enter em campo pendente vazio avançou o foco sem gravar. Filtros retornaram 105 pendentes e duas divergências; Todos restaurou a lista completa.
+- Celular emulado em 390 e 320 px: sem transbordamento horizontal, campos com `inputMode=decimal`, botões e rodapé acessíveis. Busca “Amstel” retornou três produtos. Saldo registrado zero apresentou apenas o atalho Zerar. Revisar ajustes permaneceu bloqueado para a contagem incompleta.
+- Busca/filtros não causaram aviso indevido ao fechar. Console sem avisos ou erros. Inventário permaneceu com 2 de 107 produtos contados e duas divergências. Nenhuma quantidade, atalho de gravação, aprovação ou cancelamento foi executado em produção; gravações e falhas de rede foram verificadas nos testes e no banco local fictício da etapa anterior. Não houve teste em aparelho físico.
+
+Evidências privadas fora do Git: `outputs/contagem-rapida-producao-2026-10-19`, no workspace principal, com desktop, 390 e 320 px. Viewport restaurado e contagem de produção deixada aberta.
+
+Rollback somente da web: deployment anterior `fdf7e4d1-1e9c-42ba-9752-7ee68a049472`, commit `7f7bc1a15ade7e753e30c82c9c67c9488a183ad6`, branch `codex/estoque-bar-ux-20261019`. Preservar API, banco e contagens já salvas; sincronizar snapshot e conferir plano sem divergências após retorno.
