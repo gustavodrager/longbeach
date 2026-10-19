@@ -15,5 +15,5 @@ public interface IBarStock
     Task<IReadOnlyList<InventoryCount>> Counts(CancellationToken ct);
     Task<InventoryCount> Count(Guid id, CountItemInput input, CancellationToken ct);
     Task<InventoryCount> CancelCount(Guid id,string reason,CancellationToken ct);
-    Task<InventoryCount> Approve(Guid id, string reason, Guid actor, CancellationToken ct);
+    Task<InventoryCount> Approve(Guid id, string reason, Guid actor, CancellationToken ct, bool zeroUncounted = false);
 }

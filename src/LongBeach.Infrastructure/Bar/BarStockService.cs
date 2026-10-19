@@ -97,10 +97,10 @@ public sealed partial class BarStockService(LongBeachDbContext db, IConfiguratio
     public async Task<InventoryCount> Count(Guid id, CountItemInput input, CancellationToken ct)
     { var count = await GetCount(id, ct); count.Count(input.ProductId, input.Quantity); await db.SaveChangesAsync(ct); return count; }
     public async Task<InventoryCount> CancelCount(Guid id,string reason,CancellationToken ct) {var count=await GetCount(id,ct);count.Cancel(reason);await db.SaveChangesAsync(ct);return count;}
-    public async Task<InventoryCount> Approve(Guid id, string reason, Guid actor, CancellationToken ct)
+    public async Task<InventoryCount> Approve(Guid id, string reason, Guid actor, CancellationToken ct, bool zeroUncounted = false)
     {
         await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
-        var count = await GetCount(id, ct); count.Approve(actor, reason);
+        var count = await GetCount(id, ct); count.Approve(actor, reason, zeroUncounted);
         foreach (var item in count.Items)
         {
             var balance = await Balance(item.ProductId, count.LocationId, ct);

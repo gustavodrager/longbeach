@@ -106,3 +106,68 @@ Validação autenticada em produção:
 Evidências privadas fora do Git: `outputs/estoque-producao-2026-10-19` no workspace principal, com estoque desktop/móvel, histórico móvel, contagem e revisão de saída. Viewport restaurado e Estoque de produção deixado aberto.
 
 Rollback: primeiro web `1cf01108-711c-47bc-b80d-0f1122da2368`, depois, se necessário, API `6d64b183-9d3f-4c5c-b73a-a1c1e23b18a8`, ambas no commit `70425bfdde8547c56d92228c727abdd65e603289`, branch `codex/bar-ux-20261019`. Não reverter somente a API enquanto a web depende do novo histórico e dos campos de saldo. Preservar banco e credenciais; sincronizar snapshot e conferir plano sem divergências após retorno.
+
+## Contagem rápida — implementação local em 19 de outubro de 2026
+
+O inventário agora permite editar as quantidades na própria lista. Sair do campo ou pressionar Enter salva; Enter avança para o próximo produto visível. Atalhos “Igual ao registrado” e “Zerar” confirmam itens já conferidos fisicamente. Saldo registrado zero apresenta somente “Zerar”. Campo pendente permanece vazio, sem assumir zero. Valores aceitam vírgula ou ponto e até três casas decimais.
+
+A lista não tem paginação. Abre em Todos, com pendentes primeiro, busca e filtros rápidos. Ordem e seleção ficam estáveis durante o salvamento; reaplicar um filtro atualiza sua seleção. Painel amplo no desktop e tela inteira no celular, mantendo cores e componentes Long Beach. A revisão das diferenças e a aprovação continuam separadas da digitação.
+
+Uma fila serializa os PUTs existentes por inventário, sem bloquear os outros campos. Revisões por item preservam digitação recente diante de respostas atrasadas; Enter/blur e atalhos repetidos não duplicam a mesma gravação. Atualização de cache limitada ao item confirmado, cancelando consultas antigas da lista para evitar regressão de valores. Erros preservam o rascunho e oferecem nova tentativa. Fechamento é protegido enquanto há alterações; revisão exige todas as quantidades confirmadas, sem gravações pendentes. Nenhum contrato da API, regra de aprovação, permissão ou migration foi alterado.
+
+Validação automatizada: suíte completa de 374 testes frontend aprovada antes da última proteção contra consulta antiga; após essa proteção e a deduplicação de atalhos, 17 testes afetados aprovados. Cobertura inclui rede lenta, respostas antigas, falha/nova tentativa, fila interrompida ao desmontar, vírgula/ponto/zero, quantidades inválidas, Enter/foco, filtros estáveis, 107 produtos, atalhos e guarda de fechamento. Builds finais da web/PWA e API aprovados; API sem avisos ou erros.
+
+Validação no Chrome com API real e banco local exclusivo `longbeach_stock_ux`: desktop de 1470 px, celular emulado em 390 e 320 px. Contagem de 107 produtos, zero explícito, decimal 1,125, atalhos, pesquisa, avanço por Enter e recarga preservando valores. Consulta direta ao PostgreSQL confirmou quatro itens salvos (0; 2; 0; 1,125) e nenhum movimento de ajuste para o inventário em andamento. Sem transbordamento horizontal, foco visível e campos declarados com teclado decimal; console final sem avisos ou erros. Não houve teste em aparelho físico.
+
+Evidências locais: `outputs/contagem-rapida-2026-10-19`, no workspace principal. Prévia em `http://localhost:5322/bar/inventario`, com dados exclusivamente fictícios. Esta etapa não enviou alterações ao GitHub nem publicou em produção.
+
+## Publicação da contagem rápida — 19 de outubro de 2026
+
+Publicação autorizada pelo proprietário. Branch `codex/contagem-rapida-20261019`, [PR #39](https://github.com/gustavodrager/longbeach/pull/39) aberto sobre a branch do Estoque já publicada (PR #38), sem merge. Web fixada no commit `d50df5b76a6cfa36c802344251431a64d59dfafc`. API preservada em `af76a0a8902807d56eaeaf3e1db92004a9dd72bd`, deployment `1e49969e-b0f7-48b3-9a35-0dad3af56951`.
+
+[CI 39250159843](https://github.com/gustavodrager/longbeach/actions/runs/39250159843) aprovada nas três etapas: 375 testes frontend, 339 unitários .NET, 300 de integração em PostgreSQL 17 e 18 e 14 conversores, além de builds, migrations/readiness, auditoria somente leitura e restauração sintética. Sem nova migration nesta entrega.
+
+Web Railway: deployment `c317144c-104a-48a9-b01b-036c7a6173ff`, `SUCCESS` às 13:26:49 UTC. Bundle `index-CfvP0Dl3.js` confirmado no domínio oficial e no Chrome após aplicar “Atualizar agora” da PWA. A sessão de gestão permaneceu disponível. Web `/healthz` respondeu `ok`; API `/health/ready`, `Healthy`.
+
+O patch revisado alterou somente branch e commit da web. Snapshot importado antes e após a promoção, diff revisado e plano sem divergências. Configuração restante, nomes de variáveis e domínios preservados. Banco, API e serviços auxiliares conservaram seus deployments; seis serviços em `SUCCESS` e nenhum trabalho pendente na conferência final.
+
+Conferência autenticada em produção:
+
+- Desktop de 1470 px: 107 campos diretamente na lista, pendentes vazios e atalhos corretos. Enter em campo pendente vazio avançou o foco sem gravar. Filtros retornaram 105 pendentes e duas divergências; Todos restaurou a lista completa.
+- Celular emulado em 390 e 320 px: sem transbordamento horizontal, campos com `inputMode=decimal`, botões e rodapé acessíveis. Busca “Amstel” retornou três produtos. Saldo registrado zero apresentou apenas o atalho Zerar. Revisar ajustes permaneceu bloqueado para a contagem incompleta.
+- Busca/filtros não causaram aviso indevido ao fechar. Console sem avisos ou erros. Inventário permaneceu com 2 de 107 produtos contados e duas divergências. Nenhuma quantidade, atalho de gravação, aprovação ou cancelamento foi executado em produção; gravações e falhas de rede foram verificadas nos testes e no banco local fictício da etapa anterior. Não houve teste em aparelho físico.
+
+Evidências privadas fora do Git: `outputs/contagem-rapida-producao-2026-10-19`, no workspace principal, com desktop, 390 e 320 px. Viewport restaurado e contagem de produção deixada aberta.
+
+Rollback somente da web: deployment anterior `fdf7e4d1-1e9c-42ba-9752-7ee68a049472`, commit `7f7bc1a15ade7e753e30c82c9c67c9488a183ad6`, branch `codex/estoque-bar-ux-20261019`. Preservar API, banco e contagens já salvas; sincronizar snapshot e conferir plano sem divergências após retorno.
+
+## Inventário com campos em branco como zero — implementação local em 19 de outubro de 2026
+
+A contagem permite revisar e encerrar inventários parcialmente preenchidos ou inteiramente em branco. Campos nunca preenchidos permanecem sem gravação individual até a aprovação, quando passam a zero. Limpar uma quantidade já salva e sair do campo salva zero. Valores informados são preservados; erros e gravações pendentes continuam bloqueando a revisão. A revisão identifica explicitamente os campos em branco, inclusive os ocultos por busca ou filtro, mostra “0 (em branco)” e calcula as diferenças antes da confirmação.
+
+A aprovação usa o campo opcional `zeroUncounted: true`. Clientes antigos que omitem esse campo mantêm a exigência anterior de preencher todos os produtos. A conversão para zero e os ajustes são transacionais: movimentos ou reservas concorrentes continuam bloqueando a aprovação, sem persistir a conversão parcial. Permissões e justificativa são preservadas; inventários sem produtos continuam bloqueados. Sem migration.
+
+Validação: 378 testes frontend, 10 testes de regras do Bar e seis testes de integração PostgreSQL aprovados. Cobertura inclui limpar quantidade salva, não gravar campos intocados, revisão parcial, preservação dos valores informados, aprovação inteiramente em branco e rollback após movimento concorrente. Builds finais da API e web/PWA aprovados. O build dos testes de integração apresentou aviso NU1900 de consulta à auditoria de vulnerabilidades, sem impedir os testes.
+
+Chrome com API real e banco local fictício: desktop de 1470 px e celular emulado de 390 e 320 px. Inventário com quatro de 107 quantidades preenchidas foi aprovado: PostgreSQL confirmou 107 quantidades gravadas, 105 delas zero, e 21 ajustes. Os valores anteriores (0; 2; 0; 1,125) foram preservados. Um novo inventário com 107 campos em branco também permitiu abrir a revisão. Sem transbordamento horizontal nas larguras verificadas e console sem avisos ou erros. Nenhuma gravação em produção ou teste em aparelho físico.
+
+Prévia em `http://localhost:5322/bar/inventario`. Evidências privadas no workspace principal: `outputs/inventario-zero-2026-10-19`, com contagem em 320 px, revisão em 390 px e revisão desktop. Esta etapa não enviou alterações ao GitHub nem publicou em produção.
+
+Para publicação futura, atualizar a API antes da web: a interface nova depende da aprovação com `zeroUncounted`. Em rollback, retornar primeiro a web, depois a API se necessário. Preservar banco e inventários já aprovados.
+
+
+## Publicação do encerramento com campos em branco — 19 de outubro de 2026
+
+Publicação autorizada pelo proprietário. [PR #39](https://github.com/gustavodrager/longbeach/pull/39) atualizado, mantendo a base do Estoque já publicada, sem merge. API e web fixadas em `077181e87f7cda2a94f635f530f694f1e98dbb16`, branch `codex/contagem-rapida-20261019`. Sem migration. A API foi publicada e verificada antes da interface, preservando clientes antigos que não enviam `zeroUncounted`.
+
+[CI 39263082590](https://github.com/gustavodrager/longbeach/actions/runs/39263082590) aprovada: 378 testes frontend, 340 unitários, 302 de integração em cada PostgreSQL 17/18 e 14 conversores, além de builds, readiness, auditoria somente leitura e restauração sintética.
+
+- API: deployment `58c0a287-1d8a-4e3f-bb57-1c94fdfc5e98`, SUCCESS às 13:54:52 UTC; digest `sha256:86c81206b4ad1f5bf2e8c047620a99464878062b490c5ea3d0908c482c75794a`.
+- Web: deployment `ec0229a7-f178-4f53-82ee-33c3da600599`, SUCCESS, healthcheck concluído às 14:02:52 UTC; digest `sha256:c52ca78e999f6a38de1bfe4d5bb7b7177d69d2007251c84b33b3f4719dde2998`. Bundle `index-DEDmZ0Vu.js` confirmado no domínio oficial e no Chrome após aplicar a atualização da PWA.
+- Health da API respondeu `200 Healthy`, web `200 ok`. Snapshot importado antes e após cada etapa, diffs revisados e planos sem divergências; fontes finais conferidas também nos deployments. O plano CLI omitiu a diferença somente de commit da web; a promoção foi feita pelo patch staged revisado, contendo exclusivamente esse commit. Variáveis, domínios, banco e serviços auxiliares preservados. Seis serviços em SUCCESS e nenhum trabalho pendente na conferência final.
+
+Validação autenticada no Chrome: desktop de 1470 px e celular emulado de 390/320 px, sem transbordamento horizontal. A revisão abre com quatro de 107 produtos preenchidos, informa 103 campos em branco como zero e apresenta 22 ajustes propostos. Filtros retornam 103 em branco e 22 divergentes; busca Amstel retorna três produtos. Mesmo com busca ativa, a revisão inclui os itens ocultos e mantém o aviso completo. Aprovação disponível após revisão, campos com `inputmode=decimal`, rodapé e controles acessíveis. Quantidades existentes (0; 0; 6; 5) preservadas após a atualização; console sem avisos ou erros. Nenhuma quantidade, aprovação, cancelamento ou movimento de teste foi gravado em produção. Encerramento e rollback completos foram testados no PostgreSQL fictício e na CI. Não houve teste em aparelho físico.
+
+Evidências privadas fora do Git: `outputs/inventario-zero-producao-2026-10-19`, no workspace principal, com revisão desktop e móvel e contagem em 320 px. Viewport restaurado ao concluir.
+
+Rollback: retornar primeiro a web para `c317144c-104a-48a9-b01b-036c7a6173ff`, commit `d50df5b76a6cfa36c802344251431a64d59dfafc`. A API nova pode permanecer compatível. Se necessário, depois retornar a API para `1e49969e-b0f7-48b3-9a35-0dad3af56951`, commit `af76a0a8902807d56eaeaf3e1db92004a9dd72bd`, branch `codex/estoque-bar-ux-20261019`. Nunca retornar somente a API enquanto a web permitir aprovação parcial. Preservar inventários aprovados, ajustes e banco; sincronizar snapshot e conferir fontes e plano após retorno.

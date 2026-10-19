@@ -5,3 +5,4 @@ public sealed record StockOutputInput(Guid ProductId, Guid LocationId, decimal Q
 public sealed record CountInput(Guid LocationId, bool Initial);
 public sealed record CountItemInput(Guid ProductId, decimal Quantity);
 public sealed record ApprovalInput(string Reason, Guid? OperationId = null);
+public sealed record InventoryApprovalInput(string Reason, bool ZeroUncounted = false);

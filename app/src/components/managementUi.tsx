@@ -44,7 +44,7 @@ export function ModalPanel({ title, children, onClose, className = '' }: { title
 }
 
 // Forms opt into the same close/reload/navigation guard; successful saves clear it synchronously.
-export function EditorPanel({ title, children, onClose, busy = false }: { title: string; children: ReactNode; onClose: () => void; busy?: boolean }) {
+export function EditorPanel({ title, children, onClose, busy = false, hasUnsavedChanges, className = '' }: { title: string; children: ReactNode; onClose: () => void; busy?: boolean; hasUnsavedChanges?: boolean; className?: string }) {
   const guard = useUnsavedChanges(); const dirty = useRef(false); const body = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const leave = (event: BeforeUnloadEvent) => { if (dirty.current) { event.preventDefault(); event.returnValue = '' } }
@@ -54,8 +54,9 @@ export function EditorPanel({ title, children, onClose, busy = false }: { title:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(() => { if (!guard.dirty) dirty.current = false }, [guard.dirty])
+  useEffect(() => { if (hasUnsavedChanges !== undefined) dirty.current = hasUnsavedChanges }, [hasUnsavedChanges])
   const close = () => { if (busy) return; if (!dirty.current || window.confirm('Descartar as alterações não salvas?')) { guard.markSaved(); onClose() } }
-  return <ModalPanel title={title} onClose={close} className="editor-panel"><div ref={body} className="editor-body" onChangeCapture={event => { if ((event.target as HTMLElement).closest('[data-unsaved-ignore]')) return; dirty.current = true; guard.setDirty(true) }} onInvalidCapture={event => {
+  return <ModalPanel title={title} onClose={close} className={`editor-panel ${className}`}><div ref={body} className="editor-body" onChangeCapture={event => { if ((event.target as HTMLElement).closest('[data-unsaved-ignore]')) return; dirty.current = true; guard.setDirty(true) }} onInvalidCapture={event => {
     let parent = event.target as HTMLElement | null
     while (parent && parent !== body.current) { if (parent instanceof HTMLDetailsElement) parent.open = true; parent = parent.parentElement }
     requestAnimationFrame(() => (event.target as HTMLElement).focus())
