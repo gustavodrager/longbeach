@@ -1,5 +1,9 @@
 # Deploy de Production no Railway
 
+## Atualização de 19/10/2026 — Compras do Bar
+
+API e web fixadas em `ec6d867b3f3a2529b318caffe4385d65d24abcd3`. CI aprovada, API publicada antes da web e saúde confirmada. Conferência autenticada desktop e celular emulado 320/390 px concluída, sem registros de teste em produção. Sem migration. Ver [publicação, validação e retorno de Compras](compras-bar-ux-2026-10-19.md).
+
 ## Atualização de 19/10/2026 — campos em branco no inventário
 
 API e web fixadas em `077181e87f7cda2a94f635f530f694f1e98dbb16`, com encerramento parcial e campos em branco convertidos em zero na aprovação. API publicada antes da web; CI aprovada em PostgreSQL 17/18 e frontend. Conferência autenticada desktop e celular emulado em 320/390 px concluída, preservando as quantidades reais. Sem migration. Ver [publicação e retorno do encerramento com campos em branco](indicadores-bar-visual.md#publicação-do-encerramento-com-campos-em-branco--19-de-outubro-de-2026).

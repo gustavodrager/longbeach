@@ -1,6 +1,6 @@
-# Compras do Bar — validação local, 19/10/2026
+# Compras do Bar — publicação e validação, 19/10/2026
 
-Implementação local dos cinco pontos de UX. Este incremento ainda não foi enviado ao GitHub nem publicado.
+Cinco pontos de UX publicados em produção após CI aprovada. Revisão: https://github.com/gustavodrager/longbeach/pull/40.
 
 ## Comportamento
 
@@ -10,11 +10,11 @@ Implementação local dos cinco pontos de UX. Este incremento ainda não foi env
 - Data de hoje em São Paulo, editável. Frete, desconto e referência de pagamento recolhidos. Rodapé fixo com total e ação; painel amplo no desktop e largura completa em celular.
 - Registrar compra não movimenta estoque. A confirmação oferece “Receber esta compra”. Recebimento abre com o saldo restante, apresenta comprado/recebido/falta e permite parcial; vazio/zero pula o item. Entrada só ocorre na confirmação explícita. Usa conversão congelada na compra, inclusive se o cadastro atual mudar ou ficar inativo.
 
-## Integração e implantação futura
+## Integração
 
 Novas leituras protegidas por `bar:purchases:manage`: `GET /api/v1/bar/purchases/history`, `/purchases/products` e `/purchases/{id}`. O endpoint anterior de listagem e os contratos de escrita permanecem disponíveis. Sem migration.
 
-Publicar API antes do frontend em uma futura entrega autorizada, pois a tela depende das novas leituras. Rollback pode restaurar o frontend anterior mantendo a API compatível. Integração por `?invoice=` com Notas Recebidas preservada.
+API publicada antes do frontend, pois a tela depende das novas leituras. Rollback pode restaurar o frontend anterior mantendo a API compatível. Integração por `?invoice=` com Notas Recebidas preservada.
 
 Formulários mantêm valores em erro e bloqueiam submissão simultânea. O recebimento conserva a mesma chave de operação na repetição do mesmo payload. Cadastro de compra mantém o contrato existente, sem acrescentar uma nova garantia de idempotência em falhas de rede com resposta perdida.
 
@@ -29,3 +29,19 @@ Formulários mantêm valores em erro e bloqueiam submissão simultânea. O receb
 - Teclado virtual físico não foi validado: emulação confirma tamanho e atributo decimal, não comportamento de um aparelho real.
 
 Capturas locais fora do repositório: `../../artifacts/compras-ux-20261019/`.
+
+## Publicação em produção
+
+- Commit de aplicação imutável: `ec6d867b3f3a2529b318caffe4385d65d24abcd3`, branch `codex/compras-bar-ux-20261019`, API e web.
+- CI [39283034234](https://github.com/gustavodrager/longbeach/actions/runs/39283034234): sucesso; 340 testes unitários, 306 de integração em cada PostgreSQL 17/18, 382 frontend e 14 conversores, builds e verificações operacionais.
+- API: deployment `2c71a04f-02ef-42b6-af80-2851432476de`, SUCCESS em 19/10/2026 16:39:34 UTC.
+- Web: deployment `345545c0-4344-4331-bc2c-d746bbf90c68`, SUCCESS em 19/10/2026 16:52:43 UTC. Bundle público `index-CthK_GIB.js`.
+- API `/health/ready`: Healthy; web `/healthz`: ok; histórico anônimo retorna 401. Snapshot Railway importado após cada publicação, sem alterações pendentes.
+- Conferência autenticada em produção: lista e busca por fornecedor, filtro de pendências vazio, formulário com produto, decimal 1,5 × 2,00 = 3,00, Enter quantidade → custo → busca e abertura do cadastro de fornecedor preservando o item.
+- Desktop 1470×900; celular emulado 390×844 e 320×740: sem overflow horizontal, inputs de 48 px com inputmode decimal, rolagem e rodapé visíveis. Sem erros de console capturados. Teclado físico não testado.
+- Rascunho descartado pela confirmação de alterações não salvas; nenhuma compra, fornecedor ou entrada de estoque criada em produção. Recebimento completo/parcial validado no banco fictício e na CI; produção não tinha compras pendentes para exercitar essa escrita.
+- Evidências privadas fora do Git: `../../outputs/compras-producao-2026-10-19/` (desktop, formulário desktop e celulares 320/390).
+
+## Retorno
+
+Restaurar primeiro a web ao commit `077181e87f7cda2a94f635f530f694f1e98dbb16` (deployment anterior `ec0229a7-f178-4f53-82ee-33c3da600599`). A API nova é compatível e pode permanecer. Se necessário, restaurar também a API ao mesmo commit (deployment anterior `58c0a287-1d8a-4e3f-bb57-1c94fdfc5e98`). Sem migration ou restauração de banco; preservar movimentos reais. Conferir saúde e sessão autenticada após retorno.
