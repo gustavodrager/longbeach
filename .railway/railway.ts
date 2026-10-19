@@ -7,7 +7,7 @@ export default defineRailway(() => {
   Postgres.networking = { privateNetworkEndpoint: "postgres" };
   const postgresVolume = volume("postgres-volume", { alerts: { usage: { "100": {}, "80": {}, "95": {} } }, allowOnlineResize: true, region: "europe-west4-drams3a", sizeMB: 5000 });
   const api = service("api", {
-    source: github("gustavodrager/longbeach", { branch: "codex/estoque-bar-ux-20261019", commitSha: "af76a0a8902807d56eaeaf3e1db92004a9dd72bd" }),
+    source: github("gustavodrager/longbeach", { branch: "codex/contagem-rapida-20261019", commitSha: "077181e87f7cda2a94f635f530f694f1e98dbb16" }),
     build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "deploy/api.Dockerfile" },
     healthcheck: "/health/ready",
     healthcheckTimeout: 300,
