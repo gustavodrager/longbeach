@@ -43,6 +43,21 @@ public sealed class BarRulesTests
         Assert.Throws<BarRuleException>(() => c.Count(p, 11)); Assert.Throws<BarRuleException>(() => c.Approve(Guid.NewGuid(), "repetido"));
     }
     [Fact]
+    public void Inventory_can_explicitly_zero_missing_items_without_overwriting_entered_counts()
+    {
+        var c = new InventoryCount(Guid.NewGuid(), false, Guid.NewGuid());
+        var missing = new InventoryCountItem(c.Id, Guid.NewGuid(), 7, 0, 2);
+        var entered = new InventoryCountItem(c.Id, Guid.NewGuid(), 5, 0, 2);
+        c.Items.Add(missing); c.Items.Add(entered); c.Count(entered.ProductId, 3);
+        Assert.Throws<BarRuleException>(() => c.Approve(Guid.NewGuid(), "", true));
+        Assert.Null(missing.Counted);
+        c.Approve(Guid.NewGuid(), "Encerramento com zeros", true);
+        Assert.Equal(0m, missing.Counted); Assert.Equal(3m, entered.Counted); Assert.Equal("Approved", c.State);
+        Assert.Throws<BarRuleException>(() => c.Approve(Guid.NewGuid(), "Repetir", true));
+        var empty = new InventoryCount(Guid.NewGuid(), false, Guid.NewGuid());
+        Assert.Throws<BarRuleException>(() => empty.Approve(Guid.NewGuid(), "Vazio", true));
+    }
+    [Fact]
     public void Weighted_cost_uses_received_quantity()
     { var p = Product(24); p.ReceiveCost(10, 10, 8); Assert.Equal(7, p.AverageCost); Assert.Equal(8, p.LastCost); }
     private static BarProduct Product(decimal conversion) => new("AGUA", "Água", "Água", Guid.NewGuid(), "un", "cx", conversion, 10, 6, 10, true, false, 0);

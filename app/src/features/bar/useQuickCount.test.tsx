@@ -14,9 +14,9 @@ function setup(){
  return {...hook,client,writes,finish,fetch}
 }
 afterEach(()=>vi.restoreAllMocks())
-it('aceita vírgula/ponto e zero, rejeita vazio, incompleto, negativo e precisão excessiva',()=>{
- for(const value of ['',' ','-1','1,','1.','1e2','1.2345','1,2,3'])expect(countQuantity(value)).toBeNull()
- expect(countQuantity('0')).toBe(0);expect(countQuantity('2,125')).toBe(2.125);expect(countQuantity('2.125')).toBe(2.125)
+it('aceita vírgula/ponto e zero, interpreta vazio como zero e rejeita incompleto, negativo e precisão excessiva',()=>{
+ for(const value of ['-1','1,','1.','1e2','1.2345','1,2,3'])expect(countQuantity(value)).toBeNull()
+ expect(countQuantity('')).toBe(0);expect(countQuantity(' ')).toBe(0);expect(countQuantity('0')).toBe(0);expect(countQuantity('2,125')).toBe(2.125);expect(countQuantity('2.125')).toBe(2.125)
 })
 it('serializa itens, preserva edição recente e atualiza apenas o item confirmado do cache',async()=>{
  const {result,writes,finish,client}=setup()
@@ -64,4 +64,16 @@ it('impede uma consulta antiga de substituir a quantidade confirmada',async()=>{
  await act(async()=>{resolveOld([count]);await oldRequest})
  expect(client.getQueryData<StockCount[]>(['bar','/counts'])?.[0].items[0].counted).toBe(3)
  expect(result.current.entries.a.status).toBe('saved')
+})
+
+it('apagar quantidade já salva grava zero, mantendo branco sem erro',async()=>{
+ const {result,writes,finish}=setup()
+ act(()=>result.current.shortcut('a',4));await finish(0)
+ act(()=>{result.current.change('a','');result.current.save('a')});await finish(1)
+ expect(writes[1].body.quantity).toBe(0);expect(result.current.entries.a.value).toBe('');expect(result.current.dirty).toBe(false)
+})
+it('campo nunca preenchido fica disponível para zerar apenas na aprovação',()=>{
+ const {result,writes}=setup()
+ act(()=>result.current.save('a'))
+ expect(writes).toHaveLength(0);expect(result.current.dirty).toBe(false)
 })

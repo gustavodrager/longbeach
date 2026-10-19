@@ -64,10 +64,12 @@ public sealed class InventoryCount : Entity
         EnsureOpen(); var item = Items.SingleOrDefault(x => x.ProductId == productId) ?? throw new BarRuleException("Produto fora da fotografia do inventário.");
         item.Count(counted); Version++;
     }
-    public void Approve(Guid actor, string reason)
+    public void Approve(Guid actor, string reason, bool zeroUncounted = false)
     {
-        EnsureOpen(); if (Items.Count == 0 || Items.Any(x => x.Counted is null)) throw new BarRuleException("Conte todos os produtos antes da aprovação.");
-        Reason = BarRules.Text(reason, 500, "Justificativa"); ApprovedBy = actor; State = "Approved"; Version++;
+        EnsureOpen(); if (Items.Count == 0 || (!zeroUncounted && Items.Any(x => x.Counted is null))) throw new BarRuleException("Conte todos os produtos antes da aprovação.");
+        Reason = BarRules.Text(reason, 500, "Justificativa");
+        if (zeroUncounted) foreach (var item in Items.Where(x => x.Counted is null)) item.Count(0);
+        ApprovedBy = actor; State = "Approved"; Version++;
     }
     public void Cancel(string reason) { EnsureOpen(); Reason=BarRules.Text(reason,500,"Motivo do cancelamento");State="Canceled";Version++; }
     private void EnsureOpen() { if (State != "Counting") throw new BarRuleException("Inventário aprovado é imutável."); }

@@ -140,3 +140,17 @@ Conferência autenticada em produção:
 Evidências privadas fora do Git: `outputs/contagem-rapida-producao-2026-10-19`, no workspace principal, com desktop, 390 e 320 px. Viewport restaurado e contagem de produção deixada aberta.
 
 Rollback somente da web: deployment anterior `fdf7e4d1-1e9c-42ba-9752-7ee68a049472`, commit `7f7bc1a15ade7e753e30c82c9c67c9488a183ad6`, branch `codex/estoque-bar-ux-20261019`. Preservar API, banco e contagens já salvas; sincronizar snapshot e conferir plano sem divergências após retorno.
+
+## Inventário com campos em branco como zero — implementação local em 19 de outubro de 2026
+
+A contagem permite revisar e encerrar inventários parcialmente preenchidos ou inteiramente em branco. Campos nunca preenchidos permanecem sem gravação individual até a aprovação, quando passam a zero. Limpar uma quantidade já salva e sair do campo salva zero. Valores informados são preservados; erros e gravações pendentes continuam bloqueando a revisão. A revisão identifica explicitamente os campos em branco, inclusive os ocultos por busca ou filtro, mostra “0 (em branco)” e calcula as diferenças antes da confirmação.
+
+A aprovação usa o campo opcional `zeroUncounted: true`. Clientes antigos que omitem esse campo mantêm a exigência anterior de preencher todos os produtos. A conversão para zero e os ajustes são transacionais: movimentos ou reservas concorrentes continuam bloqueando a aprovação, sem persistir a conversão parcial. Permissões e justificativa são preservadas; inventários sem produtos continuam bloqueados. Sem migration.
+
+Validação: 378 testes frontend, 10 testes de regras do Bar e seis testes de integração PostgreSQL aprovados. Cobertura inclui limpar quantidade salva, não gravar campos intocados, revisão parcial, preservação dos valores informados, aprovação inteiramente em branco e rollback após movimento concorrente. Builds finais da API e web/PWA aprovados. O build dos testes de integração apresentou aviso NU1900 de consulta à auditoria de vulnerabilidades, sem impedir os testes.
+
+Chrome com API real e banco local fictício: desktop de 1470 px e celular emulado de 390 e 320 px. Inventário com quatro de 107 quantidades preenchidas foi aprovado: PostgreSQL confirmou 107 quantidades gravadas, 105 delas zero, e 21 ajustes. Os valores anteriores (0; 2; 0; 1,125) foram preservados. Um novo inventário com 107 campos em branco também permitiu abrir a revisão. Sem transbordamento horizontal nas larguras verificadas e console sem avisos ou erros. Nenhuma gravação em produção ou teste em aparelho físico.
+
+Prévia em `http://localhost:5322/bar/inventario`. Evidências privadas no workspace principal: `outputs/inventario-zero-2026-10-19`, com contagem em 320 px, revisão em 390 px e revisão desktop. Esta etapa não enviou alterações ao GitHub nem publicou em produção.
+
+Para publicação futura, atualizar a API antes da web: a interface nova depende da aprovação com `zeroUncounted`. Em rollback, retornar primeiro a web, depois a API se necessário. Preservar banco e inventários já aprovados.

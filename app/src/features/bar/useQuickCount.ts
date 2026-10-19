@@ -9,6 +9,7 @@ type Entry = { value: string; confirmed: number | null; revision: number; status
 type Write = { productId: string; quantity: number; revision: number }
 export function countQuantity(value: string): number | null {
   const text = value.trim()
+  if (text === '') return 0
   if (!/^\d+(?:[.,]\d{1,3})?$/.test(text)) return null
   const quantity = Number(text.replace(',', '.'))
   return Number.isFinite(quantity) ? quantity : null
@@ -69,7 +70,7 @@ export function useQuickCount(count: StockCount) {
     queue.current.set(productId, { productId, quantity, revision: entry.revision }); publish(); void pump(); return true
   }
   const shortcut = (productId: string, quantity: number) => {
-    if (countQuantity(data.current[productId].value) !== quantity) change(productId, String(quantity).replace('.', ','))
+    if (data.current[productId].value.trim() === '' || countQuantity(data.current[productId].value) !== quantity) change(productId, String(quantity).replace('.', ','))
     save(productId)
   }
   return { entries, busy, dirty: isDirty(), change, save, shortcut }

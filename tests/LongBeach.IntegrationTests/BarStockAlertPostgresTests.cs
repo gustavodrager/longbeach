@@ -92,6 +92,37 @@ public sealed class BarStockAlertPostgresTests
         await Assert.ThrowsAsync<BarRuleException>(()=>service.MovementHistory(bar.Id, null, null, new DateOnly(2026,10,20), new DateOnly(2026,10,19), 1, default));
     }
 
+    [PostgresFact]
+    public async Task Missing_counts_are_zeroed_atomically() => await VerifyZeroApproval(false);
+
+    [PostgresFact]
+    public async Task Concurrent_stock_still_blocks_zero_approval() => await VerifyZeroApproval(true);
+
+    private async Task VerifyZeroApproval(bool changed)
+    {
+        await using var database = await Database.Create(); var db = database.Context;
+        var bar = await db.Set<StockLocation>().SingleAsync(x => x.Name == "Bar");
+        var category = new BarProductCategory("Contagem zero");
+        var product = new BarProduct("zero", "Produto zero", "Zero", category.Id, "un", "un", 1, 5, 1, 0, true, false, 0);
+        var balance = new StockBalance(product.Id, bar.Id); balance.Move(7);
+        db.AddRange(category, product, balance); await db.SaveChangesAsync();
+        var service = new BarStockService(db); var actor = Guid.NewGuid();
+        var count = await service.CreateCount(new(bar.Id, false), actor, default);
+        if (changed)
+        {
+            balance.Move(1); await db.SaveChangesAsync();
+            await Assert.ThrowsAsync<BarRuleException>(() => service.Approve(count.Id, "Zeros", actor, default, true));
+        }
+        else await service.Approve(count.Id, "Zeros", actor, default, true);
+        db.ChangeTracker.Clear();
+        var persisted = await db.Set<InventoryCount>().Include(x => x.Items).SingleAsync(x => x.Id == count.Id);
+        Assert.Equal(changed ? "Counting" : "Approved", persisted.State);
+        if (changed) Assert.Null(Assert.Single(persisted.Items).Counted);
+        else Assert.Equal(0m, Assert.Single(persisted.Items).Counted);
+        Assert.Equal(changed ? 8m : 0m, (await db.Set<StockBalance>().SingleAsync(x => x.Id == balance.Id)).Quantity);
+        Assert.Equal(changed ? 0 : 1, await db.Set<StockMovement>().CountAsync(x => x.OriginId == count.Id));
+    }
+
     private sealed class Database(string connectionString, string schema, LongBeachDbContext context) : IAsyncDisposable
     {
         public LongBeachDbContext Context { get; } = context;
