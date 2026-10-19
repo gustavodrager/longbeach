@@ -29,6 +29,8 @@ public static class BarEndpoints
         bar.MapPut("/counts/{id:guid}/items", (Guid id, CountItemInput i, IBarStock s, CancellationToken ct) => s.Count(id,i,ct)).RequireAuthorization(SystemPermissions.BarStockManage);
         bar.MapPost("/counts/{id:guid}/cancel",(Guid id,ApprovalInput i,IBarStock s,CancellationToken ct)=>s.CancelCount(id,i.Reason,ct)).RequireAuthorization(SystemPermissions.BarStockManage);
         bar.MapPost("/counts/{id:guid}/approve", (Guid id, InventoryApprovalInput i, HttpContext h, IBarStock s, CancellationToken ct) => s.Approve(id,i.Reason,Actor(h),ct,i.ZeroUncounted)).RequireAuthorization(SystemPermissions.BarSupervise);
+        bar.MapGet("/cash/history", (string? search, string? state, int? page, IBarCash s, CancellationToken ct) => s.History(search,state,page ?? 1,ct)).RequireAuthorization(SystemPermissions.BarSupervise);
+        bar.MapGet("/cash/sessions/{id:guid}/details", (Guid id, IBarCash s, CancellationToken ct) => s.Details(id,ct)).RequireAuthorization(SystemPermissions.BarSupervise);
         bar.MapGet("/cash/registers", (IBarCash s, CancellationToken ct) => s.Registers(ct)).RequireAuthorization(SystemPermissions.BarCashOperate);
         bar.MapPost("/cash/registers", (LocationInput i, IBarCash s, CancellationToken ct) => s.CreateRegister(i.Name,ct)).RequireAuthorization(SystemPermissions.BarSupervise);
         bar.MapGet("/cash/sessions", (HttpContext h, IBarCash s, CancellationToken ct) => s.Sessions(Actor(h),Has(h,SystemPermissions.BarSupervise)||Has(h,SystemPermissions.BarFinanceRead),ct)).RequireAuthorization(SystemPermissions.BarCashOperate);

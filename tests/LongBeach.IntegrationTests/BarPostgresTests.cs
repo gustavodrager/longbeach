@@ -92,6 +92,23 @@ public sealed class BarPostgresTests
         Assert.Equal(42,(await db.Set<StockBalance>().SingleAsync(x=>x.ProductId==product.Id&&x.LocationId==location.Id)).Quantity);
         Assert.True(await db.AuditLogs.AnyAsync(x=>x.Resource==nameof(StockMovement)));
     }
+    [PostgresFact]
+    public async Task Cash_history_pages_before_limit_and_details_preserve_closing_and_movements()
+    {
+        await using var db=Database(); await db.Database.MigrateAsync();
+        var suffix=Guid.NewGuid().ToString("N"); var actor=LongBeach.Domain.Identity.User.Create("Cash "+suffix,suffix+"@example.invalid","test-only"); db.Add(actor);
+        var register=new LongBeach.Domain.Cash.CashRegister("Register "+suffix); var location=new StockLocation("Cash "+suffix); db.AddRange(register,location); await db.SaveChangesAsync();
+        var service=new BarCashService(db); var session=await service.Open(new(register.Id,location.Id,"Turno",100,Guid.NewGuid()),actor.Id,default);
+        for(var i=0;i<105;i++){var old=new LongBeach.Domain.Cash.CashSession(register.Id,location.Id,actor.Id,"History",0);old.Close();db.Add(old);} await db.SaveChangesAsync();
+        var page=await service.History(suffix,null,1,default); Assert.Equal(106,page.Total);Assert.Equal(session.Id,page.Items[0].Id);Assert.Equal(20,page.Items.Count);
+        Assert.Single((await service.History(suffix,"open",1,default)).Items);Assert.Equal(5,(await service.History(suffix,"closed",6,default)).Items.Count);
+        var move=new CashMovementInput(25,"Troco teste",Guid.NewGuid());await service.Move(session.Id,move,"Supply",actor.Id,default);await service.Move(session.Id,move,"Supply",actor.Id,default);
+        await Assert.ThrowsAsync<BarRuleException>(()=>service.Move(session.Id,new(1,"Outro operador",Guid.NewGuid()),"Supply",Guid.NewGuid(),default));
+        await Assert.ThrowsAsync<BarRuleException>(()=>service.Close(session.Id,new(120,"Saldo desatualizado",Guid.NewGuid(),100),actor.Id,true,default));
+        await service.Close(session.Id,new(120,"Diferença conferida",Guid.NewGuid(),125),actor.Id,true,default);
+        var details=await service.Details(session.Id,default);Assert.Single(details.Movements,x=>x.Kind=="Supply");var closing=Assert.Single(details.Closings);Assert.Equal(125,closing.Expected);Assert.Equal(-5,closing.Difference);Assert.False(details.PendingPayment);
+        await service.Reopen(session.Id,"Reabrir teste",actor.Id,Guid.NewGuid(),default);Assert.Equal(4,(await service.Details(session.Id,default)).Movements.Count);
+    }
     private static LongBeachDbContext Database()=>new(new DbContextOptionsBuilder<LongBeachDbContext>()
         .UseNpgsql(Environment.GetEnvironmentVariable("LONG_BEACH_TEST_DATABASE_URL"))
         .AddInterceptors(new AuditSaveChangesInterceptor(new TestAudit(),TimeProvider.System)).Options,TimeProvider.System);

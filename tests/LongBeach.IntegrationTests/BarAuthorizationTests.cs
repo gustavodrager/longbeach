@@ -15,6 +15,8 @@ public sealed class BarAuthorizationTests
     [InlineData("/api/v1/bar/stock/movements")]
     [InlineData("/api/v1/bar/stock/valuation")]
     [InlineData("/api/v1/bar/cash/sessions")]
+    [InlineData("/api/v1/bar/cash/history")]
+    [InlineData("/api/v1/bar/cash/sessions/00000000-0000-0000-0000-000000000001/details")]
     [InlineData("/api/v1/bar/sales")]
     [InlineData("/api/v1/bar/purchases")]
     [InlineData("/api/v1/bar/purchases/history")]
