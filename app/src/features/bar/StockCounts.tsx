@@ -3,15 +3,17 @@ import { ActionPanel, Disclosure, EditorPanel, RecordTable, useContextSearchPara
 import { Empty, Field, Pagination } from '../../pages/arenaUi'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/access'
-import { type Product, useBar, useBarStock, useAction, Notice, QueryNotice, StockNotice, Input, formData } from './BarCore'
+import { type Product, type Balance, useBar, useBarStock, useAction, Notice, QueryNotice, StockNotice, Input, formData } from './BarCore'
 import { StockPage, amount } from './StockUi'
 export type StockCount = { id:string; locationId:string; initial:boolean; state:string; createdAtUtc?:string; items:{productId:string;theoretical:number;counted:number|null}[] }
 export function BarCountsPage() {
-  const counts=useBar<StockCount[]>('/counts');const stock=useBarStock();const catalog=useBar<Product[]>('/catalog');const a=useAction()
+  const counts=useBar<StockCount[]>('/counts');const stock=useBarStock();const catalog=useBar<Product[]>('/catalog');const balances=useBar<Balance[]>('/stock/balances');const a=useAction()
   const [params,setParams]=useContextSearchParams(); const selected=counts.data?.find(c=>c.id===params.get('registro'))
   const open=params.get('acao')==='contagem'
   const close=()=>{const next=new URLSearchParams(params);next.delete('acao');next.delete('registro');setParams(next,{replace:true,preventScrollReset:true})}
   const show=(id:string)=>{const next=new URLSearchParams(params);next.set('acao','contagem');next.set('registro',id);setParams(next,{preventScrollReset:true})}
+  const identities=new Map<string,Pick<Product,'id'|'name'|'saleUnit'>>((balances.data??[]).map(b=>[b.productId,{id:b.productId,name:b.name,saleUnit:b.unit}]))
+  for(const product of catalog.data??[]) identities.set(product.id,product)
   const initialUnavailable=counts.data?.some(c=>c.locationId===stock.location?.id&&c.state==='Approved')
   return <StockPage title="Inventário do Bar" description="Conte os produtos, confira as diferenças e só então aprove os ajustes.">
     <QueryNotice query={counts}/><StockNotice stock={stock}/>
@@ -24,10 +26,10 @@ export function BarCountsPage() {
       return <section key={c.id} className="operation-card stock-count-card"><div><h2>{c.initial?'Contagem inicial':'Inventário'} · {c.state==='Approved'?'Aprovado':c.state==='Canceled'?'Cancelado':'Em contagem'}</h2><p>{stock.query.data?.find(l=>l.id===c.locationId)?.name??'Local a consultar'}{c.createdAtUtc&&` · ${new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(c.createdAtUtc))}`}</p><p>{counted} de {c.items.length} produtos contados · {different} divergências</p></div><button onClick={()=>show(c.id)}>{c.state==='Counting'?'Continuar contagem':'Ver contagem'}</button></section>
     })}</>}</Pagination>}
     {counts.isSuccess&&!counts.data.length&&<Empty>Nenhum inventário registrado. Abra uma contagem para conferir o estoque.</Empty>}
-    {open && selected && <CountPanel key={selected.id} count={selected} products={catalog.data??[]} catalogReady={catalog.isSuccess} onClose={close}/>}
+    {open && selected && <CountPanel key={selected.id} count={selected} products={[...identities.values()]} catalogReady={catalog.isSuccess&&balances.isSuccess} onClose={close}/>}
   </StockPage>
 }
-function CountPanel({count,products,catalogReady,onClose}:{count:StockCount;products:Product[];catalogReady:boolean;onClose:()=>void}) {
+function CountPanel({count,products,catalogReady,onClose}:{count:StockCount;products:Pick<Product,'id'|'name'|'saleUnit'>[];catalogReady:boolean;onClose:()=>void}) {
   const a=useAction();const {user}=useAuth();const guard=useUnsavedChanges()
   const [search,setSearch]=useState('');const [status,setStatus]=useState('pending');const [page,setPage]=useState(1);const [editing,setEditing]=useState<string|null>(null);const [value,setValue]=useState('');const [review,setReview]=useState(false);const [canceling,setCanceling]=useState(false)
   const productMap=new Map(products.map(p=>[p.id,p]));const editable=count.state==='Counting';const supervise=hasPermission(user,'bar:supervise')

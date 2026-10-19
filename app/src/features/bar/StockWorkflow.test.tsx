@@ -16,7 +16,7 @@ function setup(child:React.ReactNode,path='/bar/estoque',countOverride?:StockCou
   if(init?.method==='PUT'){const body=JSON.parse(String(init.body));count={...count,items:count.items.map(i=>i.productId===body.productId?{...i,counted:body.quantity}:i)};return response(count)}
   if(init?.method==='POST')return response({id:'saved'})
   if(url.endsWith('/stock/locations'))return response([{id:'warehouse',name:'Anterior'},{id:'bar',name:'Bar'}])
-  if(url.endsWith('/stock/balances'))return response(balances)
+  if(url.endsWith('/stock/balances'))return response([...balances,{productId:'inactive',locationId:'bar',name:'Produto antigo',unit:'kg',active:false,controlsStock:true,quantity:2,reserved:0,available:2}])
   if(url.endsWith('/catalog'))return response(products)
   if(url.endsWith('/counts'))return response([count])
   if(url.includes('/stock/movement-history?'))return response({items:[{id:'m',name:'Produto 01',locationName:'Bar',unit:'un',quantity:-1,before:5,after:4,kind:'Loss',reason:'Quebra fictícia',createdAtUtc:'2026-10-19T12:00:00Z',originId:'example'}],page:1,pageSize:20,total:1})
@@ -85,4 +85,12 @@ it('bloqueia saída acima do disponível e exige conferir antes de registrar',as
  expect(await within(dialog).findByText('Saída registrada. O saldo foi atualizado.')).toBeInTheDocument()
  const write=api.mock.calls.find(([,init])=>init?.method==='POST')
  expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({productId:'p1',locationId:'bar',quantity:1})
+})
+
+it('identifica produto inativo de uma contagem antiga pelo nome e unidade do estoque',async()=>{
+ setup(<BarCountsPage/>,'/bar/inventario',{id:'count',locationId:'bar',state:'Counting',initial:false,items:[{productId:'inactive',theoretical:2,counted:null}]})
+ await userEvent.click(await screen.findByRole('button',{name:'Continuar contagem'}))
+ await userEvent.click(await screen.findByRole('button',{name:'Contar Produto antigo'}))
+ expect(screen.getByRole('heading',{name:'Produto antigo'})).toBeInTheDocument()
+ expect(screen.getByText('Físico registrado na abertura: 2 kg')).toBeInTheDocument()
 })
