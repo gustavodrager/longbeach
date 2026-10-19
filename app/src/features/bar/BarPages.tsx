@@ -1,55 +1,12 @@
-import { useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { label, money, type Named, type Product, type Managed, type Session, type Sale, useBar, useAction, Notice, QueryNotice, useBarStock, StockNotice, Page, Input, Select, formData, str, num } from './BarCore'
+export { BarStockPage, BarCountsPage, BarLossesPage } from './StockPages'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, Outlet, useSearchParams } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '../../lib/http'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/access'
-import { barLocation } from '../attendance/serviceLocation'
 
-import { ActionPanel, Disclosure, EditorPanel, RecordTable, SectionTabs, useSection, useUnsavedChanges, useContextSearchParams } from '../../components/managementUi'
-import { Empty, Field, Heading, Pagination, Search, useFilters } from '../../pages/arenaUi'
-
-const root = '/api/v1/bar'
-const stateLabels: Record<string,string> = {Draft:'Rascunho',AwaitingPayment:'Aguardando pagamento',Paid:'Paga',Canceled:'Cancelada',Refunded:'Estornada',Approved:'Aprovado',Pending:'Pendente',Ordered:'Comprada',PartiallyReceived:'Recebida parcialmente',Received:'Recebida',Loss:'Perda',InternalConsumption:'Consumo interno',Sale:'Venda',PurchaseReceived:'Recebimento de compra',InitialCount:'Contagem inicial',InventoryAdjustment:'Ajuste de inventário',TransferOut:'Transferência de saída',TransferIn:'Transferência de entrada',Courtesy:'Cortesia',SaleReturn:'Devolução',Cash:'Dinheiro',CardManual:'Cartão manual',Pix:'Pix',TabDelivery:'Entrega de comanda',TabReturn:'Devolução de comanda',TabPayment:'Pagamento de comanda',TabRefund:'Estorno de comanda',Open:'Aberto',Closed:'Fechado',Reopened:'Reaberto',Declined:'Não confirmado'}
-const label = (state:string) => stateLabels[state] ?? state
-const money = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-type Named = { id: string; name: string }
-type Product = Named & { code: string; shortName: string; categoryId: string; saleUnit: string; salePrice: number; controlsStock: boolean; minimumStock: number; favorite: boolean; displayOrder: number; active: boolean; version: number; barcode?: string; imageUrl?: string; prepared?: boolean }
-type Managed = { product: Product; purchaseUnit: string; conversionFactor: number; averageCost: number; lastCost: number; mainSupplierId?: string }
-type Balance = { productId: string; locationId: string; quantity: number; reserved: number; available: number; name: string; low: boolean }
-type Session = { id: string; registerId: string; locationId: string; state: string; expected: number; terminal: string }
-type Sale = { id: string; actorId?: string; discountAmount?: number; total: number; state: string; reason?: string; items: { productId: string; name: string; quantity: number; total: number }[] }
-function useBar<T>(path: string, enabled = true) { return useQuery({ queryKey: ['bar', path], queryFn: () => apiFetch<T>(root + path), enabled }) }
-function useAction() {
-  const {markSaved}=useUnsavedChanges()
-  const attemptKeys = useRef(new Map<string,string>()); const locked = useRef(false);
-  const client = useQueryClient(); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [message, setMessage] = useState('')
-  const run = async <T,>(path: string, body: unknown, method = 'POST'): Promise<T | undefined> => {
-    if (locked.current) return undefined; locked.current=true; let retryKey: string | undefined
-    if (body && typeof body === 'object' && 'operationId' in body) { const b=body as Record<string,unknown>; const {operationId: _id,...rest}=b; const key=path+JSON.stringify(rest); retryKey=key; if(attemptKeys.current.has(key)) b.operationId=attemptKeys.current.get(key); else attemptKeys.current.set(key,String(b.operationId)) }
-    setBusy(true); setError(''); setMessage('')
-    try { const result = await apiFetch<T>(root + path, { method, body: JSON.stringify(body) }); if(retryKey) attemptKeys.current.delete(retryKey); await client.invalidateQueries({ queryKey: ['bar'] }); markSaved(); setMessage('Operação registrada.'); return result }
-    catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível registrar.'); return undefined }
-    finally { locked.current=false; setBusy(false) }
-  }
-  return { run, busy, error, message }
-}
-function Notice({ action }: { action: ReturnType<typeof useAction> }) { return <>{action.error && <p role="alert" className="bar-error">{action.error}</p>}{action.message && <p role="status">{action.message}</p>}</> }
-function QueryNotice({ query }: { query: { isLoading: boolean; error: Error | null } }) { return <>{query.isLoading && <p role="status">Carregando…</p>}{query.error && <p role="alert">{query.error.message}</p>}</> }
-function useBarStock() {
-  const query = useBar<Named[]>('/stock/locations')
-  const location = query.isError ? undefined : barLocation(query.data)
-  return { query, location, ready: Boolean(location) }
-}
-function StockNotice({ stock }: { stock: ReturnType<typeof useBarStock> }) {
-  return <><QueryNotice query={stock.query}/>{stock.query.isSuccess && !stock.location && <p role="alert">Estoque do Bar não configurado. Peça à gestão para conferir o cadastro.</p>}</>
-}
-function Page({ title, children }: { title: string; children: ReactNode }) { return <main className="operation-page arena-page"><Heading title={title} description="" eyebrow="Gestão do bar" />{children}</main> }
-function Input({ name, label, value, type = 'text', required = true, step, disabled }: { name: string; label: string; value?: string | number; type?: string; required?: boolean; step?: string; disabled?: boolean }) { return <label className="bar-field">{label}<input name={name} defaultValue={value} disabled={disabled} type={type} required={required} min={type === 'number' ? 0 : undefined} step={step} /></label> }
-function Select({ name, label, items, value }: { name: string; label: string; items: Named[]; value?: string }) { return <label className="bar-field">{label}<select name={name} required defaultValue={value ?? ''}><option value="" disabled>Selecione</option>{items.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label> }
-const formData = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); return new FormData(e.currentTarget) }
-const str = (f: FormData, key: string) => String(f.get(key) ?? '')
-const num = (f: FormData, key: string) => Number(f.get(key))
+import { ActionPanel, Disclosure, EditorPanel, RecordTable, useContextSearchParams } from '../../components/managementUi'
+import { Empty, Field, Pagination, Search, useFilters } from '../../pages/arenaUi'
 
 export function BarLayout() {
   const {user}=useAuth()
@@ -92,43 +49,6 @@ export function BarProductsPage() {
     <label className="bar-check"><input name="prepared" type="checkbox" defaultChecked={edit?.product.prepared ?? false}/>Precisa preparar (vai para Pedidos)</label></div></Disclosure><div className="form-actions"><button disabled={a.busy}>Salvar produto</button><button className="secondary-link" type="button" onClick={close}>Cancelar</button></div></form>}</EditorPanel>:editing&&!products.isLoading&&<p role="alert">Produto não encontrado. <button onClick={close}>Voltar à lista</button></p>}
   </Page>
 }
-export function BarStockPage() {
-  const filters = useFilters()
-  const [section, setSection] = useSection(['saldos', 'movimentos'])
-  const stock = useBarStock()
-  const balances = useBar<Balance[]>('/stock/balances')
-  const catalog = useBar<Product[]>('/catalog', section === 'movimentos')
-  const movements = useBar<{ id: string; productId: string; locationId: string; quantity: number; kind: string; reason: string }[]>('/stock/movements', section === 'movimentos')
-  const search = filters.query.toLocaleLowerCase('pt-BR')
-  const rows = (balances.data ?? []).filter(row => row.locationId === stock.location?.id && row.name.toLocaleLowerCase('pt-BR').includes(search) && (filters.params.get('low') !== '1' || row.low))
-  const previousBalances = stock.ready ? (balances.data ?? []).filter(row => row.locationId !== stock.location?.id && (row.quantity !== 0 || row.reserved !== 0)) : []
-  const movementRows = (movements.data ?? []).filter(row => (catalog.data?.find(product => product.id === row.productId)?.name ?? row.productId).toLocaleLowerCase('pt-BR').includes(search))
-  return <Page title="Estoque do Bar">
-    <p className="arena-hint">Saldos do estoque do Bar, a partir das contagens e movimentações registradas.</p>
-    <StockNotice stock={stock}/><QueryNotice query={balances}/>
-    <SectionTabs value={section} onChange={setSection} items={[{ value: 'saldos', label: 'Saldos' }, { value: 'movimentos', label: 'Movimentações' }]}/>
-    <div className="compact-filters"><Search filters={filters} placeholder="Buscar produto…"/>{section === 'saldos' && <Field label="Disponibilidade" value={filters.params.get('low') ?? ''} onChange={value => filters.set('low', value)} options={[{ value: '', label: 'Todos os produtos' }, { value: '1', label: 'Abaixo do mínimo' }]}/>}</div>
-    {section === 'saldos' ? <>
-      {stock.ready && <><p className="arena-hint">{rows.length} saldos nesta seleção</p><Pagination total={rows.length}>{(start, end) => <RecordTable label="Saldos do estoque" columns={['Produto', 'Físico', 'Reservado', 'Disponível']} rows={rows.slice(start, end).map(row => ({ key: row.productId, cells: [<>{row.name}{row.low && <small> · abaixo do mínimo</small>}</>, row.quantity, row.reserved, row.available] }))}/>}</Pagination>
-      {!rows.length && !balances.isLoading && !balances.isError && <Empty>Nenhum saldo nesta seleção. Confira os filtros ou registre a contagem física no Inventário.</Empty>}</>}
-      {previousBalances.length > 0 && <Disclosure title="Saldos anteriores para conferência">
-        <p>Há saldos em cadastros anteriores. Eles permanecem separados do estoque usado no atendimento e precisam de conferência antes de qualquer alteração.</p>
-        <Pagination total={previousBalances.length}>{(start, end) => <RecordTable label="Saldos anteriores" columns={['Produto', 'Físico', 'Reservado', 'Disponível']} rows={previousBalances.slice(start, end).map(row => ({ key: row.productId + row.locationId, cells: [<>{row.name}<small>{stock.query.data?.find(item => item.id === row.locationId)?.name ?? 'Cadastro anterior'}</small></>, row.quantity, row.reserved, row.available] }))}/>}</Pagination>
-      </Disclosure>}
-    </> : <>
-      <QueryNotice query={movements}/><QueryNotice query={catalog}/>
-      <Pagination total={movementRows.length}>{(start, end) => <RecordTable label="Movimentações do estoque" columns={['Produto', 'Tipo', 'Quantidade', 'Motivo']} rows={movementRows.slice(start, end).map(row => ({ key: row.id, cells: [catalog.data?.find(product => product.id === row.productId)?.name ?? row.productId, label(row.kind), row.quantity, row.reason] }))}/>}</Pagination>
-      {!movementRows.length && !movements.isLoading && !movements.isError && <Empty>Nenhuma movimentação nesta seleção.</Empty>}
-    </>}
-  </Page>
-}
-export function BarCountsPage() {
-  type Count = {id:string;locationId:string;initial:boolean;state:string;items:{productId:string;theoretical:number;counted:number|null}[]}
-  const counts = useBar<Count[]>('/counts'); const stock = useBarStock(); const catalog = useBar<Product[]>('/catalog'); const a=useAction(); const {user}=useAuth()
-  return <Page title="Contagem inicial e inventários"><Notice action={a}/><QueryNotice query={counts}/><ActionPanel title="Nova contagem" action="novo"  busy={a.busy}><Notice action={a}/><form className="operation-card bar-form" onSubmit={async e=>{const f=formData(e);if(!stock.location)return;await a.run('/counts',{locationId:stock.location.id,initial:f.has('initial')})}}><StockNotice stock={stock}/><label><input type="checkbox" name="initial"/> Primeira contagem física do estoque</label><button disabled={a.busy||!stock.ready}>Abrir contagem</button></form></ActionPanel>
-    <PagedItems items={counts.data}>{c=><section key={c.id} className="operation-card"><h2>{c.initial?'Contagem inicial':'Inventário'} · {c.locationId !== stock.location?.id && <>{stock.query.data?.find(l=>l.id===c.locationId)?.name ?? 'Registro anterior'} · </>}{c.state==='Approved'?'Aprovado':c.state==='Canceled'?'Cancelado':'Em contagem'}</h2><ActionPanel title={c.state==='Counting'?'Registrar contagem':'Ver contagem'} action="contagem" record={c.id} busy={a.busy}><Notice action={a}/>{c.items.map(i=><form className="bar-inline-form" key={i.productId} onSubmit={async e=>{const f=formData(e);await a.run('/counts/'+c.id+'/items',{productId:i.productId,quantity:num(f,'quantity')},'PUT')}}><strong>{catalog.data?.find(p=>p.id===i.productId)?.name??i.productId}</strong><span>Teórico: {i.theoretical}</span><Input name="quantity" label="Contagem física" value={i.counted??''} type="number" step="0.001" disabled={c.state!=='Counting'}/>{c.state==='Counting'&&<button disabled={a.busy}>Salvar contagem</button>}</form>)}{c.state==='Counting'&&(user?.roles.includes('Owner')||user?.permissions.includes('bar:supervise'))&&<form className="bar-form" onSubmit={async e=>{const f=formData(e);await a.run('/counts/'+c.id+'/approve',{reason:str(f,'reason')})}}><Input name="reason" label="Justificativa da aprovação"/><button disabled={a.busy}>Aprovar e gerar ajustes</button><button type="button" disabled={a.busy} onClick={()=>void a.run('/counts/'+c.id+'/cancel',{reason:'Contagem cancelada para recontagem física'})}>Cancelar para recontagem</button></form>}</ActionPanel></section>}</PagedItems>
-  </Page>
-}
 export function BarCashPage() {
   const registers=useBar<Named[]>('/cash/registers');const stock=useBarStock();const sessions=useBar<Session[]>('/cash/sessions');const a=useAction();const {user}=useAuth();const supervisor=(user?.roles.includes('Owner')||user?.permissions.includes('bar:supervise'))
   return <Page title="Caixa"><Notice action={a}/><QueryNotice query={sessions}/>{supervisor&&<ActionPanel title="Cadastrar caixa físico" action="cadastro"  busy={a.busy}><Notice action={a}/><form className="operation-card bar-form" onSubmit={async e=>{const f=formData(e);await a.run('/cash/registers',{name:str(f,'name')})}}><Input name="name" label="Nome do caixa físico"/><button disabled={a.busy}>Cadastrar caixa</button></form></ActionPanel>}
@@ -137,7 +57,6 @@ export function BarCashPage() {
   </Page>
 }
 export function BarSalesPage(){const sales=useBar<Sale[]>('/sales');const a=useAction();const {user}=useAuth();return <Page title="Vendas históricas"><p>Consulte vendas do fluxo anterior. As vendas e comandas atuais ficam no atendimento.</p><Link to="/atendimento/comandas">Ver comandas atuais →</Link><Notice action={a}/><QueryNotice query={sales}/><PagedItems items={sales.data}>{s=><section key={s.id} className="operation-card bar-form"><h2>{s.id.slice(0,8)} · {label(s.state)}</h2><strong>{money(s.total)}</strong><button type="button" onClick={()=>window.print()}>Imprimir comprovante</button>{s.items.map(i=><p key={i.productId}>{i.quantity} × {i.name} · {money(i.total)}</p>)}{s.state==='Draft'&&(user?.roles.includes('Owner')||user?.permissions.includes('bar:sales:operate'))&&<><ActionPanel title="Receber venda" action="receber" record={s.id} busy={a.busy}><Notice action={a}/><form className="bar-form" onSubmit={async e=>{const f=formData(e);await a.run('/sales/'+s.id+'/payments/'+str(f,'method'),{operationId:crypto.randomUUID(),tendered:num(f,'tendered'),authorization:str(f,'authorization')||null})}}><Select name="method" label="Receber rascunho" items={[{id:'cash',name:'Dinheiro'},{id:'card-manual',name:'Cartão manual aprovado'}]}/><Input name="tendered" label="Dinheiro recebido (R$; zero para cartão)" type="number" step="0.01" value={s.total}/><Input name="authorization" label="NSU/autorização" required={false}/><button disabled={a.busy}>Confirmar pagamento do rascunho</button></form></ActionPanel>{(user?.roles.includes('Owner')||user?.permissions.includes('bar:supervise'))&&<><ActionPanel title="Autorizar desconto" action="desconto" record={s.id} busy={a.busy}><Notice action={a}/><form className="bar-form" onSubmit={async e=>{const f=formData(e);await a.run('/sales/'+s.id+'/discount',{amount:num(f,'discount'),reason:str(f,'reason')})}}><Input name="discount" label="Desconto autorizado (R$)" type="number" step="0.01"/><Input name="reason" label="Motivo do desconto"/><button disabled={a.busy}>Autorizar desconto</button></form></ActionPanel><ActionPanel title="Autorizar cortesia" action="cortesia" record={s.id} busy={a.busy}><Notice action={a}/><form className="bar-form" onSubmit={async e=>{const f=formData(e);await a.run('/sales/'+s.id+'/courtesy',{reason:str(f,'reason')})}}><Input name="reason" label="Motivo da cortesia"/><button disabled={a.busy}>Autorizar cortesia</button></form></ActionPanel></>}<ActionPanel title="Cancelar rascunho" action="cancelar" record={s.id} busy={a.busy}><Notice action={a}/><form className="bar-form" onSubmit={async e=>{const f=formData(e);await a.run('/sales/'+s.id+'/cancel',{reason:str(f,'reason')})}}><Input name="reason" label="Motivo do cancelamento do rascunho"/><button disabled={a.busy}>Cancelar rascunho</button></form></ActionPanel></>}{s.state==='AwaitingPayment'&&<Disclosure title="Pagamento pendente" lazy><PendingSalePayment sale={s}/></Disclosure>} {s.state==='Paid'&&(user?.roles.includes('Owner')||user?.permissions.includes('bar:refund:approve'))&&<ActionPanel title="Registrar estorno" action="estornar" record={s.id} busy={a.busy}><Notice action={a}/><form className="bar-form" onSubmit={async e=>{const f=formData(e);await a.run('/sales/'+s.id+'/refund',{reason:str(f,'reason'),returnStock:str(f,'returnMode')==='all',returnedItems:str(f,'returnMode')==='some'?s.items.map(i=>({productId:i.productId,quantity:num(f,'returned-'+i.productId)})).filter(i=>i.quantity>0):null})}}><Input name="reason" label="Motivo do estorno"/><Select name="returnMode" label="Os produtos retornaram ao estoque?" items={[{id:"none",name:"Nenhum"},{id:"all",name:"Todos"},{id:"some",name:"Alguns — informar quantidades abaixo"}]} value="none"/>{s.items.map(i=><Input key={i.productId} name={"returned-"+i.productId} label={"Retorno de "+i.name+" (somente para Alguns)"} type="number" step="0.001" value={0} required={false}/>)}<button disabled={a.busy}>Registrar estorno total</button></form></ActionPanel>}</section>}</PagedItems></Page>}
-export function BarLossesPage(){const catalog=useBar<Product[]>('/catalog');const stock=useBarStock();const a=useAction();return <Page title="Perdas e consumo interno"><Notice action={a}/><p>Registre perdas e consumo interno com quantidade e motivo.</p><Link className="secondary-link" to="/bar/estoque?secao=movimentos">Ver movimentações →</Link><ActionPanel title="Registrar saída" action="novo" busy={a.busy} primary><Notice action={a}/><form className="operation-card bar-form" onSubmit={async e=>{const f=formData(e);if(!stock.location)return;await a.run('/stock/'+str(f,'kind'),{productId:str(f,'product'),locationId:stock.location.id,quantity:num(f,'quantity'),reason:str(f,'reason'),operationId:crypto.randomUUID()})}}><Select name="kind" label="Tipo de saída" items={[{id:'losses',name:'Perda'},{id:'internal-consumption',name:'Consumo interno (sem receita)'}]}/><Select name="product" label="Produto" items={catalog.data??[]}/><StockNotice stock={stock}/><Input name="quantity" label="Quantidade" type="number" step="0.001"/><Input name="reason" label="Motivo e responsável pelo consumo"/><button disabled={a.busy||!stock.ready}>Registrar saída</button></form></ActionPanel></Page>}
 export function BarPurchasesPage() {
   const { user } = useAuth()
   const [invoiceParams] = useSearchParams(); const invoiceFilter = invoiceParams.get('invoice')

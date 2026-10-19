@@ -15,9 +15,43 @@ public sealed partial class BarStockService(LongBeachDbContext db, IConfiguratio
     {
         var balances = await db.Set<StockBalance>().AsNoTracking().ToListAsync(ct);
         var products = await db.Set<BarProduct>().AsNoTracking().ToDictionaryAsync(x => x.Id, ct);
-        return balances.Select(x => new { x.Id, x.ProductId, x.LocationId, x.Quantity, x.Reserved, x.Available, x.Version,
-            Name = products[x.ProductId].Name, Low = x.Available < products[x.ProductId].MinimumStock,
-            UnitCost = costs ? (decimal?)products[x.ProductId].AverageCost : null }).ToArray();
+        var recipes = await db.Set<BarRecipeVersion>().AsNoTracking().Select(x => x.ProductId).Distinct().ToListAsync(ct);
+        var eligible = products.Values.Where(p => p.Active && p.ControlsStock && (!p.Prepared || !recipes.Contains(p.Id))).Select(p => p.Id).ToHashSet();
+        // Missing balances are zero for the same products considered by the summary alert.
+        var locations = await db.Set<StockLocation>().AsNoTracking().Select(x => x.Id).ToListAsync(ct);
+        var existing = balances.Select(x => (x.ProductId, x.LocationId)).ToHashSet();
+        var result = balances.Select(x => View(products[x.ProductId], x.LocationId, x)).ToList();
+        foreach (var productId in eligible)
+            foreach (var locationId in locations)
+                if (!existing.Contains((productId, locationId))) result.Add(View(products[productId], locationId, null));
+        return result.OrderBy(x => x.Name).ThenBy(x => x.ProductId).ToArray();
+        StockBalanceView View(BarProduct p, Guid location, StockBalance? b) => new(
+            b?.Id ?? Guid.Empty, p.Id, location, b?.Quantity ?? 0, b?.Reserved ?? 0, b?.Available ?? 0, b?.Version ?? 0,
+            p.Name, eligible.Contains(p.Id) && (b?.Available ?? 0) <= p.MinimumStock, costs ? p.AverageCost : null,
+            p.MinimumStock, p.SaleUnit, eligible.Contains(p.Id), p.Active, p.ControlsStock);
+    }
+    private sealed record StockBalanceView(Guid Id, Guid ProductId, Guid LocationId, decimal Quantity, decimal Reserved,
+        decimal Available, int Version, string Name, bool Low, decimal? UnitCost, decimal MinimumStock, string Unit,
+        bool AlertEligible, bool Active, bool ControlsStock);
+
+    public async Task<object> MovementHistory(Guid? locationId, string? search, string? kind, DateOnly? from, DateOnly? to, int page, CancellationToken ct)
+    {
+        if (from > to || page < 1 || page > 100000) throw new BarRuleException("Confira o período e a página do histórico.");
+        var query = db.Set<StockMovement>().AsNoTracking().AsQueryable();
+        if (locationId.HasValue) query = query.Where(x => x.LocationId == locationId);
+        if (!string.IsNullOrWhiteSpace(kind)) query = query.Where(x => x.Kind == kind);
+        // The operational calendar uses Brasília time; the final day is inclusive.
+        if (from.HasValue) { var start = new DateTimeOffset(from.Value.ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(-3)).UtcDateTime; query = query.Where(x => x.CreatedAtUtc >= start); }
+        if (to.HasValue) { if (to.Value == DateOnly.MaxValue) throw new BarRuleException("Data final inválida."); var end = new DateTimeOffset(to.Value.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeSpan.FromHours(-3)).UtcDateTime; query = query.Where(x => x.CreatedAtUtc < end); }
+        var rows = from m in query
+                   join p in db.Set<BarProduct>() on m.ProductId equals p.Id
+                   join l in db.Set<StockLocation>() on m.LocationId equals l.Id
+                   select new { m.Id, m.ProductId, Name = p.Name, Unit = p.SaleUnit, m.LocationId, LocationName = l.Name,
+                       m.Quantity, m.Before, m.After, m.Kind, m.Reason, m.CreatedAtUtc, m.OriginId };
+        if (!string.IsNullOrWhiteSpace(search)) { var term = search.Trim().ToLower(); rows = rows.Where(x => x.Name.ToLower().Contains(term)); }
+        var total = await rows.CountAsync(ct);
+        var actualPage = Math.Min(page, Math.Max(1, (int)Math.Ceiling(total / 20m)));
+        return new { Items = await rows.OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.Id).Skip((actualPage - 1) * 20).Take(20).ToListAsync(ct), Total = total, Page = actualPage, PageSize = 20 };
     }
     public async Task<object> Movements(bool costs, CancellationToken ct) => (await db.Set<StockMovement>().AsNoTracking()
         .OrderByDescending(x => x.CreatedAtUtc).Take(500).ToListAsync(ct)).Select(x => new { x.Id, x.ProductId, x.LocationId, x.Quantity,

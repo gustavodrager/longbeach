@@ -55,7 +55,7 @@ export function EditorPanel({ title, children, onClose, busy = false }: { title:
   }, [])
   useEffect(() => { if (!guard.dirty) dirty.current = false }, [guard.dirty])
   const close = () => { if (busy) return; if (!dirty.current || window.confirm('Descartar as alterações não salvas?')) { guard.markSaved(); onClose() } }
-  return <ModalPanel title={title} onClose={close} className="editor-panel"><div ref={body} className="editor-body" onChangeCapture={() => { dirty.current = true; guard.setDirty(true) }} onInvalidCapture={event => {
+  return <ModalPanel title={title} onClose={close} className="editor-panel"><div ref={body} className="editor-body" onChangeCapture={event => { if ((event.target as HTMLElement).closest('[data-unsaved-ignore]')) return; dirty.current = true; guard.setDirty(true) }} onInvalidCapture={event => {
     let parent = event.target as HTMLElement | null
     while (parent && parent !== body.current) { if (parent instanceof HTMLDetailsElement) parent.open = true; parent = parent.parentElement }
     requestAnimationFrame(() => (event.target as HTMLElement).focus())
@@ -70,12 +70,12 @@ export function Disclosure({ title, children, count, open = false, lazy = false 
   const [expanded,setExpanded]=useState(open)
   return <details className="management-disclosure" open={expanded} onToggle={event=>setExpanded(event.currentTarget.open)}><summary>{title}{Boolean(count) && <span className="filter-count">{count}</span>}</summary><div className="disclosure-content">{!lazy||expanded?children:null}</div></details>
 }
-export function ActionPanel({ title, action, record, busy, children, primary = false }: { title:string; action:string; record?:string; busy?:boolean; children:ReactNode; primary?:boolean }) {
+export function ActionPanel({ title, action, record, busy, children, primary = false, closeLabel = 'Cancelar' }: { title:string; action:string; record?:string; busy?:boolean; children:ReactNode; primary?:boolean; closeLabel?:string }) {
   const [params,setParams]=useContextSearchParams()
   const open=params.get('acao')===action&&(params.get('registro')||undefined)===record
   const show=()=>{const next=new URLSearchParams(params);next.set('acao',action);if(record)next.set('registro',record);else next.delete('registro');setParams(next,{preventScrollReset:true})}
   const close=()=>{const next=new URLSearchParams(params);next.delete('acao');next.delete('registro');setParams(next,{replace:true,preventScrollReset:true})}
-  return <><button type="button" className={primary?'primary-button':'secondary-link'} onClick={show}>{title}</button>{open&&<EditorPanel title={title} busy={busy} onClose={close}>{children}<button className="secondary-link" type="button" disabled={busy} onClick={close}>Cancelar</button></EditorPanel>}</>
+  return <><button type="button" className={primary?'primary-button':'secondary-link'} onClick={show}>{title}</button>{open&&<EditorPanel title={title} busy={busy} onClose={close}>{children}<button className="secondary-link" type="button" disabled={busy} onClick={close}>{closeLabel}</button></EditorPanel>}</>
 }
 export function RecordTable({ columns, rows, label }: { columns: string[]; rows: { key:string; cells:ReactNode[] }[]; label:string }) {
   return <div className="responsive-records"><table aria-label={label}><thead><tr>{columns.map(column=><th key={column} scope="col">{column}</th>)}</tr></thead><tbody>{rows.map(row=><tr key={row.key}>{row.cells.map((cell,index)=><td key={columns[index]} data-label={columns[index]}>{cell}</td>)}</tr>)}</tbody></table></div>

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
@@ -19,7 +19,7 @@ function stockApi(locations = stockLocations) {
     if (init?.method && init.method !== 'GET') return response({ id: 'saved' })
     if (path.endsWith('/stock/locations')) return response(locations)
     if (path.endsWith('/stock/balances')) return response([
-      { productId: 'water', locationId: 'bar', name: 'Água', quantity: 5, reserved: 1, available: 4, low: false },
+      { productId: 'water', locationId: 'bar', name: 'Água', quantity: 5, reserved: 1, available: 4, low: false, active: true, controlsStock: true, unit: 'un', minimumStock: 1, alertEligible: true },
       { productId: 'water', locationId: 'warehouse', name: 'Água', quantity: 20, reserved: 0, available: 20, low: false },
     ])
     if (path.endsWith('/catalog')) return response([{ id: 'water', name: 'Água', controlsStock: true }])
@@ -62,8 +62,9 @@ it.each([
     await u.type(within(dialog).getByLabelText('Terminal'), 'Balcão')
     await u.type(within(dialog).getByLabelText('Fundo inicial (R$)'), '10')
   }
+  if (endpoint === '/stock/losses') await u.click(within(dialog).getByRole('button', { name: 'Conferir saída' }))
   await u.click(within(dialog).getByRole('button', { name: submit }))
-  expect(await within(dialog).findByText('Operação registrada.')).toBeInTheDocument()
+  await waitFor(() => expect(api.mock.calls.some(([url, init]) => String(url).endsWith(endpoint) && init?.method === 'POST')).toBe(true))
   const write = api.mock.calls.find(([url, init]) => String(url).endsWith(endpoint) && init?.method === 'POST')
   expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({ locationId: 'bar' })
 })
@@ -74,7 +75,7 @@ it.each([
   const api = stockApi(items)
   render(wrapper(<BarCountsPage/>))
   await userEvent.click(screen.getByRole('button', { name: 'Nova contagem' }))
-  expect(await screen.findByText('Estoque do Bar não configurado. Peça à gestão para conferir o cadastro.')).toBeInTheDocument()
+  expect(await within(screen.getByRole('dialog')).findByText('Estoque do Bar não configurado. Peça à gestão para conferir o cadastro.')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Abrir contagem' })).toBeDisabled()
   expect(api.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
 })

@@ -63,3 +63,19 @@ Conferência autenticada em produção:
 Evidências privadas fora do Git: `outputs/bar-producao-2026-10-19` no workspace principal, com resumo desktop/móvel, venda móvel e caixa em 320 px. Viewport restaurado e navegador deixado no resumo de produção.
 
 Rollback compatível: primeiro a web anterior, deployment `01e5fb4a-8d35-4997-b7e5-9a86b6b64f60`, commit `772f83eac5a971b647639e52b95cb033e1412fd7`, branch `codex/mensalistas-ux-20261016`. Se necessário, depois a API anterior, deployment `b48d5990-4bde-4a3d-ae57-384401e9114d`, commit `ee803b7a2300af27f6f43dcc07dc0e194c701194`, branch `codex/recebimentos-bar-quadra-20261014`. Não reverter a API isoladamente enquanto a web depende de `low-stock-bar`. Preservar dados, banco e credenciais; sincronizar o snapshot e conferir plano sem divergências após retorno.
+
+## Estoque do Bar — implementação local em 19 de outubro de 2026
+
+Os cinco ajustes do fluxo de Estoque mantêm a identidade areia, dourado e preto da Long Beach:
+
+- Saldos e resumo usam a mesma regra de alerta: disponível no mínimo ou abaixo, incluindo saldo ausente como zero e excluindo produtos sem elegibilidade. A leitura não cria saldos no banco. Filtros distinguem reposição, esgotados e disponíveis.
+- Inventário tem busca, progresso, filtros de pendentes/contados/divergentes, dez itens por página e edição de um produto por vez. Zero exige preenchimento explícito. Revisão apresenta as diferenças antes da aprovação; proteção contra movimentos/reservas concorrentes permanece no servidor.
+- Histórico usa o novo endpoint `stock/movement-history`, com local Bar por padrão, período inclusivo no horário de Brasília, tipo, busca e paginação no servidor após os filtros. Mostra data, local, quantidade, saldo físico antes/depois, motivo e referência. O endpoint antigo permanece disponível.
+- Perda e consumo interno exibem unidade, disponível e saldo projetado. Quantidade acima do disponível fica bloqueada; uma etapa de conferência precede a gravação.
+- Layout móvel apresenta saldos em cartões, motivo em largura completa e atalhos para contar, receber e registrar saída. Busca e filtros de consulta não ativam aviso de edição pendente.
+
+Validação: 363 testes frontend aprovados; após os ajustes finais de apresentação, 18 testes afetados aprovados. Sete testes PostgreSQL de estoque/Bar aprovados, incluindo consistência dos alertas, ausência de gravação durante consulta e filtros antes da paginação com mais de 500 movimentos de outro local. Builds API e web/PWA aprovados. Sem migration nova.
+
+Navegador Chrome com frontend local, API real e banco PostgreSQL exclusivo de teste (`longbeach_stock_ux`), contendo 24 produtos fictícios: desktop de 1470 px e celular emulado em 390 e 320 px. Foram executados salvamento e recarga de contagem zero, conclusão de contagem de 24 itens, revisão e aprovação de 16 diferenças, bloqueio de saída acima do saldo, perda no desktop e consumo interno na interface móvel. Conferência direta no banco confirmou os movimentos de 11 para 10 unidades e o zero contado. Histórico exibiu essas gravações e sua segunda página. Sem transbordamento horizontal nas telas móveis verificadas; console sem avisos ou erros. Não houve teste em aparelho físico nem gravação de dados em produção.
+
+Evidências fora do Git em `outputs/estoque-melhorias-2026-10-19`, no workspace principal. Prévia local em `http://localhost:5322/bar/estoque`, com dados fictícios. Esta etapa não enviou alterações ao GitHub nem publicou em produção. Para futura publicação, promover API antes da web, pois a nova interface depende de `stock/movement-history` e dos campos adicionais de saldo; rollback da web deve preceder o da API.
