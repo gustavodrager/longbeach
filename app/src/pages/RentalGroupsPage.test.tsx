@@ -109,7 +109,7 @@ it('cadastra grupo sem inventar integrantes, capacidade ou vencimento', async()=
 it('combina busca, situação e dia e preserva os filtros ao voltar da ficha', async()=>{
   vi.spyOn(globalThis,'fetch').mockImplementation(async(input)=>json(String(input).endsWith('/rentalGroups') ? [group, {...group,id:'paused',name:'Turma pausada',status:'Pausado'}] : String(input).endsWith('/courts') ? [court] : []))
   start('/mensalistas?status=Ativo&day=5&q=Pessoa&month=2026-10')
-  const card = await screen.findByRole('link',{name:/Turma de teste Ativo/})
+  const card = await screen.findByRole('link',{name:'Ver Turma de teste'})
   expect(screen.queryByRole('link',{name:/Turma pausada/})).not.toBeInTheDocument()
   fireEvent.click(card)
   await screen.findByRole('heading',{name:'Turma de teste'})
@@ -125,11 +125,11 @@ it('pendências do mês respeitam vigência e confirmação e não inventam falt
   const rows = [group, {...group,id:'future',name:'Turma futura',startDate:'2027-01-01'}, {...group,id:'confirmed',name:'Turma confirmada'}, {...group,id:'incomplete',name:'Turma incompleta',status:'Pausado',members:[],organizerId:''}]
   vi.spyOn(globalThis,'fetch').mockImplementation(async(input)=>json(String(input).endsWith('/rentalGroups') ? rows : String(input).endsWith('/rentalMonths') ? [{id:'month',rentalGroupId:'confirmed',month:'2026-10',members:[]}] : []))
   start('/mensalistas?month=2026-10&pending=yes')
-  expect(await screen.findByRole('link',{name:/Turma de teste/})).toHaveTextContent('Confirmar encontros de 10/2026')
+  expect(await screen.findByRole('article',{name:'Turma de teste'})).toHaveTextContent('Confirmar encontros de 10/2026')
   expect(screen.queryByRole('link',{name:/Turma futura/})).not.toBeInTheDocument()
   expect(screen.queryByRole('link',{name:/Turma confirmada/})).not.toBeInTheDocument()
-  expect(screen.getByRole('link',{name:/Turma incompleta/})).toHaveTextContent('Definir responsável')
-  expect(screen.getByRole('link',{name:/Turma incompleta/})).not.toHaveTextContent('Confirmar encontros')
+  expect(screen.getByRole('article',{name:'Turma incompleta'})).toHaveTextContent('Definir responsável')
+  expect(screen.getByRole('article',{name:'Turma incompleta'})).not.toHaveTextContent('Confirmar encontros')
 })
 it('cancelar novo grupo retorna à lista filtrada sem criar registros',async()=>{
   const fetch = vi.spyOn(globalThis,'fetch').mockImplementation(async(input)=>json(String(input).endsWith('/rentalGroups') ? [group] : String(input).endsWith('/courts') ? [court] : []))
@@ -140,4 +140,136 @@ it('cancelar novo grupo retorna à lista filtrada sem criar registros',async()=>
   expect(await screen.findByLabelText('Mês dos encontros')).toHaveValue('2026-11')
   expect(screen.getByLabelText('Situação do grupo')).toHaveValue('Ativo')
   expect(fetch.mock.calls.some(([,init])=>init?.method==='PUT')).toBe(false)
+})
+
+function editableFixture() {
+  const saved: {kind: string; body: Record<string, unknown>}[] = []
+  const tables: Record<string, Record<string, unknown>[]> = {
+    courts: [court], rentalGroups: [{...group}],
+    rentalMonths: [{id:'test-month',version:1,name:'Outubro teste',rentalGroupId:groupId,month,dates:[today()],amount:500,dueDate:today(),members:group.members,createCharge:true}],
+    reservations: [{id:'test-meeting',version:4,name:'Encontro teste',courtId,date:today(),startTime:'20:00',endTime:'22:00',customerName:'Pessoa A',phone:'',amount:0,status:'Confirmada',notes:'',rentalGroupId:groupId,rentalMonth:month}],
+    financeEntries: [{id:'test-charge',version:3,name:'Mensalidade teste',direction:'Receber',origin:'Locações',amount:500,dueDate:today(),status:'Pendente',paidDate:'',notes:'',sourceKind:'rentalMonths',sourceId:'test-month',month}],
+  }
+  let failure = false
+  vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{
+    const path=String(input)
+    const kind = path.split('/operations/')[1]?.split('/')[0]
+    if(init?.method==='PUT'){
+      if(failure)return json({message:'Falha de teste; tente novamente.'},503)
+      const body=JSON.parse(String(init.body)); saved.push({kind,body})
+      const result={...body,version:(body.version??0)+1}
+      tables[kind]=(tables[kind]??[]).filter(row=>row.id!==body.id).concat(result)
+      return json(result)
+    }
+    return json(tables[kind]??[])
+  })
+  return {saved,tables, fail:(value:boolean)=>{failure=value}}
+}
+it('edita na listagem sem alterar encontros, cobrança ou integrantes e busca sem acentos',async()=>{
+  const fixture=editableFixture()
+  fixture.tables.rentalGroups[0].name='Turma João'
+  start('/mensalistas?q=joao')
+  fireEvent.click(await screen.findByRole('button',{name:'Editar'}))
+  fireEvent.change(screen.getByLabelText('Nome do grupo'),{target:{value:'Turma João atualizada'}})
+  fireEvent.change(screen.getByLabelText('Valor mensal (R$)'),{target:{value:'550'}})
+  fireEvent.click(screen.getByRole('button',{name:'Salvar grupo'}))
+  await screen.findByRole('heading',{name:'Turma João atualizada'})
+  expect(fixture.saved).toHaveLength(1)
+  expect(fixture.saved[0]).toMatchObject({kind:'rentalGroups',body:{version:1,monthlyAmount:550,members:group.members}})
+  expect(fixture.tables.financeEntries[0].amount).toBe(500)
+  expect(fixture.tables.reservations[0].startTime).toBe('20:00')
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+it('corrige integrante e função na própria ficha preservando os integrantes do mês',async()=>{
+  const fixture=editableFixture()
+  start(`/mensalistas/${groupId}`)
+  fireEvent.click(await screen.findByRole('button',{name:'Integrantes'}))
+  fireEvent.click(screen.getAllByRole('button',{name:'Editar integrante'})[1])
+  fireEvent.change(screen.getByLabelText('Nome do integrante'),{target:{value:'Pessoa B corrigida'}})
+  fireEvent.change(screen.getByLabelText('Função no grupo'),{target:{value:'Responsável'}})
+  fireEvent.click(screen.getByRole('button',{name:'Salvar integrante'}))
+  await screen.findByText('Pessoa B corrigida')
+  expect(fixture.saved[0].body).toMatchObject({organizerId:'b',backupId:'',version:1})
+  expect(fixture.tables.rentalMonths[0].members).toEqual(group.members)
+})
+it('mantém a edição após falha e salva encontro sem modificar vínculo ou mensalidade',async()=>{
+  const fixture=editableFixture()
+  start(`/mensalistas/${groupId}`)
+  fireEvent.click(await screen.findByRole('button',{name:'Encontros e presença'}))
+  fireEvent.click(screen.getByRole('button',{name:'Editar encontro'}))
+  fireEvent.change(screen.getByLabelText('Início do encontro'),{target:{value:'19:00'}})
+  fixture.fail(true)
+  fireEvent.click(screen.getByRole('button',{name:'Salvar encontro'}))
+  await screen.findByText('Falha de teste; tente novamente.')
+  expect(screen.getByLabelText('Início do encontro')).toHaveValue('19:00')
+  fixture.fail(false)
+  fireEvent.click(screen.getByRole('button',{name:'Salvar encontro'}))
+  await waitFor(()=>expect(screen.queryByLabelText('Início do encontro')).not.toBeInTheDocument())
+  expect(fixture.saved).toHaveLength(1)
+  expect(fixture.saved[0]).toMatchObject({kind:'reservations',body:{version:4,startTime:'19:00',rentalGroupId:groupId,rentalMonth:month,amount:0}})
+  expect(fixture.tables.financeEntries[0].amount).toBe(500)
+})
+it('exige confirmação manual de recebimento e invalida ao alterar o valor',async()=>{
+  const fixture=editableFixture()
+  start(`/mensalistas/${groupId}`)
+  fireEvent.click(await screen.findByRole('button',{name:'Financeiro'}))
+  fireEvent.click(screen.getByRole('button',{name:'Editar mensalidade / registrar recebimento'}))
+  fireEvent.change(screen.getByLabelText('Situação da mensalidade'),{target:{value:'Pago'}})
+  expect(screen.getByRole('button',{name:'Salvar mensalidade'})).toBeDisabled()
+  fireEvent.click(screen.getByRole('checkbox'))
+  fireEvent.change(screen.getByLabelText('Valor deste mês (R$)'),{target:{value:'525'}})
+  expect(screen.getByRole('checkbox')).not.toBeChecked()
+  fireEvent.click(screen.getByRole('checkbox'))
+  fireEvent.click(screen.getByRole('button',{name:'Salvar mensalidade'}))
+  await screen.findByText(/Recebimento preservado/)
+  expect(fixture.saved).toHaveLength(1)
+  expect(fixture.saved[0]).toMatchObject({kind:'financeEntries',body:{version:3,amount:525,status:'Pago',sourceId:'test-month',sourceKind:'rentalMonths',month,businessUnitId:'quadra'}})
+  expect(fixture.tables.rentalGroups[0].monthlyAmount).toBe(500)
+  expect(screen.queryByRole('button',{name:'Editar mensalidade / registrar recebimento'})).not.toBeInTheDocument()
+})
+it('não oferece edição com permissão somente de leitura',async()=>{
+  editableFixture()
+  start(`/mensalistas/${groupId}`,['projects:read','reservations:read','courts:read','finance:read'])
+  await screen.findByRole('heading',{name:group.name})
+  expect(screen.queryByRole('button',{name:'Editar grupo e integrantes'})).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button',{name:'Integrantes'}))
+  expect(screen.queryByRole('button',{name:'Editar integrante'})).not.toBeInTheDocument()
+})
+it('marca presenças independentes sem duplicar cliques durante rede lenta',async()=>{
+  const fixture=editableFixture()
+  const original=vi.mocked(globalThis.fetch).getMockImplementation()!
+  let release: (()=>void) | undefined
+  const gate=new Promise<void>(resolve=>{release=resolve})
+  let writes=0
+  vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{
+    if(init?.method==='PUT' && String(input).includes('/rentalAttendances/')){writes++;await gate}
+    return original(input,init)
+  })
+  start(`/mensalistas/${groupId}`)
+  fireEvent.click(await screen.findByRole('button',{name:'Encontros e presença'}))
+  const buttons=screen.getAllByRole('button',{name:'Presente'})
+  fireEvent.click(buttons[0]);fireEvent.click(buttons[0])
+  expect(buttons[0]).toBeDisabled()
+  expect(buttons[1]).toBeEnabled()
+  fireEvent.click(buttons[1])
+  expect(writes).toBe(2)
+  release!()
+  await waitFor(()=>expect(fixture.saved.filter(x=>x.kind==='rentalAttendances')).toHaveLength(2))
+  await waitFor(()=>expect(buttons[0]).toHaveAttribute('aria-pressed','true'))
+})
+it('mantém um único editor aberto e protege cancelamento com alterações',async()=>{
+  editableFixture()
+  const confirm=vi.spyOn(window,'confirm').mockReturnValue(false)
+  start(`/mensalistas/${groupId}`)
+  fireEvent.click(await screen.findByRole('button',{name:'Integrantes'}))
+  fireEvent.click(screen.getAllByRole('button',{name:'Editar integrante'})[0])
+  expect(screen.getByRole('button',{name:'Editar integrante'})).toBeDisabled()
+  fireEvent.change(screen.getByLabelText('Nome do integrante'),{target:{value:'Nome não salvo'}})
+  fireEvent.click(screen.getByRole('button',{name:'Cancelar'}))
+  expect(confirm).toHaveBeenCalled()
+  expect(screen.getByLabelText('Nome do integrante')).toHaveValue('Nome não salvo')
+  confirm.mockReturnValue(true)
+  fireEvent.click(screen.getByRole('button',{name:'Cancelar'}))
+  expect(screen.queryByLabelText('Nome do integrante')).not.toBeInTheDocument()
+  expect(screen.getAllByRole('button',{name:'Editar integrante'})[0]).toBeEnabled()
 })

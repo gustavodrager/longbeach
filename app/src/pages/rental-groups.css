@@ -99,3 +99,32 @@
   .rental-form-step { padding-inline:12px; }
   .rental-editor-fields .field-grid, .rental-editor-fields .rental-member-edit { grid-template-columns:minmax(0,1fr); }
 }
+
+/* Edição contextual: mesma ficha, sem empilhar painéis. */
+.rental-page .rental-card-editing { grid-column:1/-1; }
+.rental-page .rental-card-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:flex-start; }
+.rental-page .rental-card-actions a { display:inline-flex; align-items:center; min-height:48px; }
+.rental-page button,.rental-page input,.rental-page select { min-height:48px; }
+.rental-page .section-tabs { flex-wrap:wrap; overflow:visible; gap:4px; }
+.rental-page .section-tabs button { white-space:normal; }
+.rental-page .rental-inline-record { display:flex; flex-direction:column; gap:10px; padding:16px; border:1px solid var(--line); border-radius:12px; min-width:0; }
+.rental-page .rental-inline-record:has(form) { grid-column:1/-1; }
+.rental-page .rental-inline-record form,.rental-page .rental-card form { width:100%; min-width:0; }
+.rental-page form > fieldset { border:0; margin:0; padding:0; min-width:0; }
+.rental-page .form-actions { position:sticky; bottom:0; z-index:2; padding:12px 0; background:var(--surface,#fffdf7); display:flex; flex-wrap:wrap; gap:8px; }
+.rental-page .rental-attendance button[aria-pressed=true] { background:#f5d776; border-color:#a78121; color:var(--ink); }
+.rental-page .rental-attendance .rental-card-actions { display:flex; flex-wrap:wrap; }
+.rental-page .rental-form-step[hidden] { display:none; }
+@media(max-width:700px) {
+  .rental-page .section-tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .rental-page .field-grid { grid-template-columns:minmax(0,1fr); }
+  .rental-page .rental-inline-record { padding:12px; }
+  .rental-page .rental-meetings { grid-template-columns:minmax(0,1fr); }
+  .rental-page input,.rental-page select,.rental-page textarea { font-size:16px; max-width:100%; min-width:0; }
+}
+.rental-page .rental-card > .rental-inline-form { display:block; }
+.rental-page .rental-roster > .rental-inline-record { display:flex; }
+.rental-page .rental-roster > .rental-inline-record:has(form) { grid-column:1/-1; }
+.rental-page button:disabled { cursor:not-allowed; }
+.rental-page fieldset.rental-filters { border:0; padding:0; min-width:0; }
+.rental-page input,.rental-page select,.rental-page textarea { scroll-margin-top:100px; scroll-margin-bottom:160px; }
