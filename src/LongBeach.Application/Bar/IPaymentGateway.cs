@@ -1,6 +1,6 @@
 namespace LongBeach.Application.Bar;
 public sealed record PixCustomer(string Name, string Email, string TaxId);
-public sealed record GatewayPayment(string OrderId, string ChargeId, string Reference, string State, long Amount, string Currency, string? PixText, string? QrImageUrl, long Refunded = 0);
+public sealed record GatewayPayment(string OrderId, string ChargeId, string Reference, string State, long Amount, string Currency, string? PixText, string? QrImageUrl, long Refunded = 0, string? ProviderAccountId = null, string? ProviderEnvironment = null, string? PixEndToEndId = null);
 public interface IPaymentGateway
 {
     bool Enabled { get; }

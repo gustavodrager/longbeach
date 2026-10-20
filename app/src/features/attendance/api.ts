@@ -45,7 +45,7 @@ export const paymentLabels: Record<string, string> = { CreditCard: 'Crédito à 
 
 export function useBarData<T>(path: string, enabled = true) {
   const { user } = useAuth()
-  const query = useQuery({ queryKey: ['bar-runtime', user?.id, path], queryFn: () => apiFetch<T>(`/api/v1/bar${path}`), enabled: Boolean(user && enabled), refetchInterval: path.includes('payments') || path.includes('tabs') || path.includes('cash') ? 15_000 : false })
+  const query = useQuery({ queryKey: ['bar-runtime', user?.id, path], queryFn: () => apiFetch<T>(`/api/v1/bar${path}`), enabled: Boolean(user && enabled), ...(path.startsWith('/tabs') ? { staleTime: 0, refetchOnMount: 'always' as const, refetchOnWindowFocus: 'always' as const } : {}), refetchInterval: path.includes('payments') || path.includes('tabs') || path.includes('cash') ? 15_000 : false })
   const accessLost = query.error instanceof ApiError && [401, 403, 404, 410].includes(query.error.status)
   return { ...query, data: accessLost ? undefined : query.data }
 }

@@ -18,7 +18,7 @@ using LongBeach.Application.Operations;
 namespace LongBeach.Infrastructure.Billing;
 
 public sealed partial class BillingService(LongBeachDbContext db, IPaymentGateway gateway, IBarTabs tabs,
-    IRecurringGateway recurring, IRentalGroups rentals, TimeProvider time, ILogger<BillingService> logger, IConfiguration config) : IBilling
+    IRecurringGateway recurring, IRentalGroups rentals, TimeProvider time, ILogger<BillingService> logger, IConfiguration config, IBillingPaymentGateways? paymentGateways = null) : IBilling
 {
     private static void Require(bool condition, string message) { if (!condition) throw new BarRuleException(message); }
     private static JsonObject Payload(OperationalRecord r) => JsonNode.Parse(r.Payload)!.AsObject();
@@ -46,7 +46,9 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
         string? card=null,subscription=null;
         if(Enabled&&gateway.CardEnabled)try{card=await gateway.CardPublicKey(ct);}catch(Exception e)when(!ct.IsCancellationRequested){logger.LogWarning("Card setup unavailable: {FailureType}",e.GetType().Name);}
         if(Enabled&&recurring.Enabled)try{subscription=await recurring.PublicKey(ct);}catch(Exception e)when(!ct.IsCancellationRequested){logger.LogWarning("Subscription setup unavailable: {FailureType}",e.GetType().Name);}
-        return new(Enabled&&gateway.Enabled,card!=null,subscription!=null,card,subscription);
+        var courtPix=Enabled&&NewPixGateway().Gateway.Enabled;
+        var barPix=Enabled&&gateway.Enabled;
+        return new(courtPix||barPix,card!=null,subscription!=null,card,subscription,courtPix,barPix);
     }
     public async Task<BillingCandidates> Candidates(CancellationToken ct)
     {
@@ -137,9 +139,10 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
     }
     public async Task<AccountDto> Pay(Guid id,PayAccountInput input,Guid actor,bool own,CancellationToken ct)
     {
-        Require(Enabled,"Novos pagamentos pela área de contas estão desabilitados.");ValidatePayer(input);var a=await Access(id,own?actor:null,ct);
+        ValidatePayer(input);var a=await Access(id,own?actor:null,ct);
         if(a.Kind=="Bar")
         {
+            Require(Enabled,"Novos pagamentos pela área de contas estão desabilitados.");
             var account=await Account(id,own?actor:null,ct);var prior=account.Payments.SingleOrDefault(x=>x.OperationId==input.OperationId);
             await tabs.Pay(a.SourceId,new TabPaymentInput(input.OperationId,input.Method,input.Amount??prior?.Amount??account.Payable,Name:input.Name,Email:input.Email,TaxId:input.TaxId,EncryptedCard:input.EncryptedCard),actor,null,ct);
             return await Account(id,own?actor:null,ct);
@@ -152,13 +155,17 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
             if(payment is not null)Require(payment.AccountId==id&&payment.Method==input.Method&&payment.ActorId==actor&&(input.Amount==null||input.Amount==payment.Amount),"Chave de outro pagamento.");
             else
             {
+                Require(Enabled,"Novos pagamentos pela área de contas estão desabilitados.");
                 Require(Eligible(p)&&Text(p,"status")=="Pendente","Esta conta não está pendente.");
                 var (kind,source)=await BillingSource(db,p,ct);
                 Require(!await db.Set<BillingSubscription>().AnyAsync(x=>x.SourceId==source&&x.SourceKind==kind&&x.State!="CANCELED"&&x.State!="EXPIRED"&&x.State!="Rejected",ct),"Há assinatura vinculada. Resolva a cobrança automática antes de pagar avulso.");
                 var account=await Account(id,null,ct);Require(account.Pending==0&&account.Payable>0,"Pagamento já iniciado ou conta quitada.");
                 Require(input.Amount==null||input.Amount==account.Payable,"Reservas e mensalidades devem ser pagas pelo saldo integral.");
-                Require(input.Method=="Pix"?gateway.Enabled:gateway.CardEnabled,"Forma de pagamento ainda não habilitada.");
-                payment=new BillingPayment(id,input.OperationId,account.Payable,input.Method,actor,time.GetUtcNow().AddMinutes(10));db.Add(payment);await db.SaveChangesAsync(ct);
+                var selected=input.Method=="Pix"?NewPixGateway():new BillingGatewaySelection("PagBank",null,null,gateway);
+                Require(input.Method=="Pix"?selected.Gateway.Enabled:selected.Gateway.CardEnabled,"Forma de pagamento ainda não habilitada.");
+                payment=new BillingPayment(id,input.OperationId,account.Payable,input.Method,actor,time.GetUtcNow().AddMinutes(10),selected.Provider,selected.Environment,selected.AccountId);db.Add(payment);
+                if(payment.Provider=="C6")AuditC6(payment,"C6PaymentInitiated",actor);
+                await db.SaveChangesAsync(ct);
             }
             await tx.CommitAsync(ct);
         }
@@ -168,7 +175,15 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
             Require(time.GetUtcNow()-payment.CreatedAtUtc<TimeSpan.FromHours(24),"Cobrança antiga sem confirmação. Concilie com o provedor antes de repetir.");
             var customer=new PixCustomer(input.Name,input.Email,input.TaxId);
             GatewayPayment remote;
-            try { remote=input.Method=="Pix"?await gateway.CreatePix(payment.Id,payment.OperationId,payment.Amount,payment.ExpiresAtUtc,customer,ct):await gateway.CreateCard(payment.Id,payment.OperationId,payment.Amount,customer,input.EncryptedCard!,ct); }
+            var selected=PaymentGateway(payment);
+            Require(Enabled || payment.Provider=="C6","Novos pagamentos pela área de contas estão desabilitados.");
+            try
+            {
+                remote=payment.Provider=="C6"&&(!Enabled||!selected.Enabled)
+                    ? await selected.Get(payment.OperationId.ToString("N"),ct)
+                    : input.Method=="Pix"?await selected.CreatePix(payment.Id,payment.OperationId,payment.Amount,payment.ExpiresAtUtc,customer,ct)
+                    : await selected.CreateCard(payment.Id,payment.OperationId,payment.Amount,customer,input.EncryptedCard!,ct);
+            }
             catch(Exception e) when(e is HttpRequestException or TaskCanceledException or BarRuleException) { throw new BarPaymentConfirmationPendingException(payment.Id,payment.OperationId,"A cobrança está em confirmação. Atualize ou retome com a mesma operação."); }
             Validate(payment,remote);
             await using var tx=await db.Database.BeginTransactionAsync(ct);await ArenaLock(ct);await db.Entry(payment).ReloadAsync(ct);payment.Bind(remote.OrderId,remote.ChargeId,remote.PixText,remote.QrImageUrl);await RecordOrder(payment,remote.Reference,ct);await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);
@@ -183,21 +198,47 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
         {
             var p=await db.Set<BillingPayment>().SingleOrDefaultAsync(x=>x.Id==paymentId&&x.AccountId==id,ct)??throw new BarRuleException("Pagamento não pertence à conta.");
             if(p.Method=="Subscription")await SyncSubscriptionFor(a,ct);
-            else if(p.ProviderId is not null)await Observe(p,await gateway.Get(p.ProviderId,ct),ct);
+            else if(p.ProviderId is not null || p.Provider=="C6")
+            {
+                var remote=await PaymentGateway(p).Get(p.ProviderId??p.OperationId.ToString("N"),ct);
+                await Observe(p,remote,ct);
+            }
             else throw new BarPaymentConfirmationPendingException(p.Id,p.OperationId,"Retome a cobrança com a mesma operação e dados do pagador.");
         }
         return await Account(id,own?actor:null,ct);
     }
     private async Task RecordOrder(BillingPayment payment,string reference,CancellationToken ct)
     {
-        if(!await db.Set<BillingProviderOrder>().AnyAsync(x=>x.PaymentId==payment.Id,ct))db.Add(new BillingProviderOrder(payment.Id,payment.ProviderId!,reference,payment.Method=="Subscription"?"Invoice":"Order",payment.Amount,"BRL"));
+        if(!await db.Set<BillingProviderOrder>().AnyAsync(x=>x.PaymentId==payment.Id,ct))db.Add(new BillingProviderOrder(payment.Id,payment.ProviderId!,reference,payment.Method=="Subscription"?"Invoice":"Order",payment.Amount,"BRL",payment.Provider,payment.ProviderEnvironment,payment.ProviderAccountId));
     }
-    private static void Validate(BillingPayment p,GatewayPayment r)=>Require(r.Reference==p.Id.ToString()&&r.Amount==checked((long)(p.Amount*100))&&r.Currency=="BRL"&&(p.ProviderId==null||p.ProviderId==r.OrderId)&&(p.ChargeId==null||p.ChargeId==r.ChargeId),"Referência ou valor divergente no PagBank.");
+    private BillingGatewaySelection NewPixGateway()
+    {
+        if(paymentGateways is not null)return paymentGateways.NewCourtPix();
+        Require(!(config.GetValue("Integrations:C6:Enabled",false)&&config.GetValue("Integrations:C6:PixEnabled",false)),"Conexão C6 indisponível.");
+        return new("PagBank",null,null,gateway);
+    }
+    private IPaymentGateway PaymentGateway(BillingPayment p)
+    {
+        if(paymentGateways is not null)return paymentGateways.For(p);
+        Require(p.Provider=="PagBank","Conexão C6 indisponível para este pagamento.");
+        return gateway;
+    }
+    private static void Validate(BillingPayment p,GatewayPayment r)
+    {
+        Require(r.Reference==p.Id.ToString()&&r.Amount==checked((long)(p.Amount*100))&&r.Currency=="BRL"&&(p.ProviderId==null||p.ProviderId==r.OrderId)&&(p.ChargeId==null||p.ChargeId==r.ChargeId),"Referência ou valor divergente no provedor.");
+        if(p.Provider=="C6")Require(r.OrderId==p.OperationId.ToString("N")&&r.ChargeId==r.OrderId&&r.ProviderAccountId==p.ProviderAccountId&&r.ProviderEnvironment==p.ProviderEnvironment&&(r.State!="PAID"||!string.IsNullOrWhiteSpace(r.PixEndToEndId)),"Conta ou identificação Pix divergente no C6.");
+    }
     private async Task Observe(BillingPayment payment,GatewayPayment remote,CancellationToken ct)
     {
         Validate(payment,remote);await using var tx=await db.Database.BeginTransactionAsync(ct);await ArenaLock(ct);await db.Entry(payment).ReloadAsync(ct);Validate(payment,remote);
+        var previousVersion=payment.Version;
+        if(payment.ProviderId is null || (string.IsNullOrWhiteSpace(payment.PixText) && !string.IsNullOrWhiteSpace(remote.PixText)))
+        { payment.Bind(remote.OrderId,remote.ChargeId,remote.PixText,remote.QrImageUrl); await RecordOrder(payment,remote.Reference,ct); }
+        payment.ObservePixIdentity(remote.PixEndToEndId);
         payment.Observe(remote.State,remote.Refunded/100m,time.GetUtcNow());
-        await UpdateEntry(payment,ct);await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);
+        await UpdateEntry(payment,ct);
+        if(payment.Provider=="C6" && payment.Version!=previousVersion)AuditC6(payment,"C6PaymentObserved");
+        await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);
     }
     private async Task UpdateEntry(BillingPayment p,CancellationToken ct)
     {
@@ -208,6 +249,7 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
         var status=paid>=json["amount"]!.GetValue<decimal>()?"Pago":"Pendente";
         if(Text(json,"status")==status)return;
         json["status"]=status;
+        if(status=="Pago" && p.Provider=="C6") { json["receiptSource"]="CourtPix"; json["receivingAccount"]="C6"; }
         json["paidDate"]=Text(json,"status")=="Pago"?TimeZoneInfo.ConvertTime(p.PaidAtUtc??time.GetUtcNow(),TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo")).ToString("yyyy-MM-dd"):"";
         json["version"]=(json["version"]?.GetValue<int>()??0)+1;entry.Update(entry.Name,json.ToJsonString());
     }

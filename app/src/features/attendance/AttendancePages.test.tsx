@@ -33,8 +33,8 @@ function server(state:Server){return vi.spyOn(globalThis,'fetch').mockImplementa
 })}
 function RouteState(){const location=useLocation();return <output data-testid="route">{location.pathname}{location.search}</output>}
 const clients:QueryClient[]=[]
-function mount(path:string,user=actor,realReceipt=false){
-  const query=new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}});clients.push(query)
+function mount(path:string,user=actor,realReceipt=false,staleTime=0){
+  const query=new QueryClient({defaultOptions:{queries:{retry:false,staleTime},mutations:{retry:false}}});clients.push(query)
   const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{}, completeFirstAccessWithGoogle: async () => {}}
   render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<BarArenaMetrics from="2026-10-01" to="2026-10-04" />} /><Route path="/bar/indicadores/:metric" element={<BarReportPage />} /><Route path="/atendimento/pedidos" element={<OrdersPage />} /><Route path="/atendimento/caixa" element={<MyCashPage />} /><Route path="/atendimento/vender" element={<SellPage />} /><Route path="/atendimento/comandas" element={<TabsPage />} /><Route path="/atendimento/comandas/:tabId" element={<TabDetailsPage />} /><Route path="/atendimento/receber/:tabId" element={<ReceivePage />} /><Route path="/atendimento/comprovante/:tabId/:paymentId" element={realReceipt ? <ReceiptPage /> : <h1>Comprovante recebido</h1>} /><Route path="/cliente" element={<ClientPage />} /></Routes></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
   return query
@@ -576,7 +576,7 @@ it('abre comanda coletiva com responsável confirmado e mostra o vínculo no det
  const bodies:Record<string,unknown>[]=[];const tab=makeTab();
  server({tab,pixEnabled:false,customers:[{id:'customer-a',name:'Cliente Teste',emailHint:'c***@example.com'}],post:async(_,body)=>{bodies.push(body);tab.name=String(body.name);tab.responsible={id:'customer-a',name:'Cliente Teste'};return json(tab)}})
  mount('/atendimento/comandas');fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));
- fireEvent.click(screen.getByLabelText('Cliente cadastrado'));fireEvent.change(screen.getByLabelText('Buscar responsável'),{target:{value:'Cliente'}});fireEvent.click(screen.getByRole('button',{name:'Buscar cliente'}));
+ fireEvent.click(screen.getByLabelText('Cliente cadastrado'));fireEvent.change(screen.getByLabelText('Buscar responsável'),{target:{value:'Cliente'}});
  fireEvent.click(await screen.findByLabelText('Cliente Teste · c***@example.com'));
  expect(screen.getByRole('button',{name:'Abrir comanda vinculada'})).toBeDisabled();
  fireEvent.click(screen.getByLabelText(/Confirmo que Cliente Teste/));
@@ -603,7 +603,7 @@ it('preserva a abertura incerta após remontar e repete a mesma operação',asyn
 it('mudar a busca remove o responsável e exige nova seleção',async()=>{
  server({tab:makeTab(),pixEnabled:false,customers:[{id:'customer-a',name:'Cliente Teste',emailHint:'c***@example.com'}]});mount('/atendimento/comandas');
  fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));fireEvent.click(screen.getByLabelText('Cliente cadastrado'));
- fireEvent.change(screen.getByLabelText('Buscar responsável'),{target:{value:'Cliente'}});fireEvent.click(screen.getByRole('button',{name:'Buscar cliente'}));
+ fireEvent.change(screen.getByLabelText('Buscar responsável'),{target:{value:'Cliente'}});
  fireEvent.click(await screen.findByLabelText('Cliente Teste · c***@example.com'));fireEvent.click(screen.getByLabelText(/Confirmo que Cliente Teste/));
  fireEvent.change(screen.getByLabelText('Buscar responsável'),{target:{value:'Outro'}});
  expect(screen.getByRole('button',{name:'Abrir comanda vinculada'})).toBeDisabled();expect(screen.queryByLabelText(/Confirmo que/)).not.toBeInTheDocument();
@@ -794,3 +794,31 @@ it('recebe uma divisão com centavos usando o saldo disponível', async () => {
   await screen.findByRole('heading',{name:'Comprovante recebido'})
   expect(JSON.parse(String(fetchMock.mock.calls.find(([,init])=>init?.method==='POST')![1]?.body))).toMatchObject({amount:3.34})
 })
+
+
+it('oferece atalhos na lista sem registrar consumo nem pagamento', async()=>{
+ const calls=server({tab:makeTab(),pixEnabled:false});mount('/atendimento/comandas');
+ expect(await screen.findByRole('link',{name:'Adicionar produtos à comanda 104'})).toHaveAttribute('href','/atendimento/vender?comanda=tab-a');
+ expect(screen.getByRole('link',{name:'Receber comanda 104'})).toHaveAttribute('href','/atendimento/receber/tab-a');
+ expect(calls.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
+});
+it('abre e vai direto aos produtos com uma única gravação',async()=>{
+ const calls=server({tab:makeTab(),pixEnabled:false,post:async()=>json(makeTab())});mount('/atendimento/comandas');
+ fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));
+ const submit=screen.getByRole('button',{name:'Abrir e adicionar produtos'});await waitFor(()=>expect(submit).toBeEnabled());fireEvent.click(submit);
+ await waitFor(()=>expect(screen.getByTestId('route')).toHaveTextContent('/atendimento/vender?comanda=tab-a'));
+ const writes=calls.mock.calls.filter(([,init])=>init?.method==='POST');expect(writes).toHaveLength(1);
+ expect(JSON.parse(String(writes[0][1]?.body))).not.toHaveProperty('addProducts');
+});
+it('seleciona saldo disponível ao receber sem criar pagamento',async()=>{
+ const calls=server({tab:{...makeTab(),due:12.5,pending:5,payable:7.5},pixEnabled:false});mount('/atendimento/receber/tab-a');
+ expect(await screen.findByRole('button',{name:/Receber tudo/})).toHaveAttribute('aria-pressed','true');
+ expect(screen.getByRole('button',{name:'Dinheiro'})).toBeEnabled();
+ expect(calls.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
+});
+it('reconsulta a lista ao voltar mesmo dentro dos 30 segundos do cache global',async()=>{
+ const state={tab:makeTab(),pixEnabled:false};server(state);mount('/atendimento/comandas',actor,false,30000);
+ fireEvent.click(await screen.findByRole('link',{name:/104.*Abrir comanda/}));await screen.findByRole('heading',{name:'Comanda 104'});
+ state.tab={...state.tab,due:25,total:25,payable:25};fireEvent.click(screen.getByRole('link',{name:'Voltar'}));
+ await waitFor(()=>expect(screen.getByText(/25,00/)).toBeInTheDocument());
+});

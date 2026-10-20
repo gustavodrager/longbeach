@@ -1,3 +1,4 @@
+using System.Data;
 using LongBeach.Application.Bar;
 using LongBeach.Contracts.Bar;
 using LongBeach.Domain.Bar;
@@ -12,8 +13,10 @@ public sealed class BarCatalogService(LongBeachDbContext db) : IBarCatalog
     public async Task<BarProductCategory> CreateCategory(CategoryInput input, CancellationToken ct)
     {
         var category = new BarProductCategory(input.Name);
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+        await LockCategories(ct);
         if (await db.Set<BarProductCategory>().AnyAsync(x => x.Name == category.Name, ct)) throw new BarRuleException("Categoria já cadastrada.");
-        db.Add(category); await db.SaveChangesAsync(ct); return category;
+        db.Add(category); await db.SaveChangesAsync(ct); await transaction.CommitAsync(ct); return category;
     }
     public async Task<IReadOnlyList<CatalogProduct>> Catalog(CancellationToken ct) =>
         await RankedCatalog(ct);
@@ -29,14 +32,33 @@ public sealed class BarCatalogService(LongBeachDbContext db) : IBarCatalog
         (await db.Set<BarProduct>().AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct)).Select(Managed).ToArray();
     public async Task<ManagedProduct> SaveProduct(Guid? id, ProductInput input, CancellationToken ct)
     {
-        if (!await db.Set<BarProductCategory>().AnyAsync(x => x.Id == input.CategoryId, ct)) throw new BarRuleException("Categoria não encontrada.");
+        var useDefaultCategory = input.CategoryId is null || input.CategoryId == Guid.Empty;
+        await using var transaction = useDefaultCategory
+            ? await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct) : null;
+        Guid categoryId;
+        if (useDefaultCategory)
+        {
+            await LockCategories(ct);
+            var category = await db.Set<BarProductCategory>().SingleOrDefaultAsync(x => x.Name == "Sem categoria", ct);
+            if (category is null)
+            {
+                category = new BarProductCategory("Sem categoria");
+                db.Add(category);
+            }
+            categoryId = category.Id;
+        }
+        else
+        {
+            categoryId = input.CategoryId!.Value;
+            if (!await db.Set<BarProductCategory>().AnyAsync(x => x.Id == categoryId, ct)) throw new BarRuleException("Categoria não encontrada.");
+        }
         BarProduct product;
         if (id is null)
         {
-            product = new BarProduct(input.Code, input.Name, input.ShortName, input.CategoryId, input.SaleUnit,
+            product = new BarProduct(string.IsNullOrWhiteSpace(input.Code) ? $"LB-{Guid.NewGuid():N}" : input.Code, input.Name, input.ShortName, categoryId, input.SaleUnit,
                 input.PurchaseUnit, input.ConversionFactor, input.SalePrice, input.AverageCost, input.MinimumStock,
                 input.ControlsStock, input.Favorite, input.DisplayOrder);
-            if (!input.Active) product.Change(input.Name, input.ShortName, input.CategoryId, input.SaleUnit, input.PurchaseUnit,
+            if (!input.Active) product.Change(input.Name, input.ShortName, categoryId, input.SaleUnit, input.PurchaseUnit,
                 input.ConversionFactor, input.SalePrice, input.AverageCost, input.MinimumStock, input.ControlsStock, input.Favorite, input.DisplayOrder, false);
             if (await db.Set<BarProduct>().AnyAsync(x => x.Code == product.Code, ct)) throw new BarRuleException("Código já cadastrado.");
             db.Add(product);
@@ -46,14 +68,19 @@ public sealed class BarCatalogService(LongBeachDbContext db) : IBarCatalog
             product = await db.Set<BarProduct>().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new BarRuleException("Produto não encontrado.");
             if (input.Version != product.Version) throw new BarRuleException("Produto alterado por outro usuário. Recarregue o cadastro.");
             if(input.SaleUnit!=product.SaleUnit&&await db.Set<BarRecipeIngredient>().AnyAsync(x=>x.ProductId==product.Id,ct))throw new BarRuleException("A unidade do estoque está vinculada a fichas técnicas. Cadastre outro produto para mudar essa unidade sem reinterpretar o histórico.");
-            product.Change(input.Name, input.ShortName, input.CategoryId, input.SaleUnit, input.PurchaseUnit,
+            product.Change(input.Name, input.ShortName, categoryId, input.SaleUnit, input.PurchaseUnit,
                 input.ConversionFactor, input.SalePrice, input.AverageCost, input.MinimumStock, input.ControlsStock, input.Favorite, input.DisplayOrder, input.Active);
         }
         if(input.MainSupplierId is not null && !await db.Set<LongBeach.Domain.Purchases.Supplier>().AnyAsync(x=>x.Id==input.MainSupplierId,ct))throw new BarRuleException("Fornecedor principal inexistente.");
         product.SetMetadata(input.Barcode,input.ImageUrl,input.MainSupplierId);
         product.SetPreparation(input.Prepared);
-        await db.SaveChangesAsync(ct); return Managed(product);
+        await db.SaveChangesAsync(ct);
+        if (transaction is not null) await transaction.CommitAsync(ct);
+        return Managed(product);
     }
+    // Compartilha a serialização com a importação de catálogo e o cadastro manual.
+    private Task<int> LockCategories(CancellationToken ct) =>
+        db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(19771005)", ct);
     private static CatalogProduct Public(BarProduct x) => new(x.Id, x.Code, x.Name, x.ShortName, x.CategoryId, x.SaleUnit,
         x.SalePrice, x.ControlsStock, x.MinimumStock, x.Favorite, x.DisplayOrder, x.Active, x.Version,x.Barcode,x.ImageUrl,x.Prepared);
     private static ManagedProduct Managed(BarProduct x) => new(Public(x), x.PurchaseUnit, x.ConversionFactor, x.AverageCost, x.LastCost,x.MainSupplierId);

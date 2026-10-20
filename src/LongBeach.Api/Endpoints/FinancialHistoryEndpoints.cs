@@ -20,6 +20,13 @@ public static class FinancialHistoryEndpoints
         group.MapGet("/integrations",(IFinancialHistory service,CancellationToken ct)=>service.Integrations(ct));
         group.MapGet("/arena-summary",(string? month,IFinancialHistory service,CancellationToken ct)=>service.ArenaSummary(month,ct));
         group.MapGet("/pagbank-edi",(string? date,int? page,IFinancialHistory service,CancellationToken ct)=>service.ProviderRecords(date,page??1,ct));
+        group.MapGet("/c6", (DateOnly? from, DateOnly? through, int? page, IFinancialHistory service, CancellationToken ct) => service.C6Statement(from, through, page ?? 1, ct));
+        group.MapPost("/c6/reprocess", async (EdiReprocessInput input, HttpContext context, IC6Collection collection, CancellationToken ct) =>
+        {
+            var actor = Guid.Parse(context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? context.User.FindFirstValue("sub")!);
+            await collection.Reprocess(input.From, input.Through, input.Reason, actor, ct);
+            return Results.Ok(new { input.From, input.Through });
+        });
         group.MapPost("/pagbank-edi/reprocess",async (EdiReprocessInput input,HttpContext context,IPagBankEdiCollection collection,CancellationToken ct)=>
         {
             var actor=Guid.Parse(context.User.FindFirstValue(ClaimTypes.NameIdentifier)??context.User.FindFirstValue("sub")!);

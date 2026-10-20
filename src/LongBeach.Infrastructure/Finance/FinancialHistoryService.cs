@@ -194,6 +194,7 @@ public sealed partial class FinancialHistoryService(LongBeachDbContext db, IAudi
         result.Add(new("PagBank EDI",!configured?"Aguardando configuração":failure is not null?"Requer atenção":last is null?"Aguardando primeira leitura":time.GetUtcNow()-last.Value>TimeSpan.FromHours(26)?"Coleta atrasada":complete is null||complete<yesterday?"Atualizando histórico":"Automático",
             "Vendas, liquidações e saldos em D+1. Documentos originais preservados; classificação financeira depende de conciliação.",last,failure,complete,"Produção",requirements));
         result.AddRange(Payments.PaymentIntegrationDiagnostics.Read(config));
+        result.Add(await C6Integration(ct));
         result.Add(new("PagVendas","Importação por arquivo","Produtos e resumos de vendas passam por conferência antes da aplicação. Não há sincronização automática de vendas ou estoque.",null,null,null,null,
             ["Exporte o catálogo e os relatórios no PagVendas e confira os lotes em Importações.","Para automatizar vendas detalhadas e estoque, confirme com o PagVendas uma API oficial habilitada para a conta."]));
         return result;

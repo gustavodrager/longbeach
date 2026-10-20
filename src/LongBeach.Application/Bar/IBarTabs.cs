@@ -11,7 +11,7 @@ public interface IBarTabs
     Task<IReadOnlyList<TabCustomer>> Customers(string? search, CancellationToken ct);
     bool PixEnabled { get; }
     Task<IReadOnlyList<StockLocation>> Locations(CancellationToken ct);
-    Task<PageResult<TabResponse>> List(string? state, string? search, int page, int pageSize, bool costs, CancellationToken ct, bool supervisor = false);
+    Task<PageResult<TabResponse>> List(string? state, string? search, int page, int pageSize, bool costs, CancellationToken ct, bool supervisor = false, string? orderState = null);
     Task<TabResponse> Get(Guid id, bool costs, CancellationToken ct, bool supervisor = false);
     Task<TabResponse> PaymentTab(Guid paymentId, CancellationToken ct);
     Task<TabSourceDetails> Source(string kind, Guid id, int page, int pageSize, CancellationToken ct);

@@ -2,6 +2,7 @@ import { IntegrationStatusPanel } from './IntegrationStatusPanel'
 import { isManagement } from '../auth/access'
 import { useState } from 'react'
 import { EdiReprocessForm } from './EdiReprocessForm'
+import { C6StatementPanel } from './C6StatementPanel'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../../lib/http'
@@ -77,6 +78,7 @@ export function FinancialHistoryPage() {
       <RecordTable label="Registros financeiros de origem" columns={['Descrição','Controle','Unidade','Período / data','Estado na fonte','Valor','Origem']} rows={report.items.map(item=>({key:item.id,cells:[item.data.label,seriesLabels[item.data.series],historyUnit(item),<>{item.data.grain==='month'||item.data.grain==='estimate'?monthLabel(item.data.periodStart.slice(0,7)):item.data.periodStart.split('-').reverse().join('/')} {item.data.grain==='estimate'&&'· Referência'}</>,item.data.state,centsMoney(item.data.amountCents),<button type="button" aria-label={`Ver origem de ${item.data.label}`} onClick={()=>setOpen(item.id)}>Ver origem</button>]}))}/>
       {source&&<ModalPanel title="Origem do valor" onClose={()=>setOpen(null)}><div className="editor-body"><h3>{source.data.label} · {centsMoney(source.data.amountCents)}</h3><p>{source.sourceName}</p><p><strong>Unidade:</strong> {historyUnit(source)}</p><p><strong>Referência:</strong> {source.data.sourceCell}</p><p>{source.data.notes}</p><Disclosure title="Identificação do arquivo"><code className="source-hash">SHA-256: {source.sourceSha256}</code></Disclosure></div></ModalPanel>}
       {!report.items.length && <p>Nenhum registro disponível neste filtro.</p>}<div className="arena-actions"><button type="button" disabled={page === 1} onClick={() => { const next = new URLSearchParams(params); next.set('page', String(page - 1)); setParams(next) }}>Anterior</button><span>Página {page}</span><button type="button" disabled={page * 50 >= report.total} onClick={() => { const next = new URLSearchParams(params); next.set('page', String(page + 1)); setParams(next) }}>Próxima</button></div></>}
+    <div id="c6-extrato" /><Disclosure title="Extrato da conta C6" open={new URLSearchParams(window.location.search).has('c6')} lazy><C6StatementPanel /></Disclosure>
     <div id="pagbank-edi" /><Disclosure title="Documentos originais do PagBank" open={new URLSearchParams(window.location.search).has('ediDate')} lazy><PagBankDocuments /></Disclosure><IntegrationStatusPanel />
   </main>
 }

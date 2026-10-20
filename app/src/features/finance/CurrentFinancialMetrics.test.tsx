@@ -40,7 +40,7 @@ it('mostra pendências internas, caixa separado e saldo bancário desconhecido c
   expect(within(table).getAllByText('R$ 40,00')).toHaveLength(2)
 })
 
-it('identifica ausência de registros sem afirmar saldo zero na conta PagBank', async () => {
+it('identifica ausência de registros sem afirmar saldo zero na conta C6', async () => {
   const empty = { amountCents: 0, records: 0, overdueCents: 0, overdueRecords: 0, confirmedPaymentsCents: 0 }
   mockSources({ ...position, registeredEntries: 0, lastRecordChangeAtUtc: null, receivable: empty, payable: empty }, { ...report, value: 0, rows: { total: 0, items: [] } })
   wrap()
@@ -82,11 +82,23 @@ it('resumo compacto mantém os saldos líquidos e concentra a atualização no c
   mockSources(); wrap(true)
   const receivable = await screen.findByRole('button', { name: /A receber · financeiro.*40,00/ })
   expect(screen.queryByRole('button', { name: 'Atualizar agora' })).not.toBeInTheDocument()
-  expect(screen.queryByText('Saldo atual da conta PagBank')).not.toBeInTheDocument()
-  expect(screen.getByText(/Conta PagBank:/).closest('p')).toHaveTextContent('Não conectado')
+  expect(screen.queryByText('Saldo atual da conta C6')).not.toBeInTheDocument()
+  expect(screen.getByText(/Conta C6:/).closest('p')).toHaveTextContent('Não conectado')
   await userEvent.click(receivable)
   expect(screen.getByRole('table', { name: 'Composição do saldo pendente' })).toHaveTextContent('R$ 40,00')
   expect(receivable).toHaveAttribute('aria-expanded', 'true')
   await userEvent.click(screen.getByRole('button', { name: /Fechar Contas a receber/ }))
   expect(screen.queryByRole('table')).not.toBeInTheDocument()
+})
+
+it('mostra saldo C6 negativo com fonte, data, atraso e ambiente de testes sem somar ao caixa', async () => {
+  mockSources({ ...position, currentBank: { amountCents: -4205, asOfUtc: '2026-10-13T14:00:00Z', status: 'Stale', issue: 'Leitura anterior preservada.', source: 'C6 · teste', environment: 'Sandbox', sourceDate: '2026-10-13' } })
+  wrap()
+  expect(await screen.findByText('-R$ 42,05')).toBeInTheDocument()
+  expect(screen.getByText('Leitura atrasada')).toBeInTheDocument()
+  expect(screen.getByText(/não representa dinheiro real/)).toBeInTheDocument()
+  expect(screen.getByText('Fonte: C6 · teste')).toBeInTheDocument()
+  expect(screen.getByText(/Consulta ao banco:/)).toHaveTextContent('Data bancária: 13/10/2026')
+  expect(screen.getByRole('link', { name: /Conferir extrato C6/ })).toHaveAttribute('href', '/financeiro/historico?c6=1#c6-extrato')
+  expect(screen.getByRole('link', { name: /Dinheiro nos caixas/ })).toHaveTextContent('R$ 12,34')
 })

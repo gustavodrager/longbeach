@@ -16,6 +16,99 @@ public sealed class PostgresFactAttribute : FactAttribute
 public sealed class BarPostgresTests
 {
     [PostgresFact]
+    public async Task Products_without_category_share_one_audited_fallback_even_when_saved_concurrently()
+    {
+        await using var db = Database(); await db.Database.MigrateAsync();
+        var existing = await db.Set<BarProductCategory>().AsNoTracking().SingleOrDefaultAsync(x => x.Name == "Sem categoria");
+        var suffix = Guid.NewGuid().ToString("N");
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var saves = Enumerable.Range(0, 6).Select(async index =>
+        {
+            await start.Task;
+            await using var writer = Database();
+            var input = new ProductInput("", $"Fallback {suffix} {index}", "Fallback", index % 2 == 0 ? null : Guid.Empty,
+                "un", "un", 1, 5, 0, 0, true, false, 0);
+            return await new BarCatalogService(writer).SaveProduct(null, input, default);
+        }).ToArray();
+        start.SetResult();
+        var products = await Task.WhenAll(saves);
+
+        var category = Assert.Single(await db.Set<BarProductCategory>().AsNoTracking().Where(x => x.Name == "Sem categoria").ToListAsync());
+        Assert.NotEqual(Guid.Empty, category.Id);
+        Assert.NotEqual(default, category.CreatedAtUtc);
+        Assert.All(products, product => Assert.Equal(category.Id, product.Product.CategoryId));
+        Assert.Equal(6, products.Select(x => x.Product.Id).Distinct().Count());
+        Assert.Equal(6, await db.Set<BarProduct>().CountAsync(x => x.Name.StartsWith("Fallback " + suffix)));
+        if (existing is null)
+            Assert.Equal(1, await db.AuditLogs.CountAsync(x => x.Resource == nameof(BarProductCategory) && x.ResourceId == category.Id.ToString() && x.Action == "Added"));
+        else
+            Assert.Equal(existing.Id, category.Id);
+
+        var inputForReuse = new ProductInput("", "Reuse " + suffix, "Reuse", null, "un", "un", 1, 6, 0, 0, true, false, 0);
+        var reused = await new BarCatalogService(db).SaveProduct(null, inputForReuse, default);
+        Assert.Equal(category.Id, reused.Product.CategoryId);
+        db.ChangeTracker.Clear();
+        Assert.Equal(category.Id, (await db.Set<BarProduct>().SingleAsync(x => x.Id == reused.Product.Id)).CategoryId);
+        Assert.Equal(1, await db.Set<BarProductCategory>().CountAsync(x => x.Name == "Sem categoria"));
+    }
+
+    [PostgresFact]
+    public async Task Explicit_product_category_is_preserved_on_edit_and_unknown_category_is_rejected()
+    {
+        await using var db = Database(); await db.Database.MigrateAsync();
+        var service = new BarCatalogService(db);
+        var suffix = Guid.NewGuid().ToString("N");
+        var category = await service.CreateCategory(new CategoryInput("Explicit " + suffix), default);
+        var input = new ProductInput("", "Explicit " + suffix, "Explicit", category.Id, "un", "un", 1, 5, 0, 0, true, false, 0);
+        var created = await service.SaveProduct(null, input, default);
+        var edited = await service.SaveProduct(created.Product.Id, input with { Name = "Edited " + suffix, Version = created.Product.Version }, default);
+        Assert.Equal(category.Id, edited.Product.CategoryId);
+        db.ChangeTracker.Clear();
+        Assert.Equal(category.Id, (await db.Set<BarProduct>().SingleAsync(x => x.Id == created.Product.Id)).CategoryId);
+
+        var rejected = input with { Name = "Invalid category " + suffix, CategoryId = Guid.NewGuid() };
+        var error = await Assert.ThrowsAsync<BarRuleException>(() => service.SaveProduct(null, rejected, default));
+        Assert.Equal("Categoria não encontrada.", error.Message);
+        Assert.False(await db.Set<BarProduct>().AnyAsync(x => x.Name == rejected.Name));
+    }
+
+    [PostgresFact]
+    public async Task Invalid_product_does_not_commit_fallback_category_or_partial_product()
+    {
+        await using var db = Database(); await db.Database.MigrateAsync();
+        var categoryIdsBefore = await db.Set<BarProductCategory>().Where(x => x.Name == "Sem categoria").Select(x => x.Id).ToListAsync();
+        var suffix = Guid.NewGuid().ToString("N");
+        var input = new ProductInput("", "Invalid supplier " + suffix, "Invalid supplier", null,
+            "un", "un", 1, 5, 0, 0, true, false, 0, MainSupplierId: Guid.NewGuid());
+        var error = await Assert.ThrowsAsync<BarRuleException>(() => new BarCatalogService(db).SaveProduct(null, input, default));
+        Assert.Equal("Fornecedor principal inexistente.", error.Message);
+        var productIds = db.ChangeTracker.Entries<BarProduct>().Where(x => x.Entity.Name == input.Name)
+            .Select(x => x.Entity.Id.ToString()).ToArray();
+
+        await using var reloaded = Database();
+        Assert.False(await reloaded.Set<BarProduct>().AnyAsync(x => x.Name == input.Name));
+        Assert.Equal(categoryIdsBefore, await reloaded.Set<BarProductCategory>().Where(x => x.Name == "Sem categoria").Select(x => x.Id).ToListAsync());
+        Assert.False(await reloaded.AuditLogs.AnyAsync(x => x.Resource == nameof(BarProduct) && x.ResourceId != null && productIds.Contains(x.ResourceId)));
+    }
+
+    [PostgresFact]
+    public async Task Product_code_is_automatic_unique_and_preserved_when_editing()
+    {
+        await using var db = Database(); await db.Database.MigrateAsync();
+        var service = new BarCatalogService(db);
+        var category = await service.CreateCategory(new CategoryInput("Auto code " + Guid.NewGuid()), default);
+        var input = new ProductInput("", "Produto automático", "Produto", category.Id, "un", "un", 1, 5, 0, 0, true, false, 0);
+        var first = await service.SaveProduct(null, input, default);
+        var second = await service.SaveProduct(null, input, default);
+        Assert.StartsWith("LB-", first.Product.Code);
+        Assert.NotEqual(first.Product.Code, second.Product.Code);
+        var edited = await service.SaveProduct(first.Product.Id, input with { Name = "Novo nome", Version = first.Product.Version }, default);
+        Assert.Equal(first.Product.Code, edited.Product.Code);
+        db.ChangeTracker.Clear();
+        Assert.Equal(first.Product.Code, (await db.Set<BarProduct>().SingleAsync(x => x.Id == first.Product.Id)).Code);
+    }
+
+    [PostgresFact]
     public async Task Stock_valuation_reads_received_costs_reservations_and_missing_initial_cost_without_writes()
     {
         await using var db = Database(); await db.Database.MigrateAsync();

@@ -22,19 +22,31 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     public bool PixEnabled => gateway.Enabled;
     public async Task<IReadOnlyList<StockLocation>> Locations(CancellationToken ct) => await db.Set<StockLocation>().AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
 
-    public async Task<PageResult<TabResponse>> List(string? state, string? search, int page, int pageSize, bool costs, CancellationToken ct, bool supervisor = false)
+    public async Task<PageResult<TabResponse>> List(string? state, string? search, int page, int pageSize, bool costs, CancellationToken ct, bool supervisor = false, string? orderState = null)
     {
         (page, pageSize) = Paging(page, pageSize);
+        if (!string.IsNullOrEmpty(orderState) && (state != "Orders" || orderState is not ("Requested" or "Accepted")))
+            throw new BarRuleException("Filtro de pedidos inválido.");
+        var pending = db.Set<BarTabItem>().Where(i => (i.State == "Requested" || i.State == "Accepted") && (string.IsNullOrEmpty(orderState) || i.State == orderState));
         var query = db.Set<BarTab>().AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(state))
         {
             if (state is not ("Open" or "Closed" or "Orders")) throw new BarRuleException("Situação inválida.");
-            query = state == "Orders" ? query.Where(x => x.State == "Open" && db.Set<BarTabItem>().Any(i => i.TabId == x.Id && (i.State == "Requested" || i.State == "Accepted"))) : query.Where(x => x.State == state);
+            query = state == "Orders" ? query.Where(x => x.State == "Open" && pending.Any(i => i.TabId == x.Id)) : query.Where(x => x.State == state);
         }
-        if (!string.IsNullOrWhiteSpace(search)) { var text = search.Trim(); if (text.Length > 80) throw new BarRuleException("Busca muito longa."); query = long.TryParse(text, out var number) ? query.Where(x => x.Number == number) : query.Where(x => EF.Functions.ILike(x.Name, "%" + text + "%")); }
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var text = search.Trim();
+            if (text.Length > 80) throw new BarRuleException("Busca muito longa.");
+            var pattern = "%" + text.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
+            var isNumber = long.TryParse(text, out var number);
+            query = state == "Orders"
+                ? query.Where(x => (isNumber && x.Number == number) || EF.Functions.ILike(x.Name, pattern) || pending.Any(i => i.TabId == x.Id && (EF.Functions.ILike(i.Name, pattern) || db.Set<BarProduct>().Any(p => p.Id == i.ProductId && EF.Functions.ILike(p.Name, pattern)))))
+                : isNumber ? query.Where(x => x.Number == number) : query.Where(x => EF.Functions.ILike(x.Name, pattern));
+        }
         var count = await query.CountAsync(ct);
         var ordered = state == "Orders"
-            ? query.OrderBy(x => db.Set<BarTabItem>().Where(i => i.TabId == x.Id && (i.State == "Requested" || i.State == "Accepted")).Min(i => i.CreatedAtUtc)).ThenBy(x => x.Number)
+            ? query.OrderBy(x => pending.Where(i => i.TabId == x.Id).Min(i => i.CreatedAtUtc)).ThenBy(x => x.Number)
             : state == "Closed" ? query.OrderByDescending(x => x.ClosedAtUtc).ThenByDescending(x => x.Number)
             : query.OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.Number);
         var tabs = await ordered.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);

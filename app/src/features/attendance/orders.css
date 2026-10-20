@@ -1,0 +1,29 @@
+.lb-orders-page .lb-orders-filters { display:grid; gap:12px; margin-bottom:16px; }
+.lb-orders-page .lb-orders-filters .ux-actions { flex-wrap:wrap; margin:0; gap:8px; }
+.lb-orders-page .lb-orders-filters .ux-search { margin:0; min-width:0; }
+.lb-orders-page .lb-orders-groups { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; align-items:start; }
+.lb-orders-page .lb-orders-group { min-width:0; margin:0; padding:20px; }
+.lb-orders-page .lb-order-comanda { padding-bottom:12px; margin-bottom:0; overflow-wrap:anywhere; }
+.lb-orders-page .lb-order-comanda>span strong { font-size:28px; }
+.lb-orders-page .lb-order-comanda h2 { min-width:0; }
+.lb-orders-page .lb-order-comanda svg { flex-shrink:0; }
+.lb-orders-page .lb-order-row { min-width:0; padding:18px 0; border-bottom:1px solid #d9cebb; overflow-wrap:anywhere; }
+.lb-orders-page .lb-order-row:last-child { border-bottom:0; padding-bottom:0; }
+.lb-orders-page .lb-order-info h3 { font-size:20px; line-height:1.35; margin:0 0 8px; }
+.lb-orders-page .lb-order-info p { margin:8px 0; }
+.lb-orders-page .lb-order-info small { color:#625d53; }
+.lb-orders-page .ux-actions { flex-wrap:wrap; gap:8px; }
+.lb-orders-page .ux-button { min-height:48px; max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+.lb-orders-page .lb-order-actions { margin-top:12px; }
+.lb-orders-page .lb-order-refusal { margin-top:16px; padding:14px; background:#f6f0e4; border-radius:14px; border:1px solid #d9cebb; }
+.lb-orders-page .lb-order-refusal strong { display:block; margin-bottom:12px; }
+.lb-orders-page .lb-order-refusal input { min-width:0; width:100%; box-sizing:border-box; }
+.lb-orders-page .ux-notice { overflow-wrap:anywhere; }
+.lb-orders-page .ux-pagination { flex-wrap:wrap; gap:10px; }
+@media(max-width:900px) { .lb-orders-page .lb-orders-groups { grid-template-columns:minmax(0,1fr); } }
+@media(max-width:480px) {
+ .lb-orders-page .lb-orders-group { padding:16px; }
+ .lb-orders-page .lb-order-refusal { padding:12px; }
+ .lb-orders-page .lb-order-actions .ux-button { flex:1 1 100px; }
+ .lb-orders-page .lb-order-info h3 { font-size:18px; }
+}
