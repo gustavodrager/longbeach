@@ -1,6 +1,6 @@
 # Integração C6 — configuração, homologação e operação
 
-**Situação deste registro:** implementação e testes locais; credenciais, homologação e execução bancária reais pendentes. Este documento não comprova cadastro enviado, conexão autenticada, migration hospedada ou publicação. Registre essas evidências separadamente quando ocorrerem.
+**Situação deste registro:** implementação publicada com recursos C6 desabilitados; testes, backup, migrations e deployments registrados na [evidência de 19/10/2026](c6-validacao-2026-10-19.md). Credenciais, homologação e execução bancária reais continuam pendentes. Este documento não comprova aprovação de cadastro ou conexão autenticada.
 
 Decisão de arquitetura: [ADR-012](../adr/ADR-012-c6-saldo-extrato-pix.md). Permanecem vigentes o isolamento standalone e as regras de produção dos ADRs 001 e 003.
 
