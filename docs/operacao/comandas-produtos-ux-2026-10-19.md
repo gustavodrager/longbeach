@@ -39,3 +39,19 @@ Voltar primeiro a web e depois a API: o novo formulário envia código vazio, ac
 - Evidências privadas fora do Git: `outputs/categoria-produtos-producao-2026-10-19/` no workspace pai.
 
 Reversão deste ajuste: voltar primeiro a web para `c2ee5583cfabd65e2fd5b345f7122593024b793e` (deployment `b960644d-f50f-4d6d-ac12-2d5c03024524`). Se necessário, voltar depois a API ao mesmo commit (deployment `f4915774-b196-4836-9838-c36b1d99c80d`). A web nova envia categoria nula e depende da API nova. Preservar produtos e a categoria criada; não remover dados. Reconciliar snapshot e verificar saúde.
+
+## Pedidos e publicação conjunta com C6 — 19/10/2026
+
+Pedidos agora agrupa itens por comanda, com busca por número, nome ou produto e filtros Todos, A aceitar e A entregar antes da paginação. Aceite e entrega em um toque, recusa contextual com motivo, processamento e nova tentativa por item. Respostas concorrentes confirmam somente o item da ação. Layout responsivo preserva nomes longos e controles de toque.
+
+Por autorização explícita do responsável, a versão integra também C6, mantendo conexão, saldo/extrato e Pix desabilitados. Evidências de backup, migrations e limites em [validação C6](c6-validacao-2026-10-19.md).
+
+- Artefato conjunto: `b7c57a87e2acab7cbab227d70fb8b0b3509befd5`, revisão #42.
+- CI `39348393971`: frontend e backend PostgreSQL 17/18 aprovados, incluindo builds e verificações operacionais. Pedidos havia passado localmente em 403 testes frontend e 70 testes de integração afetados.
+- API `f5251d2d-393d-49f5-adc6-586750e0c611` e web `13084b44-cf2e-4f5b-9926-e14ba6cff374`: SUCCESS, ambas com meta.commitHash do artefato conjunto. API publicada antes da web; health/ready Healthy e healthz ok. Pedidos anônimo retorna401.
+- Snapshot Railway reconciliado, plano sem diferenças; somente branch/commit de API/web promovidos.
+- Produção autenticada com PWA atualizada: desktop1440px, celular emulado320/390px, busca, filtros e limpeza conferidos, sem rolagem horizontal; controles medidos em55px. Fila vazia durante a conferência: ações com itens foram verificadas localmente em banco fictício, inclusive aceite, entrega, recusa e persistência após recarregar, além de concorrência e falha/nova tentativa automatizadas. Nenhuma transação real criada.
+- Diagnóstico financeiro confirma C6 Pix e saldo/extrato desativados. A publicação não representa homologação ou ativação bancária.
+- Evidências privadas fora do Git: `outputs/pedidos-producao-2026-10-19/` no workspace pai.
+
+Retorno de Pedidos: promover primeiro web e depois API para `def7e333cad951e3c004f56f5ae0a53f172f74ff` (web `e28c44ea-5018-48c3-9b67-4bcc13c5dbe5`, API `e297480d-3b88-41ce-a6b8-504730f14a3e`). Essa versão já compreende o schema C6. Não reduzir schema nem remover dados; seguir as guardas C6 para pagamentos e configuração.
