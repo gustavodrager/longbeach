@@ -1,4 +1,5 @@
 import { CopyPix } from '../../components/CopyPix'
+import { PixQr } from '../../components/PixQr'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -7,7 +8,7 @@ import { useAuth } from '../auth/authContext'
 import { money } from '../attendance/api'
 import { AccountItems } from './AccountItems'
 import { AccountCheckout } from './AccountCheckout'
-import { post, date, stateLabel, type Account, type Candidates, type Config, type Payment, type Subscription } from './api'
+import { post, date, stateLabel, pixEnabledFor, type Account, type Candidates, type Config, type Payment, type Subscription } from './api'
 import './billing.css'
 import { downloadReceipt } from './receipt'
 
@@ -16,7 +17,7 @@ function PaymentHistory({ account, base, admin, refresh }: { account: Account; b
   async function run(path: string, body: unknown) { setBusy(true); setError(''); try { await post(path, body); await refresh() } catch (e) { setError(e instanceof Error ? e.message : 'Confira a operação.'); await refresh() } finally { setBusy(false) } }
   return <section aria-label="Histórico de pagamentos">{account.payments.map(p => <article className="billing-payment" key={p.id}><div><strong>{stateLabel(p.state)} · {money(p.amount)}</strong><p>{p.method === 'CreditCard' ? 'Crédito à vista' : p.method === 'Subscription' ? 'Mensalidade automática' : p.method === 'Cash' ? 'Dinheiro' : p.method === 'CardManual' ? 'Cartão na maquininha' : p.method}{p.paidAtUtc ? ` · Pago em ${date(p.paidAtUtc)}` : ''}</p><small>Pagamento {p.id}</small></div>
     {(p.refundPending ?? 0) > 0 && <p role="status">Estorno aguardando confirmação: {money(p.refundPending ?? 0)}</p>}{p.refunded > 0 && <p>Estornado: {money(p.refunded)}</p>}
-    {p.state === 'Pending' && <><p>Aguardando confirmação do pagamento. Este valor ainda não está quitado.</p>{p.expiresAtUtc && <p>Validade do Pix/cobrança: {new Date(p.expiresAtUtc).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. Após esse horário, consulte a confirmação antes de tentar novamente.</p>}{p.qrImageUrl && <img className="lb-pix-qr" src={p.qrImageUrl} alt="QR Code Pix desta conta" referrerPolicy="no-referrer" />}{p.pixText && <CopyPix code={p.pixText} />}<button disabled={busy} onClick={() => void run(`${base}/accounts/${account.id}/payments/${p.id}/refresh`, {})}>Consultar confirmação</button></>}
+    {p.state === 'Pending' && <><p>Aguardando confirmação do pagamento. Este valor ainda não está quitado.</p>{p.expiresAtUtc && <p>Validade do Pix/cobrança: {new Date(p.expiresAtUtc).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}. Após esse horário, consulte a confirmação antes de tentar novamente.</p>}{p.qrImageUrl ? <img className="lb-pix-qr" src={p.qrImageUrl} alt="QR Code Pix desta conta" referrerPolicy="no-referrer" /> : p.pixText ? <PixQr code={p.pixText} /> : null}{p.pixText && <CopyPix code={p.pixText} />}<button disabled={busy} onClick={() => void run(`${base}/accounts/${account.id}/payments/${p.id}/refresh`, {})}>Consultar confirmação</button></>}
     {p.state === 'Approved' && <button onClick={() => downloadReceipt(account, p)}>Baixar comprovante</button>}
     {admin && p.state === 'Approved' && p.amount > p.refunded && !(p.refundPending ?? 0) && <button disabled={busy} onClick={() => { setRefund(p); setValue(String(p.amount - p.refunded)); setReason(''); setOperation(crypto.randomUUID()) }}>Estornar</button>}
   </article>)}
@@ -74,6 +75,7 @@ export function BillingPage({ admin = false }: { admin?: boolean }) {
     {!admin && <nav className="portal-filters" aria-label="Situação dos pagamentos">{[['due','A pagar'],['pending','Em confirmação'],['history','Histórico']].map(([key,label])=><button key={key} aria-pressed={filter===key} onClick={()=>{setFilter(key);setSelected('');setParams({})}}>{label}</button>)}</nav>}
     {accessible && ['Bar', 'Quadra'].map(kind => <section key={kind} aria-label={`Conta ${kind === 'Bar' ? 'do Bar' : 'da Quadra'}`}><h2>Conta {kind === 'Bar' ? 'do Bar' : 'da Quadra'}</h2>{accounts.data && !accounts.data.some(a => a.kind === kind && matchesFilter(a)) && <p>Nenhuma conta nesta seleção.</p>}
       {accounts.data?.filter(a => a.kind === kind && matchesFilter(a)).map(a => {
+        const accountOnline = Boolean(config.data && !config.isError && (pixEnabledFor(config.data, a.kind) || config.data.cardEnabled))
         const linkedSubscription = subscriptions.data?.find(s => s.id === a.subscriptionId)
         const sub = linkedSubscription && !['CANCELED', 'EXPIRED', 'Rejected'].includes(linkedSubscription.state) ? linkedSubscription : subscriptions.data?.find(s => s.accountId === a.id && !['CANCELED', 'EXPIRED', 'Rejected'].includes(s.state))
         const hasSubscription = Boolean(sub || a.subscriptionId && !linkedSubscription)
@@ -86,8 +88,8 @@ export function BillingPage({ admin = false }: { admin?: boolean }) {
         <dl className="billing-totals"><div><dt>Total</dt><dd>{money(a.total)}</dd></div><div><dt>Já pago</dt><dd>{money(a.paid)}</dd></div><div><dt>Em confirmação</dt><dd>{money(a.pending)}</dd></div></dl>
         {a.kind === 'Bar' && <AccountItems account={a} />}
         {lastRejection && lastAttempt?.state === 'Rejected' && !sub && <div role="status"><p>Última adesão não autorizada. {lastRejection.failureReason ?? 'A mensalidade automática não foi ativada.'}</p><p>Confira os dados e autorize uma nova tentativa.</p></div>}
-        {a.payable > 0 && !hasSubscription && (!admin || canManage) && <div className="ux-actions"><button disabled={!online} onClick={() => { setSelected(a.id); setMode('pay') }}>Pagar esta conta</button>{!admin && a.recurringEligible && config.data?.subscriptionsEnabled && <button disabled={!subscriptions.isSuccess} onClick={() => { setSelected(a.id); setMode('subscribe') }}>Ativar mensalidade automática</button>}</div>}
-        {pending && <button disabled={!online} onClick={() => { setSelected(a.id); setMode('pay') }}>Retomar pagamento pendente</button>}
+        {a.payable > 0 && !hasSubscription && (!admin || canManage) && <div className="ux-actions"><button disabled={!accountOnline} onClick={() => { setSelected(a.id); setMode('pay') }}>Pagar esta conta</button>{!admin && a.recurringEligible && config.data?.subscriptionsEnabled && <button disabled={!subscriptions.isSuccess} onClick={() => { setSelected(a.id); setMode('subscribe') }}>Ativar mensalidade automática</button>}</div>}
+        {pending && <button disabled={!config.data || config.isError || (pending.method !== 'Pix' && !config.data.cardEnabled)} onClick={() => { setSelected(a.id); setMode('pay') }}>Retomar pagamento pendente</button>}
         {hasSubscription && !sub && <p>Mensalidade automática vinculada. Consulte o responsável pela assinatura.</p>}{sub && <div className="billing-subscription"><p>Mensalidade automática: {stateLabel(sub.state)} · {money(sub.amount)}</p>{sub.canResume ? <button onClick={() => { setSelected(a.id); setMode('subscribe') }}>Retomar adesão</button> : sub.state === 'Creating' ? <><p role="status">Aguardando confirmação do PagBank. A consulta não inicia outra cobrança.</p><button disabled={busy} onClick={() => void refreshSubscription(sub)}>Consultar adesão pendente</button></> : <button disabled={busy} onClick={() => setCancelReview(sub)}>Cancelar cobranças futuras</button>}</div>}
         {selected === a.id && config.data && !config.isError && (a.payable > 0 || pending || sub?.canResume) && (mode !== 'subscribe' || !sub || sub.canResume) && <AccountCheckout key={`${a.id}:${mode}:${pending?.id ?? ''}:${mode === 'subscribe' ? lastRejection?.id ?? '' : ''}`} account={a} config={config.data} base={base} resume={mode === 'pay' ? pending : undefined} subscription={mode === 'subscribe'} subscriptionOperationId={sub?.operationId} subscriptionUpdateExistingCustomerCard={sub?.updateExistingCustomerCard} subscriptionUpdated={subscriptionUpdated} done={refresh} />}
         <PaymentHistory account={a} base={base} admin={canManage} refresh={refresh} />

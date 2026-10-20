@@ -20,10 +20,12 @@ public sealed class BillingAccount : Entity
 public sealed class BillingPayment : Entity
 {
     private BillingPayment() { }
-    public BillingPayment(Guid accountId, Guid operationId, decimal amount, string method, Guid actor, DateTimeOffset expires) : base(Guid.NewGuid())
+    public BillingPayment(Guid accountId, Guid operationId, decimal amount, string method, Guid actor, DateTimeOffset expires, string provider = "PagBank", string? providerEnvironment = null, string? providerAccountId = null) : base(Guid.NewGuid())
     {
         if (operationId == Guid.Empty || method is not ("Pix" or "CreditCard" or "Subscription") || amount <= 0) throw new BarRuleException("Pagamento inválido.");
         AccountId = accountId; OperationId = operationId; Amount = BarRules.Money(amount); Method = method; ActorId = actor; ExpiresAtUtc = expires.ToUniversalTime();
+        if (provider is not ("PagBank" or "C6") || (provider == "C6" && (method != "Pix" || providerEnvironment is not ("Sandbox" or "Production") || string.IsNullOrWhiteSpace(providerAccountId) || providerAccountId.Length > 80 || providerAccountId.Any(char.IsControl)))) throw new BarRuleException("Conexão do provedor inválida.");
+        Provider = provider; ProviderEnvironment = providerEnvironment; ProviderAccountId = providerAccountId;
     }
     public Guid AccountId { get; private set; }
     public Guid OperationId { get; private set; }
@@ -31,6 +33,10 @@ public sealed class BillingPayment : Entity
     public decimal Amount { get; private set; }
     public string Method { get; private set; } = "";
     public string State { get; private set; } = "Pending";
+    public string Provider { get; private set; } = "PagBank";
+    public string? ProviderEnvironment { get; private set; }
+    public string? ProviderAccountId { get; private set; }
+    public string? PixEndToEndId { get; private set; }
     public string? ProviderId { get; private set; }
     public string? ChargeId { get; private set; }
     public string? PixText { get; private set; }
@@ -39,6 +45,13 @@ public sealed class BillingPayment : Entity
     public DateTimeOffset? PaidAtUtc { get; private set; }
     public decimal Refunded { get; private set; }
     public int Version { get; private set; }
+    public void ObservePixIdentity(string? endToEndId)
+    {
+        if (string.IsNullOrWhiteSpace(endToEndId)) return;
+        if (Provider != "C6" || (PixEndToEndId is not null && PixEndToEndId != endToEndId)) throw new BarRuleException("Identificador Pix divergente.");
+        if (PixEndToEndId == endToEndId) return;
+        PixEndToEndId = endToEndId; Version++;
+    }
     public void Bind(string order, string? charge, string? text, string? image)
     {
         if (ProviderId is not null && (ProviderId != order || (!string.IsNullOrEmpty(ChargeId) && ChargeId != charge))) throw new BarRuleException("Pagamento externo divergente.");
@@ -88,6 +101,7 @@ public sealed class BillingSubscription : Entity
     public string State { get; private set; } = "Creating";
     public string? ProviderId { get; private set; }
     public string? PlanId { get; private set; }
+    public string Provider { get; private set; } = "PagBank";
     public bool UpdateExistingCustomerCard { get; private set; }
     public bool CreationAttempted { get; private set; }
     public string? FailureReason { get; private set; }

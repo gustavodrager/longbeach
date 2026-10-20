@@ -16,6 +16,9 @@ appsettings.*.local.json
 secrets*.json
 *.p12
 *.pfx
+*.pem
+*.key
+*.crt
 *.jks
 *.keystore
 *.mobileprovision

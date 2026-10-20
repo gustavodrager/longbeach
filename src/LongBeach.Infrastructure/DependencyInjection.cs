@@ -43,10 +43,16 @@ public static class DependencyInjection
         services.AddScoped<LongBeach.Application.Teaching.ITeaching, LongBeach.Infrastructure.Teaching.TeachingService>();
         services.AddScoped<LongBeach.Application.Portal.IClientPortal, LongBeach.Infrastructure.Portal.ClientPortalService>();
         services.AddScoped<LongBeach.Application.Billing.IBilling, LongBeach.Infrastructure.Billing.BillingService>();
+        LongBeach.Infrastructure.C6.C6ClientRegistration.AddC6Client(services, configuration);
+        services.AddScoped<LongBeach.Application.Billing.IBillingPaymentGateways, LongBeach.Infrastructure.Billing.BillingPaymentGateways>();
         services.AddHostedService<LongBeach.Infrastructure.Billing.BillingWorker>();
         services.AddHttpClient<LongBeach.Application.Billing.IRecurringGateway, LongBeach.Infrastructure.Payments.PagBankRecurringGateway>(client => client.Timeout = TimeSpan.FromSeconds(20)).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddHostedService<LongBeach.Infrastructure.Payments.PagBankReconciliationWorker>();
         services.AddScoped<LongBeach.Application.Finance.IFinancialHistory, LongBeach.Infrastructure.Finance.FinancialHistoryService>();
+        services.AddScoped<LongBeach.Infrastructure.C6.IC6BankingApi, LongBeach.Infrastructure.C6.C6BankingApi>();
+        services.AddSingleton<LongBeach.Infrastructure.Finance.C6BankingWorker>();
+        services.AddSingleton<LongBeach.Application.Finance.IC6Collection>(sp => sp.GetRequiredService<LongBeach.Infrastructure.Finance.C6BankingWorker>());
+        services.AddHostedService(sp => sp.GetRequiredService<LongBeach.Infrastructure.Finance.C6BankingWorker>());
         services.AddHttpClient("PagBankEdi", client => client.Timeout = TimeSpan.FromSeconds(45))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddSingleton<LongBeach.Infrastructure.Finance.PagBankEdiWorker>();

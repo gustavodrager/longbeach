@@ -14,7 +14,7 @@ public sealed class PaymentIntegrationDiagnosticsTests
     public void Missing_configuration_is_reported_per_product_without_claiming_connection()
     {
         var result = PaymentIntegrationDiagnostics.Read(Config([]));
-        Assert.Equal(3, result.Count);
+        Assert.Equal(4, result.Count);
         Assert.All(result, status => { Assert.Equal("Desativado", status.State); Assert.Null(status.LastSuccessUtc); Assert.NotEmpty(status.Requirements!); });
         Assert.Contains(result[0].Requirements!, x => x.Contains("token"));
         Assert.Contains(result[2].Requirements!, x => x.Contains("Recorrência"));
@@ -60,6 +60,43 @@ public sealed class PaymentIntegrationDiagnosticsTests
         Assert.False(PaymentIntegrationDiagnostics.ValidWebhookKey(Convert.ToBase64String(rsa.ExportSubjectPublicKeyInfo())));
         Assert.False(PaymentIntegrationDiagnostics.ValidWebhookKey(Convert.ToBase64String([..ec.ExportSubjectPublicKeyInfo(),1])));
         Assert.True(PaymentIntegrationDiagnostics.ValidWebhookKey(Convert.ToBase64String(ec.ExportSubjectPublicKeyInfo())));
+    }
+
+    [Theory]
+    [InlineData(true, true, true, "Configurado; validar operação")]
+    [InlineData(false, true, true, "Desativado")]
+    [InlineData(true, false, true, "Desativado")]
+    [InlineData(true, true, false, "Desativado")]
+    public void C6_pix_diagnostics_respect_each_creation_flag_without_disclosing_credentials(bool connection, bool pix, bool billing, string state)
+    {
+        var values = new Dictionary<string,string?>
+        {
+            ["Integrations:C6:Enabled"] = connection.ToString(), ["Integrations:C6:PixEnabled"] = pix.ToString(),
+            ["Payments:Billing:Enabled"] = billing.ToString(), ["Integrations:C6:Environment"] = "Sandbox",
+            ["Integrations:C6:AccountId"] = "private-account-reference", ["Integrations:C6:ClientId"] = "private-c6-client-id",
+            ["Integrations:C6:ClientSecret"] = "private-c6-client-secret", ["Integrations:C6:CertificatePath"] = "/private/c6-certificate.pfx",
+            ["Integrations:C6:PixKey"] = "private-pix-key@longbeach.test"
+        };
+        var result = PaymentIntegrationDiagnostics.Read(Config(values)).Single(x => x.Provider == "C6 Pix");
+        Assert.Equal(state, result.State); Assert.Equal("Sandbox", result.Environment); Assert.Null(result.LastSuccessUtc);
+        var json = JsonSerializer.Serialize(result);
+        Assert.Contains("não comprova", result.Detail);
+        foreach (var key in new[] { "AccountId", "ClientId", "ClientSecret", "CertificatePath", "PixKey" })
+            Assert.DoesNotContain(values["Integrations:C6:" + key]!, json);
+    }
+
+    [Fact]
+    public void Enabled_C6_pix_with_invalid_environment_and_missing_credentials_is_incomplete()
+    {
+        var result = PaymentIntegrationDiagnostics.Read(Config(new()
+        {
+            ["Integrations:C6:Enabled"] = "true", ["Integrations:C6:PixEnabled"] = "true",
+            ["Payments:Billing:Enabled"] = "true", ["Integrations:C6:Environment"] = "other"
+        })).Single(x => x.Provider == "C6 Pix");
+        Assert.Equal("Configuração incompleta", result.State); Assert.Equal("Inválido", result.Environment);
+        Assert.Contains(result.Requirements!, value => value.Contains("certificado"));
+        Assert.Contains(result.Requirements!, value => value.Contains("chave Pix"));
+        Assert.Contains(result.Requirements!, value => value.Contains("Client ID"));
     }
 
     [Theory]

@@ -44,6 +44,32 @@ public static class PaymentIntegrationDiagnostics
         recurringIssues.Add("Confirme no PagBank a habilitação da Recorrência e seu endereço de notificações.");
         result.Add(new("PagBank assinaturas", !recurringEnabled ? "Desativado" : incomplete ? "Configuração incompleta" : "Configurado; validar operação",
             "Mensalidades recorrentes com consulta de faturas e recuperação de pagamentos. Requer homologação própria.", null, null, null, recurringEnvironment, recurringIssues));
+
+        const string c6 = "Integrations:C6:";
+        var c6Issues = new List<string>();
+        var c6Environment = config[c6 + "Environment"] ?? "Sandbox";
+        if (c6Environment is not ("Sandbox" or "Production")) c6Issues.Add("Selecione Sandbox ou Production para a conexão C6.");
+        var c6Account = config[c6 + "AccountId"];
+        if (string.IsNullOrWhiteSpace(c6Account) || c6Account.Length > 80 || c6Account.Any(char.IsControl) || c6Account != c6Account.Trim())
+            c6Issues.Add("Configure a identificação interna da conta C6.");
+        if (!Credential(config[c6 + "ClientId"]) || !Credential(config[c6 + "ClientSecret"]))
+            c6Issues.Add("Configure Client ID e Client Secret C6 do ambiente selecionado no servidor.");
+        if (string.IsNullOrWhiteSpace(config[c6 + "CertificatePath"]))
+            c6Issues.Add("Configure o certificado mTLS C6 com a chave privada no servidor.");
+        var pixKey = config[c6 + "PixKey"];
+        if (string.IsNullOrWhiteSpace(pixKey) || pixKey.Length > 77 || pixKey.Any(char.IsControl))
+            c6Issues.Add("Configure a chave Pix da conta C6 no servidor.");
+        var c6Configured = c6Issues.Count == 0;
+        var c6ConnectionEnabled = config.GetValue(c6 + "Enabled", false);
+        var c6PixEnabled = config.GetValue(c6 + "PixEnabled", false);
+        var billingEnabled = config.GetValue("Payments:Billing:Enabled", false);
+        if (!c6ConnectionEnabled) c6Issues.Add("Habilite a conexão C6 após a homologação.");
+        if (!c6PixEnabled) c6Issues.Add("Habilite novas cobranças Pix C6 após validar o fluxo completo.");
+        if (!billingEnabled) c6Issues.Add("Habilite os pagamentos das contas após a homologação.");
+        result.Add(new("C6 Pix", !(c6ConnectionEnabled && c6PixEnabled && billingEnabled) ? "Desativado"
+            : !c6Configured ? "Configuração incompleta" : "Configurado; validar operação",
+            "Pix avulso da Quadra. Suspender novas cobranças preserva a consulta de pagamentos existentes enquanto a conexão permanecer habilitada. A configuração não comprova autenticação, validade do certificado ou homologação no C6.",
+            null, null, null, c6Environment == "Production" ? "Produção" : c6Environment == "Sandbox" ? "Sandbox" : "Inválido", c6Issues));
         return result;
     }
 

@@ -41,7 +41,7 @@ public sealed partial class FinancialHistoryService
             .OrderBy(x => x.DueDate).ThenBy(x => x.Id).ToArray();
         var result = new CurrentFinancialPosition(today, readAt, lastChange, records.Count,
             CurrentFinancialPositionRules.Outstanding(entries, "Receber", today), CurrentFinancialPositionRules.Outstanding(entries, "Pagar", today),
-            new(null, null, "NotConnected", "Saldo atual da conta não conectado. O extrato importado e a carteira de vendas EDI não informam o saldo bancário de agora."), details);
+            await C6CurrentBalance(ct), details);
         await snapshot.CommitAsync(ct);
         return result;
     }

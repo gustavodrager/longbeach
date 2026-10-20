@@ -32,20 +32,20 @@ public sealed partial class BillingService
         if(payment.Method=="Subscription")await recurring.Refund(payment.ChargeId!,refund.OperationId,refund.Amount,refund.Previous,ct);
         else
         {
-            var remote=await gateway.RefundPartial(payment.ProviderId!,refund.OperationId,refund.Amount,refund.Previous,ct);Validate(payment,remote);
+            var remote=await PaymentGateway(payment).RefundPartial(payment.ProviderId!,refund.OperationId,refund.Amount,refund.Previous,ct);Validate(payment,remote);
             Require(remote.Refunded==checked((long)((refund.Previous+refund.Amount)*100)),"Estorno ainda não confirmado.");
         }
         await using(var tx=await db.Database.BeginTransactionAsync(ct))
         {
             await ArenaLock(ct);await db.Entry(payment).ReloadAsync(ct);await db.Entry(refund).ReloadAsync(ct);
-            if(refund.State!="Confirmed") {payment.Observe("PAID",refund.Previous+refund.Amount,time.GetUtcNow());refund.Confirm();await UpdateEntry(payment,ct);await db.SaveChangesAsync(ct);}
+            if(refund.State!="Confirmed") {payment.Observe("PAID",refund.Previous+refund.Amount,time.GetUtcNow());refund.Confirm();await UpdateEntry(payment,ct);if(payment.Provider=="C6")AuditC6(payment,"C6PaymentRefunded",refund.ActorId);await db.SaveChangesAsync(ct);}
             await tx.CommitAsync(ct);
         }
         return await Account(id,null,ct);
     }
     public async Task<bool> RefreshNotificationHint(string orderId, CancellationToken ct)
     {
-        var payment = await db.Set<BillingPayment>().SingleOrDefaultAsync(x => x.ProviderId == orderId && x.Method != "Subscription", ct);
+        var payment = await db.Set<BillingPayment>().SingleOrDefaultAsync(x => x.Provider == "PagBank" && x.ProviderId == orderId && x.Method != "Subscription", ct);
         if (payment is null) return false;
         var remote = await gateway.Get(payment.ProviderId!, ct);
         Validate(payment, remote);
@@ -56,9 +56,9 @@ public sealed partial class BillingService
     {
         if(!await gateway.VerifyWebhookAsync(body,signatures,ct))return false;
         using var json=JsonDocument.Parse(body);if(!json.RootElement.TryGetProperty("id",out var id))return false;var order=id.GetString();
-        var payment=await db.Set<BillingPayment>().SingleOrDefaultAsync(x=>x.ProviderId==order&&x.Method!="Subscription",ct);
+        var payment=await db.Set<BillingPayment>().SingleOrDefaultAsync(x=>x.Provider=="PagBank"&&x.ProviderId==order&&x.Method!="Subscription",ct);
         if(payment is null&&json.RootElement.TryGetProperty("reference_id",out var reference)&&Guid.TryParse(reference.GetString(),out var referenceId))
-            payment=await db.Set<BillingPayment>().SingleOrDefaultAsync(x=>x.Id==referenceId&&x.Method!="Subscription",ct);
+            payment=await db.Set<BillingPayment>().SingleOrDefaultAsync(x=>x.Id==referenceId&&x.Provider=="PagBank"&&x.Method!="Subscription",ct);
         if(payment is null)return false;
         var remote=await gateway.Get(order!,ct);Validate(payment,remote);
         if(payment.ProviderId is null)
@@ -69,7 +69,7 @@ public sealed partial class BillingService
     }
     public async Task Recover(CancellationToken ct)
     {
-        var pending=await db.Set<BillingPayment>().Where(x=>x.State=="Pending"&&x.ProviderId!=null&&x.Method!="Subscription").Select(x=>new{x.Id,x.AccountId,x.ActorId}).ToListAsync(ct);
+        var pending=await db.Set<BillingPayment>().Where(x=>x.State=="Pending"&&(x.ProviderId!=null||x.Provider=="C6")&&x.Method!="Subscription").Select(x=>new{x.Id,x.AccountId,x.ActorId}).ToListAsync(ct);
         foreach(var p in pending) {try{await Refresh(p.AccountId,p.Id,p.ActorId,false,ct);}catch(Exception ex)when(!ct.IsCancellationRequested){logger.LogWarning("Billing recovery deferred: {FailureType}",ex.GetType().Name);db.ChangeTracker.Clear();}}
         var refunds=await db.Set<BillingRefund>().Where(x=>x.State=="Pending").ToListAsync(ct);
         foreach(var r in refunds)

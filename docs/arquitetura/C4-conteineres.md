@@ -16,6 +16,7 @@ C4Container
         Container(logs, "Logs e observabilidade", "Serviço exclusivo", "Logs estruturados, métricas, traces e alertas por ambiente")
     }
 
+    System_Ext(c6, "C6 Bank", "Saldo, extrato e Pix da Quadra; ativação após homologação")
     System_Ext(mail, "Provedor de e-mail", "Mensagens transacionais")
     System_Ext(push, "APNs / FCM", "Notificações push")
 
@@ -23,6 +24,9 @@ C4Container
     Rel(user, mobile, "Usa", "Aplicativo nativo")
     Rel(web, api, "Consome", "HTTPS/JSON /api/v1")
     Rel(mobile, api, "Consome e sincroniza", "HTTPS/JSON /api/v1")
+    Rel(api, c6, "Cria, consulta e devolve Pix pelo provedor persistido", "HTTPS / OAuth2 / mTLS")
+    Rel(worker, c6, "Coleta saldo/extrato e recupera pagamentos", "HTTPS / OAuth2 / mTLS")
+    Rel(c6, api, "Notifica identificadores; baixa exige consulta autenticada", "HTTPS / callback limitado")
     Rel(api, db, "Lê e grava", "TLS/PostgreSQL")
     Rel(api, files, "Gera URL e registra arquivos", "HTTPS")
     Rel(api, logs, "Publica telemetria sem dados sensíveis", "TLS")
@@ -52,3 +56,7 @@ C4Container
 - nenhum contêiner referencia serviço, banco, volume, secret ou domínio interno da Plataforma QuebraNunca ou do projeto Railway legado;
 - antes do corte, o legado atende `longbeach.quebranunca.com.br`; depois, permanece fora desta fronteira e acessível por seu domínio técnico Railway durante a janela de retorno;
 - compartilhar o namespace DNS e a conta Railway é uma conveniência administrativa e não cria dependência de código, dados, autenticação, API ou deploy.
+
+## Integração C6
+
+Coletor e recuperação compartilham o cliente C6 no processo da API, com limite conjunto de chamadas. Credenciais e certificados ficam somente no servidor de cada ambiente. Documentos bancários, saldo e cursor possuem tabelas próprias; extrato não gera receita. A publicação inicial mantém C6 desabilitado. Consulte [ADR-012](../adr/ADR-012-c6-saldo-extrato-pix.md).

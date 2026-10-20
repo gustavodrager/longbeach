@@ -803,6 +803,10 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("OperationId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("PaymentProvider")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<string>("PixText")
                         .HasColumnType("text");
 
@@ -994,8 +998,27 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("PaidAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("PixEndToEndId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("PixText")
                         .HasColumnType("text");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("PagBank");
+
+                    b.Property<string>("ProviderAccountId")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("ProviderEnvironment")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<string>("ProviderId")
                         .HasColumnType("text");
@@ -1025,13 +1048,22 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                         .HasFilter("\"State\" = 'Pending'");
 
                     b.HasIndex("ChargeId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"Provider\" = 'PagBank'");
 
                     b.HasIndex("OperationId")
                         .IsUnique();
 
                     b.HasIndex("ProviderId")
+                        .IsUnique()
+                        .HasFilter("\"Provider\" = 'PagBank'");
+
+                    b.HasIndex("Provider", "ProviderEnvironment", "ProviderAccountId", "PixEndToEndId")
                         .IsUnique();
+
+                    b.HasIndex("Provider", "ProviderEnvironment", "ProviderAccountId", "ProviderId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_billing_payments_Provider_ProviderEnvironment_ProviderAcco~1");
 
                     b.ToTable("billing_payments", (string)null);
                 });
@@ -1060,6 +1092,21 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("PaymentId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("PagBank");
+
+                    b.Property<string>("ProviderAccountId")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("ProviderEnvironment")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<string>("ProviderId")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1077,6 +1124,10 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("ProviderId")
+                        .IsUnique()
+                        .HasFilter("\"Provider\" = 'PagBank'");
+
+                    b.HasIndex("Provider", "ProviderEnvironment", "ProviderAccountId", "ProviderId")
                         .IsUnique();
 
                     b.ToTable("billing_orders", (string)null);
@@ -1221,6 +1272,13 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("PlanId")
                         .HasColumnType("text");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("PagBank");
 
                     b.Property<string>("ProviderId")
                         .HasColumnType("text");
@@ -2059,6 +2117,10 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("OperationId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("PaymentProvider")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
                     b.Property<string>("PixText")
                         .HasColumnType("text");
 
@@ -2118,6 +2180,13 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("PaymentId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("PagBank");
 
                     b.Property<string>("State")
                         .IsRequired()
