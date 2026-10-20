@@ -97,6 +97,7 @@ export function TabsPage() {
   }
   return <BarFrame className="lb-tabs-page"><Header title="Comandas" description="Consulte o consumo, os pagamentos e as pendências." />
     {canOperate && <OpenTabForm />}
+    {(state==='Closed'||state==='All')&&<Link className="ux-button secondary" to="/bar/vendas">Vendas do fluxo anterior →</Link>}
     <div className="ux-actions lb-tab-filters" role="group" aria-label="Situação das comandas">{tabViews.map(([value, label]) => <button key={value} className={`ux-button ${state === value ? 'primary' : 'secondary'}`} aria-pressed={state === value} onClick={() => filters({ situacao: value, pagina: '1' })}>{label}</button>)}</div>
     <label className="ux-search"><Icon name="search" /><input value={search} type="search" maxLength={80} placeholder="Número ou nome" aria-label="Buscar comanda" onChange={event => filters({ busca: event.target.value, pagina: '1' }, true)} /></label>
     {state === 'Orders' && <p className="ux-note">Pedidos pendentes mais antigos primeiro.</p>}

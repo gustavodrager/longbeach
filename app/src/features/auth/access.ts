@@ -19,17 +19,17 @@ export function workHome(user: AuthUser | null | undefined) {
   if (user?.roles.includes('Teacher')) return '/professor'
   if (hasPermission(user,'bar:sales:operate')) return '/atendimento/vender'
   if (hasPermission(user,'bar:finance:read')) return '/bar/indicadores'
-  if (hasPermission(user,'bar:stock:manage')) return '/bar/estoque'
+  if (hasPermission(user,'bar:stock:manage')) return '/bar/produtos'
   return hasWorkArea(user) ? '/' : '/minha-area'
 }
 
 export function barHome(user: AuthUser | null | undefined): string | null {
   const destinations = [
-    ['bar:finance:read', '/bar/indicadores'], ['bar:sales:operate', '/atendimento/vender'],
-    ['bar:stock:read', '/bar/estoque'], ['bar:supervise', '/bar/caixa'],
+    ['bar:sales:operate', '/atendimento/vender'], ['bar:finance:read', '/bar/indicadores'],
+    ['bar:stock:read', '/bar/produtos'], ['bar:supervise', '/bar/caixa'],
     ['bar:catalog:write', '/bar/produtos'], ['bar:sales:read', '/atendimento/comandas'],
-    ['bar:cash:operate', '/atendimento/caixa'], ['bar:purchases:manage', '/bar/compras'],
-    ['bar:payments:reconcile', '/bar/conciliacao'],
+    ['bar:cash:operate', '/bar/caixa'], ['bar:purchases:manage', '/bar/compras'],
+    ['bar:payments:reconcile', '/recebimentos/conciliacao-bar'],
   ]
   return destinations.find(([permission]) => hasPermission(user, permission))?.[1] ?? null
 }

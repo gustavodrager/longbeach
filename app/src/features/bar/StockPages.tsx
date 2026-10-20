@@ -3,8 +3,8 @@ import { useState } from 'react'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/access'
 import { StockAvailableEditor } from './StockAvailableEditor'
-import { Link } from 'react-router-dom'
-import { ActionPanel, Disclosure, RecordTable, SectionTabs, useSection, useContextSearchParams } from '../../components/managementUi'
+import { Link, Navigate } from 'react-router-dom'
+import { ActionPanel, Disclosure, RecordTable, useSection, useContextSearchParams } from '../../components/managementUi'
 import { Empty, Field, Pagination, Search, useFilters, validDate } from '../../pages/arenaUi'
 import { label, type Balance, useBar, useAction, Notice, QueryNotice, useBarStock, StockNotice } from './BarCore'
 import './stock-workflow.css'
@@ -12,13 +12,13 @@ export { BarCountsPage } from './StockCounts'
 type Movement = { id: string; name: string; unit: string; locationName: string; quantity: number; before: number; after: number; kind: string; reason: string; createdAtUtc: string; originId: string; actorId?: string; actorName?: string }
 type History = { items: Movement[]; total: number; page: number; pageSize: number }
 const movementKinds = ['PurchaseReceived','InitialCount','InventoryAdjustment','Loss','InternalConsumption','Sale','TabDelivery','TabReturn','TransferIn','TransferOut','Courtesy','SaleReturn']
-export function BarStockPage() {
+export function BarStockPage({balancesOnly=false}:{balancesOnly?:boolean}) {
   const {user}=useAuth();const [editing,setEditing]=useState<Balance|null>(null);
-  const filters = useFilters(); const [section, setSection] = useSection(['saldos','movimentos'])
+  const filters = useFilters(); const [section] = useSection(['saldos','movimentos'])
   const stock = useBarStock(); const balances = useBar<Balance[]>('/stock/balances')
   const all = (balances.data ?? []).filter(r => r.locationId === stock.location?.id)
   const search = filters.query.toLocaleLowerCase('pt-BR')
-  const status = filters.params.get('low') === '1' ? 'low' : filters.status
+  const status = filters.params.get('low') === '1' || ['low','minimum'].includes(filters.status) ? 'low' : filters.status==='empty'?'empty':''
   const rows = all.filter(r => r.name.toLocaleLowerCase('pt-BR').includes(search) && (!status || (status === 'low' ? r.low : status === 'empty' ? r.alertEligible && r.available <= 0 : status === 'minimum' ? r.alertEligible && r.available > 0 && r.available <= r.minimumStock : r.available > 0))).sort((a,b) => a.name.localeCompare(b.name,'pt-BR'))
   const previous = stock.ready ? (balances.data ?? []).filter(r => r.locationId !== stock.location?.id && (r.quantity !== 0 || r.reserved !== 0)) : []
   const from = filters.params.get('de') ?? ''; const to = filters.params.get('ate') ?? ''
@@ -32,16 +32,17 @@ export function BarStockPage() {
   const history = useBar<History>('/stock/movement-history?'+query, section === 'movimentos' && stock.ready && datesValid)
   const [,setParams] = useContextSearchParams()
   const changeStatus = (value: string) => { const next = new URLSearchParams(filters.params); next.delete('low'); next.delete('page'); value ? next.set('status',value) : next.delete('status'); setParams(next,{preventScrollReset:true}) }
-  return <StockPage title="Estoque do Bar" description="Confira o que está disponível e ajuste a quantidade quando necessário.">
-    <StockActions/><StockNotice stock={stock}/><QueryNotice query={balances}/>
-    {stock.ready && balances.isSuccess && <div className="stock-overview" aria-label="Situação do estoque">
+  if(!balancesOnly && section!=='movimentos') return <Navigate replace to={{pathname:'/bar/produtos',search:filters.params.toString()}}/>
+  return <StockPage title={balancesOnly?'Produtos e estoque':'Movimentações do estoque'} description={balancesOnly?"Confira o que está disponível e ajuste a quantidade quando necessário.":"Consulte as entradas, saídas e ajustes, com responsável e origem."}>
+    {!balancesOnly&&<Link to="/bar/produtos">Produtos e estoque →</Link>}<StockActions/><StockNotice stock={stock}/><QueryNotice query={balances}/>
+    {balancesOnly && stock.ready && balances.isSuccess && <div className="stock-overview" aria-label="Situação do estoque">
       <span><strong>{all.filter(r=>r.available>0).length}</strong> Com saldo disponível</span>
       <span><strong>{all.filter(r=>r.low).length}</strong> No mínimo ou abaixo</span>
       <span><strong>{all.filter(r=>r.alertEligible&&r.available<=0).length}</strong> Esgotados</span>
     </div>}
-    <SectionTabs value={section} onChange={setSection} items={[{value:'saldos',label:'Saldos'},{value:'movimentos',label:'Movimentações'}]}/>
+
     <div className="compact-filters"><Search filters={filters} placeholder="Buscar produto…"/>
-      {section === 'saldos' && <Field label="Disponibilidade" value={status} onChange={changeStatus} options={[{value:'',label:'Todos os produtos'},{value:'low',label:'No mínimo ou abaixo'},{value:'empty',label:'Esgotados'},{value:'minimum',label:'Com saldo no mínimo ou abaixo'},{value:'available',label:'Com saldo disponível'}]}/>}
+      {section === 'saldos' && <Field label="Disponibilidade" value={status} onChange={changeStatus} options={[{value:'',label:'Todos'},{value:'low',label:'Repor'},{value:'empty',label:'Esgotados'}]}/>}
     </div>
     {section === 'saldos' ? <>
       <p className="arena-hint">{rows.length} produtos nesta seleção</p>

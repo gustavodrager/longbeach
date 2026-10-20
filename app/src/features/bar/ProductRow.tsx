@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useUnsavedChanges } from '../../components/managementUi'
 import { useEffect, useRef, useState } from 'react'
 import { type Balance, type Managed, type Named, money, useAction, Notice } from './BarCore'
@@ -24,7 +25,7 @@ export function ProductRow({item,balance,stockReady,canAdjust,categories,supplie
  const stockChanged=ownsStock&&canAdjust&&stockReady&&number(draft.available)!==(initial.balance?.available??0);
  const result=await a.run('/products/'+p.id+(canAdjust?'/stock':''),canAdjust?{product,available:stockChanged?number(draft.available):null,stockVersion:initial.balance?.version??0,operationId:crypto.randomUUID()}:product,'PUT');if(result!==undefined){dirty.current=false;onClose();}
  }}><Notice action={a}/><p className="arena-hint">Informe o total disponível para venda. O ajuste fica registrado no histórico.</p>
- <details><summary>Mais opções</summary><div className="field-grid">
+ <details><summary>Mais opções</summary>{p.prepared&&<Link to={`/bar/receitas/${p.id}`}>Ficha técnica e ingredientes →</Link>}<div className="field-grid">
  <label>Unidade de venda<input required disabled={a.busy||ownsStock} value={draft.saleUnit} onChange={e=>change('saleUnit',e.target.value)}/></label>
  <label>Categoria<select disabled={a.busy} value={draft.categoryId} onChange={e=>change('categoryId',e.target.value)}><option value="">Sem categoria</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
  <label>Fornecedor<select disabled={a.busy} value={draft.mainSupplierId??''} onChange={e=>change('mainSupplierId',e.target.value||null)}><option value="">A definir</option>{suppliers.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>

@@ -12,6 +12,7 @@ export function StockActions() {
   return <nav className="stock-actions" aria-label="Ações do estoque">
     {hasPermission(user, 'bar:stock:manage') && <Link to="/bar/inventario">Contar estoque</Link>}
     {hasPermission(user, 'bar:purchases:manage') && <Link to="/bar/compras">Receber compra</Link>}
-    {hasPermission(user, 'bar:stock:output') && <Link to="/bar/perdas">Registrar saída</Link>}
+    {hasPermission(user, 'bar:stock:output') && <Link to="/bar/perdas">Registrar perda ou consumo</Link>}
+    {hasPermission(user, 'bar:stock:read') && <Link to="/bar/estoque?secao=movimentos">Movimentações</Link>}
   </nav>
 }

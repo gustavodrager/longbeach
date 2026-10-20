@@ -7,6 +7,8 @@ import { LegacyDestination, MissingDestination } from './RouteDestinations'
 import { destinationFor, managementNavigation, visibleNavigation } from './navigation'
 
 it.each([
+  ['/bar/conciliacao','/recebimentos/conciliacao-bar',undefined],
+  ['/atendimento/caixa','/bar/caixa',undefined],
   ['/quadras', '/agenda/funcionamento', undefined],
   ['/estoque', '/administracao/materiais', undefined],
   ['/estoque/:itemId', '/administracao/materiais', 'itemId'],
@@ -22,9 +24,9 @@ it.each([
 })
 it('entrada do bar respeita perfil e permissões efetivas', () => {
   const user:AuthUser={id:'test',name:'Teste',email:'test@example.invalid',roles:['BarOperator'],permissions:['bar:catalog:read','bar:sales:operate','bar:finance:read']}
-  expect(barHome(user)).toBe('/atendimento/vender');expect(barHome({...user,roles:['Manager'],permissions:[]})).toBe('/bar/indicadores')
+  expect(barHome(user)).toBe('/atendimento/vender');expect(barHome({...user,roles:['Manager'],permissions:[]})).toBe('/atendimento/vender')
   expect(barHome({...user,roles:['BarFinance'],permissions:['bar:finance:read']})).toBe('/bar/indicadores')
-  expect(barHome({...user,roles:['StockManager'],permissions:['bar:stock:read']})).toBe('/bar/estoque')
+  expect(barHome({...user,roles:['StockManager'],permissions:['bar:stock:read']})).toBe('/bar/produtos')
   expect(barHome({...user,roles:['Student']})).toBeNull();expect(barHome({...user,roles:['Teacher']})).toBeNull()
 })
 it('menus apontam para destinos canônicos e mantêm seções profundas identificadas',()=>{

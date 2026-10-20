@@ -83,3 +83,23 @@ it.each(['c',''])('permite escolher e limpar a categoria em Mais opções (%s)',
  expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({categoryId:categoryId||null});
  client.clear();
 });
+
+it('filtra disponibilidade sem tratar produtos sem controle como esgotados',async()=>{
+ const response=(v:unknown)=>new Response(JSON.stringify(v));
+ const names=['Esgotado','Repor','Livre'];
+ vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
+  const path=String(input);
+  if(path.endsWith('/products'))return response(names.map((name,i)=>({product:{id:String(i),name,code:String(i),saleUnit:'un',salePrice:5,controlsStock:i!==2,active:true},averageCost:2})));
+  if(path.endsWith('/stock/balances'))return response(names.map((name,i)=>({productId:String(i),name,locationId:'b0000000-0000-0000-0000-000000000002',available:i===1?1:0,low:i!==2,alertEligible:i!==2,controlsStock:i!==2})));
+  return response([]);
+ });
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ render(<QueryClientProvider client={client}><MemoryRouter><BarProductsPage/></MemoryRouter></QueryClientProvider>);
+ await screen.findByRole('table');await waitFor(()=>expect(screen.getAllByText('0 un').length).toBeGreaterThan(0));
+ fireEvent.change(screen.getByLabelText('Disponibilidade'),{target:{value:'empty'}});
+ expect(within(screen.getByRole('table')).getByText('Esgotado')).toBeInTheDocument();
+ expect(within(screen.getByRole('table')).queryByText('Livre')).not.toBeInTheDocument();
+ expect(within(screen.getByRole('table')).queryByText('Repor')).not.toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Disponibilidade'),{target:{value:'low'}});
+ expect(within(screen.getByRole('table')).getByText('Repor')).toBeInTheDocument();client.clear();
+})
