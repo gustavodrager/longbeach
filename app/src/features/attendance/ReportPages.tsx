@@ -13,7 +13,7 @@ import './attendance.css'
 import './reports.css'
 import { Feedback, Header, ItemStatus, PaymentStatus, Summary } from './components'
 import { dateTime, money, parseAmount, paymentLabels, postBar, useBarCommand, useBarData, useIntent, type PageResult, type Tab, type TabReport, type TabReportRow } from './api'
-const currentMetrics = [['open-tabs', 'Comandas abertas'], ['orders', 'Pedidos aguardando equipe'], ['pending-payments', 'Pagamentos pendentes'], ['low-stock-bar', 'Estoque baixo no Bar'], ['cash', 'Dinheiro nos caixas']]
+const currentMetrics = [['open-tabs', 'Comandas abertas'], ['orders', 'Pedidos aguardando equipe'], ['pending-payments', 'Pagamentos pendentes'], ['low-stock-bar', 'Estoque baixo no Bar'], ['cash', 'Dinheiro no caixa']]
 const isCurrentMetric = (metric: string) => currentMetrics.some(([key]) => key === metric) || ['low-stock', 'receivable', 'requests', 'pending', 'lowStock'].includes(metric)
 const periodMetrics = [['consumption', 'Consumo confirmado'], ['received', 'Recebimentos confirmados'], ['refunds', 'Estornos confirmados'], ['fees', 'Taxas conciliadas'], ['cash-differences', 'Diferenças de caixa']]
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
@@ -58,12 +58,7 @@ export function BarOverviewPage() {
   })}</div>
   return <ReportFrame>
     <Heading eyebrow="Gestão do bar" title="Resumo do bar" description="Acompanhe as comandas, os recebimentos e o que precisa de atenção." />
-    <nav className="bar-operation-actions arena-actions" aria-label="Ações do Bar">
-      <Link className="primary-button" to="/atendimento/vender">Vender</Link>
-      <Link className="secondary-link" to="/atendimento/comandas">Comandas</Link>
-      <Link className="secondary-link" to="/atendimento/pedidos">Pedidos</Link>
-      <Link className="secondary-link" to="/atendimento/caixa">Meu caixa</Link>
-    </nav>
+
       <section className="arena-dashboard-section" aria-labelledby="bar-attention">
         <div className="arena-section-heading"><div><p className="arena-section-eyebrow">01 · Operação atual</p><h2 id="bar-attention">Atenção agora</h2></div><p>Situação atual, independente do período</p></div>
         {cards(currentMetrics, true)}
@@ -77,9 +72,9 @@ export function BarOverviewPage() {
     <StockValuation />
     <section className="operation-card bar-report-records" aria-labelledby="bar-records">
       <h2 id="bar-records">Conferir os registros</h2>
-      <div className="arena-actions"><Link className="secondary-link" to="/atendimento/comandas">Comandas →</Link><Link className="secondary-link" to="/bar/vendas">Vendas históricas →</Link><Link className="secondary-link" to="/bar/estoque">Estoque do bar →</Link><Link className="secondary-link" to="/bar/caixa">Caixas da equipe →</Link></div>
-      <p className="arena-hint">Fonte: comandas do Long Beach OS. Vendas anteriores estão no histórico. Consumo, recebimentos e dinheiro nos caixas têm registros próprios.</p>
-      <Disclosure title="Como interpretar os indicadores"><p>O período selecionado se aplica aos resultados. Comandas abertas, pedidos, pagamentos pendentes, estoque e dinheiro nos caixas mostram a situação atual.</p><p>Valores indisponíveis dependem de registros ou conciliação. Dinheiro nos caixas representa o controle do bar; consulte o saldo bancário e sua data de atualização na página inicial.</p></Disclosure>
+      <div className="arena-actions"><Link className="secondary-link" to="/atendimento/comandas">Comandas →</Link><Link className="secondary-link" to="/bar/vendas">Vendas históricas →</Link><Link className="secondary-link" to="/bar/estoque">Estoque do bar →</Link><Link className="secondary-link" to="/bar/caixa?secao=historico">Histórico do caixa →</Link></div>
+      <p className="arena-hint">Fonte: comandas do Long Beach OS. Vendas anteriores estão no histórico. Consumo, recebimentos e dinheiro no caixa têm registros próprios.</p>
+      <Disclosure title="Como interpretar os indicadores"><p>O período selecionado se aplica aos resultados. Comandas abertas, pedidos, pagamentos pendentes, estoque e dinheiro no caixa mostram a situação atual.</p><p>Valores indisponíveis dependem de registros ou conciliação. Dinheiro no caixa representa o controle do bar; consulte o saldo bancário e sua data de atualização na página inicial.</p></Disclosure>
     </section>
   </ReportFrame>
 }

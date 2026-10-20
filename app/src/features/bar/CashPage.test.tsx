@@ -27,3 +27,12 @@ it('bloqueia edição e duplicação durante gravação lenta',async()=>{const a
 it('envia o saldo conferido para impedir fechamento sobre saldo alterado',async()=>{const api=setup();const u=userEvent.setup();await screen.findByText('Pessoa teste · Manhã');await u.click(screen.getAllByRole('button',{name:'Fechar caixa'})[0]);const d=within(screen.getByRole('dialog'));await u.type(d.getByLabelText('Dinheiro contado (R$)'),'125');await u.click(d.getByRole('button',{name:'Confirmar fechamento'}));await d.findByText('Concluído. Os dados do caixa foram atualizados.');const write=api.mock.calls.find(([url,i])=>String(url).endsWith('/close')&&i?.method==='POST');expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({counted:125,expected:125})})
 
 it('abre sem cadastro ou seleção de caixa e envia somente o turno',async()=>{const api=setup(false,true);const u=userEvent.setup();await waitFor(()=>expect(screen.getByRole('button',{name:'Abrir caixa'})).toBeEnabled());expect(screen.queryByText('Configurar caixas físicos')).not.toBeInTheDocument();await u.click(screen.getByRole('button',{name:'Abrir caixa'}));const d=within(screen.getByRole('dialog'));expect(d.queryByRole('combobox')).not.toBeInTheDocument();await u.type(d.getByLabelText('Fundo inicial (R$)'),'0');await u.click(d.getByRole('button',{name:'Abrir caixa'}));await d.findByText('Concluído. Os dados do caixa foram atualizados.');const write=api.mock.calls.find(([url,i])=>String(url).endsWith('/cash/sessions')&&i?.method==='POST');expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({opening:0,terminal:'Atendimento',locationId:'bar'});expect(JSON.parse(String(write?.[1]?.body))).not.toHaveProperty('registerId')})
+
+it('abre no turno atual e só consulta fechamentos ao entrar no histórico',async()=>{
+ const api=setup();const u=userEvent.setup();await screen.findByText('Pessoa teste · Manhã');
+ expect(screen.queryByLabelText('Buscar responsável')).not.toBeInTheDocument();
+ expect(api.mock.calls.some(([url])=>String(url).includes('/cash/history'))).toBe(false);
+ await u.click(screen.getByRole('button',{name:'Histórico'}));
+ expect(await screen.findByLabelText('Buscar responsável')).toBeInTheDocument();
+ await waitFor(()=>expect(api.mock.calls.some(([url])=>String(url).includes('/cash/history')&&String(url).includes('state=closed'))).toBe(true));
+})
