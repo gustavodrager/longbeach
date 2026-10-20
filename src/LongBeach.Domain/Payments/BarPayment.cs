@@ -5,7 +5,7 @@ public sealed class BarPayment : Entity
 {
     private BarPayment() { }
     public BarPayment(Guid saleId, decimal amount, string method, Guid operationId, Guid actor, string? authorization = null, decimal? tendered = null) : base(Guid.NewGuid())
-    { SaleId = saleId; Amount = BarRules.Money(amount); Tendered = BarRules.Money(tendered ?? amount); Method = method; OperationId = operationId; ActorId = actor; Authorization = authorization is null ? null : BarRules.Text(authorization, 100, "NSU/autorização"); }
+    { SaleId = saleId; Amount = BarRules.Money(amount); Tendered = BarRules.Money(tendered ?? amount); Method = method; PaymentProvider = method is "Pix" or "CreditCard" ? "PagBank" : null; OperationId = operationId; ActorId = actor; Authorization = authorization is null ? null : BarRules.Text(authorization, 100, "NSU/autorização"); }
     public Guid SaleId { get; private set; }
     public decimal Tendered { get; private set; }
     public decimal Amount { get; private set; }
@@ -14,6 +14,7 @@ public sealed class BarPayment : Entity
     public Guid ActorId { get; private set; }
     public string? Authorization { get; private set; }
     public string State { get; private set; } = "Approved";
+    public string? PaymentProvider { get; private set; }
     public string? ProviderId { get; private set; }
     public string? PixText { get; private set; }
     public string? QrImageUrl { get; private set; }

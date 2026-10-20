@@ -179,3 +179,30 @@ it('itens de comanda distinguem pedidos, consumo e cancelamentos sem recalcular 
  vi.spyOn(globalThis,'fetch').mockImplementation(async input=>String(input).endsWith('/config')?json(config):String(input).endsWith('/subscriptions')?json([]):json([{...account,kind:'Bar',total:8,payable:8,discount:2,items}]))
  mount(<BillingPage/>);await screen.findByRole('article');fireEvent.click(screen.getByText('Itens da comanda'));expect(screen.getByText('2 × Água')).toBeInTheDocument();expect(screen.getByText(/Ainda fora do total/)).toBeInTheDocument();expect(screen.getByText(/Cancelado · não cobrado/)).toBeInTheDocument();expect(screen.getByText('Desconto aplicado: R$ 2,00')).toBeInTheDocument();expect(within(screen.getByRole('article')).getByText('R$ 8,00 a pagar agora')).toBeInTheDocument()
 })
+
+it('C6 habilitado somente na Quadra não oferece Pix no Bar', async () => {
+ const scoped = {...config, courtPixEnabled:true, barPixEnabled:false, cardEnabled:false, subscriptionsEnabled:false}
+ vi.spyOn(globalThis,'fetch').mockImplementation(async input=>String(input).endsWith('/config')?json(scoped):String(input).endsWith('/subscriptions')?json([]):json([account,{...account,id:'bar-c6',kind:'Bar',title:'Comanda sem Pix'}]))
+ mount(<BillingPage />)
+ const court=await screen.findByRole('article',{name:account.title})
+ expect(within(court).getByRole('button',{name:'Pagar esta conta'})).toBeEnabled()
+ expect(within(screen.getByRole('article',{name:'Comanda sem Pix'})).getByRole('button',{name:'Pagar esta conta'})).toBeDisabled()
+})
+
+it('suspender novos Pix preserva a retomada da mesma operação já persistida', async () => {
+ const resume={id:'c6-pending',operationId:'c6-operation',method:'Pix',amount:100,state:'Pending',refunded:0,canResume:true}
+ const scoped={...config,pixEnabled:false,courtPixEnabled:false,barPixEnabled:false,cardEnabled:false,subscriptionsEnabled:false}
+ const attempts:Record<string,unknown>[]=[]
+ vi.spyOn(globalThis,'fetch').mockImplementation(async (input,init)=>{
+  if(init?.method==='POST'){attempts.push(JSON.parse(String(init.body)));return json({})}
+  return String(input).endsWith('/config')?json(scoped):String(input).endsWith('/subscriptions')?json([]):json([{...account,payable:0,pending:100,payments:[resume]}])
+ })
+ mount(<BillingPage />)
+ fireEvent.click(screen.getByRole('button',{name:'Em confirmação'}))
+ fireEvent.click(await screen.findByRole('button',{name:'Retomar pagamento pendente'}))
+ fireEvent.change(screen.getByLabelText('CPF ou CNPJ'),{target:{value:'12345678909'}})
+ fireEvent.click(screen.getByRole('button',{name:'Retomar o mesmo pagamento'}))
+ await waitFor(()=>expect(attempts).toHaveLength(1))
+ expect(attempts[0].operationId).toBe('c6-operation')
+ expect(screen.getByRole('button',{name:'Consultar confirmação'})).toBeEnabled()
+})

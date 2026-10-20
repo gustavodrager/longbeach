@@ -19,7 +19,7 @@ export function IntegrationStatusPanel() {
   })
   if (!isManagement(user)) return null
   return <section className="foundation-card source-status" aria-labelledby="integration-status-title">
-    <h2 id="integration-status-title">Conexões PagBank e PagVendas</h2>
+    <h2 id="integration-status-title">Conexões C6, PagBank e PagVendas</h2>
     <p>Confira os recursos configurados neste ambiente e as pendências para usá-los. Configuração preenchida ainda precisa ser validada com o provedor.</p>
     {query.isPending && <p role="status">Conferindo integrações…</p>}
     {query.isError && <p role="alert">Não foi possível atualizar as integrações. <button type="button" onClick={() => void query.refetch()}>Tentar novamente</button></p>}
@@ -32,6 +32,6 @@ export function IntegrationStatusPanel() {
       {item.failureCode && <p role="alert">A atualização requer atenção. Referência: {item.failureCode}</p>}
       {item.requirements && item.requirements.length > 0 && <><h4>Pendências e próximos passos</h4><ul>{item.requirements.map(requirement => <li key={requirement}>{requirement}</li>)}</ul></>}
     </article>)}
-    <div className="arena-actions"><Link to="/importacoes">Conferir arquivos do PagVendas</Link><Link to="/recebimentos/conciliacao">Conciliar recebimentos</Link><Link to="/bar/estoque">Conferir estoque do bar</Link></div>
+    <div className="arena-actions"><Link to="/financeiro/historico?c6=1#c6-extrato">Conferir extrato C6</Link><Link to="/importacoes">Conferir arquivos do PagVendas</Link><Link to="/recebimentos/conciliacao">Conciliar recebimentos</Link><Link to="/bar/estoque">Conferir estoque do bar</Link></div>
   </section>
 }

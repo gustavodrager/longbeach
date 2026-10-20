@@ -18,6 +18,7 @@ public sealed class PaymentProviderTransaction : Entity
 {
     private PaymentProviderTransaction(){}
     public PaymentProviderTransaction(Guid paymentId,string orderId,string chargeId,string state):base(Guid.NewGuid()){PaymentId=paymentId;OrderId=orderId;ChargeId=chargeId;State=state;}
+    public string Provider{get;private set;}="PagBank";
     public Guid PaymentId{get;private set;}public string OrderId{get;private set;}="";public string ChargeId{get;private set;}="";public string State{get;private set;}="";
 }
 public sealed class PaymentReconciliation : Entity

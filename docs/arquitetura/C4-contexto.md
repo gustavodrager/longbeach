@@ -16,6 +16,7 @@ C4Context
 
     System(lb, "Long Beach OS", "Produto standalone para a operação web e mobile da Long Beach Arena")
 
+    System_Ext(c6, "C6 Bank", "Conta PJ: saldo, extrato e Pix avulso da Quadra")
     System_Ext(email, "Provedor de e-mail", "Entrega mensagens transacionais")
     System_Ext(push, "Apple/Google Push", "Entrega notificações aos aplicativos")
     System_Ext(stores, "App Store / Google Play", "Distribui os aplicativos oficiais")
@@ -25,6 +26,8 @@ C4Context
     Rel(teacher, lb, "Registra aulas e presença", "HTTPS")
     Rel(student, lb, "Consulta e interage", "HTTPS")
     Rel(auditor, lb, "Audita conforme permissão", "HTTPS")
+    Rel(lb, c6, "Consulta conta e acompanha cobranças após homologação", "HTTPS / OAuth2 / mTLS")
+    Rel(c6, lb, "Envia avisos; recebimento é confirmado por consulta", "HTTPS")
     Rel(lb, email, "Solicita envio de e-mails", "API segura")
     Rel(lb, push, "Solicita notificações push", "API segura")
     Rel(stores, student, "Distribui aplicativo")

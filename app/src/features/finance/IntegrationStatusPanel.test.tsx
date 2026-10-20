@@ -28,7 +28,7 @@ it('permite repetir a leitura após falha sem informar conexão inexistente', as
   request.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce([])
   show(); expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível atualizar')
   fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
-  expect(await screen.findByRole('heading', { name: 'Conexões PagBank e PagVendas' })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'Conexões C6, PagBank e PagVendas' })).toBeInTheDocument()
 })
 it('não consulta configuração para clientes ou atendentes', () => {
   auth.roles = ['Operations']; show(); expect(request).not.toHaveBeenCalled()

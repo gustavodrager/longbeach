@@ -97,6 +97,7 @@ public sealed class BarTabPayment : Entity
         Tendered = BarRules.Money(tendered ?? amount);
         if (method == "Cash" && Tendered < amount) throw new BarRuleException("Dinheiro recebido insuficiente.");
         Method = method; ActorId = actor; SessionId = sessionId;
+        PaymentProvider = method is "Pix" or "CreditCard" ? "PagBank" : null;
         Authorization = string.IsNullOrWhiteSpace(authorization) ? null : BarRules.Text(authorization, 100, "Autorização");
         State = method is "Pix" or "CreditCard" ? "Pending" : "Approved";
     }
@@ -110,6 +111,7 @@ public sealed class BarTabPayment : Entity
     public Guid? ActorId { get; private set; }
     public Guid? SessionId { get; private set; }
     public string State { get; private set; } = "Pending";
+    public string? PaymentProvider { get; private set; }
     public string? ProviderId { get; private set; }
     public string? PixText { get; private set; }
     public string? QrImageUrl { get; private set; }

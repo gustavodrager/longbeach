@@ -13,6 +13,7 @@ public interface IFinancialHistory
     Task<ArenaHistorySummary> ArenaSummary(string? month, CancellationToken ct);
     Task<IReadOnlyList<IntegrationStatus>> Integrations(CancellationToken ct);
     Task<ProviderReport> ProviderRecords(string? date, int page, CancellationToken ct);
+    Task<C6StatementReport> C6Statement(DateOnly? from, DateOnly? through, int page, CancellationToken ct);
 }
 
 public sealed class FinancialRuleException(string message) : Exception(message);

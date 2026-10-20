@@ -192,6 +192,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 app.MapClientPortalEndpoints();
 app.MapTeachingEndpoints();
 app.MapBillingEndpoints();
+app.MapC6PixEndpoints();
 app.MapBarEndpoints();
 app.MapReceivedInvoiceEndpoints();
 app.MapBarTabsEndpoints();
@@ -323,6 +324,10 @@ static void ConfigureRateLimiting(IServiceCollection services)
     services.AddRateLimiter(options =>
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        // Bound public hints globally per replica; periodic bank polling recovers dropped notifications.
+        options.AddPolicy("c6-webhook", _ => RateLimitPartition.GetFixedWindowLimiter(
+            "c6-webhook", _ => new FixedWindowRateLimiterOptions
+            { PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true }));
         options.AddPolicy("auth-login", context => RateLimitPartition.GetFixedWindowLimiter(
             context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             _ => new FixedWindowRateLimiterOptions

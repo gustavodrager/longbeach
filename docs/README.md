@@ -14,6 +14,7 @@
 - [`arquitetura/modelo-dados-primeira-release.md`](arquitetura/modelo-dados-primeira-release.md)
 
 - [`adr/ADR-007-area-pessoal-cliente.md`](adr/ADR-007-area-pessoal-cliente.md) — área pessoal, vínculos e confirmação de solicitações
+- [`adr/ADR-012-c6-saldo-extrato-pix.md`](adr/ADR-012-c6-saldo-extrato-pix.md) — conta C6, evidência bancária e Pix da Quadra
 
 ## Migração
 
@@ -28,6 +29,7 @@
 ## Operação
 
 - [`operacao/perfil-cliente.md`](operacao/perfil-cliente.md) — operação, limites e aceite com clientes
+- [`operacao/c6-integracao.md`](operacao/c6-integracao.md) — configuração, homologação, operação e retorno da integração C6
 
 - [`operacao/ci-cd-e-ambientes.md`](operacao/ci-cd-e-ambientes.md)
 - [`operacao/deploy-railway-production.md`](operacao/deploy-railway-production.md)
