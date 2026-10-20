@@ -12,6 +12,8 @@ it('lista antes de editar, pagina e preserva os campos complementares no salvame
   render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/bar/produtos?q=Produto']}><BarProductsPage/></MemoryRouter></QueryClientProvider>)
   await screen.findByRole('table',{name:'Produtos do bar'})
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(screen.queryByText('Ativo',{exact:true})).not.toBeInTheDocument()
+  expect(screen.queryByRole('combobox',{name:'Situação'})).not.toBeInTheDocument()
   expect(screen.queryByLabelText('Código interno')).not.toBeInTheDocument()
   expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(21)
   expect(screen.getByText('R$ 0,00')).toBeInTheDocument()
