@@ -267,3 +267,6 @@
 .lb-attendance .ux-receive-page .ux-check { min-height: 48px; }
 @media (min-width: 1000px) { .lb-attendance .ux-receive-page .ux-choice-grid:not(.lb-two-choices) { grid-template-columns: repeat(4,minmax(0,1fr)); } }
 @media (max-width:480px) { .lb-sell .lb-sale-summary { scroll-margin-top:88px; } }
+@media (max-width:360px) {
+ .lb-attendance .ux-receive-page .ux-choice { font-size:16px; padding:10px 8px; overflow-wrap:normal; }
+}

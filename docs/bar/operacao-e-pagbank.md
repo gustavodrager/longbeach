@@ -1,8 +1,8 @@
 # Bar — configuração e homologação
 
-Nenhum deploy ou migration hospedada foi executado nesta entrega. Usar os mesmos serviços API/web/PostgreSQL e o mesmo job migrate-only.
+A implementação local abaixo foi promovida com autorização explícita do responsável. Usam-se os mesmos serviços API/web/PostgreSQL e o mesmo job migrate-only; evidências da publicação estão registradas nesta página.
 
-## Operação no tablet — implementação local de 19/10/2026
+## Operação no tablet — 19/10/2026
 
 - Long Beach controla produtos, preços, compras, reservas, entregas, vendas e estoque. A maquininha recebe apenas o valor digitado pelo operador. Não existe integração automática com o terminal.
 - Vender oferece busca sem diferença de acentos, notas recolhidas, resumo editável e destino escolhido na própria tela. A transferência move apenas rascunhos, exige confirmação e nunca substitui outro rascunho. Produtos sem controle de estoque continuam disponíveis.
@@ -14,7 +14,7 @@ Nenhum deploy ou migration hospedada foi executado nesta entrega. Usar os mesmos
 - Compra recebida aumenta físico; aceite reserva; entrega baixa; cancelamento libera reserva. Perda, consumo interno e inventário seguem separados. O inventário mantém encerramento com campos vazios zerados mediante confirmação e bloqueios por movimentos/reservas concorrentes.
 - Pix/cartão online existentes continuam consultáveis; a retomada do atendente usa a tela separada `/atendimento/pagamento-online/:tabId/:paymentId`, sem escolha de nova operação, modalidade ou valor. Os caminhos do cliente permanecem disponíveis. EDI permanece evidência financeira separada; não cadastra produtos nem altera preços, vendas ou estoque.
 
-### Entrada em operação e publicação posterior
+### Entrada em operação e regras de publicação
 
 Conferir catálogo ativo e fotos, inventário físico e abertura/fechamento de caixa. Usar contas individuais no tablet, sem compartilhar conta genérica. A emulação de 800×1280 e 1280×800 não substitui a validação no Redmi físico, inclusive teclado virtual e alternância de rede.
 
@@ -33,6 +33,17 @@ Esta entrega não ativa C6, não emite documento fiscal e não oferece vendas to
 - Casos automatizados: três modalidades de terminal, dinheiro/troco, parcelas, aprovação ausente e invalidada, clique repetido, resposta perdida e recarregamento, rascunho por usuário/comanda, destino ocupado, armazenamento indisponível, reconexão com preço alterado, item desativado durante recuperação, bloqueio de catálogo, estorno sem estoque, isolamento EDI e recuperação online em tela separada.
 - Verificações da matriz da CI executadas localmente. Nenhuma execução remota GitHub Actions, push, PR ou publicação faz parte desta etapa. O cache NuGet reportou NU1900 para consulta de vulnerabilidades indisponível; compilação e testes concluíram normalmente.
 - Evidências visuais locais: `outputs/tablet-bar-2026-10-19` no workspace LongBeach, fora do repositório. O Redmi físico e o inventário real ainda precisam ser conferidos antes do uso diário.
+
+## Publicação do tablet — 20/10/2026 UTC (19/10 no Brasil)
+
+- Revisão [#44](https://github.com/gustavodrager/longbeach/pull/44), baseada na #42. Artefato `d3b0ceb398fc551330acbf0d77eee09c8e4e2177`, branch `codex/bar-tablet-20261020`, preservando Pedidos e C6 sem ativação bancária.
+- [CI 39355663289](https://github.com/gustavodrager/longbeach/actions/runs/39355663289) aprovada: frontend e backend PostgreSQL 17/18, incluindo migrations, readiness, auditoria somente leitura e restauração sintética.
+- Backup lógico custom antes da migration: `/var/lib/postgresql/data/longbeach-backups/pre-tablet-d3b0ceb.dump`, 923.356 bytes, permissão 0600, SHA256 `78b253b8be9e322eb9909112248197488c8da4ae180d5ee740b0827e2b6257d3`. Listagem e decodificação integral por pg_restore concluídas. Não houve teste de restauração desse dump real. Por escolha explícita do responsável, o backup fica apenas no servidor, no mesmo volume; não cobre perda desse volume. Nenhum dump foi copiado para o Mac ou Git.
+- Chave SSH temporária revogada, ausência conferida e chave privada local removida após o backup e as consultas da migration.
+- API `0ef76835-886b-4a25-bc45-4f871865227a`, SUCCESS. Job único migrate-only aplicou `20261020011757_BarTerminalManual` antes da web. Consulta READ ONLY confirmou coluna nullable, nova restrição e preservação de um CardManual e um Cash antigos, ambos sem modalidade inferida. Readiness respondeu Healthy.
+- Web `687810f9-b49f-4383-83ca-89ad9f42400e`: publicação iniciada após a conferência da API; validação final registrada abaixo após conclusão.
+- Patches limitados à branch/commit de API e web; snapshots sincronizados e planos sem divergência após cada promoção. C6, seed, bootstrap e migrations de startup permanecem desabilitados; serviços auxiliares preservados.
+- Retorno: preservar schema e histórico. Após novos TerminalManual, manter API compatível com essa modalidade; não executar Down nem restaurar o dump sobre produção como rollback rotineiro. Preferir correção para frente ou reversão somente da interface. Versões anteriores: API `f5251d2d-393d-49f5-adc6-586750e0c611` e web `13084b44-cf2e-4f5b-9926-e14ba6cff374`, commit `b7c57a8`.
 
 ## Referência dos fluxos anteriores e de pagamento online
 
