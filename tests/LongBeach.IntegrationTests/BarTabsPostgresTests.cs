@@ -14,6 +14,31 @@ namespace LongBeach.IntegrationTests;
 public sealed class BarTabsPostgresTests
 {
     [PostgresFact]
+    public async Task Orders_searches_products_and_filters_item_state_before_paging()
+    {
+        await using var f = await Fixture.Create();
+        var marker = "Produto fila " + Guid.NewGuid().ToString("N");
+        var product = new BarProduct(Guid.NewGuid().ToString("N"), marker, "Fila", f.Product.CategoryId, "un", "un", 1, 5, 0, 0, true, false, 0);
+        var first = new BarTab(f.Location.Id, f.Actor, "Mesa primeira", "Tab");
+        var second = new BarTab(f.Location.Id, f.Actor, "Mesa segunda", "Tab");
+        var rejected = new BarTab(f.Location.Id, f.Actor, "Mesa recusada", "Tab");
+        var requested = new BarTabItem(first.Id, product, 1, null, true); requested.MarkCreated(DateTimeOffset.UtcNow.AddHours(-2));
+        var accepted = new BarTabItem(second.Id, product, 1, null, true); accepted.MarkCreated(DateTimeOffset.UtcNow.AddHours(-1)); accepted.Accept(DateTimeOffset.UtcNow);
+        var removed = new BarTabItem(rejected.Id, product, 1, null, true); removed.Reject("Sem produto");
+        f.Db.AddRange(product, first, second, rejected, requested, accepted, removed); await f.Db.SaveChangesAsync();
+        var all = await f.Tabs.List("Orders", marker, 1, 1, false, default);
+        Assert.Equal(2, all.Total); Assert.Equal(first.Id, Assert.Single(all.Items).Id);
+        Assert.Equal(second.Id, Assert.Single((await f.Tabs.List("Orders", marker, 2, 1, false, default)).Items).Id);
+        var toAccept = await f.Tabs.List("Orders", marker, 1, 1, false, default, orderState: "Requested");
+        Assert.Equal(1, toAccept.Total); Assert.Equal(first.Id, Assert.Single(toAccept.Items).Id);
+        var toDeliver = await f.Tabs.List("Orders", marker, 1, 1, false, default, orderState: "Accepted");
+        Assert.Equal(1, toDeliver.Total); Assert.Equal(second.Id, Assert.Single(toDeliver.Items).Id);
+        Assert.Equal(first.Id, Assert.Single((await f.Tabs.List("Orders", first.Number.ToString(), 1, 1, false, default)).Items).Id);
+        Assert.Empty((await f.Tabs.List("Orders", marker + " ausente", 1, 1, false, default)).Items);
+        await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.List("Orders", null, 1, 1, false, default, orderState: "Fulfilled"));
+    }
+
+    [PostgresFact]
     public async Task Notes_survive_replay_and_distinct_preparations_do_not_merge()
     {
         await using var f = await Fixture.Create();
