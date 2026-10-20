@@ -6,7 +6,8 @@ public sealed record CatalogImportItem(int SourceRow, string ExternalId, string 
 public sealed record CatalogImportPreview(Guid BatchId, string SourceName, string SourceSha256,
     bool Applied, string ConfirmationToken, IReadOnlyList<CatalogImportItem> Items)
 {
-    public bool CanApply => !Applied && Items.All(x => x.Action != "Conflict");
+    // Retained for older clients; catalogue application is permanently disabled.
+    public bool CanApply => false;
     public int Creates => Items.Count(x => x.Action == "Create");
     public int Matches => Items.Count(x => x.Action == "Matched");
 }

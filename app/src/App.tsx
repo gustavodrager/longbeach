@@ -58,6 +58,7 @@ const TabsPage = lazy(() => import('./features/attendance/AttendancePages').then
 const TabDetailsPage = lazy(() => import('./features/attendance/AttendancePages').then(module => ({ default: module.TabDetailsPage })))
 const OrdersPage = lazy(() => import('./features/attendance/AttendancePages').then(module => ({ default: module.OrdersPage })))
 const ReceivePage = lazy(() => import('./features/attendance/PaymentPages').then(module => ({ default: module.ReceivePage })))
+const OnlinePaymentRecoveryPage = lazy(() => import('./features/attendance/OnlinePaymentRecoveryPage').then(module => ({ default: module.OnlinePaymentRecoveryPage })))
 const ReceiptPage = lazy(() => import('./features/attendance/PaymentPages').then(module => ({ default: module.ReceiptPage })))
 const MyCashPage = lazy(() => import('./features/attendance/CashPage').then(module => ({ default: module.MyCashPage })))
 const BarOverviewPage = lazy(() => import('./features/attendance/ReportPages').then(module => ({ default: module.BarOverviewPage })))
@@ -162,6 +163,7 @@ function OperationalRoutes() {
       <Route path="atendimento/comandas/:tabId" element={bar('bar:sales:read', <TabDetailsPage />)} />
       <Route path="atendimento/pedidos" element={bar('bar:sales:operate', <OrdersPage />)} />
       <Route path="atendimento/receber/:tabId" element={bar('bar:sales:operate', <ReceivePage />)} />
+      <Route path="atendimento/pagamento-online/:tabId/:paymentId" element={bar('bar:sales:operate', <OnlinePaymentRecoveryPage />)} />
       <Route path="atendimento/comprovante/:tabId/:paymentId" element={bar('bar:sales:read', <ReceiptPage />)} />
       <Route path="atendimento/caixa" element={bar('bar:cash:operate', <MyCashPage />)} />
       <Route path="bar" element={<BarLayout />}>

@@ -6,7 +6,7 @@ import { Empty, Field, Pagination, Search, useFilters, validDate } from '../../p
 import { label, type Balance, useBar, useAction, Notice, QueryNotice, useBarStock, StockNotice } from './BarCore'
 import './stock-workflow.css'
 export { BarCountsPage } from './StockCounts'
-type Movement = { id: string; name: string; unit: string; locationName: string; quantity: number; before: number; after: number; kind: string; reason: string; createdAtUtc: string; originId: string }
+type Movement = { id: string; name: string; unit: string; locationName: string; quantity: number; before: number; after: number; kind: string; reason: string; createdAtUtc: string; originId: string; actorId?: string; actorName?: string }
 type History = { items: Movement[]; total: number; page: number; pageSize: number }
 const movementKinds = ['PurchaseReceived','InitialCount','InventoryAdjustment','Loss','InternalConsumption','Sale','TabDelivery','TabReturn','TransferIn','TransferOut','Courtesy','SaleReturn']
 export function BarStockPage() {
@@ -54,7 +54,7 @@ export function BarStockPage() {
       <p className="arena-hint">Horário de Brasília · datas incluídas · {location==='all'?'Todos os locais':stock.query.data?.find(l=>l.id===location)?.name}. Saldos antes e depois são físicos.</p>
       {!datesValid ? <p role="alert">Confira as datas: o fim deve ser igual ou posterior ao início.</p> : <><QueryNotice query={history}/>{history.data && <>
         <p className="arena-hint">{history.data.total} movimentações nesta seleção</p>
-        <div className="stock-movements"><RecordTable label="Movimentações do estoque" columns={['Produto','Data e local','Movimento','Saldo físico','Motivo']} rows={history.data.items.map(r=>({key:r.id,cells:[<strong>{r.name}</strong>,<>{new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(r.createdAtUtc))}<small>{r.locationName}</small></>,<>{label(r.kind)}<small>{r.quantity>0?'+':''}{amount(r.quantity)} {r.unit}</small></>,`${amount(r.before)} → ${amount(r.after)} ${r.unit}`,<details><summary>Ver motivo e origem</summary><p>{r.reason}</p><small>Referência: {r.originId}</small></details>]}))}/></div>
+        <div className="stock-movements"><RecordTable label="Movimentações do estoque" columns={['Produto','Data e local','Movimento','Saldo físico','Motivo']} rows={history.data.items.map(r=>({key:r.id,cells:[<strong>{r.name}</strong>,<>{new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(r.createdAtUtc))}<small>{r.locationName}</small></>,<>{label(r.kind)}<small>{r.quantity>0?'+':''}{amount(r.quantity)} {r.unit}</small></>,`${amount(r.before)} → ${amount(r.after)} ${r.unit}`,<details><summary>Ver motivo e origem</summary><p>{r.reason}</p><p>Responsável: {r.actorName || r.actorId || 'Não informado no registro histórico'}</p><small>Referência: {r.originId}</small></details>]}))}/></div>
         {!history.data.items.length && <Empty>Nenhuma movimentação nesta seleção.</Empty>}
         <nav className="arena-pagination" aria-label="Páginas das movimentações"><button disabled={history.isFetching||history.data.page<=1} onClick={()=>filters.set('page',String(history.data!.page-1))}>Anterior</button><span>Página {history.data.page} de {Math.max(1,Math.ceil(history.data.total/20))}</span><button disabled={history.isFetching||history.data.page*20>=history.data.total} onClick={()=>filters.set('page',String(history.data!.page+1))}>Próxima</button></nav>
       </>}</>}

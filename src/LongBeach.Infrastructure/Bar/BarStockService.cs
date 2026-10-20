@@ -46,8 +46,10 @@ public sealed partial class BarStockService(LongBeachDbContext db, IConfiguratio
         var rows = from m in query
                    join p in db.Set<BarProduct>() on m.ProductId equals p.Id
                    join l in db.Set<StockLocation>() on m.LocationId equals l.Id
+                   join u in db.Users on m.ActorId equals u.Id into actors
+                   from actor in actors.DefaultIfEmpty()
                    select new { m.Id, m.ProductId, Name = p.Name, Unit = p.SaleUnit, m.LocationId, LocationName = l.Name,
-                       m.Quantity, m.Before, m.After, m.Kind, m.Reason, m.CreatedAtUtc, m.OriginId };
+                       m.Quantity, m.Before, m.After, m.Kind, m.Reason, m.CreatedAtUtc, m.OriginId, m.ActorId, ActorName = actor == null ? null : actor.Name };
         if (!string.IsNullOrWhiteSpace(search)) { var term = search.Trim().ToLower(); rows = rows.Where(x => x.Name.ToLower().Contains(term)); }
         var total = await rows.CountAsync(ct);
         var actualPage = Math.Min(page, Math.Max(1, (int)Math.Ceiling(total / 20m)));

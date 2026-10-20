@@ -2,6 +2,42 @@
 
 Nenhum deploy ou migration hospedada foi executado nesta entrega. Usar os mesmos serviços API/web/PostgreSQL e o mesmo job migrate-only.
 
+## Operação no tablet — implementação local de 19/10/2026
+
+- Long Beach controla produtos, preços, compras, reservas, entregas, vendas e estoque. A maquininha recebe apenas o valor digitado pelo operador. Não existe integração automática com o terminal.
+- Vender oferece busca sem diferença de acentos, notas recolhidas, resumo editável e destino escolhido na própria tela. A transferência move apenas rascunhos, exige confirmação e nunca substitui outro rascunho. Produtos sem controle de estoque continuam disponíveis.
+- Rascunhos e operações pendentes ficam no dispositivo por usuário e comanda. Sem internet, só editar rascunhos. Ao reconectar, atualizar catálogo e comanda e conferir diferenças antes de registrar. Falta de armazenamento bloqueia envio de pedido que não possa ser recuperado.
+- Recebimento de balcão oferece Débito, Crédito e Pix na maquininha, além de Dinheiro. O operador confere o valor no terminal e declara a aprovação. Mudar valor/modalidade invalida a confirmação; NSU é opcional. Recusa/cancelamento não é recebimento. Não digitar dados do cartão no tablet.
+- Timeout: manter o pagamento pendente e usar Consultar ou repetir confirmação. O corpo e UUID originais sobrevivem ao recarregamento. Nunca realizar outra cobrança na maquininha para repetir um registro local.
+- `TerminalManual` registra `TerminalType` Debit/Credit/Pix, responsável e instante da confirmação. `CardManual` histórico permanece sem modalidade inferida. Quando há caixa próprio aberto no mesmo local, o recebimento manual se vincula ao turno sem alterar dinheiro esperado; sem caixa aberto, continua disponível nos relatórios. Fechamento separa modalidades e devoluções do dinheiro físico.
+- Estorno manual registra uma devolução já confirmada pelo operador na maquininha. Não chama o banco e não devolve estoque. Devolução física segue a ação própria, com motivo e auditoria.
+- Compra recebida aumenta físico; aceite reserva; entrega baixa; cancelamento libera reserva. Perda, consumo interno e inventário seguem separados. O inventário mantém encerramento com campos vazios zerados mediante confirmação e bloqueios por movimentos/reservas concorrentes.
+- Pix/cartão online existentes continuam consultáveis; a retomada do atendente usa a tela separada `/atendimento/pagamento-online/:tabId/:paymentId`, sem escolha de nova operação, modalidade ou valor. Os caminhos do cliente permanecem disponíveis. EDI permanece evidência financeira separada; não cadastra produtos nem altera preços, vendas ou estoque.
+
+### Entrada em operação e publicação posterior
+
+Conferir catálogo ativo e fotos, inventário físico e abertura/fechamento de caixa. Usar contas individuais no tablet, sem compartilhar conta genérica. A emulação de 800×1280 e 1280×800 não substitui a validação no Redmi físico, inclusive teclado virtual e alternância de rede.
+
+A migration `20261020011757_BarTerminalManual` adiciona coluna nullable e amplia a restrição de modalidades; não atualiza linhas antigas. Publicar somente após autorização explícita: backup verificado, migration em job único, API antes da interface e artefato identificado. Depois de novos pagamentos `TerminalManual`, a migration reversa não deve ser executada: sua restrição recusa apagar a modalidade de dados existentes. Reversão exige plano próprio de compatibilidade, sem recategorizar histórico.
+
+Esta entrega não ativa C6, não emite documento fiscal e não oferece vendas totalmente offline. As fotos antigas continuam usando as URLs existentes; migrar o armazenamento de imagens é uma etapa distinta do bloqueio da aplicação de catálogos.
+
+### Validação local desta implementação
+
+- Frontend: 422 testes em 46 arquivos, todos aprovados; a revisão final de rótulos passou novamente nos 79 testes de atendimento. TypeScript, Vite e PWA compilados.
+- PostgreSQL 17 fictício: suíte completa com 413 unitários e 338 integrações; após acrescentar os últimos casos, regressão afetada com 88 unitários e 175 integrações aprovada.
+- PostgreSQL 18 descartável: suíte completa com 419 unitários e 339 integrações aprovada. O ajuste final de `canApply: false` passou novamente nos três testes de catálogo, com build da API Release.
+- Migration testada em banco novo e em banco fictício com histórico: 16 pagamentos `CardManual` mantiveram modalidade nula; nenhuma classificação retroativa.
+- Navegador conectado à API e banco locais: venda fictícia #163, entrega de uma unidade, débito manual de R$ 5,00, comprovante e saldo devido zero. Não houve chamada de pagamento real.
+- Viewports conferidos: 1440×900, 1280×800, 800×1280, 390×844 e 320×740. Busca sem acento, resumo, nomes longos, botões de pelo menos 48 px e ausência de overflow horizontal. A grade de recebimento e o rodapé de revisão foram corrigidos após problemas observados em 320 px.
+- Casos automatizados: três modalidades de terminal, dinheiro/troco, parcelas, aprovação ausente e invalidada, clique repetido, resposta perdida e recarregamento, rascunho por usuário/comanda, destino ocupado, armazenamento indisponível, reconexão com preço alterado, item desativado durante recuperação, bloqueio de catálogo, estorno sem estoque, isolamento EDI e recuperação online em tela separada.
+- Verificações da matriz da CI executadas localmente. Nenhuma execução remota GitHub Actions, push, PR ou publicação faz parte desta etapa. O cache NuGet reportou NU1900 para consulta de vulnerabilidades indisponível; compilação e testes concluíram normalmente.
+- Evidências visuais locais: `outputs/tablet-bar-2026-10-19` no workspace LongBeach, fora do repositório. O Redmi físico e o inventário real ainda precisam ser conferidos antes do uso diário.
+
+## Referência dos fluxos anteriores e de pagamento online
+
+As seções abaixo documentam a integração anterior. Para balcão/tablet, prevalecem as regras acima; cadastro e estoque não exigem PagBank.
+
 ## Permissões
 
 A migration BarPermissions adiciona permissões bar:* e papéis BarOperator, BarSupervisor, StockManager e BarFinance no cadastro de identidade atual. Owner, Administrator e Manager recebem as permissões do Bar; Operations recebe operação de caixa/vendas/saídas simples, sem custos/margem ou cadastro.

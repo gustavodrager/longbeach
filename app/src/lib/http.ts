@@ -102,6 +102,8 @@ async function refreshAccessToken() {
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit, canRefresh = true): Promise<T> {
+  if (path.startsWith('/api/v1/bar/') && init?.method && !['GET', 'HEAD'].includes(init.method.toUpperCase()) && !navigator.onLine)
+    throw new ApiError(0, 'Sem conexão. O registro só será confirmado após reconectar. Seu rascunho foi preservado.');
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     credentials: 'include',

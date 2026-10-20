@@ -5,6 +5,11 @@ public sealed class BarTabRulesTests
 {
     private static BarTabItem Item(decimal quantity = 1) => new(Guid.NewGuid(), new BarProduct("TEST", "Água", "Água", Guid.NewGuid(), "un", "cx", 1, 10, 2, 1, true, false, 0), quantity, Guid.NewGuid(), true);
     private static BarTabPayment Payment(decimal amount, string method = "Cash") => new(Guid.NewGuid(), Guid.NewGuid(), "hash", amount, method, Guid.NewGuid(), null, amount, null);
+    [Theory]
+    [InlineData(null)] [InlineData("")] [InlineData("Card")] [InlineData("PixOnline")]
+    public void Manual_terminal_rejects_unknown_mode(string? mode) => Assert.Throws<BarRuleException>(() => new BarTabPayment(Guid.NewGuid(), Guid.NewGuid(), "hash", 10, "TerminalManual", Guid.NewGuid(), null, 10, null, mode));
+    [Fact] public void Legacy_manual_card_keeps_unknown_mode() => Assert.Null(Payment(10, "CardManual").TerminalType);
+    [Fact] public void Manual_terminal_requires_operator() => Assert.Throws<BarRuleException>(() => new BarTabPayment(Guid.NewGuid(), Guid.NewGuid(), "hash", 10, "TerminalManual", null, null, 10, null, "Debit"));
     [Fact] public void Requested_item_is_not_consumption_and_cannot_be_delivered() { var item=Item(); Assert.Equal(0,BarTabsService.Calculate([item],[]).Total); Assert.Throws<BarRuleException>(()=>item.Fulfill(DateTimeOffset.UtcNow)); }
     [Fact] public void Accepted_item_can_be_delivered_only_once() { var item=Item(); item.Accept(DateTimeOffset.UtcNow); item.Fulfill(DateTimeOffset.UtcNow); Assert.Equal(10,BarTabsService.Calculate([item],[]).Total); Assert.Throws<BarRuleException>(()=>item.Fulfill(DateTimeOffset.UtcNow)); }
     [Fact] public void Rejection_is_terminal_and_requires_reason() { var item=Item(); Assert.Throws<BarRuleException>(()=>item.Reject("")); item.Reject("Indisponível"); Assert.Throws<BarRuleException>(()=>item.Accept(DateTimeOffset.UtcNow)); Assert.Equal(0,BarTabsService.Calculate([item],[]).Total); }

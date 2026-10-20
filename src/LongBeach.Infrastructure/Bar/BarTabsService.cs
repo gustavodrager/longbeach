@@ -158,13 +158,13 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     public async Task<TabPaymentResponse> Pay(Guid id, TabPaymentInput input, Guid? actor, string? accessToken, CancellationToken ct)
     {
         var scope = await Scope(id, actor, accessToken, ct);
-        var fingerprint = input.Method is "Pix" or "CreditCard" ? Hash(new { action = "payPix", id, input.OperationId, input.Method, input.Amount, scope }) : Hash(new { action = "pay", id, input, scope });
+        var fingerprint = input.Method is "Pix" or "CreditCard" ? Hash(new { action = "payPix", id, input.OperationId, input.Method, input.Amount, scope }) : input.Method == "TerminalManual" ? Hash(new { action = "pay", id, input, scope }) : Hash(new { action = "pay", id, input = new { input.OperationId, input.Method, input.Amount, input.SessionId, input.Tendered, input.CardApproved, input.Authorization, input.Name, input.Email, input.TaxId, input.EncryptedCard }, scope });
         if (actor is null && input.Method is not ("Pix" or "CreditCard")) throw new BarRuleException("O cliente pode pagar por Pix ou cartão online.");
         if (input.Method is "Pix" or "CreditCard") { var result = await PayPix(id, input, actor, accessToken, fingerprint, ct); return actor is null ? ClientPayment(result) : result; }
         return await Run(input.OperationId, fingerprint, async () =>
         {
             var tab = await Lock(id, ct); tab.EnsureOpen(); await CheckAmount(id, input.Amount, ct);
-            if (input.Method == "CardManual" && !input.CardApproved) throw new BarRuleException("Confirme a aprovação na maquininha.");
+            if ((input.Method == "CardManual" && !input.CardApproved) || (input.Method == "TerminalManual" && !input.TerminalApproved)) throw new BarRuleException("Confirme a aprovação na maquininha.");
             CashSession? session = null;
             if (input.Method == "Cash")
             {
@@ -174,7 +174,9 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
                 if (session.LocationId != tab.LocationId) throw new BarRuleException("Seu caixa atende outro local. Confira a comanda.");
                 if ((input.Tendered ?? input.Amount) - input.Amount > session.Expected) throw new BarRuleException("Não há dinheiro suficiente no seu caixa para o troco.");
             }
-            var payment = new BarTabPayment(id, input.OperationId, fingerprint, input.Amount, input.Method, actor, session?.Id, input.Tendered, input.Authorization);
+            // Associate terminal receipts with the operator's open shift when present, without requiring cash or changing its balance.
+            var terminalSession = input.Method == "TerminalManual" ? await db.Set<CashSession>().Where(x => x.OpenedBy == actor && x.LocationId == tab.LocationId && (x.State == "Open" || x.State == "Reopened")).Select(x => (Guid?)x.Id).SingleOrDefaultAsync(ct) : null;
+            var payment = new BarTabPayment(id, input.OperationId, fingerprint, input.Amount, input.Method, actor, session?.Id ?? terminalSession, input.Tendered, input.Authorization, input.TerminalType);
             payment.ConfirmManual(time.GetUtcNow()); db.Add(payment);
             if (session is not null) db.Add(new CashMovement(session, payment.Amount, "TabPayment", $"Pagamento da comanda {tab.Number}", actor!.Value, payment.Id));
             db.Add(new BarTabHistory(id, "PaymentApproved", actor, payment.Amount, paymentId: payment.Id)); tab.Touch(); await db.SaveChangesAsync(ct); return await PublicPayment(payment, ct);
@@ -273,6 +275,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
                 }
                 else
                 {
+                    if (payment.Method == "TerminalManual" && !input.ManualConfirmed) throw new BarRuleException("Confirme a devolução já realizada na maquininha.");
                     if (payment.State != "Approved" || input.Amount <= 0 || BarRules.Money(input.Amount) > payment.Amount - payment.Refunded) throw new BarRuleException("O estorno precisa caber no valor recebido.");
                     if (await db.Set<BarTabRefund>().AnyAsync(x => x.PaymentId == paymentId && x.State == "Pending", ct)) throw new BarRuleException("Há um estorno em confirmação. Consulte essa operação antes de iniciar outro.");
                     refund = new BarTabRefund(id, paymentId, input.OperationId, fingerprint, input.Amount, input.Reason, actor); db.Add(refund);
@@ -497,7 +500,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     private async Task<TabPaymentResponse> PublicPayment(BarTabPayment payment, CancellationToken ct, bool costs = false)
     {
         var pending = await db.Set<BarTabRefund>().Where(x => x.PaymentId == payment.Id && x.State == "Pending").SumAsync(x => (decimal?)x.Amount, ct) ?? 0;
-        return new(payment.Id, payment.TabId, payment.Method, payment.Amount, payment.Tendered, payment.Method == "Cash" ? payment.Tendered - payment.Amount : 0, payment.State, payment.ActorId, payment.SessionId, payment.OperationId, payment.ProviderId, payment.PixText, payment.QrImageUrl, payment.ExpiresAtUtc, payment.CreatedAtUtc, payment.ConfirmedAtUtc, payment.Refunded, pending, costs && payment.FeeConfirmedAtUtc is not null ? payment.Fee : null, payment.State == "Pending" && payment.ProviderId is null);
+        return new(payment.Id, payment.TabId, payment.Method, payment.Amount, payment.Tendered, payment.Method == "Cash" ? payment.Tendered - payment.Amount : 0, payment.State, payment.ActorId, payment.SessionId, payment.OperationId, payment.ProviderId, payment.PixText, payment.QrImageUrl, payment.ExpiresAtUtc, payment.CreatedAtUtc, payment.ConfirmedAtUtc, payment.Refunded, pending, costs && payment.FeeConfirmedAtUtc is not null ? payment.Fee : null, payment.State == "Pending" && payment.ProviderId is null, payment.TerminalType);
     }
     private static TabPaymentResponse ClientPayment(TabPaymentResponse row) => row with { ActorId = null, SessionId = null, ProviderId = null, Fee = null, Tendered = row.Amount, Change = 0 };
     private static string Hash(object value) => HashText(JsonSerializer.Serialize(value, Json));

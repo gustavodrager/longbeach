@@ -89,9 +89,12 @@ public sealed class BarTabPayment : Entity
 {
     private BarTabPayment() { }
     public BarTabPayment(Guid tabId, Guid operationId, string fingerprint, decimal amount, string method,
-        Guid? actor, Guid? sessionId, decimal? tendered, string? authorization) : base(Guid.NewGuid())
+        Guid? actor, Guid? sessionId, decimal? tendered, string? authorization, string? terminalType = null) : base(Guid.NewGuid())
     {
-        if (operationId == Guid.Empty || method is not ("Cash" or "CardManual" or "Pix" or "CreditCard")) throw new BarRuleException("Meio e operação obrigatórios.");
+        if (operationId == Guid.Empty || method is not ("Cash" or "CardManual" or "TerminalManual" or "Pix" or "CreditCard")) throw new BarRuleException("Meio e operação obrigatórios.");
+        if (method == "TerminalManual" && (actor is null || terminalType is not ("Debit" or "Credit" or "Pix"))) throw new BarRuleException("Informe a modalidade e o responsável pelo recebimento na maquininha.");
+        if (method != "TerminalManual" && terminalType is not null) throw new BarRuleException("Modalidade exclusiva da maquininha.");
+        TerminalType = terminalType;
         TabId = tabId; OperationId = operationId; Fingerprint = fingerprint; Amount = BarRules.Money(amount);
         if (Amount == 0) throw new BarRuleException("Informe um valor maior que zero.");
         Tendered = BarRules.Money(tendered ?? amount);
@@ -108,6 +111,7 @@ public sealed class BarTabPayment : Entity
     public decimal Amount { get; private set; }
     public decimal Tendered { get; private set; }
     public string? Authorization { get; private set; }
+    public string? TerminalType { get; private set; }
     public Guid? ActorId { get; private set; }
     public Guid? SessionId { get; private set; }
     public string State { get; private set; } = "Pending";

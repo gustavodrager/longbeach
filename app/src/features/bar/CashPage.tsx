@@ -1,3 +1,4 @@
+import { TerminalReceipts } from '../attendance/TerminalReceipts'
 import { useState } from 'react'
 import { useAuth } from '../auth/authContext'
 import { Disclosure, EditorPanel } from '../../components/managementUi'
@@ -5,14 +6,14 @@ import { Input, Select, Notice, Page, QueryNotice, StockNotice, label, money, us
 import './cash.css'
 
 type Session = { id:string; openedBy:string; responsible:string; register:string; terminal:string; state:string; opening:number; expected:number; createdAtUtc:string }
-type Details = { movements:{id:string;kind:string;amount:number;reason:string;createdAtUtc:string}[]; closings:{id:string;expected:number;counted:number;difference:number;reason:string;createdAtUtc:string}[]; pendingPayment:boolean; expected:number }
+type Details = { movements:{id:string;kind:string;amount:number;reason:string;createdAtUtc:string}[]; closings:{id:string;expected:number;counted:number;difference:number;reason:string;createdAtUtc:string}[]; pendingPayment:boolean; expected:number; terminalReceipts?:{terminalType:string;amount:number;refunded:number}[] }
 const date = (value:string) => new Date(value).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})
 export const cashAmount = (value:string) => /^\d+(?:[.,]\d{1,2})?$/.test(value.trim()) ? Number(value.trim().replace(',','.')) : NaN
 const titles:Record<string,string> = {open:'Abrir caixa',supply:'Colocar dinheiro',withdraw:'Retirar dinheiro',expense:'Registrar despesa',close:'Conferir fechamento',reopen:'Reabrir caixa',register:'Cadastrar caixa físico'}
 const kinds:Record<string,string> = {Opening:'Fundo inicial',Supply:'Suprimento',Withdraw:'Retirada',Expense:'Despesa',ClosingDifference:'Ajuste de fechamento',Reopen:'Reabertura',Sale:'Venda',Refund:'Estorno de venda',TabPayment:'Pagamento de comanda',TabRefund:'Estorno de comanda'}
 function Ledger({id}:{id:string}) {
   const q=useBar<Details>(`/cash/sessions/${id}/details`)
-  return <><QueryNotice query={q}/>{q.data?.closings.map(x=><section key={x.id}><h3>Fechamento · {date(x.createdAtUtc)}</h3><p>Esperado {money(x.expected)} · Contado {money(x.counted)} · Diferença {money(x.difference)}</p><p>{x.reason}</p></section>)}{q.data?.movements.map(x=><div className="cash-ledger" key={x.id}><div><strong>{kinds[x.kind]??label(x.kind)}</strong><p>{x.reason}</p><small>{date(x.createdAtUtc)}</small></div><strong>{money(x.amount)}</strong></div>)}{q.data&&!q.data.movements.length&&<p>Nenhuma movimentação registrada.</p>}</>
+  return <><QueryNotice query={q}/><TerminalReceipts rows={q.data?.terminalReceipts}/>{q.data?.closings.map(x=><section key={x.id}><h3>Fechamento · {date(x.createdAtUtc)}</h3><p>Esperado {money(x.expected)} · Contado {money(x.counted)} · Diferença {money(x.difference)}</p><p>{x.reason}</p></section>)}{q.data?.movements.map(x=><div className="cash-ledger" key={x.id}><div><strong>{kinds[x.kind]??label(x.kind)}</strong><p>{x.reason}</p><small>{date(x.createdAtUtc)}</small></div><strong>{money(x.amount)}</strong></div>)}{q.data&&!q.data.movements.length&&<p>Nenhuma movimentação registrada.</p>}</>
 }
 export function BarCashPage(){
   const {user}=useAuth();const [search,setSearch]=useState('');const [state,setState]=useState('open');const [page,setPage]=useState(1)
@@ -41,7 +42,7 @@ function CashEditor({kind,session,registers,registersLoading,stock,onClose}:{kin
  }}><fieldset disabled={a.busy} className="cash-fields">
  {session&&<p><strong>{session.register}</strong> · {session.responsible}</p>}
  {kind==='register'?<Input name="name" label="Nome do caixa físico"/>:kind==='open'?<><Select name="register" label="Caixa físico" items={registers} value={registers.length===1?registers[0].id:undefined}/>{!registersLoading&&!registers.length&&<p role="alert">Cadastre um caixa físico antes de abrir o turno.</p>}<Input name="terminal" label="Identificação do turno" value="Atendimento"/><StockNotice stock={stock}/></>:null}
- {kind==='close'&&<><QueryNotice query={details}/><p>Conte somente o dinheiro físico. Pix e cartão não entram nesta contagem.</p><p>Esperado: <strong>{money(expected)}</strong></p><button type="button" className="secondary-link" onClick={()=>void details.refetch()} disabled={details.isFetching}>Atualizar saldo</button>{details.data?.pendingPayment&&<p role="alert">Há pagamento pendente. Confira a cobrança antes de fechar este caixa.</p>}</>}
+ {kind==='close'&&<><QueryNotice query={details}/><TerminalReceipts rows={details.data?.terminalReceipts}/><p>Conte somente o dinheiro físico. Pix e cartão não entram nesta contagem.</p><p>Esperado: <strong>{money(expected)}</strong></p><button type="button" className="secondary-link" onClick={()=>void details.refetch()} disabled={details.isFetching}>Atualizar saldo</button>{details.data?.pendingPayment&&<p role="alert">Há pagamento pendente. Confira a cobrança antes de fechar este caixa.</p>}</>}
  {!['register','reopen'].includes(kind)&&<label className="bar-field">{kind==='open'?'Fundo inicial (R$)':kind==='close'?'Dinheiro contado (R$)':'Valor (R$)'}<input autoFocus inputMode="decimal" required value={value} onChange={e=>setValue(e.target.value)} placeholder="0,00"/></label>}
  {value&&invalid&&<p role="alert">Informe um valor válido com até duas casas decimais{['withdraw','expense'].includes(kind)?', sem ultrapassar o saldo disponível':''}.</p>}
  {session&&Number.isFinite(amount)&&kind!=='reopen'&&<p aria-live="polite">{kind==='close'?'Diferença':'Saldo após movimento'}: <strong>{money(kind==='close'?difference:session.expected+(kind==='supply'?amount:-amount))}</strong></p>}

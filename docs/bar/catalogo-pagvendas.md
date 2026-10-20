@@ -1,26 +1,18 @@
-# Catálogo PagVendas e conexão PagBank
+# Catálogo interno do Bar e histórico PagVendas
 
-O catálogo pertence ao Bar do Long Beach OS. PagVendas fornece a origem do arquivo; PagBank Orders fornece pagamentos. Não existe dependência de runtime com outro produto.
+## Regra atual preparada em 19/10/2026
 
-## Preparar e conferir produtos
+O Long Beach é a fonte oficial do catálogo, preços e estoque. Cadastre produtos em Bar → Produtos: nome, preço e unidade são os campos principais; código automático e categoria opcional ficam em Mais opções. A categoria ausente usa Sem categoria.
 
-1. No PagVendas, abrir Cadastros > Produtos, selecionar uma quantidade por página suficiente para incluir todo o catálogo e baixar todos os produtos. Conferir a quantidade: a exportação observada respeita o filtro de página.
-2. Executar `python3 scripts/preparar-catalogo-pagvendas.py /caminho/produtos.xlsx /caminho/catalogo.json`. O conversor usa apenas a biblioteca padrão, valida o cabeçalho e os valores monetários, mantém linha original, código externo e SHA-256 do XLSX. Não estima estoque nem gera fotos.
-3. Entrar como Owner no Long Beach OS e enviar o JSON em Importações. Conferir o nome, hash e total do lote registrado.
-4. Usar **Conferir produtos do bar**. O backend aceita somente produtos PagVendas da Long Beach, referências coerentes, moeda BRL e códigos únicos. Outros lotes permanecem nos fluxos próprios de revisão.
-5. Revisar a tabela antes de **Aplicar catálogo conferido**. O token de conferência vincula a aplicação ao estado do catálogo, incluindo versões e divergências. Alteração concorrente exige nova conferência. Estoque, pagamentos e saldos não são lançados por esse fluxo.
+A aplicação de catálogo PagVendas está desativada: a interface só permite consultar lotes e o endpoint `/api/v1/imports/{id}/bar-catalog/apply` rejeita novas aplicações. Nenhum produto, código PV, preço, saldo ou referência histórica é removido. O serviço de prévia continua comparando lotes antigos para consulta. A prévia devolve `canApply: false`, inclusive para clientes antigos.
 
-Os produtos recebem GUID próprio e código interno `PV-<código PagVendas>`. Os produtos já existentes com mesmo nome, preço e categoria são reconciliados sem alteração. Custos calculados, fornecedor, unidades, foto, código de barras, receitas, favoritos, atividade e configuração de estoque locais são preservados. Diferença de nome, preço ou categoria bloqueia o lote: revisar o cadastro e conferir novamente. Não há sobrescrita automática de preços ou custos existentes.
+O catálogo original foi cadastrado pelo painel em 05/10/2026: 100 produtos e sete categorias, incluindo Sem categoria. Essa informação é histórica, não uma instrução para reaplicar o lote. O arquivo de origem e as evidências permanecem fora do Git.
 
-Aplicação e auditoria são atômicas. O lote e as linhas passam para Applied somente após sucesso; repetir não duplica produtos. O fluxo usa as tabelas existentes de staging e o catálogo existente, sem migration nova. Revisões futuras das exports podem adicionar produtos, mas não desativam os ausentes.
-
-O catálogo original foi cadastrado pelo painel em 05/10/2026: 100 produtos e sete categorias, incluindo Sem categoria. Antes de reconciliar esse lote, a prévia deve mostrar 100 já cadastrados e zero novos. Se mostrar produtos novos ou divergentes, conferir a origem e os códigos. O arquivo de origem e as evidências permanecem fora do Git.
-
-Não foi localizada API pública documentada de escrita administrativa de produtos/estoque PagVendas. O feed da Loja Online serve a catálogos de divulgação e não garante saldos. Este fluxo é atualização explícita por exportação e conferência; não é sincronização contínua.
+Consultas financeiras, EDI e arquivos de observações ficam separados das vendas e movimentações internas. Não há conciliação automática por valor nem duplicação de recebimentos a partir do extrato. A entrada em operação exige inventário físico regular, com a revisão atual do sistema.
 
 ### Fotos dos produtos
 
-A exportação XLSX observada não contém fotos nem URLs. Não foi localizado endpoint público documentado de consulta das fotos do catálogo PagVendas. A integração de Facebook e Instagram disponibiliza um feed em Loja Online > Configurações > Integrações; a presença e cobertura das imagens da Long Beach nesse feed ainda precisam ser verificadas na conta. O campo `items.image_url` da API de Checkout recebe uma URL fornecida pelo vendedor e não consulta fotos do PagVendas. Este importador mantém as fotos existentes e não inventa imagens para produtos sem foto.
+A exportação XLSX observada não contém fotos nem URLs. Não foi localizado endpoint público documentado de consulta das fotos do catálogo PagVendas. A integração de Facebook e Instagram disponibiliza um feed em Loja Online > Configurações > Integrações; a presença e cobertura das imagens da Long Beach nesse feed ainda precisam ser verificadas na conta. O campo `items.image_url` da API de Checkout recebe uma URL fornecida pelo vendedor e não consulta fotos do PagVendas. O cadastro mantém as fotos existentes e não inventa imagens para produtos sem foto.
 
 Em 05/10/2026, a lista autenticada com os 100 produtos revelou 78 fotos e 22 produtos sem foto. As imagens usam o CDN `https://cdn.pagvendas.pagseguro.uol.com.br/images/product/<uuid>?lastUpdate=<timestamp>`. Foram baixados os 78 arquivos observados, sem falhas, e guardados localmente com código PV, SHA-256 e mapeamento de origem, fora do Git. Isso identifica recursos de imagem usados pelo painel; não confirma uma API administrativa pública nem permite descobrir os UUIDs apenas pelo código do produto.
 

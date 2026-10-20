@@ -30,7 +30,7 @@ it('mostra pendências internas, caixa separado e saldo bancário desconhecido c
   expect(screen.getByText('Não conectado')).toBeInTheDocument()
   expect(screen.getByText(/Consulta das contas:/)).toHaveTextContent('13/10/2026')
   expect(screen.getByText(/Última alteração registrada:/)).toHaveTextContent('12/10/2026')
-  expect(screen.getByText(/PagVendas ainda não são sincronizadas em tempo real/)).toBeInTheDocument()
+  expect(screen.getByText(/Produtos, vendas e estoque/)).toBeInTheDocument()
   expect(screen.queryByText('R$ 84,68')).not.toBeInTheDocument()
   await userEvent.click(receivable)
   const table = screen.getByRole('table', { name: 'Composição do saldo pendente' })

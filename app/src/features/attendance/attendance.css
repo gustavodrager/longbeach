@@ -216,3 +216,54 @@
  .ux-receive-page .ux-choice { min-height:44px; padding:12px; }
  .lb-open-tab { padding:14px; }
 }
+
+/* Tablet counter: compact catalogue, editable draft, explicit confirmation. */
+.lb-sell .lb-sale-workspace { display:grid; grid-template-columns:minmax(0,1fr) minmax(280px,340px); gap:18px; align-items:start; }
+.lb-sell .lb-sale-summary { position:sticky; top:16px; min-width:0; }
+.lb-sell .ux-products { grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; }
+.lb-sell .ux-product-art { height:90px; }
+.lb-sell .ux-product-art img { height:86px; }
+.lb-sell .ux-product-add { padding:10px; }
+.lb-sell .ux-product-add strong { font-size:17px; overflow-wrap:anywhere; }
+.lb-sell .ux-product-price { font-size:20px; }
+.lb-sell .lb-product-notes summary,.lb-attendance .lb-cart-notes summary,.lb-attendance .ux-receive-page summary { min-height:48px; display:flex; align-items:center; cursor:pointer; }
+.lb-sell .lb-sale-destination { padding:14px; margin-bottom:14px; flex-wrap:wrap; }
+.lb-sell .lb-sale-destination h2 { font-size:20px; margin:0; overflow-wrap:anywhere; }
+.lb-destination-picker { flex:1 0 100%; display:grid; gap:8px; min-width:0; }
+.lb-destination-picker .ux-button { white-space:normal; overflow-wrap:anywhere; text-align:left; }
+.lb-attendance .lb-cart-line { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; padding:12px 0; border-bottom:1px solid #ded8cb; overflow-wrap:anywhere; }
+.lb-cart-line>.ux-quantity,.lb-cart-notes { grid-column:1/-1; }
+.lb-cart-line .ux-quantity { padding:0; justify-content:flex-start; }
+.lb-sell .lb-cart-review { padding:16px; }
+.lb-sell .lb-cart-review h2 { font-size:22px; }
+.lb-sell .lb-review-actions { display:grid; gap:8px; }
+.lb-sell .ux-button { min-height:48px; white-space:normal; overflow-wrap:anywhere; }
+.lb-sell .lb-sale-mobile-total { display:none; }
+@media (max-width:1100px) and (orientation:portrait), (max-width:800px) {
+ .lb-sell .lb-sale-workspace { display:block; }
+ .lb-sell .lb-sale-summary { display:none; position:static; }
+ .lb-sell .is-review .lb-sale-summary { display:block; }
+ .lb-sell .is-review .lb-sale-catalog { display:none; }
+ .lb-sell .lb-sale-mobile-total { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; bottom:92px; padding:12px; }
+ .lb-sell .lb-sale-mobile-total>span { min-width:0; }
+ .lb-sell .lb-sale-mobile-total small { white-space:normal; overflow-wrap:anywhere; font-size:12px; }
+ .lb-sell .lb-sale-mobile-total .ux-button { flex-shrink:0; padding:10px; min-width:112px; }
+ .lb-sell .lb-sale-destination { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; }
+ .lb-sell .lb-review-actions { position:sticky; bottom:86px; background:#f4eddf; padding:8px; border:1px solid #ded8cb; border-radius:12px; z-index:4; }
+ .lb-sell .ux-products { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .lb-sell .ux-quantity { flex-wrap:wrap; }
+ .lb-sell .ux-page { padding-bottom:200px; }
+}
+
+.lb-attendance .lb-review-actions { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 12px; align-items: center; }
+.lb-attendance .lb-review-actions > strong { font-size: 20px; white-space: nowrap; }
+.lb-attendance .lb-review-actions .ux-button { min-width: 0; width: 100%; white-space: normal; }
+.lb-attendance .lb-review-secondary { margin: 12px 0; }
+.lb-attendance .lb-review-secondary .ux-button { flex: 1; }
+.lb-sell .lb-sale-summary { scroll-margin-top: 120px; }
+.lb-attendance .ux-receive-page .ux-choice-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.lb-attendance .ux-receive-page .ux-choice { min-width: 0; overflow-wrap: anywhere; min-height: 48px; }
+.lb-attendance .ux-receive-page summary, .lb-attendance .ux-receipt summary { min-height: 48px; display: flex; align-items: center; cursor: pointer; }
+.lb-attendance .ux-receive-page .ux-check { min-height: 48px; }
+@media (min-width: 1000px) { .lb-attendance .ux-receive-page .ux-choice-grid:not(.lb-two-choices) { grid-template-columns: repeat(4,minmax(0,1fr)); } }
+@media (max-width:480px) { .lb-sell .lb-sale-summary { scroll-margin-top:88px; } }

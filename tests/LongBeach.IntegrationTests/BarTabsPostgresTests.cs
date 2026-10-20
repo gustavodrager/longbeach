@@ -55,6 +55,40 @@ public sealed class BarTabsPostgresTests
         var access = await f.Tabs.IssueAccess(tab.Id, new(Guid.NewGuid()), f.Actor, default);
         Assert.Equal("Perto da quadra", (await f.Tabs.Client(access.Token, default)).Notes);
     }
+    [PostgresFact]
+    public async Task Manual_terminal_modes_preserve_stock_replay_and_refund_without_gateway()
+    {
+        await using var f = await Fixture.Create(); f.Gateway.TimeoutAfterCreate = true;
+        foreach (var mode in new[] { "Debit", "Credit", "Pix" })
+        {
+            var tab = await f.Tabs.Open(new(Guid.NewGuid(), f.Location.Id), f.Actor, default);
+            await f.Tabs.Add(tab.Id, new(Guid.NewGuid(), [new(f.Product.Id, 1)], true), f.Actor, null, default);
+            var stock = await f.Db.Set<StockBalance>().SingleAsync(x => x.ProductId == f.Product.Id && x.LocationId == f.Location.Id);
+            var quantity = stock.Quantity; var cashExpected = f.Session.Expected;
+            var input = new TabPaymentInput(Guid.NewGuid(), "TerminalManual", 10, TerminalType: mode, TerminalApproved: false);
+            await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Pay(tab.Id, input, f.Actor, null, default));
+            input = input with { TerminalApproved = true };
+            var paid = await f.Tabs.Pay(tab.Id, input, f.Actor, null, default);
+            Assert.Equal(f.Session.Id, paid.SessionId); Assert.Equal(cashExpected, f.Session.Expected);
+            Assert.Equal(mode, paid.TerminalType); Assert.Equal("Approved", paid.State); Assert.Null(paid.ProviderId); Assert.Equal(f.Actor, paid.ActorId);
+            Assert.Equal(paid.Id, (await f.Tabs.Pay(tab.Id, input, f.Actor, null, default)).Id);
+            await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Pay(tab.Id, input with { Amount = 5 }, f.Actor, null, default));
+            var refund = new TabRefundInput(Guid.NewGuid(), 5, "Devolução fictícia");
+            await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Refund(tab.Id, paid.Id, refund, f.Actor, default));
+            refund = refund with { ManualConfirmed = true };
+            await f.Tabs.Refund(tab.Id, paid.Id, refund, f.Actor, default);
+            await f.Tabs.Refund(tab.Id, paid.Id, refund, f.Actor, default);
+            await f.Db.Entry(stock).ReloadAsync(); Assert.Equal(quantity, stock.Quantity);
+            Assert.Equal(5, (await f.Tabs.Get(tab.Id, false, default)).Due);
+            Assert.Equal(mode, (await f.Db.Set<BarTabPayment>().AsNoTracking().SingleAsync(x => x.Id == paid.Id)).TerminalType);
+        }
+        var closingDetails = await new BarCashService(f.Db).Details(f.Session.Id, default);
+        Assert.Equal(3, closingDetails.TerminalReceipts!.Count);
+        Assert.All(closingDetails.TerminalReceipts, x => { Assert.Equal(10, x.Amount); Assert.Equal(5, x.Refunded); });
+        Assert.Equal(100, closingDetails.Expected);
+        Assert.Equal(0, f.Gateway.Created);
+    }
+
     private const string ConnectionVariable="LONG_BEACH_TEST_DATABASE_URL";
     [PostgresFact]
     public async Task Tab_list_filters_before_paging_and_orders_pending_age_and_closing_time()

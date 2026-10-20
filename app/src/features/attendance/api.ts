@@ -14,7 +14,7 @@ export type TabItem = {
   allowedActions: string[]; recipeId?: string | null; recipeVersion?: number | null
 }
 export type TabPayment = {
-  id: string; tabId: string; method: string; amount: number; tendered: number; change: number; state: string
+  id: string; tabId: string; terminalType?: string | null; method: string; amount: number; tendered: number; change: number; state: string
   actorId?: string; sessionId?: string; operationId: string; providerId?: string; pixText?: string; qrImageUrl?: string; canResume?: boolean
   expiresAtUtc?: string; createdAtUtc: string; confirmedAtUtc?: string; refunded: number; refundPending: number; fee: number | null
 }
@@ -41,7 +41,7 @@ export function parseAmount(value: string) { return /^\d+(?:[,.]\d{1,2})?$/.test
 export const operationId = () => crypto.randomUUID()
 export const isOpen = (session: CashSession) => session.state === 'Open' || session.state === 'Reopened'
 export const itemLabels: Record<string, string> = { Requested: 'Esperando a equipe confirmar', Accepted: 'A preparar / entregar', Fulfilled: 'Entregue', Rejected: 'Recusado', Reversed: 'Consumo corrigido' }
-export const paymentLabels: Record<string, string> = { CreditCard: 'Crédito à vista', Cash: 'Dinheiro', CardManual: 'Cartão', Pix: 'Pix' }
+export const paymentLabels: Record<string, string> = { CreditCard: 'Crédito à vista', Cash: 'Dinheiro', CardManual: 'Cartão na maquininha (histórico)', TerminalManual: 'Maquininha · confirmação manual', Pix: 'Pix' }
 
 export function useBarData<T>(path: string, enabled = true) {
   const { user } = useAuth()
@@ -94,11 +94,16 @@ export function useIntent(scope: string) {
     const key = `lb-operation:${user?.id}:${scope}:${intent}`
     if (renew || !keys.current.has(key)) {
       let previous: string | null = null
-      try { previous = sessionStorage.getItem(key) } catch { /* in-memory continuity remains */ }
+      try { previous = localStorage.getItem(key) ?? sessionStorage.getItem(key) } catch { /* in-memory continuity remains */ }
       const value = renew ? operationId() : previous ?? operationId()
       keys.current.set(key, value)
-      try { sessionStorage.setItem(key, value) } catch { /* a refresh may lose the intent, the server still enforces state transitions */ }
+      try { localStorage.setItem(key, value); sessionStorage.removeItem(key) } catch { /* a refresh may lose the intent, the server still enforces state transitions */ }
     }
     return keys.current.get(key)!
   }
+}
+
+export function paymentLabel(payment: Pick<TabPayment, 'method' | 'terminalType'>) {
+  const kind: Record<string, string> = { Debit: 'Débito', Credit: 'Crédito', Pix: 'Pix' }
+  return payment.method === 'TerminalManual' ? `${kind[payment.terminalType ?? ''] ?? 'Pagamento'} na maquininha` : paymentLabels[payment.method] ?? payment.method
 }

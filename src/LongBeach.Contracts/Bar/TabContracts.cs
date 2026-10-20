@@ -9,10 +9,10 @@ public sealed record AddTabItemsInput(Guid OperationId, IReadOnlyList<TabItemInp
 public sealed record TabActionInput(Guid OperationId, string? Reason = null, bool ReturnStock = false);
 public sealed record TabPaymentInput(Guid OperationId, string Method, decimal Amount, Guid? SessionId = null,
     decimal? Tendered = null, bool CardApproved = false, string? Authorization = null,
-    string? Name = null, string? Email = null, string? TaxId = null, string? EncryptedCard = null);
+    string? Name = null, string? Email = null, string? TaxId = null, string? EncryptedCard = null, string? TerminalType = null, bool TerminalApproved = false);
 public sealed record TabAdjustmentInput(Guid OperationId, string Kind, decimal Amount, string Reason);
 public sealed record TabReconcileInput(Guid OperationId, decimal Fee, string Reason);
-public sealed record TabRefundInput(Guid OperationId, decimal Amount, string Reason);
+public sealed record TabRefundInput(Guid OperationId, decimal Amount, string Reason, bool ManualConfirmed = false);
 public sealed record TabAccessInput(Guid OperationId);
 public sealed record TabAccessResponse(Guid TabId, string Token, DateTimeOffset ExpiresAtUtc);
 public sealed record TabTotals(decimal Total, decimal Paid, decimal Pending, decimal Due, decimal Payable);
@@ -23,7 +23,7 @@ public sealed record TabItemResponse(Guid Id, Guid TabId, Guid ProductId, string
 public sealed record TabPaymentResponse(Guid Id, Guid TabId, string Method, decimal Amount, decimal Tendered,
     decimal Change, string State, Guid? ActorId, Guid? SessionId, Guid OperationId, string? ProviderId,
     string? PixText, string? QrImageUrl, DateTimeOffset? ExpiresAtUtc, DateTimeOffset CreatedAtUtc,
-    DateTimeOffset? ConfirmedAtUtc, decimal Refunded, decimal RefundPending, decimal? Fee, bool CanResume = false);
+    DateTimeOffset? ConfirmedAtUtc, decimal Refunded, decimal RefundPending, decimal? Fee, bool CanResume = false, string? TerminalType = null);
 public sealed record TabHistoryResponse(Guid Id, string Kind, Guid? ItemId, Guid? PaymentId, decimal Amount,
     Guid? ActorId, string? Reason, DateTimeOffset CreatedAtUtc);
 public sealed record TabResponse(Guid Id, long Number, string Name, string Mode, string State, Guid LocationId,

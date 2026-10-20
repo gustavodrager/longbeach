@@ -25,6 +25,21 @@ public sealed class EdiRecoveryPostgresTests
     }
     private static DateOnly Yesterday => DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-3)).AddDays(-1);
 
+    [PostgresFact] public async Task Financial_collection_does_not_change_internal_catalog_stock_or_revenue()
+    {
+        await using var db = Database(); await Reset(db); using var scopes = Scopes();
+        async Task<string> Snapshot() => JsonSerializer.Serialize(new {
+            Products = await db.Set<LongBeach.Domain.Bar.BarProduct>().AsNoTracking().OrderBy(x => x.Id).Select(x => new { x.Id, x.Code, x.SalePrice, x.Version }).ToListAsync(),
+            Balances = await db.Set<LongBeach.Domain.Inventory.StockBalance>().AsNoTracking().OrderBy(x => x.Id).Select(x => new { x.Id, x.Quantity, x.Reserved, x.Version }).ToListAsync(),
+            Movements = await db.Set<LongBeach.Domain.Inventory.StockMovement>().CountAsync(),
+            Payments = await db.Set<LongBeach.Domain.Bar.BarTabPayment>().AsNoTracking().OrderBy(x => x.Id).Select(x => new { x.Id, x.Amount, x.State, x.Refunded }).ToListAsync(),
+            Sales = await db.Set<LongBeach.Domain.Bar.BarSale>().CountAsync()
+        });
+        var before = await Snapshot(); var worker = Worker(scopes, new Feed { NumericBalances = true });
+        await worker.Run("123", "test-only", Yesterday, default); await worker.Run("123", "test-only", Yesterday, default);
+        Assert.Equal(before, await Snapshot());
+    }
+
     [PostgresFact] public async Task Later_incomplete_day_preserves_completed_day_and_retry_does_not_duplicate()
     {
         await using var db=Database();await Reset(db);using var scopes=Scopes();var feed=new Feed{FailDay=Yesterday};var worker=Worker(scopes,feed);

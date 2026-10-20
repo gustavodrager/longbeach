@@ -195,8 +195,8 @@ public sealed partial class FinancialHistoryService(LongBeachDbContext db, IAudi
             "Vendas, liquidações e saldos em D+1. Documentos originais preservados; classificação financeira depende de conciliação.",last,failure,complete,"Produção",requirements));
         result.AddRange(Payments.PaymentIntegrationDiagnostics.Read(config));
         result.Add(await C6Integration(ct));
-        result.Add(new("PagVendas","Importação por arquivo","Produtos e resumos de vendas passam por conferência antes da aplicação. Não há sincronização automática de vendas ou estoque.",null,null,null,null,
-            ["Exporte o catálogo e os relatórios no PagVendas e confira os lotes em Importações.","Para automatizar vendas detalhadas e estoque, confirme com o PagVendas uma API oficial habilitada para a conta."]));
+        result.Add(new("PagVendas","Histórico de arquivos","O catálogo, as vendas e o estoque são controlados no Long Beach. Lotes PagVendas anteriores continuam disponíveis para consulta.",null,null,null,null,
+            ["Cadastre produtos e confira o estoque no Bar. Novas aplicações de catálogo PagVendas estão desativadas."]));
         return result;
     }
     public async Task<ProviderReport> ProviderRecords(string? date,int page,CancellationToken ct)

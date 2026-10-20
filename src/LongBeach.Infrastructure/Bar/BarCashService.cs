@@ -32,7 +32,9 @@ public sealed class BarCashService(LongBeachDbContext db) : IBarCash
         var movements = await db.Set<CashMovement>().AsNoTracking().Where(x => x.SessionId == id).OrderByDescending(x => x.CreatedAtUtc).Select(x => new CashLedgerRow(x.Id, x.Kind, x.Amount, x.Reason, x.CreatedAtUtc)).ToListAsync(ct);
         var closings = await db.Set<CashClosing>().AsNoTracking().Where(x => x.SessionId == id).OrderByDescending(x => x.CreatedAtUtc).Select(x => new CashClosingRow(x.Id, x.Expected, x.Counted, x.Difference, x.Reason, x.CreatedAtUtc)).ToListAsync(ct);
         var pending = await db.Set<BarSale>().AnyAsync(x => x.SessionId == id && x.State == "AwaitingPayment", ct);
-        return new(movements, closings, pending, session.Expected);
+        var terminal = await db.Set<BarTabPayment>().AsNoTracking().Where(x => x.SessionId == id && x.Method == "TerminalManual" && x.State == "Approved")
+            .GroupBy(x => x.TerminalType).Select(g => new TerminalReceiptTotal(g.Key!, g.Sum(x => x.Amount), g.Sum(x => x.Refunded))).ToListAsync(ct);
+        return new(movements, closings, pending, session.Expected, terminal);
     }
     public async Task<IReadOnlyList<CashRegister>> Registers(CancellationToken ct) => await db.Set<CashRegister>().AsNoTracking().ToListAsync(ct);
     public async Task<CashRegister> CreateRegister(string name, CancellationToken ct) { var register = new CashRegister(name); db.Add(register); await db.SaveChangesAsync(ct); return register; }

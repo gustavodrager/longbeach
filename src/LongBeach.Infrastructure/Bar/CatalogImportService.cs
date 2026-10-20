@@ -1,10 +1,8 @@
 using System.Data;
 using System.Data.Common;
 using System.Text.Json;
-using LongBeach.Application.Abstractions;
 using LongBeach.Application.Bar;
 using LongBeach.Contracts.Bar;
-using LongBeach.Domain.Auditing;
 using LongBeach.Domain.Bar;
 using LongBeach.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -12,42 +10,12 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace LongBeach.Infrastructure.Bar;
 
-public sealed class CatalogImportService(LongBeachDbContext db, IAuditContext audit, TimeProvider time) : ICatalogImport
+public sealed class CatalogImportService(LongBeachDbContext db) : ICatalogImport
 {
     public async Task<CatalogImportPreview> Preview(Guid batchId, CancellationToken ct) => await Read(batchId, ct);
 
-    public async Task<CatalogImportPreview> Apply(Guid batchId, string confirmationToken, CancellationToken ct)
-    {
-        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
-        // Serializa importações de catálogo; constraints e isolamento também protegem cadastros concorrentes.
-        await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(19771005)", ct);
-        var plan = await Read(batchId, ct);
-        if (plan.Applied) return plan;
-        if (!plan.CanApply || !string.Equals(plan.ConfirmationToken, confirmationToken, StringComparison.Ordinal))
-            throw new BarRuleException("A conferência mudou ou contém divergências. Confira novamente antes de aplicar.");
-        var categories = await db.Set<BarProductCategory>().ToDictionaryAsync(x => x.Name, ct);
-        foreach (var item in plan.Items.Where(x => x.Action == "Create"))
-        {
-            if (!categories.TryGetValue(item.Category, out var category))
-            {
-                category = new BarProductCategory(item.Category);
-                categories.Add(item.Category, category);
-                db.Add(category);
-            }
-            var product = new BarProduct(item.Code, item.Name, item.Name[..Math.Min(item.Name.Length, 80)],
-                category.Id, "un", "un", 1, item.SalePrice, item.SourceCost, 0, true, false, 0);
-            product.SetMetadata(item.Barcode, null, null);
-            db.Add(product);
-        }
-        db.AuditLogs.Add(AuditLog.Create(audit.UserId, "PagVendasCatalogApplied", "ImportBatch", batchId.ToString(),
-            JsonSerializer.Serialize(new { plan.SourceSha256, Created = plan.Creates, Matched = plan.Matches }),
-            audit.IpAddress, audit.UserAgent, audit.CorrelationId, time.GetUtcNow()));
-        await db.SaveChangesAsync(ct);
-        await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE import_rows SET review_status = 'Applied' WHERE batch_id = {batchId}", ct);
-        await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE import_batches SET status = 'Applied' WHERE id = {batchId}", ct);
-        await transaction.CommitAsync(ct);
-        return await Read(batchId, ct);
-    }
+    public Task<CatalogImportPreview> Apply(Guid batchId, string confirmationToken, CancellationToken ct)
+        => throw new BarRuleException("A importação de produtos PagVendas foi desativada. Cadastre e controle os produtos no Long Beach. O histórico continua disponível.");
 
     private async Task<CatalogImportPreview> Read(Guid batchId, CancellationToken ct)
     {
