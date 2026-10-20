@@ -45,7 +45,7 @@ it.each([
   { component: <BarCountsPage/>, action: 'Nova contagem', submit: 'Abrir contagem', endpoint: '/counts' },
   { component: <BarLossesPage/>, action: 'Registrar saída', submit: 'Registrar saída', endpoint: '/stock/losses' },
   { component: <BarPurchasesPage/>, action: 'Receber produtos', submit: 'Confirmar quantidades recebidas agora', endpoint: '/purchases/purchase/receive' },
-  { component: <BarCashPage/>, action: 'Abrir caixa', submit: 'Abrir sessão', endpoint: '/cash/sessions' },
+  { component: <BarCashPage/>, action: 'Abrir caixa', submit: 'Abrir caixa', endpoint: '/cash/sessions' },
 ])('envia automaticamente o Bar em $action, mesmo quando Almoxarifado vem primeiro', async ({ component, action, submit, endpoint }) => {
   const api = stockApi(); const u = userEvent.setup()
   render(wrapper(component))
@@ -59,8 +59,7 @@ it.each([
     await u.type(within(dialog).getByLabelText('Motivo e responsável pelo consumo'), 'Quebra no transporte')
   }
   if (endpoint === '/cash/sessions') {
-    await u.selectOptions(within(dialog).getByLabelText('Caixa físico'), 'register')
-    await u.type(within(dialog).getByLabelText('Identificação do turno'), 'Balcão')
+    expect(within(dialog).queryByLabelText('Caixa físico')).not.toBeInTheDocument()
     await u.type(within(dialog).getByLabelText('Fundo inicial (R$)'), '10')
   }
   if (endpoint === '/stock/losses') await u.click(within(dialog).getByRole('button', { name: 'Conferir saída' }))

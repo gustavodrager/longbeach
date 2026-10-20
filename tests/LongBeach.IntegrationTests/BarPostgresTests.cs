@@ -164,7 +164,7 @@ public sealed class BarPostgresTests
     [PostgresFact]
     public async Task Physical_count_manual_sale_receipt_and_refund_preserve_ledger_and_idempotency()
     {
-        await using var db=Database();await db.Database.MigrateAsync();var actor=Guid.NewGuid();var suffix=Guid.NewGuid().ToString("N");
+        await using var isolated=await IsolatedBarDatabase.Create(new AuditSaveChangesInterceptor(new TestAudit(),TimeProvider.System)); var db=isolated.Context;var actor=Guid.NewGuid();var suffix=Guid.NewGuid().ToString("N");
         var catalog=new BarCatalogService(db);var stock=new BarStockService(db);var cash=new BarCashService(db);var sales=new BarSalesService(db);var purchases=new BarPurchasesService(db);
         var category=await catalog.CreateCategory(new CategoryInput("Categoria "+suffix),default);
         var managed=await catalog.SaveProduct(null,new ProductInput(suffix,"Água teste","Água",category.Id,"un","cx",24,10,6,5,true,false,0),default);var product=managed.Product;
@@ -172,7 +172,7 @@ public sealed class BarPostgresTests
         var count=await stock.CreateCount(new CountInput(location.Id,true),actor,default);
         foreach(var item in count.Items.ToArray()) await stock.Count(count.Id,new CountItemInput(item.ProductId,item.ProductId==product.Id?20:0),default);
         await stock.Approve(count.Id,"Contagem física",actor,default);
-        var register=await cash.CreateRegister("Caixa "+suffix,default);var session=await cash.Open(new OpenCashInput(register.Id,location.Id,"tablet",100),actor,default);
+        var session=await cash.Open(new OpenCashInput(Guid.Empty,location.Id,"tablet",100),actor,default);
         var sale=await sales.Create(new SaleInput(session.Id,[new SaleItemInput(product.Id,2)]),actor,default);var id=JsonSerializer.SerializeToElement(sale).GetProperty("Id").GetGuid();var payment=new ManualPaymentInput(Guid.NewGuid(),20,null);
         await sales.Pay(id,payment,"Cash",actor,default);await sales.Pay(id,payment,"Cash",actor,default);
         Assert.Equal(18,(await db.Set<StockBalance>().SingleAsync(x=>x.ProductId==product.Id&&x.LocationId==location.Id)).Quantity);
@@ -188,7 +188,7 @@ public sealed class BarPostgresTests
     [PostgresFact]
     public async Task Cash_history_pages_before_limit_and_details_preserve_closing_and_movements()
     {
-        await using var db=Database(); await db.Database.MigrateAsync();
+        await using var isolated=await IsolatedBarDatabase.Create(); var db=isolated.Context;
         var suffix=Guid.NewGuid().ToString("N"); var actor=LongBeach.Domain.Identity.User.Create("Cash "+suffix,suffix+"@example.invalid","test-only"); db.Add(actor);
         var register=new LongBeach.Domain.Cash.CashRegister("Register "+suffix); var location=new StockLocation("Cash "+suffix); db.AddRange(register,location); await db.SaveChangesAsync();
         var service=new BarCashService(db); var session=await service.Open(new(register.Id,location.Id,"Turno",100,Guid.NewGuid()),actor.Id,default);

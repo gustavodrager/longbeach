@@ -4,6 +4,7 @@ namespace LongBeach.Application.Bar;
 public interface IBarCash
 {
     Task<CashHistoryPage> History(string? search, string? state, int page, CancellationToken ct);
+    Task<CashHistoryRow?> Current(CancellationToken ct);
     Task<CashDetails> Details(Guid id, CancellationToken ct);
     Task<IReadOnlyList<CashRegister>> Registers(CancellationToken ct);
     Task<CashRegister> CreateRegister(string name, CancellationToken ct);

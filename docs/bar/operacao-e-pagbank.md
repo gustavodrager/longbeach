@@ -113,3 +113,11 @@ O proprietário confirmou um único estoque físico para o Bar. A interface pass
 A tela principal mostra os saldos do Bar. URLs antigas com filtro de local não mudam essa seleção. Saldos não zerados em outros cadastros, se existirem, continuam visíveis em uma seção separada de conferência, sem somar ao disponível do atendimento. Movimentações e inventários anteriores são preservados, inclusive seus vínculos originais. Nenhum saldo é transferido, reclassificado ou apagado automaticamente.
 
 Este ajuste é de interface: os contratos da API e os registros históricos de locais permanecem compatíveis. Não equivale a uma consolidação de saldos no banco nem ao estoque futuro por unidade previsto no ADR-008. Testes de interface verificam destino Bar nos quatro formulários, tratamento de cadastro ausente/ambíguo e preservação separada de saldos antigos; build PWA aprovado. A publicação efetiva deve ser conferida no manifesto de produção.
+
+### Caixa único automático
+
+O Bar usa um único caixa operacional, identificado como **Caixa do Bar**. Gestão e atendimento não cadastram nem selecionam caixas: a abertura informa o dinheiro inicial e identifica o usuário autenticado como responsável. O registro técnico é criado na primeira abertura e reutilizado nos turnos seguintes. O `RegisterId` de clientes antigos permanece aceito no contrato, mas não escolhe mais o caixa. Novos cadastros pelo endpoint antigo são recusados.
+
+Abertura e reabertura verificam todos os turnos abertos, inclusive de cadastros antigos, sob bloqueio transacional. É necessário encerrar o turno anterior antes de outro responsável abrir o caixa. Movimentações continuam restritas ao responsável, e o fechamento pela supervisão mantém a exigência de motivo. Históricos e referências antigas são preservados; não há exclusão de registros nem migration de dados nesta mudança.
+
+`GET /api/v1/bar/cash/current` informa o turno aberto para impedir uma nova abertura na interface. O servidor continua sendo a autoridade em caso de concorrência. A implantação exige API antes da interface, pois esta utiliza essa consulta. Validar abertura com zero, retomada da mesma operação, fechamento, troca de responsável e tentativa concorrente em banco fictício antes da publicação.

@@ -102,6 +102,7 @@ it('abre meu caixa no Bar mesmo quando Almoxarifado vem primeiro',async()=>{
     const path=String(input)
     if(init?.method==='POST'){expect(JSON.parse(String(init.body))).toMatchObject({locationId:'bar-a',opening:0});opened=true;return json({id:'session-a'})}
     if(path.endsWith('/cash/sessions'))return json(opened?[{id:'session-a',openedBy:actor.id,state:'Open',opening:0,expected:0,createdAtUtc}]:[])
+    if(path.endsWith('/cash/current'))return json(null)
     if(path.endsWith('/cash/registers'))return json([{id:'register-a',name:'Caixa'}])
     if(path.endsWith('/cash/locations'))return json([{id:'warehouse-a',name:'Almoxarifado'},{id:'bar-a',name:'Bar'}])
     throw new Error(path)
