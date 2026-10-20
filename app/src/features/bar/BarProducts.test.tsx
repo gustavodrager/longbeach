@@ -1,3 +1,4 @@
+vi.mock('../auth/authContext',()=>({useAuth:()=>({user:{roles:[],permissions:['bar:catalog:write','bar:stock:read']}})}))
 import { fireEvent, render, screen, within, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
@@ -18,11 +19,12 @@ it('lista antes de editar, pagina e preserva os campos complementares no salvame
   expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(4)
   fireEvent.click(screen.getByRole('button',{name:'Anterior'}))
   fireEvent.click(within(screen.getByRole('row',{name:/Produto 0 /})).getByRole('button',{name:'Editar'}))
-  await screen.findByRole('dialog',{name:'Editar produto'})
+  await screen.findByLabelText('Nome')
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   await waitFor(()=>expect(screen.getByRole('option',{name:'Fornecedor',hidden:true})).toBeInTheDocument())
   fireEvent.change(screen.getByLabelText('Preço de venda (R$)'),{target:{value:'6'}})
-  fireEvent.click(screen.getByRole('button',{name:'Salvar produto'}))
-  await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  fireEvent.click(screen.getByRole('button',{name:'Salvar'}))
+  await waitFor(()=>expect(screen.queryByLabelText('Nome')).not.toBeInTheDocument())
   const write=api.mock.calls.find(([,init])=>init?.method==='PUT')
   expect(write?.[0]).toContain('/products/p0')
   expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({version:7,categoryId:'c',salePrice:6,averageCost:2,purchaseUnit:'cx',conversionFactor:12,controlsStock:true,mainSupplierId:'s',barcode:'123',minimumStock:2})

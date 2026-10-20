@@ -9,3 +9,5 @@ public sealed record CatalogProduct(Guid Id, string Code, string Name, string Sh
     bool Active, int Version, string? Barcode = null, string? ImageUrl = null, bool Prepared = false);
 public sealed record ManagedProduct(CatalogProduct Product, string PurchaseUnit, decimal ConversionFactor,
     decimal AverageCost, decimal LastCost, Guid? MainSupplierId = null);
+
+public sealed record ProductStockInput(ProductInput Product, decimal? Available, int? StockVersion, Guid OperationId);

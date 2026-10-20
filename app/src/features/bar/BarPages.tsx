@@ -1,11 +1,13 @@
-import { label, money, type Named, type Product, type Managed, type Sale, useBar, useAction, Notice, QueryNotice, useBarStock, StockNotice, Page, Input, Select, formData, str, num } from './BarCore'
+import { ProductRow } from './ProductRow'
+import { type Balance } from './BarCore'
+import { label, money, type Named, type Managed, type Sale, useBar, useAction, Notice, QueryNotice, useBarStock, StockNotice, Page, Input, Select, formData, str, num } from './BarCore'
 export { BarStockPage, BarCountsPage, BarLossesPage } from './StockPages'
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { type FormEvent, type ReactNode } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/access'
 
-import { ActionPanel, Disclosure, EditorPanel, RecordTable, useContextSearchParams } from '../../components/managementUi'
+import { ActionPanel, Disclosure, EditorPanel, useContextSearchParams } from '../../components/managementUi'
 import { Empty, Field, Pagination, Search, useFilters } from '../../pages/arenaUi'
 
 export function BarLayout() {
@@ -19,11 +21,8 @@ function PagedItems<T>({items,children}:{items:T[]|undefined;children:(item:T)=>
   return items.length ? <Pagination total={items.length}>{(start,end)=><>{items.slice(start,end).map(children)}</>}</Pagination> : <Empty>Nenhum registro disponível nesta lista.</Empty>
 }
 
-function ProductImage({product}:{product:Product}) {
-  const [failed,setFailed]=useState(false)
-  return product.imageUrl&&!failed?<img className="product-thumbnail" src={product.imageUrl} alt="" loading="lazy" width={44} height={44} onError={()=>setFailed(true)}/>:<span className="product-thumbnail product-placeholder" aria-hidden="true">◇</span>
-}
 export function BarProductsPage() {
+  const {user}=useAuth();const canAdjust=hasPermission(user,'bar:supervise');const balances=useBar<Balance[]>('/stock/balances',hasPermission(user,'bar:stock:read'));
   const categories=useBar<Named[]>('/categories'); const products=useBar<Managed[]>('/products');const a=useAction();const filters=useFilters();const [params,setParams]=useContextSearchParams()
   const editing=params.get('acao')==='editar'||params.get('acao')==='novo'
   const edit=params.get('acao')==='editar'?products.data?.find(item=>item.product.id===params.get('registro'))??null:null
@@ -39,9 +38,9 @@ export function BarProductsPage() {
     {!editing&&<Notice action={a}/>}<QueryNotice query={products}/>
     <div className="compact-filters"><Search filters={filters} placeholder="Buscar produto ou código…"/><Field label="Categoria" value={params.get('category')??''} onChange={v=>filters.set('category',v)} options={[{value:'',label:'Todas'},...(categories.data??[]).map(c=>({value:c.id,label:c.name}))]}/><Field label="Situação" value={filters.status} onChange={v=>filters.set('status',v)} options={[{value:'',label:'Todos'},{value:'active',label:'Ativos'},{value:'inactive',label:'Inativos'}]}/></div>
     <p className="arena-hint">{rows.length} produtos nesta seleção</p>
-    {rows.length?<Pagination total={rows.length}>{(start,end)=><RecordTable label="Produtos do bar" columns={['Produto','Preço','Custo','Situação','Ação']} rows={rows.slice(start,end).map(x=>({key:x.product.id,cells:[<div className="product-name"><ProductImage product={x.product}/><span>{x.product.name}</span></div>,money(x.product.salePrice),money(x.averageCost),x.product.active?'Ativo':'Inativo',<button onClick={()=>show(x)}>Editar</button>]}))}/>}</Pagination>:!products.isLoading&&!products.isError&&<Empty>Não há produtos nesta seleção. Ajuste a busca ou cadastre um produto.</Empty>}
+    {rows.length?<Pagination total={rows.length}>{(start,end)=><div className="responsive-records"><table aria-label="Produtos do bar"><thead><tr>{['Produto','Preço','Custo','Disponível','Situação','Ação'].map(c=><th key={c}>{c}</th>)}</tr></thead><tbody>{rows.slice(start,end).map(x=><ProductRow key={x.product.id+(edit?.product.id===x.product.id&&(!canAdjust||balances.isSuccess)?'-editing':'')} item={x} balance={balances.data?.find(b=>b.productId===x.product.id&&b.locationId==='b0000000-0000-0000-0000-000000000002')} stockReady={balances.isSuccess} canAdjust={canAdjust} categories={categories.data??[]} suppliers={suppliers.data??[]} editing={edit?.product.id===x.product.id&&(!canAdjust||balances.isSuccess)} onEdit={()=>show(x)} onClose={close}/>)}</tbody></table></div>}</Pagination>:!products.isLoading&&!products.isError&&<Empty>Não há produtos nesta seleção. Ajuste a busca ou cadastre um produto.</Empty>}
     <Disclosure title="Produtos sem venda e cortesias"><p>Preço zero identifica um insumo ou produto sem venda: ele pode compor fichas técnicas e movimentar estoque, mas não aparece no atendimento. Cortesias exigem autorização da supervisão.</p></Disclosure>
-    {editing&&(params.get('acao')==='novo'||edit)?<EditorPanel title={edit?'Editar produto':'Novo produto'} busy={a.busy} onClose={close}><Notice action={a}/><QueryNotice query={categories}/><QueryNotice query={suppliers}/>{categories.isSuccess&&suppliers.isSuccess&&<form key={edit?.product.id ?? 'new'} className="operation-card bar-form" onSubmit={submit}><div className="field-grid">
+    {params.get('acao')==='novo'?<EditorPanel title={edit?'Editar produto':'Novo produto'} busy={a.busy} onClose={close}><Notice action={a}/><QueryNotice query={categories}/><QueryNotice query={suppliers}/>{categories.isSuccess&&suppliers.isSuccess&&<form key={edit?.product.id ?? 'new'} className="operation-card bar-form" onSubmit={submit}><div className="field-grid">
       <Input name="name" label="Nome" value={edit?.product.name} />
       <Input name="salePrice" label="Preço de venda (R$)" type="number" step="0.01" value={edit?.product.salePrice} />
       <Input name="saleUnit" label="Unidade de venda" value={edit?.product.saleUnit ?? 'un'} />
@@ -56,7 +55,7 @@ export function BarProductsPage() {
       <Input name="conversionFactor" label="Unidades de venda por unidade de compra" type="number" step="0.001" value={edit?.conversionFactor ?? 1} />
       <Input name="averageCost" label="Custo médio por unidade de venda (R$)" type="number" step="0.000001" value={edit?.averageCost ?? 0} /><Input name="minimumStock" label="Estoque mínimo" type="number" step="0.001" value={edit?.product.minimumStock ?? 0} /><Input name="displayOrder" label="Ordem no PDV" type="number" value={edit?.product.displayOrder ?? 0} />
       <label><input name="controlsStock" type="checkbox" defaultChecked={edit?.product.controlsStock ?? true} /> Controla estoque</label><label><input name="active" type="checkbox" defaultChecked={edit?.product.active ?? true} /> Ativo</label><label><input name="favorite" type="checkbox" defaultChecked={edit?.product.favorite ?? false} /> Favorito</label>
-    <label className="bar-check"><input name="prepared" type="checkbox" defaultChecked={edit?.product.prepared ?? false}/>Precisa preparar (vai para Pedidos)</label></div></Disclosure><div className="form-actions"><button disabled={a.busy}>Salvar produto</button><button className="secondary-link" type="button" onClick={close}>Cancelar</button></div></form>}</EditorPanel>:editing&&!products.isLoading&&<p role="alert">Produto não encontrado. <button onClick={close}>Voltar à lista</button></p>}
+    <label className="bar-check"><input name="prepared" type="checkbox" defaultChecked={edit?.product.prepared ?? false}/>Precisa preparar (vai para Pedidos)</label></div></Disclosure><div className="form-actions"><button disabled={a.busy}>Salvar produto</button><button className="secondary-link" type="button" onClick={close}>Cancelar</button></div></form>}</EditorPanel>:editing&&!edit&&!products.isLoading&&<p role="alert">Produto não encontrado. <button onClick={close}>Voltar à lista</button></p>}
   </Page>
 }
 export { BarCashPage } from './CashPage'

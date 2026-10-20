@@ -6,7 +6,7 @@ using LongBeach.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace LongBeach.Infrastructure.Bar;
-public sealed class BarCatalogService(LongBeachDbContext db) : IBarCatalog
+public sealed partial class BarCatalogService(LongBeachDbContext db) : IBarCatalog
 {
     public async Task<IReadOnlyList<BarProductCategory>> Categories(CancellationToken ct) =>
         await db.Set<BarProductCategory>().AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct);
@@ -33,7 +33,7 @@ public sealed class BarCatalogService(LongBeachDbContext db) : IBarCatalog
     public async Task<ManagedProduct> SaveProduct(Guid? id, ProductInput input, CancellationToken ct)
     {
         var useDefaultCategory = input.CategoryId is null || input.CategoryId == Guid.Empty;
-        await using var transaction = useDefaultCategory
+        await using var transaction = useDefaultCategory && db.Database.CurrentTransaction is null
             ? await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct) : null;
         Guid categoryId;
         if (useDefaultCategory)
