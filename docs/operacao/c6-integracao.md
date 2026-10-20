@@ -103,7 +103,7 @@ Se for necessário desabilitar toda a conexão por incidente, registrar explicit
 ## 7. Evidências de testes e pendências
 
 - Última execução direcionada desta frente: **57 testes aprovados** de cliente/gateway C6 e diagnóstico de pagamentos, com banco simulado. Cobre orçamento compartilhado de chamadas, cancelamento da fila, certificados, autenticação, isolamento, referências, repetição, timeout ambíguo, devoluções e flags.
-- Interface: **409 testes aprovados** e build concluído. Backend: build concluído; execução completa final e CI são requisitos da promoção e devem ser registrados na evidência de publicação. Esses testes não representam validação bancária real.
+- Interface: **409 testes aprovados** e build concluído. Backend: build concluído e suíte final aprovada em banco PostgreSQL local limpo, com **413 testes unitários e 336 de integração**. CI também aprovado em PostgreSQL 17, PostgreSQL 18 e React/PWA: [execução 39346680034](https://github.com/gustavodrager/longbeach/actions/runs/39346680034). A publicação deve ter evidência própria. Esses testes não representam validação bancária real.
 - Verificação local com usuário fictício: dashboard → extrato C6, requisições de extrato e integrações HTTP 200, conta não configurada e controles de conexão desativados. Nenhuma chamada bancária real foi realizada.
 - Permanecem pendentes: confirmação do cadastro, credenciais/certificado, autenticação real, homologação do banco, callback real e conferência de saldo/extrato/Pix em cada ambiente.
 
