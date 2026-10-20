@@ -10,7 +10,7 @@ const user: AuthUser={id:'operator',name:'Operador',email:'test@longbeach.test',
 function wrapper(children:React.ReactNode, authUser=user, path='/'){const auth={user:authUser,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{}, completeFirstAccessWithGoogle: async () => {}};return <QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter initialEntries={[path]}><AuthContext.Provider value={auth}>{children}</AuthContext.Provider></MemoryRouter></QueryClientProvider>}
 function response(body:unknown){return new Response(JSON.stringify(body),{headers:{'Content-Type':'application/json'}})}
 afterEach(()=>vi.restoreAllMocks())
-it('oferece apenas grupos permitidos para operador, preservando o atendimento',()=>{const can=(item:{permission?:string;owner?:boolean;kind?:string})=>!item.owner&&!item.kind&&(!item.permission||user.permissions.includes(item.permission));const bar=visibleNavigation(can).find(item=>item.label==='Bar');expect(bar?.children?.map(item=>item.label)).toEqual(['Estoque']);expect(attendantNavigation.filter(can).map(item=>item.label)).toEqual(['Vender','Pedidos','Meu caixa'])})
+it('oferece apenas grupos permitidos para operador, preservando o atendimento',()=>{const can=(item:{permission?:string;anyPermission?:string[];owner?:boolean;kind?:string})=>!item.owner&&!item.kind&&(!item.anyPermission||item.anyPermission.some(p=>user.permissions.includes(p)))&&(!item.permission||user.permissions.includes(item.permission));const bar=visibleNavigation(can).find(item=>item.label==='Bar');expect(bar?.children?.map(item=>item.label)).toEqual(['Vender','Pedidos','Caixa','Produtos e estoque']);expect(attendantNavigation.filter(can).map(item=>item.label)).toEqual(['Vender','Pedidos','Caixa'])})
 
 const stockLocations = [{ id: 'warehouse', name: 'Almoxarifado' }, { id: 'bar', name: 'Bar' }]
 function stockApi(locations = stockLocations) {
@@ -23,6 +23,7 @@ function stockApi(locations = stockLocations) {
       { productId: 'water', locationId: 'warehouse', name: 'Água', quantity: 20, reserved: 0, available: 20, low: false },
     ])
     if (path.endsWith('/catalog')) return response([{ id: 'water', name: 'Água', controlsStock: true }])
+    if (path.endsWith('/cash/current')) return response(null)
     if (path.includes('/cash/history')) return response({items:[],total:0})
     if (path.endsWith('/cash/registers')) return response([{ id: 'register', name: 'Principal' }])
     if (path.includes('/purchases/history')) return response({page:1,pageSize:20,total:1,awaiting:1,partial:0,completed:0,items:[{ id: 'purchase', document: 'Compra de teste', state: 'Ordered', total: 10, freight: 0, discount: 0, items: [{ productId: 'water', quantity: 2, received: 0, purchaseUnit: 'un' }] }]})
@@ -31,9 +32,11 @@ function stockApi(locations = stockLocations) {
 }
 it('usa o saldo do Bar mesmo com filtro antigo na URL e preserva saldos anteriores separados', async () => {
   stockApi()
-  render(wrapper(<BarStockPage/>, { ...user, roles: ['Owner'] }, '/bar/estoque?location=warehouse'))
+  render(wrapper(<BarStockPage balancesOnly/>, { ...user, roles: ['Owner'] }, '/bar/estoque?location=warehouse'))
   const table = await screen.findByRole('table', { name: 'Saldos do estoque' })
-  expect(within(table).getByText('4')).toBeInTheDocument()
+  expect(within(table).getByText('4 un')).toBeInTheDocument()
+  expect(within(table).queryByRole('columnheader',{name:'Físico'})).not.toBeInTheDocument()
+  expect(within(table).queryByRole('columnheader',{name:'Reservado'})).not.toBeInTheDocument()
   expect(within(table).queryByText('20')).not.toBeInTheDocument()
   expect(screen.queryByRole('columnheader', { name: 'Local' })).not.toBeInTheDocument()
   expect(screen.queryByLabelText('Local')).not.toBeInTheDocument()
@@ -45,10 +48,10 @@ it.each([
   { component: <BarCountsPage/>, action: 'Nova contagem', submit: 'Abrir contagem', endpoint: '/counts' },
   { component: <BarLossesPage/>, action: 'Registrar saída', submit: 'Registrar saída', endpoint: '/stock/losses' },
   { component: <BarPurchasesPage/>, action: 'Receber produtos', submit: 'Confirmar quantidades recebidas agora', endpoint: '/purchases/purchase/receive' },
-  { component: <BarCashPage/>, action: 'Abrir caixa', submit: 'Abrir sessão', endpoint: '/cash/sessions' },
+  { component: <BarCashPage/>, action: 'Abrir caixa', submit: 'Abrir caixa', endpoint: '/cash/sessions' },
 ])('envia automaticamente o Bar em $action, mesmo quando Almoxarifado vem primeiro', async ({ component, action, submit, endpoint }) => {
   const api = stockApi(); const u = userEvent.setup()
-  render(wrapper(component))
+  render(wrapper(component,{...user,roles:['Owner']}))
   await u.click(await screen.findByRole('button', { name: action }))
   const dialog = screen.getByRole('dialog')
   expect(within(dialog).queryByLabelText(/Local/)).not.toBeInTheDocument()
@@ -59,8 +62,7 @@ it.each([
     await u.type(within(dialog).getByLabelText('Motivo e responsável pelo consumo'), 'Quebra no transporte')
   }
   if (endpoint === '/cash/sessions') {
-    await u.selectOptions(within(dialog).getByLabelText('Caixa físico'), 'register')
-    await u.type(within(dialog).getByLabelText('Identificação do turno'), 'Balcão')
+    expect(within(dialog).queryByLabelText('Caixa físico')).not.toBeInTheDocument()
     await u.type(within(dialog).getByLabelText('Fundo inicial (R$)'), '10')
   }
   if (endpoint === '/stock/losses') await u.click(within(dialog).getByRole('button', { name: 'Conferir saída' }))

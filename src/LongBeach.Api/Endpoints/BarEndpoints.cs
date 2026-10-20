@@ -15,9 +15,11 @@ public static class BarEndpoints
         bar.MapGet("/products", (IBarCatalog service, CancellationToken ct) => service.Products(ct)).RequireAuthorization(SystemPermissions.BarCatalogWrite);
         bar.MapPost("/products", (ProductInput input, IBarCatalog service, CancellationToken ct) => service.SaveProduct(null, input, ct)).RequireAuthorization(SystemPermissions.BarCatalogWrite);
         bar.MapPut("/products/{id:guid}", (Guid id, ProductInput input, IBarCatalog service, CancellationToken ct) => service.SaveProduct(id, input, ct)).RequireAuthorization(SystemPermissions.BarCatalogWrite);
+        bar.MapPut("/products/{id:guid}/stock", (Guid id, ProductStockInput input, HttpContext h, IBarCatalog service, CancellationToken ct) => service.SaveProductStock(id,input,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarCatalogWrite, SystemPermissions.BarSupervise);
         bar.MapGet("/stock/locations", (IBarStock s, CancellationToken ct) => s.Locations(ct)).RequireAuthorization(SystemPermissions.BarStockRead);
         bar.MapPost("/stock/locations", (LocationInput i, IBarStock s, CancellationToken ct) => s.CreateLocation(i,ct)).RequireAuthorization(SystemPermissions.BarStockManage);
         bar.MapGet("/stock/balances", (HttpContext h, IBarStock s, CancellationToken ct) => s.Balances(Costs(h),ct)).RequireAuthorization(SystemPermissions.BarStockRead);
+        bar.MapPut("/stock/available", async (AvailableStockInput i, HttpContext h, IBarStock s, CancellationToken ct) => { await s.SetAvailable(i,Actor(h),ct); return Results.NoContent(); }).RequireAuthorization(SystemPermissions.BarSupervise);
         bar.MapGet("/stock/movements", (HttpContext h, IBarStock s, CancellationToken ct) => s.Movements(Costs(h),ct)).RequireAuthorization(SystemPermissions.BarStockRead);
         bar.MapGet("/stock/movement-history", (Guid? locationId, string? search, string? kind, DateOnly? from, DateOnly? to, int? page, IBarStock s, CancellationToken ct) => s.MovementHistory(locationId,search,kind,from,to,page ?? 1,ct)).RequireAuthorization(SystemPermissions.BarStockRead);
         bar.MapGet("/stock/valuation", (IBarStock s, CancellationToken ct) => s.Valuation(ct)).RequireAuthorization(SystemPermissions.BarFinanceRead);
@@ -31,6 +33,7 @@ public static class BarEndpoints
         bar.MapPost("/counts/{id:guid}/approve", (Guid id, InventoryApprovalInput i, HttpContext h, IBarStock s, CancellationToken ct) => s.Approve(id,i.Reason,Actor(h),ct,i.ZeroUncounted)).RequireAuthorization(SystemPermissions.BarSupervise);
         bar.MapGet("/cash/history", (string? search, string? state, int? page, IBarCash s, CancellationToken ct) => s.History(search,state,page ?? 1,ct)).RequireAuthorization(SystemPermissions.BarSupervise);
         bar.MapGet("/cash/sessions/{id:guid}/details", (Guid id, IBarCash s, CancellationToken ct) => s.Details(id,ct)).RequireAuthorization(SystemPermissions.BarSupervise);
+        bar.MapGet("/cash/current", async (IBarCash s, CancellationToken ct) => Results.Json(await s.Current(ct))).RequireAuthorization(SystemPermissions.BarCashOperate);
         bar.MapGet("/cash/registers", (IBarCash s, CancellationToken ct) => s.Registers(ct)).RequireAuthorization(SystemPermissions.BarCashOperate);
         bar.MapPost("/cash/registers", (LocationInput i, IBarCash s, CancellationToken ct) => s.CreateRegister(i.Name,ct)).RequireAuthorization(SystemPermissions.BarSupervise);
         bar.MapGet("/cash/sessions", (HttpContext h, IBarCash s, CancellationToken ct) => s.Sessions(Actor(h),Has(h,SystemPermissions.BarSupervise)||Has(h,SystemPermissions.BarFinanceRead),ct)).RequireAuthorization(SystemPermissions.BarCashOperate);

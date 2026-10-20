@@ -55,7 +55,40 @@ public sealed class BarTabsPostgresTests
         var access = await f.Tabs.IssueAccess(tab.Id, new(Guid.NewGuid()), f.Actor, default);
         Assert.Equal("Perto da quadra", (await f.Tabs.Client(access.Token, default)).Notes);
     }
-    private const string ConnectionVariable="LONG_BEACH_TEST_DATABASE_URL";
+    [PostgresFact]
+    public async Task Manual_terminal_modes_preserve_stock_replay_and_refund_without_gateway()
+    {
+        await using var f = await Fixture.Create(); f.Gateway.TimeoutAfterCreate = true;
+        foreach (var mode in new[] { "Debit", "Credit", "Pix" })
+        {
+            var tab = await f.Tabs.Open(new(Guid.NewGuid(), f.Location.Id), f.Actor, default);
+            await f.Tabs.Add(tab.Id, new(Guid.NewGuid(), [new(f.Product.Id, 1)], true), f.Actor, null, default);
+            var stock = await f.Db.Set<StockBalance>().SingleAsync(x => x.ProductId == f.Product.Id && x.LocationId == f.Location.Id);
+            var quantity = stock.Quantity; var cashExpected = f.Session.Expected;
+            var input = new TabPaymentInput(Guid.NewGuid(), "TerminalManual", 10, TerminalType: mode, TerminalApproved: false);
+            await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Pay(tab.Id, input, f.Actor, null, default));
+            input = input with { TerminalApproved = true };
+            var paid = await f.Tabs.Pay(tab.Id, input, f.Actor, null, default);
+            Assert.Equal(f.Session.Id, paid.SessionId); Assert.Equal(cashExpected, f.Session.Expected);
+            Assert.Equal(mode, paid.TerminalType); Assert.Equal("Approved", paid.State); Assert.Null(paid.ProviderId); Assert.Equal(f.Actor, paid.ActorId);
+            Assert.Equal(paid.Id, (await f.Tabs.Pay(tab.Id, input, f.Actor, null, default)).Id);
+            await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Pay(tab.Id, input with { Amount = 5 }, f.Actor, null, default));
+            var refund = new TabRefundInput(Guid.NewGuid(), 5, "Devolução fictícia");
+            await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Refund(tab.Id, paid.Id, refund, f.Actor, default));
+            refund = refund with { ManualConfirmed = true };
+            await f.Tabs.Refund(tab.Id, paid.Id, refund, f.Actor, default);
+            await f.Tabs.Refund(tab.Id, paid.Id, refund, f.Actor, default);
+            await f.Db.Entry(stock).ReloadAsync(); Assert.Equal(quantity, stock.Quantity);
+            Assert.Equal(5, (await f.Tabs.Get(tab.Id, false, default)).Due);
+            Assert.Equal(mode, (await f.Db.Set<BarTabPayment>().AsNoTracking().SingleAsync(x => x.Id == paid.Id)).TerminalType);
+        }
+        var closingDetails = await new BarCashService(f.Db).Details(f.Session.Id, default);
+        Assert.Equal(3, closingDetails.TerminalReceipts!.Count);
+        Assert.All(closingDetails.TerminalReceipts, x => { Assert.Equal(10, x.Amount); Assert.Equal(5, x.Refunded); });
+        Assert.Equal(100, closingDetails.Expected);
+        Assert.Equal(0, f.Gateway.Created);
+    }
+
     [PostgresFact]
     public async Task Tab_list_filters_before_paging_and_orders_pending_age_and_closing_time()
     {
@@ -193,6 +226,7 @@ public sealed class BarTabsPostgresTests
     {
         await using var f=await Fixture.Create(); var another=Guid.NewGuid(); var register=new CashRegister(Guid.NewGuid().ToString()); f.Db.Add(register); await f.Db.SaveChangesAsync();
         var input=new OpenCashInput(register.Id,f.Location.Id,"outro",100,Guid.NewGuid()); var cash=new BarCashService(f.Db);
+        await cash.Close(f.Session.Id,new(100,null,Guid.NewGuid()),f.Actor,false,default);
         var session=await cash.Open(input,another,default); Assert.Equal(session.Id,(await cash.Open(input,another,default)).Id);
         await Assert.ThrowsAsync<BarRuleException>(()=>cash.Move(session.Id,new(5,"Suprimento",Guid.NewGuid()),"Supply",f.Actor,default));
         var tab=await f.Tabs.Open(new(Guid.NewGuid(),f.Location.Id),f.Actor,default); await f.Tabs.Add(tab.Id,new(Guid.NewGuid(),[new(f.Product.Id,1)],true),f.Actor,null,default);
@@ -286,7 +320,7 @@ public sealed class BarTabsPostgresTests
         var input=new TabPaymentInput(Guid.NewGuid(),"Cash",10,f.Session.Id);
         async Task<TabPaymentResponse?> PayOnce()
         {
-            await using var db=new LongBeachDbContext(new DbContextOptionsBuilder<LongBeachDbContext>().UseNpgsql(Environment.GetEnvironmentVariable(ConnectionVariable)).Options,TimeProvider.System);
+            await using var db=new LongBeachDbContext(new DbContextOptionsBuilder<LongBeachDbContext>().UseNpgsql(f.Db.Database.GetConnectionString()).Options,TimeProvider.System);
             var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"Authentication:Jwt:SigningKey","test-only-signing-key-more-than-thirty-two-chars"}}).Build();
             try{return await new BarTabsService(db,f.Gateway,TimeProvider.System,config).Pay(tab.Id,input,f.Actor,null,default);}
             catch(Exception ex) when(ex is DbUpdateConcurrencyException || ex is Npgsql.PostgresException {SqlState:"40001" or "40P01"} || ex.InnerException is Npgsql.PostgresException {SqlState:"40001" or "40P01" or "23505"}){return null;}
@@ -314,8 +348,8 @@ public sealed class BarTabsPostgresTests
         await using var f=await Fixture.Create(); var tab=await f.Tabs.Open(new(Guid.NewGuid(),f.Location.Id),f.Actor,default); await f.Tabs.Add(tab.Id,new(Guid.NewGuid(),[new(f.Product.Id,1)],true),f.Actor,null,default);
         var access=await f.Tabs.IssueAccess(tab.Id,new(Guid.NewGuid()),f.Actor,default);
         await using var factory=new LongBeachWebApplicationFactory().WithWebHostBuilder(builder=>builder
-            .ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:LongBeach",Environment.GetEnvironmentVariable(ConnectionVariable)}}))
-            .ConfigureServices(services=>{services.AddDbContext<LongBeachDbContext>(o=>o.UseNpgsql(Environment.GetEnvironmentVariable(ConnectionVariable)));services.AddSingleton<IPaymentGateway>(f.Gateway);}));
+            .ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?>{{"ConnectionStrings:LongBeach",f.Db.Database.GetConnectionString()}}))
+            .ConfigureServices(services=>{services.AddDbContext<LongBeachDbContext>(o=>o.UseNpgsql(f.Db.Database.GetConnectionString()));services.AddSingleton<IPaymentGateway>(f.Gateway);}));
         using var client=factory.CreateClient(); client.DefaultRequestHeaders.Add("X-LongBeach-Tab",access.Token);
         var input=new TabPaymentInput(Guid.NewGuid(),"Pix",10,Name:"Pagador de teste",Email:"teste@example.invalid",TaxId:"12345678901");
         using(var invalid=await client.PostAsJsonAsync("/api/v1/bar/client/payments",input with {TaxId="12"}))Assert.Equal(HttpStatusCode.BadRequest,invalid.StatusCode);
@@ -341,7 +375,7 @@ public sealed class BarTabsPostgresTests
         var account=await Service(f.Db).Assign(new("Bar",tab.Id,user.Id),f.Actor,default);
         async Task<bool> Attempt(bool student)
         {
-            await using var db=new LongBeachDbContext(new DbContextOptionsBuilder<LongBeachDbContext>().UseNpgsql(Environment.GetEnvironmentVariable(ConnectionVariable)).Options,TimeProvider.System);
+            await using var db=new LongBeachDbContext(new DbContextOptionsBuilder<LongBeachDbContext>().UseNpgsql(f.Db.Database.GetConnectionString()).Options,TimeProvider.System);
             try
             {
                 if(student)await Service(db).Pay(account.Id,new(Guid.NewGuid(),"Pix","Aluno","aluno@example.invalid","12345678909"),user.Id,true,default);
@@ -356,9 +390,10 @@ public sealed class BarTabsPostgresTests
     private sealed class Fixture : IAsyncDisposable
     {
         public LongBeachDbContext Db {get;} public Guid Actor {get;}=Guid.NewGuid(); public StockLocation Location {get;}=new("Teste "+Guid.NewGuid()); public BarProduct Product {get;} public CashSession Session {get;} public Gateway Gateway {get;}=new(); public BarTabsService Tabs {get;}
-        private Fixture()
+        private readonly IsolatedBarDatabase isolated;
+        private Fixture(IsolatedBarDatabase isolated)
         {
-            Db=new(new DbContextOptionsBuilder<LongBeachDbContext>().UseNpgsql(Environment.GetEnvironmentVariable(ConnectionVariable)).Options,TimeProvider.System);
+            this.isolated=isolated; Db=isolated.Context;
             var suffix=Guid.NewGuid().ToString("N"); var category=new BarProductCategory("Teste "+suffix);
             Product=new(suffix,"Água teste","Água",category.Id,"un","cx",1,10,2,1,true,false,0);
             var register=new CashRegister("Teste "+suffix); Session=new(register.Id,Location.Id,Actor,"Tablet teste",100);
@@ -366,8 +401,8 @@ public sealed class BarTabsPostgresTests
             Db.AddRange(category,Product,Location,register,Session,balance,movement,CashMovement.Opening(Session,Actor));
             var config=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{{"Authentication:Jwt:SigningKey","test-only-signing-key-more-than-thirty-two-chars"}}).Build(); Tabs=new(Db,Gateway,TimeProvider.System,config);
         }
-        public static async Task<Fixture> Create() { var f=new Fixture(); await f.Db.Database.MigrateAsync(); await f.Db.SaveChangesAsync(); return f; }
-        public ValueTask DisposeAsync()=>Db.DisposeAsync();
+        public static async Task<Fixture> Create() { var f=new Fixture(await IsolatedBarDatabase.Create()); await f.Db.SaveChangesAsync(); return f; }
+        public ValueTask DisposeAsync()=>isolated.DisposeAsync();
     }
     private sealed class Gateway : IPaymentGateway
     {

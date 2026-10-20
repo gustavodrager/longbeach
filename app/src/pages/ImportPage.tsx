@@ -48,21 +48,6 @@ export function ImportPage() {
     finally { setBusy(false) }
   }
 
-  async function applyCatalog() {
-    if (!catalogPreview?.canApply) return
-    setBusy(true); setMessage('')
-    try {
-      const result = await apiFetch<CatalogPreview>(`/api/v1/imports/${catalogPreview.batchId}/bar-catalog/apply`, {
-        method: 'POST', body: JSON.stringify({ confirmationToken: catalogPreview.confirmationToken }),
-      })
-      setCatalogPreview(result)
-      setMessage('Catálogo conferido e aplicado ao bar. Estoque, custos dos produtos existentes e demais ajustes foram preservados.')
-      await load()
-    } catch (error) {
-      setCatalogPreview(null)
-      setMessage(error instanceof Error ? error.message : 'Não foi possível aplicar o catálogo. Confira novamente.')
-    } finally { setBusy(false) }
-  }
 
   async function upload(event: ChangeEvent<HTMLInputElement>) {
     const inputElement = event.currentTarget
@@ -98,12 +83,12 @@ export function ImportPage() {
       {catalogPreview && <section className="foundation-card" aria-label="Conferência de produtos do bar">
         <h2>Conferir catálogo do bar</h2>
         <p>Arquivo: {catalogPreview.sourceName}</p>
-        <p>{catalogPreview.creates} produtos novos · {catalogPreview.matches} já cadastrados. Produtos existentes não serão sobrescritos.</p>
+        <p>{catalogPreview.creates} referências de produtos novos · {catalogPreview.matches} já cadastrados. Este arquivo não altera o cadastro.</p>
         <p>As quantidades precisam ser conferidas no inventário. Fotos, receitas e custos calculados continuam no cadastro do bar.</p>
         <div className="table-scroll"><table><thead><tr><th>Código</th><th>Produto</th><th>Categoria</th><th>Preço</th><th>Conferência</th></tr></thead><tbody>
           {catalogPreview.items.map(item => <tr key={item.code}><td>{item.code}</td><td>{item.name}</td><td>{item.category}</td><td>{item.salePrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td><td>{item.conflict ?? (item.action === 'Create' ? 'Novo produto' : 'Já cadastrado')}</td></tr>)}
         </tbody></table></div>
-        {catalogPreview.applied ? <p role="status">Lote já aplicado ao bar.</p> : <button type="button" className="button-primary" disabled={busy || !catalogPreview.canApply} onClick={() => void applyCatalog()}>{busy ? 'Aplicando…' : 'Aplicar catálogo conferido'}</button>}
+        <p role="status">{catalogPreview.applied ? 'Lote aplicado anteriormente ao bar. Histórico preservado.' : 'Consulta histórica. Novos produtos são cadastrados diretamente no Long Beach.'}</p>
       </section>}
     </>}
   </main>

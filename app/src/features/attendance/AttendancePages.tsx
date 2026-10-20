@@ -1,5 +1,5 @@
 import { Disclosure } from '../../components/managementUi'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../../lib/http'
 import { useAuth } from '../auth/authContext'
@@ -11,7 +11,7 @@ import { SaleDestination } from './SaleDestination'
 import { TabSettlement } from './TabSettlement'
 import { AccessQr } from './AccessQr'
 
-import { BarFrame, LoadState, useCart, useConfirmationGate } from './Core'
+import { BarFrame, LoadState, useCart, useConfirmationGate, useBarConnection } from './Core'
 import { barLocation } from './serviceLocation'
 export { BarFrame, LoadState, useCart } from './Core'
 
@@ -25,35 +25,60 @@ function SellOrder({ tabId }: { tabId: string | null }) {
   const locations = useBarData<Named[]>('/tabs/locations')
   const target = useBarData<Tab>(`/tabs/${tabId}`, Boolean(tabId))
   const [pendingOrder, setPendingOrder] = useConfirmationGate(`order:${user?.id}:${tabId ?? 'sale'}`)
+  const connection = useBarConnection()
+  const checkedSnapshot = useRef('')
+  const summary = useRef<HTMLElement>(null)
   const [review, setReview] = useState(Boolean(pendingOrder))
+  useEffect(() => { if (review && window.matchMedia?.('(max-width: 800px), (max-width: 1100px) and (orientation: portrait)').matches) summary.current?.scrollIntoView({ block: 'start' }) }, [review])
   const locationId = tabId ? target.data?.locationId ?? '' : barLocation(locations.data)?.id ?? ''
   const catalog = useBarData<CatalogItem[]>(`/tabs/catalog?locationId=${encodeURIComponent(locationId)}`, Boolean(locationId))
-  const [cart, setCart] = useCart(tabId ?? 'sale', user?.id); const command = useBarCommand(); const intent = useIntent(`cart:${tabId ?? 'sale'}`)
+  const [cart, setCart, storageError] = useCart(tabId ?? 'sale', user?.id); const command = useBarCommand(); const intent = useIntent(`cart:${tabId ?? 'sale'}`)
   const targetKnown = Boolean(target.data && target.data.id === tabId && !target.isError)
   const targetReady = !tabId || (targetKnown && target.data?.state === 'Open')
-  const products = catalog.data ?? []; const ready = cart.every(row => products.some(product => product.id === row.productId && !product.prepared))
+  const products = catalog.data ?? []; const ready = pendingOrder ? pendingOrder === 'deliver' : cart.every(row => products.some(product => product.id === row.productId && !product.prepared))
+  const changeCart = (next: typeof cart) => { setCart(next); if (!next.length) setReview(false) }
   const fingerprint = `${locationId}:${cart.map(row => row.notes ? JSON.stringify([row.productId, row.quantity, row.notes]) : `${row.productId}:${row.quantity}`).sort().join('|')}`
+  const currentSnapshot = JSON.stringify([connection.generation, locationId, cart, cart.map(row => { const p = products.find(p => p.id === row.productId); return [p?.id, p?.salePrice, p?.available, p?.prepared] }), target.data?.state])
+  const canOperate = Boolean(user?.permissions.includes('bar:sales:operate'))
+  const writeBlocked = storageError || !connection.online || !canOperate || catalog.isFetching || catalog.isError || target.isFetching || !targetReady
+  function checkOrder() { checkedSnapshot.current = currentSnapshot; setReview(true) }
   async function submit(deliver: boolean) {
+    if (writeBlocked) { command.setError('Reconecte e aguarde a atualização dos produtos e da comanda.'); return }
+    if (!pendingOrder && checkedSnapshot.current !== currentSnapshot) { checkOrder(); command.setError('O pedido ou a disponibilidade mudou. Confira o resumo e confirme novamente.'); return }
+
     if (!targetReady) { command.setError('Confira uma comanda aberta antes de registrar o pedido.'); return }
     if (!locationId || !catalog.data || catalog.isError) { command.setError('Confira o estoque do Bar antes de continuar.'); return }
-    if (!pendingOrder && cart.some(row => !products.some(product => product.id === row.productId && product.available != null && product.available >= row.quantity))) { command.setError('O estoque mudou. Altere o pedido para conferir as quantidades disponíveis.'); return }
+    if (!pendingOrder && cart.some(row => !products.some(product => product.id === row.productId && (product.available == null || product.available >= row.quantity)))) { command.setError('O estoque mudou. Altere o pedido para conferir as quantidades disponíveis.'); return }
     if (pendingOrder && pendingOrder !== (deliver ? 'deliver' : 'queue')) return
-    setPendingOrder(deliver ? 'deliver' : 'queue')
     const result = await command.run(async () => {
-      const tab = tabId ? target.data : await postBar<Tab>('/tabs', { operationId: intent(`open:${fingerprint}`), locationId, mode: 'Immediate' })
+      // Fail before sending if the durable draft/keys cannot survive a reload.
+      const openId = intent(`open:${fingerprint}`); const addId = intent(`add:${fingerprint}:${deliver}`)
+      localStorage.setItem(`lb-cart:${user?.id}:${tabId ?? 'sale'}`, JSON.stringify(cart))
+      localStorage.setItem(`lb-operation:${user?.id}:cart:${tabId ?? 'sale'}:open:${fingerprint}`, openId)
+      localStorage.setItem(`lb-operation:${user?.id}:cart:${tabId ?? 'sale'}:add:${fingerprint}:${deliver}`, addId)
+      setPendingOrder(deliver ? 'deliver' : 'queue')
+      const tab = tabId ? target.data : await postBar<Tab>('/tabs', { operationId: openId, locationId, mode: 'Immediate' })
       if (!tab) throw new Error('Atualize a comanda antes de continuar.')
-      return postBar<Tab>(`/tabs/${tab.id}/items`, { operationId: intent(`add:${fingerprint}:${deliver}`), items: cart, deliver })
+      return postBar<Tab>(`/tabs/${tab.id}/items`, { operationId: addId, items: cart, deliver })
     })
     if (result.ok) { setPendingOrder(''); intent(`open:${fingerprint}`, true); intent(`add:${fingerprint}:${deliver}`, true); setCart([]); setReview(false); navigate(deliver && !tabId ? `/atendimento/receber/${result.value.id}` : `/atendimento/comandas/${result.value.id}`) }
     else if (result.error instanceof ApiError && [400, 422].includes(result.error.status)) setPendingOrder('')
   }
   return <BarFrame className="lb-sell"><Header title={targetKnown ? `Vender · Comanda ${target.data!.number}` : 'Vender'} description="Toque no produto. Depois confira o pedido." back={tabId ? `/atendimento/comandas/${encodeURIComponent(tabId)}` : undefined} /><WorkflowSteps current={review ? 'review' : 'products'} />
-    <LoadState query={locations} /><LoadState query={catalog} />{tabId && <LoadState query={target} />}<Feedback {...command} />{pendingOrder && <p className="ux-notice warning" role="status">Este pedido precisa ser confirmado. Repita o mesmo registro antes de alterar os produtos.</p>}
-    {(!tabId || targetKnown) && <SaleDestination tab={tabId ? target.data : undefined} locked={command.busy || Boolean(pendingOrder)} hasDraft={cart.length > 0} />}
+    <LoadState query={locations} />{storageError && <p role="alert" className="ux-notice warning">Não foi possível guardar o rascunho neste dispositivo. Mantenha esta tela aberta e libere o armazenamento antes de registrar.</p>}<LoadState query={catalog} />{tabId && <LoadState query={target} />}<Feedback {...command} />{!connection.online && <p className="ux-notice warning" role="status">Sem conexão. Você pode preparar o rascunho; o registro aguarda reconexão.</p>}{pendingOrder && <p className="ux-notice warning" role="status">Este pedido precisa ser confirmado. Repita o mesmo registro antes de alterar os produtos.</p>}
+    {(!tabId || targetKnown) && <SaleDestination tab={tabId ? target.data : undefined} locked={command.busy || Boolean(pendingOrder) || !connection.online || storageError} hasDraft={cart.length > 0} />}
     {tabId && targetKnown && target.data?.state !== 'Open' && <p className="ux-notice warning" role="status">Esta comanda está encerrada e não recebe novos produtos. Consulte o consumo em Voltar ou escolha uma comanda aberta.</p>}
     {tabId && !targetReady && cart.length > 0 && <p className="ux-note">O rascunho deste pedido foi preservado. Nenhum novo registro será enviado enquanto a comanda não estiver disponível.</p>}
     {!locationId && !tabId && !locations.isLoading && !locations.isError && <Empty title="Estoque Bar não configurado"><p>Peça à gestão para conferir o cadastro do local Bar.</p></Empty>}
-    {Boolean(locationId) && targetReady && (review ? <><CartReview products={products} cart={cart} /><div className="ux-actions lb-review-actions"><button className="ux-button secondary" disabled={command.busy || Boolean(pendingOrder)} onClick={() => setReview(false)}>Alterar pedido</button><button className={`ux-button ${ready ? 'secondary' : 'primary'}`} disabled={command.busy || pendingOrder === 'deliver' || !cart.length || catalog.isError} onClick={() => void submit(false)}><Icon name="orders" />{tabId ? 'Adicionar à comanda' : 'Registrar pedido'}</button>{ready && <button className="ux-button primary" disabled={command.busy || pendingOrder === 'queue' || !cart.length || catalog.isError} onClick={() => void submit(true)}><Icon name="check" />Registrar e entregar</button>}</div><p className="ux-note">Ao registrar, os itens entram no consumo da comanda. Os itens não entregues seguem para a fila de pedidos.</p></> : <><Products products={products} cart={cart} onChange={setCart} disabled={command.busy || Boolean(pendingOrder)} />{cart.length > 0 && <div className="ux-sticky-action"><span><strong>{money(cartTotal(products, cart))}</strong><small>{cart.reduce((total, row) => total + row.quantity, 0)} itens no pedido{targetKnown ? ` · Comanda ${target.data!.number}` : ' · Venda avulsa'}</small></span><button className="ux-button primary" onClick={() => setReview(true)}>Conferir pedido<Icon name="arrow" /></button></div>}</>)}
+    {Boolean(locationId) && targetReady && <div className={`lb-sale-workspace ${review && cart.length ? 'is-review' : ''}`}>
+      <div className="lb-sale-catalog"><Products products={products} cart={cart} onChange={changeCart} disabled={command.busy || Boolean(pendingOrder) || !canOperate} /></div>
+      {cart.length > 0 && <aside ref={summary} className="lb-sale-summary" aria-label="Resumo do rascunho"><CartReview products={products} cart={cart} onChange={changeCart} disabled={command.busy || Boolean(pendingOrder)} />
+        {review ? <><div className="ux-actions lb-review-secondary"><button className="ux-button secondary" disabled={command.busy || Boolean(pendingOrder)} onClick={() => setReview(false)}>Mais produtos</button>{ready && <button className="ux-button secondary" disabled={command.busy || writeBlocked || pendingOrder === 'deliver' || !cart.length} onClick={() => void submit(false)}><Icon name="orders" />{tabId ? 'Adicionar à comanda' : 'Enviar para preparo'}</button>}</div><div className="ux-actions lb-review-actions"><strong>{money(cartTotal(products, cart))}</strong><button className="ux-button primary" disabled={command.busy || writeBlocked || pendingOrder === (ready ? 'queue' : 'deliver') || !cart.length} onClick={() => void submit(ready)}><Icon name={ready ? 'check' : 'orders'} />{ready ? tabId ? 'Adicionar e entregar' : 'Entregar e receber' : tabId ? 'Adicionar à comanda' : 'Enviar para preparo'}</button></div><p className="ux-note">O estoque é baixado na entrega. Registrar não confirma pagamento.</p></> : <button className="ux-button primary" disabled={command.busy || writeBlocked} onClick={checkOrder}>Conferir pedido<Icon name="arrow" /></button>}
+
+      </aside>}
+    </div>}
+    {cart.length > 0 && !review && <div className="ux-sticky-action lb-sale-mobile-total"><span><strong>{money(cartTotal(products, cart))}</strong><small>{cart.reduce((total, row) => total + row.quantity, 0)} itens · {targetKnown ? `Comanda ${target.data!.number}` : 'Venda avulsa'}</small></span><button className="ux-button primary" onClick={checkOrder}>Ver pedido<Icon name="arrow" /></button></div>}
+
   </BarFrame>
 }
 
@@ -72,6 +97,7 @@ export function TabsPage() {
   }
   return <BarFrame className="lb-tabs-page"><Header title="Comandas" description="Consulte o consumo, os pagamentos e as pendências." />
     {canOperate && <OpenTabForm />}
+    {(state==='Closed'||state==='All')&&<Link className="ux-button secondary" to="/bar/vendas">Vendas do fluxo anterior →</Link>}
     <div className="ux-actions lb-tab-filters" role="group" aria-label="Situação das comandas">{tabViews.map(([value, label]) => <button key={value} className={`ux-button ${state === value ? 'primary' : 'secondary'}`} aria-pressed={state === value} onClick={() => filters({ situacao: value, pagina: '1' })}>{label}</button>)}</div>
     <label className="ux-search"><Icon name="search" /><input value={search} type="search" maxLength={80} placeholder="Número ou nome" aria-label="Buscar comanda" onChange={event => filters({ busca: event.target.value, pagina: '1' }, true)} /></label>
     {state === 'Orders' && <p className="ux-note">Pedidos pendentes mais antigos primeiro.</p>}

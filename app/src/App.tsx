@@ -58,8 +58,8 @@ const TabsPage = lazy(() => import('./features/attendance/AttendancePages').then
 const TabDetailsPage = lazy(() => import('./features/attendance/AttendancePages').then(module => ({ default: module.TabDetailsPage })))
 const OrdersPage = lazy(() => import('./features/attendance/AttendancePages').then(module => ({ default: module.OrdersPage })))
 const ReceivePage = lazy(() => import('./features/attendance/PaymentPages').then(module => ({ default: module.ReceivePage })))
+const OnlinePaymentRecoveryPage = lazy(() => import('./features/attendance/OnlinePaymentRecoveryPage').then(module => ({ default: module.OnlinePaymentRecoveryPage })))
 const ReceiptPage = lazy(() => import('./features/attendance/PaymentPages').then(module => ({ default: module.ReceiptPage })))
-const MyCashPage = lazy(() => import('./features/attendance/CashPage').then(module => ({ default: module.MyCashPage })))
 const BarOverviewPage = lazy(() => import('./features/attendance/ReportPages').then(module => ({ default: module.BarOverviewPage })))
 const BarReportPage = lazy(() => import('./features/attendance/ReportPages').then(module => ({ default: module.BarReportPage })))
 const BarSourcePage = lazy(() => import('./features/attendance/ReportPages').then(module => ({ default: module.BarSourcePage })))
@@ -105,9 +105,9 @@ function ApplicationRoutes() {
   </Routes></OptionalUnsavedProvider>
 }
 
-function Permission({ permission, demoMode = false, children }: { permission: string; demoMode?: boolean; children: ReactNode }) {
+function Permission({ permission, demoMode = false, children }: { permission: string | string[]; demoMode?: boolean; children: ReactNode }) {
   const { user } = useAuth()
-  return demoMode || hasPermission(user, permission) ? children : <section className="operation-page"><h1>Acesso restrito</h1><p role="alert">Peça à gestão para conferir sua permissão para esta área.</p></section>
+  return demoMode || (Array.isArray(permission) ? permission.some(value => hasPermission(user,value)) : hasPermission(user, permission)) ? children : <section className="operation-page"><h1>Acesso restrito</h1><p role="alert">Peça à gestão para conferir sua permissão para esta área.</p></section>
 }
 function ManagementOnly({ children }: { children: ReactNode }) { const { user } = useAuth(); return isManagement(user) ? children : <section><h1>Acesso restrito</h1><p>Esta área é exclusiva da gestão.</p></section> }
 function HomePage({ demoMode }: { demoMode: boolean }) {
@@ -118,7 +118,7 @@ function HomePage({ demoMode }: { demoMode: boolean }) {
 function OperationalRoutes() {
   const demoMode = import.meta.env.VITE_DEMO_MODE === 'true'
   const arena = (kind: OperationalKind, page: ReactNode) => <Permission demoMode={demoMode} permission={operationalPermissions[kind].read}>{page}</Permission>
-  const bar = (permission: string, page: ReactNode) => <Permission permission={permission}>{page}</Permission>
+  const bar = (permission: string | string[], page: ReactNode) => <Permission permission={permission}>{page}</Permission>
   const application = <Route element={<Suspense fallback={<main className="session-loading" role="status">Abrindo sua área…</main>}><AppShell demoMode={demoMode} /></Suspense>}>
     <Route index element={<HomePage demoMode={demoMode} />} />
     {!demoMode && <Route path="administracao/professores" element={<ManagementOnly><TeacherAccess /></ManagementOnly>} />}
@@ -127,6 +127,7 @@ function OperationalRoutes() {
     {!demoMode && <Route path="minhas-contas" element={<LegacyDestination to="/minha-area/pagamentos" />} />}
     {!demoMode && <Route path="recebimentos" element={bar('finance:read', <BillingPage admin />)} />}
     {!demoMode && <Route path="recebimentos/conciliacao" element={bar('finance:read', <SettlementsPage />)} />}
+    {!demoMode && <Route path="recebimentos/conciliacao-bar" element={bar('bar:payments:reconcile', <BarReconciliationPage />)} />}
     {!demoMode && <Route path="notas-recebidas" element={<Permission permission="fiscal:invoices:manage"><ReceivedInvoicesPage /></Permission>} />}
     <Route path="financeiro/historico" element={<FinancialHistoryPage />} />
     <Route path="financeiro/controle-mensal" element={<MonthlyControlPage />} />
@@ -162,16 +163,17 @@ function OperationalRoutes() {
       <Route path="atendimento/comandas/:tabId" element={bar('bar:sales:read', <TabDetailsPage />)} />
       <Route path="atendimento/pedidos" element={bar('bar:sales:operate', <OrdersPage />)} />
       <Route path="atendimento/receber/:tabId" element={bar('bar:sales:operate', <ReceivePage />)} />
+      <Route path="atendimento/pagamento-online/:tabId/:paymentId" element={bar('bar:sales:operate', <OnlinePaymentRecoveryPage />)} />
       <Route path="atendimento/comprovante/:tabId/:paymentId" element={bar('bar:sales:read', <ReceiptPage />)} />
-      <Route path="atendimento/caixa" element={bar('bar:cash:operate', <MyCashPage />)} />
+      <Route path="atendimento/caixa" element={<LegacyDestination to="/bar/caixa" />} />
       <Route path="bar" element={<BarLayout />}>
         <Route index element={<BarDestination />} />
-        <Route path="produtos" element={bar('bar:catalog:write', <BarProductsPage />)} />
+        <Route path="produtos" element={bar(['bar:catalog:write','bar:stock:read'], <BarProductsPage />)} />
         <Route path="receitas" element={bar('bar:catalog:write', <BarRecipesPage />)} />
         <Route path="receitas/:productId" element={bar('bar:catalog:write', <BarRecipesPage />)} />
         <Route path="estoque" element={bar('bar:stock:read', <BarStockPage />)} />
         <Route path="inventario" element={bar('bar:stock:manage', <BarCountsPage />)} />
-        <Route path="caixa" element={bar('bar:supervise', <BarCashPage />)} />
+        <Route path="caixa" element={bar(['bar:cash:operate','bar:supervise'], <BarCashPage />)} />
         <Route path="vendas" element={bar('bar:sales:read', <BarSalesPage />)} />
         <Route path="perdas" element={bar('bar:stock:output', <BarLossesPage />)} />
         <Route path="notas-recebidas" element={<Navigate to="/notas-recebidas" replace />} />
@@ -179,7 +181,7 @@ function OperationalRoutes() {
         <Route path="indicadores" element={bar('bar:finance:read', <BarOverviewPage />)} />
         <Route path="indicadores/:metric" element={bar('bar:finance:read', <BarReportPage />)} />
         <Route path="registros/:kind/:resourceId" element={bar('bar:finance:read', <BarSourcePage />)} />
-        <Route path="conciliacao" element={bar('bar:payments:reconcile', <BarReconciliationPage />)} />
+        <Route path="conciliacao" element={<LegacyDestination to="/recebimentos/conciliacao-bar" />} />
       </Route>
       <Route path="importacoes" element={bar('users:manage', <ImportPage />)} />
     </>}

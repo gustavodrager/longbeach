@@ -1,6 +1,56 @@
 # Bar — configuração e homologação
 
-Nenhum deploy ou migration hospedada foi executado nesta entrega. Usar os mesmos serviços API/web/PostgreSQL e o mesmo job migrate-only.
+A implementação local abaixo foi promovida com autorização explícita do responsável. Usam-se os mesmos serviços API/web/PostgreSQL e o mesmo job migrate-only; evidências da publicação estão registradas nesta página.
+
+## Operação no tablet — 19/10/2026
+
+- Long Beach controla produtos, preços, compras, reservas, entregas, vendas e estoque. A maquininha recebe apenas o valor digitado pelo operador. Não existe integração automática com o terminal.
+- Vender oferece busca sem diferença de acentos, notas recolhidas, resumo editável e destino escolhido na própria tela. A transferência move apenas rascunhos, exige confirmação e nunca substitui outro rascunho. Produtos sem controle de estoque continuam disponíveis.
+- Rascunhos e operações pendentes ficam no dispositivo por usuário e comanda. Sem internet, só editar rascunhos. Ao reconectar, atualizar catálogo e comanda e conferir diferenças antes de registrar. Falta de armazenamento bloqueia envio de pedido que não possa ser recuperado.
+- Recebimento de balcão oferece Débito, Crédito e Pix na maquininha, além de Dinheiro. O operador confere o valor no terminal e declara a aprovação. Mudar valor/modalidade invalida a confirmação; NSU é opcional. Recusa/cancelamento não é recebimento. Não digitar dados do cartão no tablet.
+- Timeout: manter o pagamento pendente e usar Consultar ou repetir confirmação. O corpo e UUID originais sobrevivem ao recarregamento. Nunca realizar outra cobrança na maquininha para repetir um registro local.
+- `TerminalManual` registra `TerminalType` Debit/Credit/Pix, responsável e instante da confirmação. `CardManual` histórico permanece sem modalidade inferida. Quando há caixa próprio aberto no mesmo local, o recebimento manual se vincula ao turno sem alterar dinheiro esperado; sem caixa aberto, continua disponível nos relatórios. Fechamento separa modalidades e devoluções do dinheiro físico.
+- Estorno manual registra uma devolução já confirmada pelo operador na maquininha. Não chama o banco e não devolve estoque. Devolução física segue a ação própria, com motivo e auditoria.
+- Compra recebida aumenta físico; aceite reserva; entrega baixa; cancelamento libera reserva. Perda, consumo interno e inventário seguem separados. O inventário mantém encerramento com campos vazios zerados mediante confirmação e bloqueios por movimentos/reservas concorrentes.
+- Pix/cartão online existentes continuam consultáveis; a retomada do atendente usa a tela separada `/atendimento/pagamento-online/:tabId/:paymentId`, sem escolha de nova operação, modalidade ou valor. Os caminhos do cliente permanecem disponíveis. EDI permanece evidência financeira separada; não cadastra produtos nem altera preços, vendas ou estoque.
+
+### Entrada em operação e regras de publicação
+
+Conferir catálogo ativo e fotos, inventário físico e abertura/fechamento de caixa. Usar contas individuais no tablet, sem compartilhar conta genérica. A emulação de 800×1280 e 1280×800 não substitui a validação no Redmi físico, inclusive teclado virtual e alternância de rede.
+
+A migration `20261020011757_BarTerminalManual` adiciona coluna nullable e amplia a restrição de modalidades; não atualiza linhas antigas. Publicar somente após autorização explícita: backup verificado, migration em job único, API antes da interface e artefato identificado. Depois de novos pagamentos `TerminalManual`, a migration reversa não deve ser executada: sua restrição recusa apagar a modalidade de dados existentes. Reversão exige plano próprio de compatibilidade, sem recategorizar histórico.
+
+Esta entrega não ativa C6, não emite documento fiscal e não oferece vendas totalmente offline. As fotos antigas continuam usando as URLs existentes; migrar o armazenamento de imagens é uma etapa distinta do bloqueio da aplicação de catálogos.
+
+### Validação local desta implementação
+
+- Frontend: 422 testes em 46 arquivos, todos aprovados; a revisão final de rótulos passou novamente nos 79 testes de atendimento. TypeScript, Vite e PWA compilados.
+- PostgreSQL 17 fictício: suíte completa com 413 unitários e 338 integrações; após acrescentar os últimos casos, regressão afetada com 88 unitários e 175 integrações aprovada.
+- PostgreSQL 18 descartável: suíte completa com 419 unitários e 339 integrações aprovada. O ajuste final de `canApply: false` passou novamente nos três testes de catálogo, com build da API Release.
+- Migration testada em banco novo e em banco fictício com histórico: 16 pagamentos `CardManual` mantiveram modalidade nula; nenhuma classificação retroativa.
+- Navegador conectado à API e banco locais: venda fictícia #163, entrega de uma unidade, débito manual de R$ 5,00, comprovante e saldo devido zero. Não houve chamada de pagamento real.
+- Viewports conferidos: 1440×900, 1280×800, 800×1280, 390×844 e 320×740. Busca sem acento, resumo, nomes longos, botões de pelo menos 48 px e ausência de overflow horizontal. A grade de recebimento e o rodapé de revisão foram corrigidos após problemas observados em 320 px.
+- Casos automatizados: três modalidades de terminal, dinheiro/troco, parcelas, aprovação ausente e invalidada, clique repetido, resposta perdida e recarregamento, rascunho por usuário/comanda, destino ocupado, armazenamento indisponível, reconexão com preço alterado, item desativado durante recuperação, bloqueio de catálogo, estorno sem estoque, isolamento EDI e recuperação online em tela separada.
+- Verificações da matriz da CI executadas localmente. Nenhuma execução remota GitHub Actions, push, PR ou publicação faz parte desta etapa. O cache NuGet reportou NU1900 para consulta de vulnerabilidades indisponível; compilação e testes concluíram normalmente.
+- Evidências visuais locais: `outputs/tablet-bar-2026-10-19` no workspace LongBeach, fora do repositório. O Redmi físico e o inventário real ainda precisam ser conferidos antes do uso diário.
+
+## Publicação do tablet — 20/10/2026 UTC (19/10 no Brasil)
+
+- Revisão [#44](https://github.com/gustavodrager/longbeach/pull/44), baseada na #42. Artefato `d3b0ceb398fc551330acbf0d77eee09c8e4e2177`, branch `codex/bar-tablet-20261020`, preservando Pedidos e C6 sem ativação bancária.
+- [CI 39355663289](https://github.com/gustavodrager/longbeach/actions/runs/39355663289) aprovada: frontend e backend PostgreSQL 17/18, incluindo migrations, readiness, auditoria somente leitura e restauração sintética.
+- Backup lógico custom antes da migration: `/var/lib/postgresql/data/longbeach-backups/pre-tablet-d3b0ceb.dump`, 923.356 bytes, permissão 0600, SHA256 `78b253b8be9e322eb9909112248197488c8da4ae180d5ee740b0827e2b6257d3`. Listagem e decodificação integral por pg_restore concluídas. Não houve teste de restauração desse dump real. Por escolha explícita do responsável, o backup fica apenas no servidor, no mesmo volume; não cobre perda desse volume. Nenhum dump foi copiado para o Mac ou Git.
+- Chave SSH temporária revogada, ausência conferida e chave privada local removida após o backup e as consultas da migration.
+- API `0ef76835-886b-4a25-bc45-4f871865227a`, SUCCESS. Job único migrate-only aplicou `20261020011757_BarTerminalManual` antes da web. Consulta READ ONLY confirmou coluna nullable, nova restrição e preservação de um CardManual e um Cash antigos, ambos sem modalidade inferida. Readiness respondeu Healthy.
+- Web inicial `687810f9-b49f-4383-83ca-89ad9f42400e`, SUCCESS após a API. A conferência de 320 px identificou quebra da palavra maquininha; ajuste apenas CSS validado localmente e publicado em `f391f39a06edb55c1cfd90b9bc6adee25af8c9b2`, deployment final `0082578d-fafa-46d4-b9db-28a413b901d7`, SUCCESS. API e schema permanecem em `d3b0ceb`.
+- Patches limitados à branch/commit de API e web; snapshots sincronizados e planos sem divergência após cada promoção. C6, seed, bootstrap e migrations de startup permanecem desabilitados; serviços auxiliares preservados.
+- [CI final 39357505838](https://github.com/gustavodrager/longbeach/actions/runs/39357505838) aprovada no artefato web `f391f39`: frontend e PostgreSQL 17/18.
+- Validação autenticada na produção: desktop 1440×900, tablet 800×1280 e 1280×800, celular emulado 320×740 e 390×844. Rascunho preservado após atualizar PWA, quantidades editáveis, busca limao encontrando Limão, escolha de comanda na tela, quatro modalidades, aprovação manual obrigatória, dinheiro/troco e valor parcial com inputmode decimal. Rascunho de teste removido; nenhum pedido, pagamento ou movimento foi criado em produção. Histórico PagVendas consultável sem ação de aplicação; estoque mostra físico/reservado/disponível e movimento mostra responsável/origem. Sem erros de console observados. A conferência física do Redmi e seu teclado virtual permanece pendente.
+- Saúde final: API e web 200; comandas sem autenticação 401. Seis serviços online, sem falhas recentes ou mudanças pendentes. Evidências privadas fora do Git em `outputs/tablet-bar-producao-2026-10-20`.
+- Retorno: preservar schema e histórico. Após novos TerminalManual, manter API compatível com essa modalidade; não executar Down nem restaurar o dump sobre produção como rollback rotineiro. Preferir correção para frente ou reversão somente da interface. Versões anteriores: API `f5251d2d-393d-49f5-adc6-586750e0c611` e web `13084b44-cf2e-4f5b-9926-e14ba6cff374`, commit `b7c57a8`.
+
+## Referência dos fluxos anteriores e de pagamento online
+
+As seções abaixo documentam a integração anterior. Para balcão/tablet, prevalecem as regras acima; cadastro e estoque não exigem PagBank.
 
 ## Permissões
 
@@ -63,3 +113,17 @@ O proprietário confirmou um único estoque físico para o Bar. A interface pass
 A tela principal mostra os saldos do Bar. URLs antigas com filtro de local não mudam essa seleção. Saldos não zerados em outros cadastros, se existirem, continuam visíveis em uma seção separada de conferência, sem somar ao disponível do atendimento. Movimentações e inventários anteriores são preservados, inclusive seus vínculos originais. Nenhum saldo é transferido, reclassificado ou apagado automaticamente.
 
 Este ajuste é de interface: os contratos da API e os registros históricos de locais permanecem compatíveis. Não equivale a uma consolidação de saldos no banco nem ao estoque futuro por unidade previsto no ADR-008. Testes de interface verificam destino Bar nos quatro formulários, tratamento de cadastro ausente/ambíguo e preservação separada de saldos antigos; build PWA aprovado. A publicação efetiva deve ser conferida no manifesto de produção.
+
+### Caixa único automático
+
+O Bar usa um único caixa operacional, identificado como **Caixa do Bar**. Gestão e atendimento não cadastram nem selecionam caixas: a abertura informa o dinheiro inicial e identifica o usuário autenticado como responsável. O registro técnico é criado na primeira abertura e reutilizado nos turnos seguintes. O `RegisterId` de clientes antigos permanece aceito no contrato, mas não escolhe mais o caixa. Novos cadastros pelo endpoint antigo são recusados.
+
+Abertura e reabertura verificam todos os turnos abertos, inclusive de cadastros antigos, sob bloqueio transacional. É necessário encerrar o turno anterior antes de outro responsável abrir o caixa. Movimentações continuam restritas ao responsável, e o fechamento pela supervisão mantém a exigência de motivo. Históricos e referências antigas são preservados; não há exclusão de registros nem migration de dados nesta mudança.
+
+`GET /api/v1/bar/cash/current` informa o turno aberto para impedir uma nova abertura na interface. O servidor continua sendo a autoridade em caso de concorrência. A implantação exige API antes da interface, pois esta utiliza essa consulta. Validar abertura com zero, retomada da mesma operação, fechamento, troca de responsável e tentativa concorrente em banco fictício antes da publicação.
+
+### Edição rápida do disponível
+
+A tela Estoque do Bar apresenta produto e quantidade disponível, sem as colunas de físico e reservado. A gestão pode usar Editar → nova quantidade disponível → Salvar quantidade. O número informado substitui o disponível atual; não representa entrada adicional nem contagem física total. Itens separados para pedidos não devem ser incluídos. Compras, perdas e consumo continuam com seus fluxos próprios.
+
+`PUT /api/v1/bar/stock/available` exige `bar:supervise`, versão do saldo e identificador de operação. Aceita zero explícito e até três casas decimais; mantém as reservas e registra a diferença como ajuste de inventário com data, responsável e motivo automático. Repetir a mesma operação não repete o movimento. Saldo alterado por outra operação exige nova conferência. Produtos inativos, preparados e sem controle próprio não podem usar o ajuste rápido. Históricos permanecem preservados e não há migration nova.

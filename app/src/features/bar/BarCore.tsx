@@ -12,7 +12,7 @@ export const money = (value: number) => value.toLocaleString('pt-BR', { style: '
 export type Named = { id: string; name: string }
 export type Product = Named & { code: string; shortName: string; categoryId: string; saleUnit: string; salePrice: number; controlsStock: boolean; minimumStock: number; favorite: boolean; displayOrder: number; active: boolean; version: number; barcode?: string; imageUrl?: string; prepared?: boolean }
 export type Managed = { product: Product; purchaseUnit: string; conversionFactor: number; averageCost: number; lastCost: number; mainSupplierId?: string }
-export type Balance = { productId: string; locationId: string; quantity: number; reserved: number; available: number; name: string; low: boolean; minimumStock: number; unit: string; alertEligible: boolean; active: boolean; controlsStock: boolean }
+export type Balance = { version?: number; productId: string; locationId: string; quantity: number; reserved: number; available: number; name: string; low: boolean; minimumStock: number; unit: string; alertEligible: boolean; active: boolean; controlsStock: boolean }
 export type Session = { id: string; registerId: string; locationId: string; state: string; expected: number; terminal: string }
 export type Sale = { id: string; actorId?: string; discountAmount?: number; total: number; state: string; reason?: string; items: { productId: string; name: string; quantity: number; total: number }[] }
 export function useBar<T>(path: string, enabled = true) { return useQuery({ queryKey: ['bar', path], queryFn: () => apiFetch<T>(root + path), enabled }) }

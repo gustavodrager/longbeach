@@ -26,16 +26,20 @@ public sealed class BarCashService(LongBeachDbContext db) : IBarCash
         var rows = await query.OrderBy(x => x.State == "Closed").ThenByDescending(x => x.CreatedAtUtc).ThenBy(x => x.Id).Skip((Math.Clamp(page, 1, 100000) - 1) * 20).Take(20).ToListAsync(ct);
         return new(rows.Select(x => new CashHistoryRow(x.Id,x.OpenedBy,x.Responsible,x.Register,x.Terminal,x.State,x.Opening,x.Expected,x.CreatedAtUtc)).ToArray(), total);
     }
+    public async Task<CashHistoryRow?> Current(CancellationToken ct) =>
+        (await History(null, "open", 1, ct)).Items.FirstOrDefault();
     public async Task<CashDetails> Details(Guid id, CancellationToken ct)
     {
         var session = await Session(id, ct);
         var movements = await db.Set<CashMovement>().AsNoTracking().Where(x => x.SessionId == id).OrderByDescending(x => x.CreatedAtUtc).Select(x => new CashLedgerRow(x.Id, x.Kind, x.Amount, x.Reason, x.CreatedAtUtc)).ToListAsync(ct);
         var closings = await db.Set<CashClosing>().AsNoTracking().Where(x => x.SessionId == id).OrderByDescending(x => x.CreatedAtUtc).Select(x => new CashClosingRow(x.Id, x.Expected, x.Counted, x.Difference, x.Reason, x.CreatedAtUtc)).ToListAsync(ct);
         var pending = await db.Set<BarSale>().AnyAsync(x => x.SessionId == id && x.State == "AwaitingPayment", ct);
-        return new(movements, closings, pending, session.Expected);
+        var terminal = await db.Set<BarTabPayment>().AsNoTracking().Where(x => x.SessionId == id && x.Method == "TerminalManual" && x.State == "Approved")
+            .GroupBy(x => x.TerminalType).Select(g => new TerminalReceiptTotal(g.Key!, g.Sum(x => x.Amount), g.Sum(x => x.Refunded))).ToListAsync(ct);
+        return new(movements, closings, pending, session.Expected, terminal);
     }
     public async Task<IReadOnlyList<CashRegister>> Registers(CancellationToken ct) => await db.Set<CashRegister>().AsNoTracking().ToListAsync(ct);
-    public async Task<CashRegister> CreateRegister(string name, CancellationToken ct) { var register = new CashRegister(name); db.Add(register); await db.SaveChangesAsync(ct); return register; }
+    public Task<CashRegister> CreateRegister(string name, CancellationToken ct) => throw new BarRuleException("O Caixa do Bar é automático. Abra um turno para operar.");
     public async Task<IReadOnlyList<CashSession>> Sessions(CancellationToken ct) => await db.Set<CashSession>().AsNoTracking().OrderBy(x => x.State == "Closed").ThenByDescending(x => x.CreatedAtUtc).Take(100).ToListAsync(ct);
     public async Task<IReadOnlyList<CashSession>> Sessions(Guid actor, bool all, CancellationToken ct) => await db.Set<CashSession>().AsNoTracking().Where(x => all || x.OpenedBy == actor).OrderBy(x => x.OpenedBy != actor).ThenBy(x => x.State == "Closed").ThenByDescending(x => x.CreatedAtUtc).Take(100).ToListAsync(ct);
     public async Task<CashSession> Open(OpenCashInput input, Guid actor, CancellationToken ct)
@@ -44,8 +48,11 @@ public sealed class BarCashService(LongBeachDbContext db) : IBarCash
         {
             if (actor == Guid.Empty) throw new BarRuleException("Atendente obrigatório.");
             if (await db.Set<CashSession>().AnyAsync(x => x.OpenedBy == actor && (x.State == "Open" || x.State == "Reopened"), ct)) throw new BarRuleException("Você já tem um caixa aberto.");
-            if (!await db.Set<CashRegister>().AnyAsync(x => x.Id == input.RegisterId, ct) || !await db.Set<StockLocation>().AnyAsync(x => x.Id == input.LocationId, ct)) throw new BarRuleException("Caixa ou local não encontrado.");
-            var session = new CashSession(input.RegisterId, input.LocationId, actor, input.Terminal, input.Opening);
+            await RequireAvailableCash(ct);
+            if (!await db.Set<StockLocation>().AnyAsync(x => x.Id == input.LocationId, ct)) throw new BarRuleException("Local não encontrado.");
+            var register = await db.Set<CashRegister>().SingleOrDefaultAsync(x => x.Name == "Caixa do Bar", ct);
+            if (register is null) { register = new CashRegister("Caixa do Bar"); db.Add(register); }
+            var session = new CashSession(register.Id, input.LocationId, actor, input.Terminal, input.Opening);
             db.Add(session); db.Add(CashMovement.Opening(session,actor)); await db.SaveChangesAsync(ct); return session.Id;
         }, ct);
         return await Session(id, ct);
@@ -87,11 +94,19 @@ public sealed class BarCashService(LongBeachDbContext db) : IBarCash
     {
         var sessionId = await Operation(operationId, new { action = "cashReopen", id, reason, actor }, async () =>
         {
+            await RequireAvailableCash(ct);
             var session = await LockedSession(id, ct);
             if (await db.Set<CashSession>().AnyAsync(x => x.Id != id && x.OpenedBy == session.OpenedBy && (x.State == "Open" || x.State == "Reopened"), ct)) throw new BarRuleException("O responsável já tem outro caixa aberto. Confira o turno antes de reabrir.");
             session.Reopen(); db.Add(new CashMovement(session, 0, "Reopen", reason, actor, operationId ?? Guid.NewGuid())); await db.SaveChangesAsync(ct); return session.Id;
         }, ct);
         return await Session(sessionId, ct);
+    }
+    private async Task RequireAvailableCash(CancellationToken ct)
+    {
+        // Serialize opening/reopening, including sessions created by older clients.
+        await db.Database.ExecuteSqlRawAsync("LOCK TABLE cash_sessions, cash_registers IN SHARE ROW EXCLUSIVE MODE", ct);
+        if (await db.Set<CashSession>().AnyAsync(x => x.State == "Open" || x.State == "Reopened", ct))
+            throw new BarRuleException("O Caixa do Bar já está aberto. O responsável deve fechar o turno antes de uma nova abertura.");
     }
     private async Task<Guid> Operation(Guid? operationId, object payload, Func<Task<Guid>> action, CancellationToken ct)
     {
@@ -116,6 +131,11 @@ public sealed class BarCashService(LongBeachDbContext db) : IBarCash
             var result = await action();
             if (operationId is not null) { db.Add(new BarTabOperation(operationId.Value, fingerprint!, JsonSerializer.Serialize(result))); await db.SaveChangesAsync(ct); }
             await tx.CommitAsync(ct); return result;
+        }
+        catch (Exception ex) when (ex.GetBaseException() is Npgsql.PostgresException { SqlState: "40001" or "40P01" })
+        {
+            db.ChangeTracker.Clear();
+            throw new BarRuleException("O caixa mudou durante a operação. Atualize os dados e tente novamente.");
         }
         catch { db.ChangeTracker.Clear(); throw; }
     }

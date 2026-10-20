@@ -7,5 +7,6 @@ public interface IBarCatalog
     Task<BarProductCategory> CreateCategory(CategoryInput input, CancellationToken ct);
     Task<IReadOnlyList<CatalogProduct>> Catalog(CancellationToken ct);
     Task<IReadOnlyList<ManagedProduct>> Products(CancellationToken ct);
+    Task<ManagedProduct> SaveProductStock(Guid id, ProductStockInput input, Guid actor, CancellationToken ct);
     Task<ManagedProduct> SaveProduct(Guid? id, ProductInput input, CancellationToken ct);
 }

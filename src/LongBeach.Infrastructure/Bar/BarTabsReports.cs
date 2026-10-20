@@ -35,7 +35,7 @@ public sealed partial class BarTabsService
     }
     private static string ReportDetail(string metric, string detail)
     {
-        if (metric == "received") return detail switch { "Cash" => "Dinheiro", "CardManual" => "Cartão aprovado na maquininha", "Pix" => "Pix confirmado", _ => "Recebimento confirmado" };
+        if (metric == "received") return detail switch { "Cash" => "Dinheiro", "CardManual" => "Cartão aprovado na maquininha", "TerminalManual:Debit" => "Débito na maquininha · confirmação manual", "TerminalManual:Credit" => "Crédito na maquininha · confirmação manual", "TerminalManual:Pix" => "Pix na maquininha · confirmação manual", "Pix" => "Pix confirmado", _ => "Recebimento confirmado" };
         if (metric is "orders" or "requests")
         {
             var index = detail.LastIndexOf(" · ", StringComparison.Ordinal);
@@ -88,7 +88,7 @@ public sealed partial class BarTabsService
                 title = "Recebimentos confirmados"; explanation = "Recebimento bruto confirmado, com estornos separados. Não representa saldo bancário.";
                 query = from p in payments join t in tabs on p.TabId equals t.Id
                         where p.State == "Approved" && p.ConfirmedAtUtc >= start && p.ConfirmedAtUtc < to
-                        select new ReportProjection { Id = p.Id, Label = "Comanda " + t.Number + (t.Name == "" ? "" : " · " + t.Name), Detail = p.Method, Date = p.ConfirmedAtUtc!.Value, Amount = p.Amount, Count = null, Resource = "payment", ResourceId = p.Id }; break;
+                        select new ReportProjection { Id = p.Id, Label = "Comanda " + t.Number + (t.Name == "" ? "" : " · " + t.Name), Detail = p.Method == "TerminalManual" ? p.Method + ":" + p.TerminalType : p.Method, Date = p.ConfirmedAtUtc!.Value, Amount = p.Amount, Count = null, Resource = "payment", ResourceId = p.Id }; break;
             case "refunds":
                 title = "Estornos confirmados"; explanation = "Somente estornos confirmados; solicitações pendentes não reduzem o recebido.";
                 query = from r in db.Set<BarTabRefund>().AsNoTracking() join t in tabs on r.TabId equals t.Id

@@ -45,7 +45,7 @@ export function CurrentFinancialMetrics({ compact = false }: { compact?: boolean
   const refreshing = position.isFetching || bar.some(query => query.isFetching)
   const update = () => { void Promise.allSettled([position.refetch(), ...bar.map(query => query.refetch())]) }
   return <>
-    {!compact && <div className="arena-section-heading"><div><h3>Registrado no Long Beach OS</h3><p>Contas e caixas consultados a cada 30 segundos. Vendas e comandas abertas no PagVendas ainda não são sincronizadas em tempo real.</p></div><button type="button" className="secondary-link" onClick={update} disabled={refreshing}>{refreshing ? 'Atualizando…' : 'Atualizar agora'}</button></div>}
+    {!compact && <div className="arena-section-heading"><div><h3>Registrado no Long Beach OS</h3><p>Contas e caixas consultados a cada 30 segundos. Produtos, vendas e estoque são registrados no Long Beach. Extratos bancários são conferidos separadamente.</p></div><button type="button" className="secondary-link" onClick={update} disabled={refreshing}>{refreshing ? 'Atualizando…' : 'Atualizar agora'}</button></div>}
     {position.isError && <p role="alert">Não foi possível atualizar as contas internas. Consulte novamente antes de usar os valores.</p>}
     <div className="arena-metric-grid arena-financial-grid">
       {!compact && <div className={`arena-metric ${bank?.amountCents == null ? 'arena-metric-unavailable' : ''}`}>
@@ -90,7 +90,7 @@ export function CurrentFinancialMetrics({ compact = false }: { compact?: boolean
     </div></ModalPanel>}
     {compact && <p className="dashboard-bank-status"><strong>Conta C6:</strong> {bankValue}{bankState ? ` · ${bankState}` : ''}{bank?.environment === 'Sandbox' ? ' · Ambiente de testes' : ''}{bank?.asOfUtc ? ` · Consulta: ${dateTime(bank.asOfUtc)}` : ''} · Saldo bancário separado das contas e caixas. <Link to="/financeiro/historico?c6=1#c6-extrato">Conferir extrato C6</Link></p>}
     <Disclosure title="Fontes e atualização dos valores" open={!compact}>
-    {compact && <p className="arena-hint">Contas e caixas consultados a cada 30 segundos. Vendas e comandas abertas no PagVendas ainda não são sincronizadas em tempo real.</p>}
+    {compact && <p className="arena-hint">Contas e caixas consultados a cada 30 segundos. Produtos, vendas e estoque são registrados no Long Beach. Extratos bancários são conferidos separadamente.</p>}
     <p className="arena-hint">Os saldos a receber e a pagar descontam pagamentos confirmados. Estornos confirmados reabrem o saldo; Pix pendente ainda não é recebimento.</p>
     {current && <p className="arena-hint">Consulta das contas: {dateTime(current.readAtUtc)} · {current.registeredEntries} lançamento(s) no Financeiro.{current.lastRecordChangeAtUtc ? ` Última alteração registrada: ${dateTime(current.lastRecordChangeAtUtc)}.` : ' Nenhum lançamento registrado.'}</p>}
     <p className="arena-hint">Os valores mostram apenas o que foi registrado neste sistema. Financeiro, comandas, caixa físico e carteira EDI são fontes separadas e não são somados como saldo bancário.</p>

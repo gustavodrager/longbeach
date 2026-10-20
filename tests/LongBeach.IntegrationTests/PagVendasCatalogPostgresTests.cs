@@ -10,23 +10,19 @@ namespace LongBeach.IntegrationTests;
 public sealed class PagVendasCatalogPostgresTests
 {
     [PostgresFact]
-    public async Task Import_is_atomic_reconciled_and_repeatable_without_product_duplicates()
+    public async Task New_catalog_application_is_blocked_without_creating_products_or_audit()
     {
         await using var db = Database(); await db.Database.MigrateAsync();
         var code = Guid.NewGuid().ToString("N"); var category = "Categoria " + code;
         var batch = await Stage(db, code, category);
-        var service = new CatalogImportService(db, new NullAuditContext(), TimeProvider.System);
+        var service = new CatalogImportService(db);
         var preview = await service.Preview(batch, default);
-        Assert.True(preview.CanApply); Assert.Equal(1, preview.Creates);
-        await service.Apply(batch, preview.ConfirmationToken, default);
-        var product = await db.Set<BarProduct>().SingleAsync(x => x.Code == "PV-" + code.ToUpperInvariant());
-        var version = product.Version;
-        var repeated = await service.Apply(batch, preview.ConfirmationToken, default);
-        Assert.True(repeated.Applied); Assert.Equal(1, repeated.Matches);
-        Assert.Equal(1, await db.Set<BarProduct>().CountAsync(x => x.Code == product.Code));
-        Assert.Equal(version, product.Version);
-        Assert.True(await db.AuditLogs.AnyAsync(x => x.Action == "PagVendasCatalogApplied" && x.ResourceId == batch.ToString()));
-        Assert.Equal("Applied", await db.Database.SqlQuery<string>($"SELECT review_status AS \"Value\" FROM import_rows WHERE batch_id = {batch}").SingleAsync());
+        Assert.False(preview.CanApply); Assert.Equal(1, preview.Creates);
+        await Assert.ThrowsAsync<BarRuleException>(() => service.Apply(batch, preview.ConfirmationToken, default));
+        Assert.False(await db.Set<BarProduct>().AnyAsync(x => x.Code == "PV-" + code.ToUpperInvariant()));
+        Assert.False((await service.Preview(batch, default)).Applied);
+        Assert.False(await db.AuditLogs.AnyAsync(x => x.Action == "PagVendasCatalogApplied" && x.ResourceId == batch.ToString()));
+
     }
 
     [PostgresFact]
@@ -39,10 +35,10 @@ public sealed class PagVendasCatalogPostgresTests
         product.SetMetadata("789", "https://storage.test/agua.jpg", null); db.Add(product); await db.SaveChangesAsync();
         var version = product.Version;
         var batch = await Stage(db, code, category.Name);
-        var service = new CatalogImportService(db, new NullAuditContext(), TimeProvider.System);
+        var service = new CatalogImportService(db);
         var preview = await service.Preview(batch, default);
         Assert.Equal(1, preview.Matches); Assert.Equal(0, preview.Creates);
-        await service.Apply(batch, preview.ConfirmationToken, default);
+        await Assert.ThrowsAsync<BarRuleException>(() => service.Apply(batch, preview.ConfirmationToken, default));
         await db.Entry(product).ReloadAsync();
         Assert.Equal(version, product.Version); Assert.Equal(4.99m, product.AverageCost);
         Assert.Equal("789", product.Barcode); Assert.Equal(24, product.ConversionFactor); Assert.False(product.ControlsStock);
@@ -54,7 +50,7 @@ public sealed class PagVendasCatalogPostgresTests
         await using var db = Database(); await db.Database.MigrateAsync();
         var code = Guid.NewGuid().ToString("N"); var category = new BarProductCategory("Categoria " + code); db.Add(category); await db.SaveChangesAsync();
         var batch = await Stage(db, code, category.Name);
-        var service = new CatalogImportService(db, new NullAuditContext(), TimeProvider.System);
+        var service = new CatalogImportService(db);
         var preview = await service.Preview(batch, default);
         db.Add(new BarProduct("PV-" + code, "Água teste", "Água", category.Id, "un", "un", 1, 6, 0, 0, true, false, 0));
         await db.SaveChangesAsync();

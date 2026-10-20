@@ -7,12 +7,12 @@ import type {AuthUser} from '../auth/types'
 import {BarCashPage,cashAmount} from './CashPage'
 const session={id:'a',openedBy:'owner',responsible:'Pessoa teste',register:'Balcão',terminal:'Manhã',state:'Open',opening:100,expected:125,createdAtUtc:'2026-10-19T12:00:00Z'}
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}})
-function setup(pending=false){
+function setup(pending=false, empty=false){
  const api=vi.spyOn(globalThis,'fetch').mockImplementation(async(url,init)=>{
   if(init?.method==='POST')return json({id:'saved'})
   const p=String(url);if(p.includes('/cash/history'))return json({items:[session,{...session,id:'b',openedBy:'other',responsible:'Outra pessoa'}],total:2})
   if(p.endsWith('/details'))return json({movements:[],closings:[],pendingPayment:pending})
-  if(p.endsWith('/cash/sessions'))return json([session]);if(p.endsWith('/cash/registers'))return json([{id:'reg',name:'Balcão'}]);if(p.endsWith('/locations'))return json([{id:'bar',name:'Bar'}]);return json([])
+  if(p.endsWith('/cash/current'))return json(empty?null:session);if(p.endsWith('/cash/sessions'))return json([session]);if(p.endsWith('/cash/registers'))return json([{id:'reg',name:'Balcão'}]);if(p.endsWith('/locations'))return json([{id:'bar',name:'Bar'}]);return json([])
  });
  const user:AuthUser={id:'owner',name:'Gestão',email:'test@example.invalid',roles:['Owner'],permissions:['bar:supervise','bar:cash:operate']}
  render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter><AuthContext.Provider value={{user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{},completeFirstAccessWithGoogle:async()=>{}}}><BarCashPage/></AuthContext.Provider></MemoryRouter></QueryClientProvider>);return api
@@ -25,3 +25,14 @@ it('exibe diferença antes do fechamento e exige motivo',async()=>{setup();const
 it('bloqueia fechamento com pagamento pendente',async()=>{setup(true);const u=userEvent.setup();await screen.findByText('Pessoa teste · Manhã');await u.click(screen.getAllByRole('button',{name:'Fechar caixa'})[0]);const d=within(screen.getByRole('dialog'));await d.findByText(/Há pagamento pendente/);await u.type(d.getByLabelText('Dinheiro contado (R$)'),'125');await waitFor(()=>expect(d.getByRole('button',{name:'Confirmar fechamento'})).toBeDisabled())})
 it('bloqueia edição e duplicação durante gravação lenta',async()=>{const api=setup();const u=userEvent.setup();await u.click(await screen.findByRole('button',{name:'Retirar dinheiro'}));const d=within(screen.getByRole('dialog'));await u.type(d.getByLabelText('Valor (R$)'),'10');await u.type(d.getByLabelText('Motivo obrigatório'),'Retirada');let finish!:(v:Response)=>void;api.mockImplementationOnce(()=>new Promise<Response>(resolve=>{finish=resolve}));await u.click(d.getByRole('button',{name:'Confirmar'}));await waitFor(()=>expect(d.getByLabelText('Valor (R$)')).toBeDisabled());expect(d.getByRole('button',{name:'Salvando…'})).toBeDisabled();expect(api.mock.calls.filter(([,i])=>i?.method==='POST')).toHaveLength(1);finish(json({id:'a',expected:115}));await d.findByText('Concluído. Os dados do caixa foram atualizados.');expect(d.getByText('R$ 115,00')).toBeInTheDocument()})
 it('envia o saldo conferido para impedir fechamento sobre saldo alterado',async()=>{const api=setup();const u=userEvent.setup();await screen.findByText('Pessoa teste · Manhã');await u.click(screen.getAllByRole('button',{name:'Fechar caixa'})[0]);const d=within(screen.getByRole('dialog'));await u.type(d.getByLabelText('Dinheiro contado (R$)'),'125');await u.click(d.getByRole('button',{name:'Confirmar fechamento'}));await d.findByText('Concluído. Os dados do caixa foram atualizados.');const write=api.mock.calls.find(([url,i])=>String(url).endsWith('/close')&&i?.method==='POST');expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({counted:125,expected:125})})
+
+it('abre sem cadastro ou seleção de caixa e envia somente o turno',async()=>{const api=setup(false,true);const u=userEvent.setup();await waitFor(()=>expect(screen.getByRole('button',{name:'Abrir caixa'})).toBeEnabled());expect(screen.queryByText('Configurar caixas físicos')).not.toBeInTheDocument();await u.click(screen.getByRole('button',{name:'Abrir caixa'}));const d=within(screen.getByRole('dialog'));expect(d.queryByRole('combobox')).not.toBeInTheDocument();await u.type(d.getByLabelText('Fundo inicial (R$)'),'0');await u.click(d.getByRole('button',{name:'Abrir caixa'}));await d.findByText('Concluído. Os dados do caixa foram atualizados.');const write=api.mock.calls.find(([url,i])=>String(url).endsWith('/cash/sessions')&&i?.method==='POST');expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({opening:0,terminal:'Atendimento',locationId:'bar'});expect(JSON.parse(String(write?.[1]?.body))).not.toHaveProperty('registerId')})
+
+it('abre no turno atual e só consulta fechamentos ao entrar no histórico',async()=>{
+ const api=setup();const u=userEvent.setup();await screen.findByText('Pessoa teste · Manhã');
+ expect(screen.queryByLabelText('Buscar responsável')).not.toBeInTheDocument();
+ expect(api.mock.calls.some(([url])=>String(url).includes('/cash/history'))).toBe(false);
+ await u.click(screen.getByRole('button',{name:'Histórico'}));
+ expect(await screen.findByLabelText('Buscar responsável')).toBeInTheDocument();
+ await waitFor(()=>expect(api.mock.calls.some(([url])=>String(url).includes('/cash/history')&&String(url).includes('state=closed'))).toBe(true));
+})

@@ -1,5 +1,9 @@
 # Deploy de Production no Railway
 
+## Atualização de 19/10/2026 — Bar operado no tablet
+
+API `d3b0ceb398fc551330acbf0d77eee09c8e4e2177`, web `f391f39a06edb55c1cfd90b9bc6adee25af8c9b2`. Catálogo e estoque internos, recebimento manual na maquininha e rascunhos recuperáveis. Backup lógico verificado antes da migration aditiva; API antes da web. Conferência autenticada desktop, tablet e celular emulado concluída, sem operações reais de teste. [Revisão #44](https://github.com/gustavodrager/longbeach/pull/44) e [evidências, limitações do backup e retorno](../bar/operacao-e-pagbank.md#publicação-do-tablet--20102026-utc-1910-no-brasil).
+
 ## Atualização de 19/10/2026 — Caixas do Bar
 
 API e web fixadas em `8e1eb31608dec8b6e5a921e11f912fe58e962e7f`. CI aprovada em PostgreSQL 17/18 e frontend; API publicada antes da web. Conferência autenticada desktop e celular emulado 320/390 px concluída, sem movimentações de teste em produção. Sem migration. Ver [publicação, validação e retorno de Caixas](caixas-bar-ux-2026-10-19.md).

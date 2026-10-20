@@ -1,20 +1,24 @@
 import { amount, StockPage, StockActions } from './StockUi'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ActionPanel, Disclosure, RecordTable, SectionTabs, useSection, useContextSearchParams } from '../../components/managementUi'
+import { useAuth } from '../auth/authContext'
+import { hasPermission } from '../auth/access'
+import { StockAvailableEditor } from './StockAvailableEditor'
+import { Link, Navigate } from 'react-router-dom'
+import { ActionPanel, Disclosure, RecordTable, useSection, useContextSearchParams } from '../../components/managementUi'
 import { Empty, Field, Pagination, Search, useFilters, validDate } from '../../pages/arenaUi'
 import { label, type Balance, useBar, useAction, Notice, QueryNotice, useBarStock, StockNotice } from './BarCore'
 import './stock-workflow.css'
 export { BarCountsPage } from './StockCounts'
-type Movement = { id: string; name: string; unit: string; locationName: string; quantity: number; before: number; after: number; kind: string; reason: string; createdAtUtc: string; originId: string }
+type Movement = { id: string; name: string; unit: string; locationName: string; quantity: number; before: number; after: number; kind: string; reason: string; createdAtUtc: string; originId: string; actorId?: string; actorName?: string }
 type History = { items: Movement[]; total: number; page: number; pageSize: number }
 const movementKinds = ['PurchaseReceived','InitialCount','InventoryAdjustment','Loss','InternalConsumption','Sale','TabDelivery','TabReturn','TransferIn','TransferOut','Courtesy','SaleReturn']
-export function BarStockPage() {
-  const filters = useFilters(); const [section, setSection] = useSection(['saldos','movimentos'])
+export function BarStockPage({balancesOnly=false}:{balancesOnly?:boolean}) {
+  const {user}=useAuth();const [editing,setEditing]=useState<Balance|null>(null);
+  const filters = useFilters(); const [section] = useSection(['saldos','movimentos'])
   const stock = useBarStock(); const balances = useBar<Balance[]>('/stock/balances')
   const all = (balances.data ?? []).filter(r => r.locationId === stock.location?.id)
   const search = filters.query.toLocaleLowerCase('pt-BR')
-  const status = filters.params.get('low') === '1' ? 'low' : filters.status
+  const status = filters.params.get('low') === '1' || ['low','minimum'].includes(filters.status) ? 'low' : filters.status==='empty'?'empty':''
   const rows = all.filter(r => r.name.toLocaleLowerCase('pt-BR').includes(search) && (!status || (status === 'low' ? r.low : status === 'empty' ? r.alertEligible && r.available <= 0 : status === 'minimum' ? r.alertEligible && r.available > 0 && r.available <= r.minimumStock : r.available > 0))).sort((a,b) => a.name.localeCompare(b.name,'pt-BR'))
   const previous = stock.ready ? (balances.data ?? []).filter(r => r.locationId !== stock.location?.id && (r.quantity !== 0 || r.reserved !== 0)) : []
   const from = filters.params.get('de') ?? ''; const to = filters.params.get('ate') ?? ''
@@ -28,37 +32,39 @@ export function BarStockPage() {
   const history = useBar<History>('/stock/movement-history?'+query, section === 'movimentos' && stock.ready && datesValid)
   const [,setParams] = useContextSearchParams()
   const changeStatus = (value: string) => { const next = new URLSearchParams(filters.params); next.delete('low'); next.delete('page'); value ? next.set('status',value) : next.delete('status'); setParams(next,{preventScrollReset:true}) }
-  return <StockPage title="Estoque do Bar" description="Saldos, reposição e histórico do Bar.">
-    <StockActions/><StockNotice stock={stock}/><QueryNotice query={balances}/>
-    {stock.ready && balances.isSuccess && <div className="stock-overview" aria-label="Situação do estoque">
+  if(!balancesOnly && section!=='movimentos') return <Navigate replace to={{pathname:'/bar/produtos',search:filters.params.toString()}}/>
+  return <StockPage title={balancesOnly?'Produtos e estoque':'Movimentações do estoque'} description={balancesOnly?"Confira o que está disponível e ajuste a quantidade quando necessário.":"Consulte as entradas, saídas e ajustes, com responsável e origem."}>
+    {!balancesOnly&&<Link to="/bar/produtos">Produtos e estoque →</Link>}<StockActions/><StockNotice stock={stock}/><QueryNotice query={balances}/>
+    {balancesOnly && stock.ready && balances.isSuccess && <div className="stock-overview" aria-label="Situação do estoque">
       <span><strong>{all.filter(r=>r.available>0).length}</strong> Com saldo disponível</span>
       <span><strong>{all.filter(r=>r.low).length}</strong> No mínimo ou abaixo</span>
       <span><strong>{all.filter(r=>r.alertEligible&&r.available<=0).length}</strong> Esgotados</span>
     </div>}
-    <SectionTabs value={section} onChange={setSection} items={[{value:'saldos',label:'Saldos'},{value:'movimentos',label:'Movimentações'}]}/>
+
     <div className="compact-filters"><Search filters={filters} placeholder="Buscar produto…"/>
-      {section === 'saldos' && <Field label="Disponibilidade" value={status} onChange={changeStatus} options={[{value:'',label:'Todos os produtos'},{value:'low',label:'No mínimo ou abaixo'},{value:'empty',label:'Esgotados'},{value:'minimum',label:'Com saldo no mínimo ou abaixo'},{value:'available',label:'Com saldo disponível'}]}/>}
+      {section === 'saldos' && <Field label="Disponibilidade" value={status} onChange={changeStatus} options={[{value:'',label:'Todos'},{value:'low',label:'Repor'},{value:'empty',label:'Esgotados'}]}/>}
     </div>
     {section === 'saldos' ? <>
-      <p className="arena-hint">{rows.length} produtos nesta seleção · Físico − reservado = disponível.</p>
-      {stock.ready && rows.length > 0 && <Pagination total={rows.length}>{(start,end)=><div className="stock-balances"><RecordTable label="Saldos do estoque" columns={['Produto','Físico','Reservado','Disponível']} rows={rows.slice(start,end).map(r=>({key:r.productId,cells:[<><strong>{r.name}</strong><small>{r.unit || 'un'} · mínimo {amount(r.minimumStock ?? 0)}{r.low ? ` · ${r.available <= 0 ? 'Esgotado' : 'Repor'}` : ''}</small></>,amount(r.quantity),amount(r.reserved),<strong className={r.low?'stock-alert':''}>{amount(r.available)}</strong>]}))}/></div>}</Pagination>}
+      <p className="arena-hint">{rows.length} produtos nesta seleção</p>
+      {stock.ready && rows.length > 0 && <Pagination total={rows.length}>{(start,end)=><div className="stock-balances"><RecordTable label="Saldos do estoque" columns={['Produto','Disponível']} rows={rows.slice(start,end).map(r=>({key:r.productId,cells:[<><strong>{r.name}</strong><small>{r.unit || 'un'} · mínimo {amount(r.minimumStock ?? 0)}{r.low ? ` · ${r.available <= 0 ? 'Esgotado' : 'Repor'}` : ''}</small></>,<div className="stock-available"><strong className={r.low?'stock-alert':''}>{r.controlsStock===false?'Sem controle':`${amount(r.available)} ${r.unit||'un'}`}</strong>{hasPermission(user,'bar:supervise')&&r.active&&r.controlsStock&&r.alertEligible&&<button onClick={()=>setEditing({...r})} aria-label={`Editar quantidade de ${r.name}`}>Editar</button>}</div>]}))}/></div>}</Pagination>}
       {!rows.length && stock.ready && balances.isSuccess && <Empty>Nenhum produto nesta seleção. Ajuste os filtros para consultar outros saldos.</Empty>}
-      <Disclosure title="Como interpretar os saldos"><p>Físico é a quantidade registrada. Reservado está comprometido com pedidos. Disponível é o que pode sair agora. O alerta usa a mesma regra do Resumo do Bar: produtos ativos com controle de estoque, no mínimo ou abaixo; produtos preparados com ficha técnica usam seus insumos.</p></Disclosure>
-      {previous.length>0 && <Disclosure title="Saldos anteriores para conferência"><p>Estes locais não são usados pelo atendimento do Bar.</p><Pagination total={previous.length}>{(start,end)=><RecordTable label="Saldos anteriores" columns={['Produto','Físico','Reservado','Disponível']} rows={previous.slice(start,end).map(r=>({key:r.productId+r.locationId,cells:[<>{r.name}<small>{stock.query.data?.find(l=>l.id===r.locationId)?.name ?? 'Cadastro anterior'}</small></>,amount(r.quantity),amount(r.reserved),amount(r.available)]}))}/>}</Pagination></Disclosure>}
+      <p className="arena-hint">Disponível é o que pode ser vendido agora. Cada correção fica registrada no histórico.</p>
+      {previous.length>0 && <Disclosure title="Saldos anteriores para conferência"><p>Estes locais não são usados pelo atendimento do Bar.</p><Pagination total={previous.length}>{(start,end)=><RecordTable label="Saldos anteriores" columns={['Produto','Disponível']} rows={previous.slice(start,end).map(r=>({key:r.productId+r.locationId,cells:[<>{r.name}<small>{stock.query.data?.find(l=>l.id===r.locationId)?.name ?? 'Cadastro anterior'}</small></>,amount(r.available)]}))}/>}</Pagination></Disclosure>}
     </> : <>
       <div className="compact-filters stock-history-filters">
         <Field label="Local do histórico" value={location} onChange={v=>filters.set('historicoLocal',v)} options={[...(stock.query.data??[]).map(l=>({value:l.id,label:l.name})),{value:'all',label:'Todos os locais'}]}/>
         <Field label="Tipo" value={filters.params.get('tipo')??''} onChange={v=>filters.set('tipo',v)} options={[{value:'',label:'Todos'},...movementKinds.map(k=>({value:k,label:label(k)}))]}/>
         <Field label="De" type="date" value={from} onChange={v=>filters.set('de',v)}/><Field label="Até" type="date" value={to} onChange={v=>filters.set('ate',v)}/>
       </div>
-      <p className="arena-hint">Horário de Brasília · datas incluídas · {location==='all'?'Todos os locais':stock.query.data?.find(l=>l.id===location)?.name}. Saldos antes e depois são físicos.</p>
+      <p className="arena-hint">Horário de Brasília · datas incluídas · {location==='all'?'Todos os locais':stock.query.data?.find(l=>l.id===location)?.name}. O histórico mostra o saldo registrado antes e depois de cada movimento.</p>
       {!datesValid ? <p role="alert">Confira as datas: o fim deve ser igual ou posterior ao início.</p> : <><QueryNotice query={history}/>{history.data && <>
         <p className="arena-hint">{history.data.total} movimentações nesta seleção</p>
-        <div className="stock-movements"><RecordTable label="Movimentações do estoque" columns={['Produto','Data e local','Movimento','Saldo físico','Motivo']} rows={history.data.items.map(r=>({key:r.id,cells:[<strong>{r.name}</strong>,<>{new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(r.createdAtUtc))}<small>{r.locationName}</small></>,<>{label(r.kind)}<small>{r.quantity>0?'+':''}{amount(r.quantity)} {r.unit}</small></>,`${amount(r.before)} → ${amount(r.after)} ${r.unit}`,<details><summary>Ver motivo e origem</summary><p>{r.reason}</p><small>Referência: {r.originId}</small></details>]}))}/></div>
+        <div className="stock-movements"><RecordTable label="Movimentações do estoque" columns={['Produto','Data e local','Movimento','Saldo registrado','Motivo']} rows={history.data.items.map(r=>({key:r.id,cells:[<strong>{r.name}</strong>,<>{new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(r.createdAtUtc))}<small>{r.locationName}</small></>,<>{label(r.kind)}<small>{r.quantity>0?'+':''}{amount(r.quantity)} {r.unit}</small></>,`${amount(r.before)} → ${amount(r.after)} ${r.unit}`,<details><summary>Ver motivo e origem</summary><p>{r.reason}</p><p>Responsável: {r.actorName || r.actorId || 'Não informado no registro histórico'}</p><small>Referência: {r.originId}</small></details>]}))}/></div>
         {!history.data.items.length && <Empty>Nenhuma movimentação nesta seleção.</Empty>}
         <nav className="arena-pagination" aria-label="Páginas das movimentações"><button disabled={history.isFetching||history.data.page<=1} onClick={()=>filters.set('page',String(history.data!.page-1))}>Anterior</button><span>Página {history.data.page} de {Math.max(1,Math.ceil(history.data.total/20))}</span><button disabled={history.isFetching||history.data.page*20>=history.data.total} onClick={()=>filters.set('page',String(history.data!.page+1))}>Próxima</button></nav>
       </>}</>}
     </>}
+    {editing&&<StockAvailableEditor balance={editing} onClose={()=>setEditing(null)}/>}
   </StockPage>
 }
 

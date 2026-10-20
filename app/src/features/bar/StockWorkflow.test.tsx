@@ -27,15 +27,17 @@ function setup(child:React.ReactNode,path='/bar/estoque',countOverride?:StockCou
 }
 afterEach(()=>vi.restoreAllMocks())
 it('preserva o filtro antigo e permite sair dele; distingue esgotados de disponíveis',async()=>{
- setup(<BarStockPage/>,'/bar/estoque?low=1')
+ setup(<BarStockPage balancesOnly/>,'/bar/estoque?low=1')
  expect(await screen.findByRole('table',{name:'Saldos do estoque'})).toHaveTextContent('Produto 00')
  expect(screen.getByRole('table',{name:'Saldos do estoque'})).not.toHaveTextContent('Produto 01')
- await userEvent.selectOptions(screen.getByLabelText('Disponibilidade'),'available')
+ await userEvent.selectOptions(screen.getByLabelText('Disponibilidade'),'')
  expect(screen.getByRole('table',{name:'Saldos do estoque'})).toHaveTextContent('Produto 01')
- expect(screen.getByRole('table',{name:'Saldos do estoque'})).not.toHaveTextContent('Produto 00')
+ expect(screen.getByRole('table',{name:'Saldos do estoque'})).toHaveTextContent('Produto 00')
+ await userEvent.selectOptions(screen.getByLabelText('Disponibilidade'),'empty')
+ expect(screen.getByRole('table',{name:'Saldos do estoque'})).not.toHaveTextContent('Produto 01')
 })
 it('consulta histórico do Bar e envia filtros ao servidor, bloqueando período inválido',async()=>{
- const api=setup(<BarStockPage/>,'/bar/estoque?secao=movimentos')
+ const api=setup(<BarStockPage balancesOnly/>,'/bar/estoque?secao=movimentos')
  expect(await screen.findByText('5 → 4 un')).toBeInTheDocument()
  expect(api.mock.calls.some(([u])=>String(u).includes('locationId=bar'))).toBe(true)
  await userEvent.selectOptions(screen.getByLabelText('Local do histórico'),'all')

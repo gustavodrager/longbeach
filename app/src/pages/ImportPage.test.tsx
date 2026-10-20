@@ -11,22 +11,13 @@ const preview = { batchId: 'batch', sourceName: batch.sourceName, applied: false
 function response(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }) }
 afterEach(() => { vi.restoreAllMocks(); auth.roles = ['Owner'] })
 
-it('exige conferência antes de aplicar e envia somente a confirmação do lote', async () => {
-  const api = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
-    const url = String(input)
-    if (url.endsWith('/apply')) return response({ ...preview, applied: true, canApply: false, creates: 0, matches: 2 })
-    if (url.endsWith('/bar-catalog')) return response(preview)
-    return response([batch])
-  })
-  render(<ImportPage />); const user = userEvent.setup()
-  await user.click(await screen.findByRole('button', { name: 'Conferir produtos do bar: produtos-teste.xlsx' }))
-  expect(await screen.findByText(/1 produtos novos · 1 já cadastrados/)).toBeInTheDocument()
-  expect(screen.getByText('Arquivo: produtos-teste.xlsx')).toBeInTheDocument()
-  expect(api.mock.calls.some(([url]) => String(url).endsWith('/apply'))).toBe(false)
-  await user.click(screen.getByRole('button', { name: 'Aplicar catálogo conferido' }))
-  expect(await screen.findByText('Lote já aplicado ao bar.')).toBeInTheDocument()
-  const apply = api.mock.calls.find(([url]) => String(url).endsWith('/apply'))!
-  expect(JSON.parse(String(apply[1]?.body))).toEqual({ confirmationToken: 'review-token' })
+it.each([false,true])('consulta histórico aplicado=%s sem oferecer aplicação ou gravar catálogo', async applied => {
+  const api=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>response(String(input).endsWith('/bar-catalog')?{...preview,applied}:[batch]))
+  render(<ImportPage />)
+  await userEvent.click(await screen.findByRole('button',{name:/Conferir produtos do bar:/}))
+  expect(await screen.findByText('Arquivo: produtos-teste.xlsx')).toBeInTheDocument()
+  expect(screen.queryByRole('button',{name:'Aplicar catálogo conferido'})).not.toBeInTheDocument()
+  expect(api.mock.calls.every(([,init])=>!init?.method||init.method==='GET')).toBe(true)
 })
 
 it('divergências impedem aplicar o lote', async () => {
@@ -35,21 +26,8 @@ it('divergências impedem aplicar o lote', async () => {
   render(<ImportPage />); const user = userEvent.setup()
   await user.click(await screen.findByRole('button', { name: /Conferir produtos do bar:/ }))
   expect(await screen.findByText('Preço mudou; revise o cadastro.')).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Aplicar catálogo conferido' })).toBeDisabled()
-  expect(api.mock.calls.some(([url]) => String(url).endsWith('/apply'))).toBe(false)
-})
-
-it('falha de confirmação descarta a prévia para exigir nova conferência', async () => {
-  vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
-    const url = String(input)
-    if (url.endsWith('/apply')) return response({ detail: 'O cadastro mudou. Confira novamente.' }, 400)
-    return response(url.endsWith('/bar-catalog') ? preview : [batch])
-  })
-  render(<ImportPage />); const user = userEvent.setup()
-  await user.click(await screen.findByRole('button', { name: /Conferir produtos do bar:/ }))
-  await user.click(await screen.findByRole('button', { name: 'Aplicar catálogo conferido' }))
-  expect(await screen.findByText('O cadastro mudou. Confira novamente.')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Aplicar catálogo conferido' })).not.toBeInTheDocument()
+  expect(api.mock.calls.some(([url]) => String(url).endsWith('/apply'))).toBe(false)
 })
 
 it('atendente não acessa nem consulta os lotes', () => {
