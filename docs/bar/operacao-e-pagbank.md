@@ -121,3 +121,9 @@ O Bar usa um único caixa operacional, identificado como **Caixa do Bar**. Gest�
 Abertura e reabertura verificam todos os turnos abertos, inclusive de cadastros antigos, sob bloqueio transacional. É necessário encerrar o turno anterior antes de outro responsável abrir o caixa. Movimentações continuam restritas ao responsável, e o fechamento pela supervisão mantém a exigência de motivo. Históricos e referências antigas são preservados; não há exclusão de registros nem migration de dados nesta mudança.
 
 `GET /api/v1/bar/cash/current` informa o turno aberto para impedir uma nova abertura na interface. O servidor continua sendo a autoridade em caso de concorrência. A implantação exige API antes da interface, pois esta utiliza essa consulta. Validar abertura com zero, retomada da mesma operação, fechamento, troca de responsável e tentativa concorrente em banco fictício antes da publicação.
+
+### Edição rápida do disponível
+
+A tela Estoque do Bar apresenta produto e quantidade disponível, sem as colunas de físico e reservado. A gestão pode usar Editar → nova quantidade disponível → Salvar quantidade. O número informado substitui o disponível atual; não representa entrada adicional nem contagem física total. Itens separados para pedidos não devem ser incluídos. Compras, perdas e consumo continuam com seus fluxos próprios.
+
+`PUT /api/v1/bar/stock/available` exige `bar:supervise`, versão do saldo e identificador de operação. Aceita zero explícito e até três casas decimais; mantém as reservas e registra a diferença como ajuste de inventário com data, responsável e motivo automático. Repetir a mesma operação não repete o movimento. Saldo alterado por outra operação exige nova conferência. Produtos inativos, preparados e sem controle próprio não podem usar o ajuste rápido. Históricos permanecem preservados e não há migration nova.

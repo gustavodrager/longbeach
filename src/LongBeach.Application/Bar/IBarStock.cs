@@ -9,6 +9,7 @@ public interface IBarStock
     Task<object> MovementHistory(Guid? locationId, string? search, string? kind, DateOnly? from, DateOnly? to, int page, CancellationToken ct);
     Task<object> Movements(bool costs, CancellationToken ct);
     Task<StockValuationResponse> Valuation(CancellationToken ct);
+    Task SetAvailable(AvailableStockInput input, Guid actor, CancellationToken ct);
     Task Transfer(TransferInput input, Guid actor, CancellationToken ct);
     Task Output(StockOutputInput input, string kind, Guid actor, bool supervisor, CancellationToken ct);
     Task<InventoryCount> CreateCount(CountInput input, Guid actor, CancellationToken ct);
