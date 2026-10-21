@@ -29,15 +29,17 @@ public sealed partial class FinancialHistoryService
         {
             using var json = JsonDocument.Parse(record.Payload);
             var row = json.RootElement;
+            var expense = ExpenseRules.Metadata(row);
             return new FinancialPositionEntry(row.GetProperty("direction").GetString()!, row.GetProperty("status").GetString()!,
                 Cents(row.GetProperty("amount").GetDecimal()), DateOnly.ParseExact(row.GetProperty("dueDate").GetString()!, "yyyy-MM-dd", CultureInfo.InvariantCulture),
-                paidByEntry.GetValueOrDefault(record.Id));
+                paidByEntry.GetValueOrDefault(record.Id), expense is null ? 0 : Cents(expense.PaidAmount),
+                expense is null || expense.DueDate is not null, expense is not null);
         }).ToArray();
         var lastChange = records.Select(x => (DateTimeOffset?)(x.UpdatedAtUtc ?? x.CreatedAtUtc))
             .Concat(payments.Select(x => (DateTimeOffset?)x.ChangedAt)).Max();
         var details = entries.Zip(records).Where(x => CurrentFinancialPositionRules.Remaining(x.First) > 0)
             .Select(x => new OutstandingEntry(x.Second.Id, x.Second.Name, x.First.Direction, x.First.DueDate, x.First.AmountCents,
-                CurrentFinancialPositionRules.AppliedPayments(x.First), CurrentFinancialPositionRules.Remaining(x.First)))
+                CurrentFinancialPositionRules.AppliedPayments(x.First), CurrentFinancialPositionRules.Remaining(x.First), x.First.HasDueDate, x.First.ManagedExpense))
             .OrderBy(x => x.DueDate).ThenBy(x => x.Id).ToArray();
         var result = new CurrentFinancialPosition(today, readAt, lastChange, records.Count,
             CurrentFinancialPositionRules.Outstanding(entries, "Receber", today), CurrentFinancialPositionRules.Outstanding(entries, "Pagar", today),

@@ -16,6 +16,7 @@ function jsonResponse(body: unknown, status = 200) {
 function withOperationalReads(authHandler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
     if (String(input).endsWith('/api/v1/auth/options')) return Promise.resolve(jsonResponse({ googleClientId: 'test-client', clientRegistrationEnabled: true }))
+    if (String(input).split('?')[0].endsWith('/api/v1/expenses/paid-summary') && (!init?.method || init.method === 'GET')) return Promise.resolve(jsonResponse({ amount: 0, records: 0 }))
     if (String(input).endsWith('/api/v1/financial-history/current-position') && !init?.method) {
       const empty = { amountCents: 0, records: 0, overdueCents: 0, overdueRecords: 0, confirmedPaymentsCents: 0 }
       return Promise.resolve(jsonResponse({ date: '2026-10-13', readAtUtc: '2026-10-13T12:00:00Z', lastRecordChangeAtUtc: null, registeredEntries: 0, receivable: empty, payable: empty, currentBank: { amountCents: null, asOfUtc: null, status: 'NotConnected', issue: 'Saldo atual da conta não conectado.' }, entries: [] }))

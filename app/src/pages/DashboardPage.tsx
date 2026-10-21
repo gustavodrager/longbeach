@@ -4,6 +4,7 @@ import { barHome, hasPermission, isManagement } from '../features/auth/access'
 import { DashboardBarAttention } from '../features/attendance/DashboardBarAttention'
 import { BarArenaMetrics } from '../features/attendance/BarArenaMetrics'
 import { FinancialBalanceOverview } from '../features/finance/FinancialBalanceOverview'
+import { ExpensePaidMetric } from '../features/finance/ExpensePaidMetric'
 import { StockValuation } from '../features/bar/StockValuation'
 import { BankStatementOverview, FinancialHistoryOverview } from '../features/finance/FinancialHistory'
 import { ArenaHistoryOverview } from '../features/finance/ArenaHistoryOverview'
@@ -110,7 +111,7 @@ export function DashboardPage() {
         <div className="arena-metric-grid">
           {data.canRead('financeEntries') && <>
             <Metric label="Recebimentos registrados" value={cash(realized.filter(item => item.direction === 'Receber').reduce((sum, item) => sum + item.amount, 0))} to={link('/financeiro', { direction: 'Receber', status: 'Pago', dateField: 'paidDate' })} action="Conferir recebimentos" note="Lançamentos marcados como pagos" />
-            <Metric label="Despesas pagas" value={cash(realized.filter(item => item.direction === 'Pagar').reduce((sum, item) => sum + item.amount, 0))} to={link('/financeiro', { direction: 'Pagar', status: 'Pago', dateField: 'paidDate' })} action="Conferir despesas" />
+            <ExpensePaidMetric from={from} to={to} />
           </>}
           {data.canRead('reservations') && <Metric label="Reservas no período" value={count('reservations', data.reservations.filter(item => inPeriod(item.date) && !['Cancelada', 'Bloqueio'].includes(item.status)).length)} to={link('/agenda', { view: 'list', activity: 'reservations' })} action="Abrir reservas do período" />}
         </div>
@@ -129,7 +130,7 @@ export function DashboardPage() {
       </Disclosure>}
       {hasPermission(user, 'bar:finance:read') && <Disclosure title="Estoque do bar e potencial de venda" lazy><StockValuation compact /></Disclosure>}
       {isManagement(user) && <Disclosure title="Histórico das planilhas e movimentos de origem" lazy><p className="dashboard-history-notice">Referências históricas. As datas pertencem às fontes importadas e podem ser diferentes entre os indicadores.</p><ArenaHistoryOverview /><Disclosure title="Histórico financeiro e extratos" lazy><FinancialHistoryOverview /><BankStatementOverview /></Disclosure></Disclosure>}
-      <nav className="dashboard-shortcuts" aria-label="Áreas da arena">{data.canRead('reservations') && <Link to="/agenda">Agenda →</Link>}{data.canRead('rentalGroups') && <Link to="/mensalistas">Mensalistas →</Link>}{data.canRead('classes') && <Link to="/escola">Aulas →</Link>}{data.canRead('financeEntries') && <Link to="/financeiro">Financeiro →</Link>}{barHref && <Link to={barHref}>Bar e caixa →</Link>}</nav>
+      <nav className="dashboard-shortcuts" aria-label="Áreas da arena">{data.canRead('reservations') && <Link to="/agenda">Agenda →</Link>}{data.canRead('rentalGroups') && <Link to="/mensalistas">Mensalistas →</Link>}{data.canRead('classes') && <Link to="/escola">Aulas →</Link>}{data.canRead('financeEntries') && <Link to="/financeiro/despesas">Financeiro →</Link>}{barHref && <Link to={barHref}>Bar e caixa →</Link>}</nav>
     </section>
   </main>
 }

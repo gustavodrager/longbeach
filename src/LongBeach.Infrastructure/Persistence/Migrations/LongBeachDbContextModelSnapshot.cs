@@ -1488,6 +1488,55 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.ToTable("cash_sessions", (string)null);
                 });
 
+            modelBuilder.Entity("LongBeach.Domain.Finance.ExpenseAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ExpenseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UploadedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperationId")
+                        .IsUnique();
+
+                    b.HasIndex("ExpenseId", "CreatedAtUtc");
+
+                    b.ToTable("expense_attachments", (string)null);
+                });
+
             modelBuilder.Entity("LongBeach.Domain.Fiscal.ReceivedInvoice", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2753,6 +2802,15 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.HasOne("LongBeach.Domain.Cash.CashRegister", null)
                         .WithMany()
                         .HasForeignKey("RegisterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Finance.ExpenseAttachment", b =>
+                {
+                    b.HasOne("LongBeach.Domain.Operations.OperationalRecord", null)
+                        .WithMany()
+                        .HasForeignKey("ExpenseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

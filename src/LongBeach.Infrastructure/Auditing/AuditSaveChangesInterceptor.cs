@@ -80,6 +80,9 @@ public sealed class AuditSaveChangesInterceptor(
 
     private static object BuildChanges(EntityEntry entry)
     {
+        if (entry.Entity is LongBeach.Domain.Finance.ExpenseAttachment attachment)
+            return new { attachment.Id, attachment.ExpenseId, attachment.OperationId, attachment.ContentHash,
+                attachment.UploadedBy, Data = "[OMITTED: expense attachment]" };
         if (entry.Entity is LongBeach.Domain.Fiscal.ReceivedInvoice invoice)
             return new { invoice.Id, invoice.ContentHash, invoice.ImportedBy, invoice.PurchaseId,
                 PurposeBefore = entry.State == EntityState.Added ? null : entry.Property(nameof(invoice.Purpose)).OriginalValue,

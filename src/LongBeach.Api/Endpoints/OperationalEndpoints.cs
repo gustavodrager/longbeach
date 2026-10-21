@@ -75,6 +75,9 @@ public static class OperationalEndpoints
                 grouping => grouping.Select(row => ParsePayload(row.Payload)).ToArray());
             if (records.Any(row => row.Id == id && row.Kind != kind)) return Results.Conflict(new { message = "Este identificador já pertence a outra área." });
             var record = records.SingleOrDefault(row => row.Id == id && row.Kind == kind);
+            if (kind == "financeEntries" && (LongBeach.Application.Finance.ExpenseRules.Reserved(body) ||
+                record is not null && LongBeach.Application.Finance.ExpenseRules.Managed(ParsePayload(record.Payload))))
+                return Results.Conflict(new { message = "Este lançamento é controlado em Despesas e pagamentos. Abra essa área para consultar ou registrar pagamentos." });
             var prepared = OperationalRecordAccess.PrepareWrite(body.GetRawText(), record?.Payload, kind,
                 CanFinance(http, false, publicDemo, kind), CanFinance(http, true, publicDemo, kind));
             if (!prepared.Allowed) return Results.Forbid();

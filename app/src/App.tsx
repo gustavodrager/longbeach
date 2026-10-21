@@ -13,6 +13,7 @@ import { AuthProvider } from './features/auth/AuthProvider'
 import { DashboardPage } from './pages/DashboardPage'
 import { FinancialHistoryPage } from './features/finance/FinancialHistory'
 const MonthlyControlPage = lazy(() => import('./features/finance/MonthlyControlPage').then(module => ({ default: module.MonthlyControlPage })))
+const ExpensesPage = lazy(() => import('./features/finance/ExpensesPage').then(module => ({ default: module.ExpensesPage })))
 import { LoginPage } from './pages/LoginPage'
 import { FirstAccessPage } from './pages/FirstAccessPage'
 const BarLayout = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarLayout })))
@@ -131,6 +132,7 @@ function OperationalRoutes() {
     {!demoMode && <Route path="notas-recebidas" element={<Permission permission="fiscal:invoices:manage"><ReceivedInvoicesPage /></Permission>} />}
     <Route path="financeiro/historico" element={<FinancialHistoryPage />} />
     <Route path="financeiro/controle-mensal" element={<MonthlyControlPage />} />
+    <Route path="financeiro/despesas" element={arena('financeEntries', <ExpensesPage />)} />
     <Route path="alunos" element={arena('students', <StudentsPage />)} />
     <Route path="alunos/:studentId" element={arena('students', <StudentDetailsPage />)} />
     <Route path="equipe" element={arena('team', <TeamPage />)} />

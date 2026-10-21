@@ -30,6 +30,7 @@ public sealed class LongBeachDbContext(
         SalesModel.Configure(modelBuilder);
         PurchaseModel.Configure(modelBuilder);
         ReceivedInvoiceModel.Configure(modelBuilder);
+        ExpenseAttachmentModel.Configure(modelBuilder);
         PaymentModel.Configure(modelBuilder);
         TabModel.Configure(modelBuilder);
         RecipeModel.Configure(modelBuilder);
@@ -65,7 +66,8 @@ public sealed class LongBeachDbContext(
                 or LongBeach.Domain.Bar.BarSaleItem or LongBeach.Domain.Bar.BarSaleDiscount or LongBeach.Domain.Purchases.PurchaseReceipt or LongBeach.Domain.Payments.PaymentReconciliation
                 or LongBeach.Domain.Payments.PaymentWebhookInbox or LongBeach.Domain.Payments.PaymentProviderTransaction or LongBeach.Domain.Payments.BarEvent
                 or LongBeach.Domain.Bar.BarTabOperation or LongBeach.Domain.Bar.BarTabHistory
-                or LongBeach.Domain.Bar.BarRecipeVersion or LongBeach.Domain.Bar.BarRecipeIngredient or LongBeach.Domain.Bar.BarTabIngredientSnapshot)
+                or LongBeach.Domain.Bar.BarRecipeVersion or LongBeach.Domain.Bar.BarRecipeIngredient or LongBeach.Domain.Bar.BarTabIngredientSnapshot
+                or LongBeach.Domain.Finance.ExpenseAttachment or OperationalRecord { Kind: "expensePayments" or "expenseOperations" })
                 throw new LongBeach.Domain.Bar.BarRuleException("Registro histórico imutável. Registre uma reversão.");
     }
     private void ApplyTimestamps()

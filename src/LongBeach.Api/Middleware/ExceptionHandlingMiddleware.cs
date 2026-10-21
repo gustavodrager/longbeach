@@ -39,6 +39,10 @@ public sealed class ExceptionHandlingMiddleware(
         {
             await WriteProblemAsync(context, 400, "Conferência da nota rejeitada", exception.Message);
         }
+        catch (LongBeach.Application.Finance.ExpenseRuleException exception)
+        {
+            await WriteProblemAsync(context, exception.Conflict ? 409 : 400, "Confira a despesa", exception.Message);
+        }
         catch (LongBeach.Application.Finance.FinancialRuleException exception)
         {
             await WriteProblemAsync(context, 400, "Conferência financeira rejeitada", exception.Message);
