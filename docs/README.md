@@ -32,6 +32,7 @@
 - [`operacao/perfil-cliente.md`](operacao/perfil-cliente.md) — operação, limites e aceite com clientes
 - [`operacao/c6-integracao.md`](operacao/c6-integracao.md) — configuração, homologação, operação e retorno da integração C6
 - [`operacao/despesas-e-pagamentos.md`](operacao/despesas-e-pagamentos.md) — lançamento simplificado, baixas parciais, reembolsos e implantação
+- [`operacao/publicacao-despesas-2026-10-21.md`](operacao/publicacao-despesas-2026-10-21.md) — preparação aprovada, CI e bloqueio da publicação pelo incidente do Railway
 
 - [`operacao/ci-cd-e-ambientes.md`](operacao/ci-cd-e-ambientes.md)
 - [`operacao/deploy-railway-production.md`](operacao/deploy-railway-production.md)
