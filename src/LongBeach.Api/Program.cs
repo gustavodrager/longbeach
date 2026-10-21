@@ -198,6 +198,8 @@ app.MapReceivedInvoiceEndpoints();
 app.MapBarTabsEndpoints();
 app.MapImportEndpoints();
 app.MapFinancialHistoryEndpoints();
+app.MapExpenseEndpoints();
+app.MapExpenseAttachmentEndpoints();
 app.MapAuthEndpoints(builder.Configuration.GetValue<bool>("Authentication:Google:Enabled"));
 var publicOperationalDemo = !app.Environment.IsProduction() && app.Configuration.GetValue("DemoMode:PublicOperationalData", false);
 app.MapRentalGroupsEndpoints();

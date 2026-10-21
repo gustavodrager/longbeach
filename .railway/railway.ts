@@ -7,7 +7,7 @@ export default defineRailway(() => {
   Postgres.networking = { privateNetworkEndpoint: "postgres" };
   const postgresVolume = volume("postgres-volume", { alerts: { usage: { "100": {}, "80": {}, "95": {} } }, allowOnlineResize: true, region: "europe-west4-drams3a", sizeMB: 5000 });
   const api = service("api", {
-    source: github("gustavodrager/longbeach", { branch: "codex/bar-tablet-20261020", commitSha: "d3b0ceb398fc551330acbf0d77eee09c8e4e2177" }),
+    source: github("gustavodrager/longbeach", { branch: "codex/bar-tablet-20261020", commitSha: "4c6a7a0afd46ee8f5f8ecf6f3a186465a608a723" }),
     build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "deploy/api.Dockerfile" },
     healthcheck: "/health/ready",
     healthcheckTimeout: 300,
@@ -18,13 +18,14 @@ export default defineRailway(() => {
     env: { ASPNETCORE_ENVIRONMENT: preserve(), ASPNETCORE_URLS: preserve(), AllowedHosts: preserve(), Authentication__CookieDomain: preserve(), Authentication__Google__AllowedEmail: preserve(), Authentication__Google__ClientId: preserve(), Authentication__Google__ClientRegistrationEnabled: preserve(), Authentication__Google__Enabled: preserve(), Authentication__Google__ProvisionAllowedEmailsAsOwners: preserve(), Authentication__Jwt__AccessTokenMinutes: preserve(), Authentication__Jwt__Audience: preserve(), Authentication__Jwt__Issuer: preserve(), Authentication__Jwt__RefreshTokenDays: preserve(), Authentication__Jwt__SigningKey: preserve(), Authentication__MobileAllowedOrigins__0: preserve(), Authentication__MobileAllowedOrigins__1: preserve(), Authentication__MobileAllowedOrigins__2: preserve(), Authorization__SeedOnStartup: preserve(), Bootstrap__InitialOwner__Enabled: preserve(), ConnectionStrings__LongBeach: preserve(), Cors__AllowedOrigins__0: preserve(), Cors__AllowedOrigins__1: preserve(), Database__MigrateOnStartup: preserve(), DemoMode__PublicOperationalData: preserve(), HealthChecks__DatabaseEnabled: preserve(), Integrations__PagBankEdi__Enabled: preserve(), Integrations__PagBankEdi__StartDate: preserve(), Integrations__PagBankEdi__Token: preserve(), Integrations__PagBankEdi__User: preserve(), PORT: preserve(), RAILWAY_DOCKERFILE_PATH: preserve(), ReverseProxy__TrustAllForwarders: preserve() },
   });
   const web = service("web", {
-    source: github("gustavodrager/longbeach", { branch: "codex/bar-tablet-20261020", commitSha: "f391f39a06edb55c1cfd90b9bc6adee25af8c9b2" }),
+    source: github("gustavodrager/longbeach", { branch: "codex/bar-tablet-20261020", commitSha: "42e5ac8338a921ad7dcf96dfa6065e264712c601" }),
     build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "deploy/web.Dockerfile" },
     healthcheck: "/healthz",
     healthcheckTimeout: 300,
     replicas: { "europe-west4-drams3a": 1 },
     domains: ["longbeach.quebranunca.com.br"],
-    env: { PORT: preserve(), RAILWAY_DOCKERFILE_PATH: preserve(), VITE_API_URL: preserve(), VITE_DEMO_MODE: preserve(), VITE_GOOGLE_CLIENT_ID: preserve(), VITE_OPERATIONAL_STORAGE: preserve() },
+    cdn: { enabled: true },
+    env: { LONGBEACH_RELEASE_COMMIT: preserve(), PORT: preserve(), RAILWAY_DOCKERFILE_PATH: preserve(), VITE_API_URL: preserve(), VITE_DEMO_MODE: preserve(), VITE_GOOGLE_CLIENT_ID: preserve(), VITE_OPERATIONAL_STORAGE: preserve() },
   });
   const webOperationsWCjo = service("web-operations-WCjo", {
     source: longbeach,
@@ -54,6 +55,7 @@ export default defineRailway(() => {
   });
 
   return project("longbeach-os", {
+    variables: { managed: true },
     resources: [Postgres, api, web, webOperationsWCjo, webOperations, apiOperations, postgresVolume],
   });
 });

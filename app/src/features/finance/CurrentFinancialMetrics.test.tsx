@@ -102,3 +102,14 @@ it('mostra saldo C6 negativo com fonte, data, atraso e ambiente de testes sem so
   expect(screen.getByRole('link', { name: /Conferir extrato C6/ })).toHaveAttribute('href', '/financeiro/historico?c6=1#c6-extrato')
   expect(screen.getByRole('link', { name: /Dinheiro nos caixas/ })).toHaveTextContent('R$ 12,34')
 })
+
+it('abre despesas gerenciadas na tela nova e preserva reembolso sem prazo como não vencido', async () => {
+  mockSources({ ...position, entries: [{ ...position.entries[0], direction: 'Pagar', name: 'Reembolso fictício', hasDueDate: false, managedExpense: true }] })
+  const { client } = wrap()
+  await screen.findByText('Não conectado')
+  await userEvent.click(screen.getByRole('button', { name: /A pagar · financeiro/ }))
+  const table = screen.getByRole('table', { name: 'Composição do saldo pendente' })
+  expect(within(table).getByRole('link', { name: 'Reembolso fictício' })).toHaveAttribute('href', '/financeiro/despesas?acao=ver&registro=entry-one')
+  expect(within(table).getByText('Sem prazo')).not.toHaveTextContent('vencido')
+  client.clear()
+})
