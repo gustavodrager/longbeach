@@ -1,11 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import { PurchaseForm } from './PurchaseForm'
 import { decimal, rowTotal } from './purchaseModel'
+vi.mock('../auth/authContext',()=>({useAuth:()=>({user:{id:'purchase-owner',roles:['Owner'],permissions:[]}})}))
 const products=[{id:'water',name:'Água teste',code:'AG',purchaseUnit:'caixa',saleUnit:'un',conversionFactor:12,active:true},{id:'old',name:'Inativo',code:'OLD',purchaseUnit:'un',saleUnit:'un',conversionFactor:1,active:false}]
 afterEach(()=>vi.restoreAllMocks())
 function Fixture({onReceive}:{onReceive:(p:any)=>void}){const {data}=useQuery({queryKey:['bar','/suppliers'],queryFn:async()=>[{id:'supplier',name:'Distribuidora teste'}],initialData:[{id:'supplier',name:'Distribuidora teste'}],staleTime:Infinity});return <PurchaseForm products={products} suppliers={data} onClose={vi.fn()} onReceive={onReceive}/> }
-function setup(){const client=new QueryClient({defaultOptions:{queries:{retry:false}}}),onReceive=vi.fn();render(<QueryClientProvider client={client}><Fixture onReceive={onReceive}/></QueryClientProvider>);return {client,onReceive}}
+function setup(){const client=new QueryClient({defaultOptions:{queries:{retry:false}}}),onReceive=vi.fn();render(<QueryClientProvider client={client}><MemoryRouter><Fixture onReceive={onReceive}/></MemoryRouter></QueryClientProvider>);return {client,onReceive}}
 it('preserva itens ao cadastrar fornecedor e registra antes de abrir o recebimento',async()=>{
  const writes:{path:string;body:any}[]=[]
  vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{const path=String(input),body=JSON.parse(String(init?.body));writes.push({path,body});return new Response(JSON.stringify(path.endsWith('/suppliers')?{id:'new',name:'Novo fornecedor'}:{id:'purchase',document:body.document,total:30,items:body.items,state:'Ordered'}))})
@@ -29,6 +31,7 @@ it('preserva itens ao cadastrar fornecedor e registra antes de abrir o recebimen
  expect(screen.getByLabelText('Quantidade: Água teste')).toHaveValue('1,5')
  fireEvent.click(screen.getByRole('button',{name:'Registrar compra'}))
  await screen.findByRole('heading',{name:'Compra registrada'})
+ expect(screen.getByRole('link',{name:'Financeiro da compra →'})).toHaveAttribute('href','/financeiro/despesas?purchase=purchase')
  expect(writes).toHaveLength(2)
  expect(writes[1].body).toMatchObject({supplierId:'new',document:'Teste 01',items:[{productId:'water',quantity:1.5,purchaseCost:20,total:null}]})
  expect(writes.some(w=>w.path.endsWith('/receive'))).toBe(false)

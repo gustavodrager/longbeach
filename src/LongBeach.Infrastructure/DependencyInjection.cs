@@ -49,6 +49,8 @@ public static class DependencyInjection
         services.AddHttpClient<LongBeach.Application.Billing.IRecurringGateway, LongBeach.Infrastructure.Payments.PagBankRecurringGateway>(client => client.Timeout = TimeSpan.FromSeconds(20)).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddHostedService<LongBeach.Infrastructure.Payments.PagBankReconciliationWorker>();
         services.AddScoped<LongBeach.Application.Finance.IFinancialHistory, LongBeach.Infrastructure.Finance.FinancialHistoryService>();
+        services.AddScoped<LongBeach.Application.Finance.IExpenses, LongBeach.Infrastructure.Finance.ExpensesService>();
+        LongBeach.Infrastructure.Finance.ExpenseAttachmentRegistration.AddExpenseAttachments(services);
         services.AddScoped<LongBeach.Infrastructure.C6.IC6BankingApi, LongBeach.Infrastructure.C6.C6BankingApi>();
         services.AddSingleton<LongBeach.Infrastructure.Finance.C6BankingWorker>();
         services.AddSingleton<LongBeach.Application.Finance.IC6Collection>(sp => sp.GetRequiredService<LongBeach.Infrastructure.Finance.C6BankingWorker>());

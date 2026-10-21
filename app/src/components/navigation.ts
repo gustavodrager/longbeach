@@ -23,8 +23,9 @@ export const managementNavigation: NavigationGroup[] = [
     { label: 'Turmas', href: '/escola', kind: 'classes' }, { label: 'Alunos', href: '/alunos', kind: 'students' },
     { label: 'Matrículas', href: '/escola/matriculas', kind: 'enrollments' }, { label: 'Presenças', href: '/escola/presencas', kind: 'presences' },
   ] },
-  { label: 'Financeiro', icon: 'wallet', href: '/financeiro', children: [
-    { label: 'Recebimentos', href: '/recebimentos', permission: 'finance:read', related: [{ label: 'Conciliação PagBank', href: '/recebimentos/conciliacao', permission: 'finance:read' }, { label: 'Pagamentos antigos do Bar', href: '/recebimentos/conciliacao-bar', permission: 'bar:payments:reconcile' }] }, { label: 'Lançamentos', href: '/financeiro', kind: 'financeEntries' }, { label: 'Controle mensal', href: '/financeiro/controle-mensal', owner: true }, { label: 'Histórico', href: '/financeiro/historico', owner: true },
+  { label: 'Financeiro', icon: 'wallet', href: '/financeiro/despesas', children: [
+    { label: 'Despesas e pagamentos', href: '/financeiro/despesas', kind: 'financeEntries' },
+    { label: 'Recebimentos', href: '/recebimentos', permission: 'finance:read', related: [{ label: 'Conciliação PagBank', href: '/recebimentos/conciliacao', permission: 'finance:read' }, { label: 'Pagamentos antigos do Bar', href: '/recebimentos/conciliacao-bar', permission: 'bar:payments:reconcile' }] }, { label: 'Lançamentos gerais', href: '/financeiro', kind: 'financeEntries' }, { label: 'Controle mensal', href: '/financeiro/controle-mensal', owner: true }, { label: 'Histórico', href: '/financeiro/historico', owner: true },
     { label: 'Notas recebidas', href: '/notas-recebidas', permission: 'fiscal:invoices:manage' },
   ] },
   { label: 'Bar', icon: 'bar', href: '/bar', children: barNavigation },
