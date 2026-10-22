@@ -168,6 +168,26 @@ resource "google_secret_manager_secret" "longbeach" {
   depends_on = [google_project_service.required]
 }
 
+# Administrative recovery only. Values are uploaded outside Terraform, and neither
+# application identity receives access to this container.
+resource "google_secret_manager_secret" "database_admin" {
+  project         = local.project_id
+  secret_id       = "parsero-postgres-admin-password"
+  deletion_policy = "PREVENT"
+  replication {
+    user_managed {
+      replicas { location = local.region }
+    }
+  }
+  labels = {
+    owner       = "parsero"
+    environment = var.environment
+    purpose     = "database-administration"
+  }
+  lifecycle { prevent_destroy = true }
+  depends_on = [google_project_service.required]
+}
+
 resource "google_secret_manager_secret_iam_member" "runtime" {
   for_each  = toset([for binding in values(local.runtime_secrets) : binding.secret_suffix])
   project   = local.project_id

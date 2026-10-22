@@ -230,3 +230,19 @@ run "reject_case_insensitive_plain_and_secret_collision" {
   }
   expect_failures = [google_cloud_run_v2_service.api]
 }
+
+run "administrative_database_secret_is_not_accessible_to_application_identities" {
+  command = plan
+  assert {
+    condition = (google_secret_manager_secret.database_admin.secret_id == "parsero-postgres-admin-password" &&
+      google_secret_manager_secret.database_admin.project == "parsero-test-production" &&
+      google_secret_manager_secret.database_admin.replication[0].user_managed[0].replicas[0].location == "southamerica-east1" &&
+    google_secret_manager_secret.database_admin.deletion_policy == "PREVENT")
+    error_message = "Keep the administrative recovery secret isolated in São Paulo and protected against deletion."
+  }
+  assert {
+    condition = (alltrue([for binding in values(google_secret_manager_secret_iam_member.runtime) : binding.secret_id != google_secret_manager_secret.database_admin.secret_id]) &&
+    alltrue([for binding in values(google_secret_manager_secret_iam_member.migration) : binding.secret_id != google_secret_manager_secret.database_admin.secret_id]))
+    error_message = "Runtime and migration identities must never receive access to the administrative database password."
+  }
+}

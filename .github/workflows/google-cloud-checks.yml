@@ -20,6 +20,11 @@ jobs:
     name: Validate infrastructure without cloud credentials
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      # Never reuse a developer's platform-specific provider install or a deployment backend.
+      TF_DATA_DIR: ${{ runner.temp }}/longbeach-google-terraform
     steps:
       - name: Checkout
         uses: actions/checkout@v4
