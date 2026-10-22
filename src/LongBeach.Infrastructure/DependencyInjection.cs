@@ -45,19 +45,15 @@ public static class DependencyInjection
         services.AddScoped<LongBeach.Application.Billing.IBilling, LongBeach.Infrastructure.Billing.BillingService>();
         LongBeach.Infrastructure.C6.C6ClientRegistration.AddC6Client(services, configuration);
         services.AddScoped<LongBeach.Application.Billing.IBillingPaymentGateways, LongBeach.Infrastructure.Billing.BillingPaymentGateways>();
-        services.AddHostedService<LongBeach.Infrastructure.Billing.BillingWorker>();
         services.AddHttpClient<LongBeach.Application.Billing.IRecurringGateway, LongBeach.Infrastructure.Payments.PagBankRecurringGateway>(client => client.Timeout = TimeSpan.FromSeconds(20)).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
-        services.AddHostedService<LongBeach.Infrastructure.Payments.PagBankReconciliationWorker>();
         services.AddScoped<LongBeach.Application.Finance.IFinancialHistory, LongBeach.Infrastructure.Finance.FinancialHistoryService>();
         services.AddScoped<LongBeach.Infrastructure.C6.IC6BankingApi, LongBeach.Infrastructure.C6.C6BankingApi>();
         services.AddSingleton<LongBeach.Infrastructure.Finance.C6BankingWorker>();
         services.AddSingleton<LongBeach.Application.Finance.IC6Collection>(sp => sp.GetRequiredService<LongBeach.Infrastructure.Finance.C6BankingWorker>());
-        services.AddHostedService(sp => sp.GetRequiredService<LongBeach.Infrastructure.Finance.C6BankingWorker>());
         services.AddHttpClient("PagBankEdi", client => client.Timeout = TimeSpan.FromSeconds(45))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddSingleton<LongBeach.Infrastructure.Finance.PagBankEdiWorker>();
         services.AddSingleton<LongBeach.Application.Finance.IPagBankEdiCollection>(sp => sp.GetRequiredService<LongBeach.Infrastructure.Finance.PagBankEdiWorker>());
-        services.AddHostedService(sp => sp.GetRequiredService<LongBeach.Infrastructure.Finance.PagBankEdiWorker>());
         services.AddSingleton<LongBeach.Infrastructure.Payments.PagBankWebhookKeys>();
         services.AddHttpClient<LongBeach.Application.Bar.IPaymentGateway, LongBeach.Infrastructure.Payments.PagBankPaymentGateway>(client => client.Timeout = TimeSpan.FromSeconds(20))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
@@ -80,10 +76,19 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher, AspNetIdentityPasswordHasher>();
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddScoped<PostgresHealthCheck>();
-        services.AddHostedService<AuthorizationCatalogBootstrapper>();
-        services.AddHostedService<DevelopmentAdminBootstrapper>();
-        services.AddHostedService<ProductionOwnerBootstrapper>();
-        services.AddHostedService<GoogleAllowedOwnerBootstrapper>();
+        // A restored migration candidate must not poll payment providers or change accounts at startup.
+        // Explicit maintenance commands and on-demand collectors remain available without starting the host.
+        if (configuration.GetValue("BackgroundJobs:Enabled", true))
+        {
+            services.AddHostedService<LongBeach.Infrastructure.Billing.BillingWorker>();
+            services.AddHostedService<LongBeach.Infrastructure.Payments.PagBankReconciliationWorker>();
+            services.AddHostedService(sp => sp.GetRequiredService<LongBeach.Infrastructure.Finance.C6BankingWorker>());
+            services.AddHostedService(sp => sp.GetRequiredService<LongBeach.Infrastructure.Finance.PagBankEdiWorker>());
+            services.AddHostedService<AuthorizationCatalogBootstrapper>();
+            services.AddHostedService<DevelopmentAdminBootstrapper>();
+            services.AddHostedService<ProductionOwnerBootstrapper>();
+            services.AddHostedService<GoogleAllowedOwnerBootstrapper>();
+        }
 
         return services;
     }

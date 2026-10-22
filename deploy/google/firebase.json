@@ -1,0 +1,22 @@
+{
+  "hosting": {
+    "target": "longbeach-web",
+    "public": "__verified_artifact_required__",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {"key": "X-Content-Type-Options", "value": "nosniff"},
+          {"key": "Referrer-Policy", "value": "no-referrer"},
+          {"key": "X-Frame-Options", "value": "DENY"},
+          {"key": "Permissions-Policy", "value": "camera=(), geolocation=(), microphone=()"},
+          {"key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; connect-src 'self' https:; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; frame-src https://accounts.google.com/gsi/; img-src 'self' data: blob: https:; object-src 'none'; script-src 'self' https://accounts.google.com/gsi/ https://assets.pagseguro.com.br/checkout-sdk-js/rc/dist/browser/pagseguro.min.js; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:"},
+          {"key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate"}
+        ]
+      },
+      {"source": "/assets/**", "headers": [{"key": "Cache-Control", "value": "public, max-age=31536000, immutable"}]}
+    ],
+    "rewrites": [{"source": "**", "destination": "/index.html"}]
+  }
+}

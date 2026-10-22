@@ -1,0 +1,32 @@
+environment = "production"
+project_ids = {
+  production = "replace-parsero-production"
+  staging    = "replace-parsero-staging"
+}
+billing_account_id = "000000-000000-000000"
+# Verified source major version. Do not upgrade as part of the transfer.
+pg_version = "POSTGRES_18"
+
+api_domain         = "api.longbeach.quebranunca.com.br"
+web_origin         = "https://longbeach.quebranunca.com.br"
+csrf_cookie_domain = "longbeach.quebranunca.com.br"
+
+# Add only a verified Artifact Registry digest after the infrastructure and secrets are ready.
+api_image                        = ""
+enable_api_service               = false
+public_api_enabled               = false
+cutover_gate_confirmed           = false
+workers_enabled                  = false
+source_workers_disabled_confirmed = false
+create_web_custom_domain         = false
+manage_billing_budget            = true
+
+# Pin versions after uploading values outside Terraform. Never put secret values here.
+db_runtime_secret_version   = "1"
+db_migration_secret_version = "1"
+jwt_secret_version          = "1"
+
+# Existing non-secret settings (issuer/audience/Google client ID/allowed origins) must be reconciled
+# with the source configuration. Credentials go in extra_runtime_secrets, never runtime_environment.
+runtime_environment = {}
+extra_runtime_secrets = {}
