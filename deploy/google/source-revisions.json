@@ -5,5 +5,5 @@
   "web_source_commit": "42e5ac8338a921ad7dcf96dfa6065e264712c601",
   "production_api_origin": "https://api.longbeach.quebranunca.com.br",
   "production_web_origin": "https://longbeach.quebranunca.com.br",
-  "purpose": "Verified production references for the provider migration; the API migration image additionally contains the reviewed background-job gate."
+  "purpose": "Verified production references for the provider migration; the API migration image additionally contains the reviewed background-job gate and the tested JSON-null fix for an absent current cash session."
 }
