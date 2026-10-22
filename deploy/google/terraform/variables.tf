@@ -165,12 +165,15 @@ variable "runtime_environment" {
   default     = {}
   description = "Non-secret application settings only. Core safety settings below cannot be overridden."
   validation {
-    condition = length(distinct([for name in keys(var.runtime_environment) : lower(name)])) == length(var.runtime_environment) && alltrue([for name in keys(var.runtime_environment) :
+    condition = length(distinct([for name in keys(var.runtime_environment) : lower(name)])) == length(var.runtime_environment) && alltrue([for name, value in var.runtime_environment :
       can(regex("^[A-Za-z_][A-Za-z0-9_]*$", name)) &&
-      !can(regex("(?i)(password|token|secret|signingkey|connectionstrings|apikey|certificate|privatekey)", name)) &&
+      (!can(regex("(?i)(password|token|secret|signingkey|connectionstrings|apikey|certificate|privatekey)", name)) ||
+        # These public durations mirror JwtOptions validation; token credentials remain secrets.
+        (lower(name) == "authentication__jwt__accesstokenminutes" && try(can(regex("^[0-9]+$", value)) && tonumber(value) >= 5 && tonumber(value) <= 120, false)) ||
+      (lower(name) == "authentication__jwt__refreshtokendays" && try(can(regex("^[0-9]+$", value)) && tonumber(value) >= 1 && tonumber(value) <= 90, false))) &&
       !contains(local.reserved_environment_names, lower(name))
     ])
-    error_message = "Use valid, case-insensitively unique env names without secrets or reserved deployment safety settings."
+    error_message = "Use valid, case-insensitively unique env names without secrets or reserved safety settings. Only JWT AccessTokenMinutes (integer 5-120) and RefreshTokenDays (integer 1-90) may contain Token in a public setting name."
   }
 }
 

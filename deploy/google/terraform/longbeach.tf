@@ -58,13 +58,25 @@ resource "google_cloud_run_v2_service" "api" {
         timeout_seconds       = 5
         period_seconds        = 10
         failure_threshold     = 24
-        http_get { path = "/health/ready" }
+        http_get {
+          path = "/health/ready"
+          http_headers {
+            name  = "Host"
+            value = var.api_domain
+          }
+        }
       }
       liveness_probe {
         timeout_seconds   = 5
         period_seconds    = 30
         failure_threshold = 3
-        http_get { path = "/health/live" }
+        http_get {
+          path = "/health/live"
+          http_headers {
+            name  = "Host"
+            value = var.api_domain
+          }
+        }
       }
     }
   }

@@ -78,6 +78,11 @@ run "api_workers_stay_off_and_load_balancer_is_required" {
     api_domain         = "api.longbeach.example.com"
     web_origin         = "https://longbeach.example.com"
     csrf_cookie_domain = "longbeach.example.com"
+    runtime_environment = {
+      AllowedHosts                            = "api.longbeach.example.com"
+      Authentication__Jwt__AccessTokenMinutes = "15"
+      Authentication__Jwt__RefreshTokenDays   = "30"
+    }
   }
   assert {
     condition = (google_cloud_run_v2_service.api[0].ingress == "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER" &&
@@ -93,6 +98,16 @@ run "api_workers_stay_off_and_load_balancer_is_required" {
   assert {
     condition     = length(google_cloud_run_v2_service_iam_member.public_api) == 0
     error_message = "The candidate API must remain IAM-private while the load balancer and certificate are prepared."
+  }
+  assert {
+    condition = (one([for header in google_cloud_run_v2_service.api[0].template[0].containers[0].startup_probe[0].http_get[0].http_headers : header.value if header.name == "Host"]) == var.api_domain &&
+    one([for header in google_cloud_run_v2_service.api[0].template[0].containers[0].liveness_probe[0].http_get[0].http_headers : header.value if header.name == "Host"]) == var.api_domain)
+    error_message = "Startup and liveness probes must preserve the API Host accepted by restricted AllowedHosts."
+  }
+  assert {
+    condition = (one([for setting in google_cloud_run_v2_service.api[0].template[0].containers[0].env : setting.value if setting.name == "Authentication__Jwt__AccessTokenMinutes"]) == "15" &&
+    one([for setting in google_cloud_run_v2_service.api[0].template[0].containers[0].env : setting.value if setting.name == "Authentication__Jwt__RefreshTokenDays"]) == "30")
+    error_message = "Public JWT lifetimes must be preserved explicitly without weakening token credential protection."
   }
 }
 
@@ -131,6 +146,25 @@ run "budget_uses_brl_and_three_warning_thresholds" {
       google_billing_budget.parsero[0].amount[0].specified_amount[0].units == "1500" &&
     toset([for threshold in google_billing_budget.parsero[0].threshold_rules : threshold.threshold_percent]) == toset([0.5, 0.8, 1.0]))
     error_message = "The account budget must retain the approved currency, amount and warning thresholds."
+  }
+  assert {
+    condition     = length(google_billing_budget.parsero[0].all_updates_rule) == 0
+    error_message = "Default IAM email recipients require no empty notifications rule that the API omits on read."
+  }
+}
+
+run "custom_budget_channels_preserve_default_iam_email_recipients" {
+  command = plan
+  variables {
+    manage_billing_budget        = true
+    budget_notification_channels = ["projects/parsero-test-production/notificationChannels/12345"]
+  }
+  assert {
+    condition = (length(google_billing_budget.parsero[0].all_updates_rule) == 1 &&
+      !google_billing_budget.parsero[0].all_updates_rule[0].disable_default_iam_recipients &&
+      toset(google_billing_budget.parsero[0].all_updates_rule[0].monitoring_notification_channels) ==
+    toset(["projects/parsero-test-production/notificationChannels/12345"]))
+    error_message = "Custom monitoring email channels must supplement rather than disable default IAM recipients."
   }
 }
 
@@ -245,4 +279,60 @@ run "administrative_database_secret_is_not_accessible_to_application_identities"
     alltrue([for binding in values(google_secret_manager_secret_iam_member.migration) : binding.secret_id != google_secret_manager_secret.database_admin.secret_id]))
     error_message = "Runtime and migration identities must never receive access to the administrative database password."
   }
+}
+
+run "accept_case_insensitive_public_jwt_lifetime_names" {
+  command = plan
+  variables {
+    runtime_environment = {
+      AUTHENTICATION__JWT__ACCESSTOKENMINUTES = "5"
+      authentication__jwt__refreshtokendays   = "90"
+    }
+  }
+  assert {
+    condition     = var.runtime_environment["AUTHENTICATION__JWT__ACCESSTOKENMINUTES"] == "5" && var.runtime_environment["authentication__jwt__refreshtokendays"] == "90"
+    error_message = "Nominal lifetime names follow .NET case-insensitive semantics and accept the documented bounds."
+  }
+}
+
+run "reject_non_integer_public_jwt_lifetime" {
+  command = plan
+  variables { runtime_environment = { Authentication__Jwt__AccessTokenMinutes = "15.5" } }
+  expect_failures = [var.runtime_environment]
+}
+
+run "reject_non_numeric_public_jwt_lifetime" {
+  command = plan
+  variables { runtime_environment = { Authentication__Jwt__RefreshTokenDays = "must-not-be-a-secret-value" } }
+  expect_failures = [var.runtime_environment]
+}
+
+run "reject_access_token_lifetime_below_application_minimum" {
+  command = plan
+  variables { runtime_environment = { Authentication__Jwt__AccessTokenMinutes = "4" } }
+  expect_failures = [var.runtime_environment]
+}
+
+run "reject_access_token_lifetime_above_application_maximum" {
+  command = plan
+  variables { runtime_environment = { Authentication__Jwt__AccessTokenMinutes = "121" } }
+  expect_failures = [var.runtime_environment]
+}
+
+run "reject_non_positive_refresh_token_lifetime" {
+  command = plan
+  variables { runtime_environment = { Authentication__Jwt__RefreshTokenDays = "0" } }
+  expect_failures = [var.runtime_environment]
+}
+
+run "reject_refresh_token_lifetime_above_application_maximum" {
+  command = plan
+  variables { runtime_environment = { Authentication__Jwt__RefreshTokenDays = "91" } }
+  expect_failures = [var.runtime_environment]
+}
+
+run "reject_token_credentials_resembling_public_lifetime_names" {
+  command = plan
+  variables { runtime_environment = { Authentication__Jwt__AccessToken = "must-use-secret-manager" } }
+  expect_failures = [var.runtime_environment]
 }

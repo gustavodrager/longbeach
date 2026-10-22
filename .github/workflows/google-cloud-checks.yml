@@ -23,13 +23,17 @@ jobs:
     env:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
-      # Never reuse a developer's platform-specific provider install or a deployment backend.
-      TF_DATA_DIR: ${{ runner.temp }}/longbeach-google-terraform
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+
+      - name: Prepare isolated Terraform data directory
+        shell: bash
+        run: |
+          terraform_data_dir="$(mktemp -d "${RUNNER_TEMP}/longbeach-google-terraform.XXXXXX")"
+          printf 'TF_DATA_DIR=%s\n' "$terraform_data_dir" >> "$GITHUB_ENV"
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3

@@ -21,9 +21,14 @@ resource "google_billing_budget" "parsero" {
       spend_basis       = "CURRENT_SPEND"
     }
   }
-  all_updates_rule {
-    disable_default_iam_recipients   = false
-    monitoring_notification_channels = var.budget_notification_channels
+  # An absent optional rule keeps default billing-admin/user emails enabled.
+  # The API omits an all-default empty rule on read, so emit it only for custom channels.
+  dynamic "all_updates_rule" {
+    for_each = length(var.budget_notification_channels) > 0 ? [1] : []
+    content {
+      disable_default_iam_recipients   = false
+      monitoring_notification_channels = var.budget_notification_channels
+    }
   }
   lifecycle {
     precondition {
