@@ -5,6 +5,7 @@ Estas regras se aplicam a todo o repositório.
 ## Autoridade e limites
 
 - Trate `docs/arquitetura/HANDOFF_LongBeach_OS_Standalone_para_Work.md`, `docs/adr/ADR-001-produto-standalone.md` e `docs/adr/ADR-003-dominios-quebranunca-e-isolamento-railway.md` como direção arquitetural obrigatória. O ADR-003 prevalece sobre o ADR-002 para domínios e hospedagem.
+- O `docs/adr/ADR-014-google-cloud-e-isolamento-por-cliente.md` substitui a escolha do provedor nesses registros: Google Cloud é o destino autorizado, com os domínios preservados e bancos/usuários próprios por cliente mesmo quando a instância física é compartilhada. A implantação permanece sujeita à conferência e à janela de corte; não trate a preparação local como migração já concluída.
 - Mantenha o Long Beach OS como produto standalone, com repositório, solução, frontend, banco, autenticação, migrations, storage, observabilidade e deploy próprios.
 - Não adicione dependência de código, pacote interno, banco, API, autenticação, frontend, migration, storage, segredo ou runtime de outro produto.
 - O uso do domínio administrativo `quebranunca.com.br` não autoriza acoplamento técnico.

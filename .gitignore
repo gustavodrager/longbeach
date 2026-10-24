@@ -65,3 +65,15 @@ app/ios/**/*.xcuserdata/
 # Python preparation caches
 __pycache__/
 *.pyc
+
+# Google Cloud local state, plans, credentials and database exports
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+backend*.hcl
+google-local/
+*.dump
+*.backup

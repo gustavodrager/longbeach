@@ -1,0 +1,69 @@
+name: Google Cloud deployment checks
+
+on:
+  pull_request:
+    paths:
+      - deploy/google/**
+      - .github/workflows/google-cloud-checks.yml
+  push:
+    branches: [main]
+    paths:
+      - deploy/google/**
+      - .github/workflows/google-cloud-checks.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate infrastructure without cloud credentials
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Prepare isolated Terraform data directory
+        shell: bash
+        run: |
+          terraform_data_dir="$(mktemp -d "${RUNNER_TEMP}/longbeach-google-terraform.XXXXXX")"
+          printf 'TF_DATA_DIR=%s\n' "$terraform_data_dir" >> "$GITHUB_ENV"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.9
+          terraform_wrapper: false
+
+      - name: Check Terraform format
+        run: terraform -chdir=deploy/google/terraform fmt -check -recursive
+
+      - name: Initialize providers without a state backend
+        run: terraform -chdir=deploy/google/terraform init -backend=false -input=false -lockfile=readonly
+
+      - name: Validate resource definitions
+        run: terraform -chdir=deploy/google/terraform validate
+
+      - name: Verify deployment safeguards with mocked providers
+        run: terraform -chdir=deploy/google/terraform test
+
+      - name: Verify migration execution guards
+        run: python3 -m unittest discover -s deploy/google/tests -p 'test_*.py'
+
+      - name: Check shell scripts and Firebase configuration
+        run: |
+          while IFS= read -r script; do
+            bash -n "$script"
+          done < <(rg --files deploy/google -g '*.sh')
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for path in Path('deploy/google').rglob('*.json'):
+              json.loads(path.read_text())
+          PY

@@ -1,0 +1,21 @@
+environment = "staging"
+project_ids = {
+  production = "replace-parsero-production"
+  staging    = "replace-parsero-staging"
+}
+billing_account_id = "000000-000000-000000"
+pg_version         = "POSTGRES_18"
+
+# Choose an isolated testing DNS subtree and OAuth client before enabling the API.
+api_domain         = ""
+web_origin         = ""
+csrf_cookie_domain = ""
+api_image          = ""
+enable_api_service = false
+public_api_enabled = false
+cutover_gate_confirmed = false
+workers_enabled    = false
+manage_billing_budget = false
+
+# Staging uses a separate ZONAL SQL instance to avoid paying for a second production standby.
+# All data, SQL users, secret versions, IAM identities and Firebase site remain isolated.
