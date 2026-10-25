@@ -10,6 +10,8 @@ A opção `staging_database_activation_policy` começa em `ALWAYS`. Depois de co
 
 A [documentação oficial de parada do Cloud SQL](https://docs.cloud.google.com/sql/docs/postgres/start-stop-restart-instance) informa que os dados são preservados e que armazenamento/IP continuam cobrados. Suspender a instância não equivale a custo total zero. Conferir o plano e registrar a execução; a existência dessa opção não comprova que a instância já tenha sido parada. Produção continua `ALWAYS`.
 
+A suspensão foi concluída em 25/10/2026 às 15:20 UTC: `parsero-staging-postgres` ficou `STOPPED`, com política `NEVER` e operação de atualização concluída. O banco e a configuração de backups, os demais 32 recursos e as execuções do job anterior foram preservados. O arquivo privado de variáveis staging passou a registrar `NEVER`, evitando reativação involuntária em um plano posterior; produção não foi alterada.
+
 ## Estado e fronteiras
 
 Estado conferido em 22/10/2026: a conta administrativa escolhida está autenticada no SDK e criou os projetos `parsero-prod-20261022` (Parsero Producao) e `parsero-staging-20261022` (Parsero Homologacao). O projeto padrão anterior foi preservado. O faturamento brasileiro em BRL está aberto (`open=true`) e habilitado nos dois projetos. O orçamento mensal de **R$ 1.500** foi criado, com avisos em 50%, 80% e 100%, destinatários IAM padrão e créditos promocionais excluídos da base de consumo. A existência do orçamento não comprova entrega de e-mails nem limita a cobrança.
