@@ -1,5 +1,7 @@
 # Migração do LongBeach para Google Cloud
 
+O estado da janela de produção de 25/10/2026 está no [relatório de entrega](google-cloud-entrega-2026-10-25.md), com etapas concluídas e pendentes. Os registros datados abaixo preservam o histórico da preparação e dos ensaios.
+
 ## Estado e fronteiras
 
 Estado conferido em 22/10/2026: a conta administrativa escolhida está autenticada no SDK e criou os projetos `parsero-prod-20261022` (Parsero Producao) e `parsero-staging-20261022` (Parsero Homologacao). O projeto padrão anterior foi preservado. O faturamento brasileiro em BRL está aberto (`open=true`) e habilitado nos dois projetos. O orçamento mensal de **R$ 1.500** foi criado, com avisos em 50%, 80% e 100%, destinatários IAM padrão e créditos promocionais excluídos da base de consumo. A existência do orçamento não comprova entrega de e-mails nem limita a cobrança.
