@@ -31,3 +31,11 @@ Estas regras se aplicam a todo o repositório.
 - Adicione testes para regras de domínio, autenticação, autorização, auditoria, migrations e fluxos críticos.
 - Antes de concluir uma mudança, execute os testes afetados e verifique build da API e do frontend.
 - Atualize ADRs, diagramas e runbooks quando uma decisão arquitetural ou operacional mudar.
+
+## Custos e infraestrutura
+
+- Priorize economia e reaproveitamento da infraestrutura existente, conforme orientação do proprietário em 25/10/2026.
+- Não crie ambiente de homologação ou banco adicional apenas para igualar versões. Use validação local quando ela atender à necessidade; só provisione infraestrutura adicional quando houver uma necessidade concreta.
+- Ao cancelar uma preparação, confira e remova somente os recursos temporários criados para ela, preservando dados anteriores e produção. Registre o que foi removido e os custos recorrentes que permanecerem necessários.
+- Faça backup somente quando necessário; prefira uma cópia local quando essa for a alternativa adequada. Não crie cópias hospedadas preventivamente sem necessidade.
+- A economia não autoriza compartilhar credenciais ou banco de produção com testes, apagar dados existentes ou desativar componentes necessários ao funcionamento do sistema.

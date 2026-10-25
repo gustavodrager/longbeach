@@ -1,6 +1,6 @@
 # Consulta de pagamentos sem conciliação manual
 
-Decisão do proprietário em 25/10/2026: retirar a conciliação PagBank e facilitar a consulta dos pagamentos. Implementação preparada a partir da release financeira Google `ee33a37` e da documentação `43b7def`. A publicação desta alteração é uma promoção separada.
+Decisão do proprietário em 25/10/2026: retirar a conciliação PagBank e facilitar a consulta dos pagamentos. A versão da aplicação `42f2ffeae2c7424dafecb4862e0c211664edddfa`, preparada a partir da release financeira Google `ee33a37`, foi autorizada e publicada em produção no Google em 25/10/2026. O proprietário cancelou a preparação adicional de homologação e determinou priorizar economia e reaproveitamento.
 
 ## Fluxo de consulta
 
@@ -41,3 +41,21 @@ O chamado PagBank sobre os estornos de Sandbox e a liberação oficial da integr
 A interface passou em 495 testes e no build TypeScript/Vite. A prévia no navegador usou somente dados fictícios e consultas em memória, com operações financeiras e conexões externas bloqueadas. Foram conferidos busca sem acentos, filtros combinados, totais, detalhamento de comanda sem vínculo, ausência de ações inválidas, layout em desktop/celular e falha de consulta sem exibir totais antigos como atuais. Esse ensaio visual não é uma validação da API publicada ou do PagBank.
 
 Os testes PostgreSQL verificam leitura sem gravações, fontes sem vínculo, isolamento entre usuários, ausência de duplicidade durante vínculo concorrente e quantidade constante de consultas para comandas do Bar com vários pagamentos. As rotas de conciliação removidas retornam 404 inclusive para a gestão. Os fluxos automáticos de confirmação e estorno continuam cobertos pelos testes de integração.
+
+## Publicação em produção
+
+Foram aprovados 495 testes da interface, 443 testes unitários da API e 153 testes de integração PostgreSQL selecionados, além dos builds da API e da interface. A API publicada usa o índice OCI `sha256:9c18b3d5029da31368ddac916ca9507b5a6639bc990a84b28e7faa88e4cdc17d`, revisão Cloud Run `longbeach-api-00005-7fz`, com 100% do tráfego. A versão Firebase é `sites/parsero-prod-20261022/versions/1d64e4cdfa5a9167`.
+
+A promoção atualizou as imagens da API e do job de migrations, sem executar o job ou alterar banco, integrações, permissões ou DNS de produção. As consultas públicas de saúde, exigência de autenticação e CORS foram verificadas. Os 72 arquivos públicos da interface correspondem ao artefato aprovado; os dois arquivos adicionais do manifesto hospedado são os caminhos reservados gerados pelo próprio Firebase.
+
+A tela real de [Recebimentos](https://longbeach.quebranunca.com.br/recebimentos) foi conferida com a sessão já autorizada: pesquisa, totais da seleção, detalhamento de uma comanda sem responsável vinculado e ausência da conciliação na navegação. Essa conferência foi somente de leitura, sem criar cobranças, registrar pagamentos ou solicitar estornos. O resumo continua sujeito ao escopo de contas operacionais descrito acima.
+
+## Cancelamento da preparação adicional de homologação
+
+A preparação chegou a criar um database vazio, quatro recipientes vazios de segredos e sete recursos de endereço/certificado, além do guard Terraform. Em seguida, o proprietário cancelou esse ambiente e orientou economizar o máximo possível. Os 13 recursos foram removidos por plano completo revisado; os 33 recursos anteriores de staging, o database `longbeach` e as execuções anteriores foram preservados. O IP reservado foi liberado. Não foram criados usuários SQL ou valores de credenciais, nem executadas migrations ou contas fictícias nesse database.
+
+Os três registros DNS temporários também foram retirados. A conferência da zona confirmou exatamente os 25 registros originais, incluindo os endereços de produção. Não foi necessário criar backup para excluir os recursos vazios desta preparação. A orientação de economia permanece nas regras do repositório; um novo ambiente hospedado só deve ser preparado quando houver necessidade concreta.
+
+A publicação estática temporária de staging foi desativada com um release `SITE_DISABLE`; o endereço padrão voltou a responder 404, mantendo o site e os artefatos anteriores. O processamento da instância antiga `parsero-staging-postgres`, sem API ou jobs em execução e com amostras recentes de zero conexões nos databases remanescentes, foi suspenso em 25/10/2026 às 15:20 UTC. O estado confirmado é `STOPPED`, com `activation_policy=NEVER` persistido na configuração. Instância, database `longbeach`, dados, backups existentes e job foram preservados. Armazenamento e IP anteriores continuam sujeitos a cobrança; não se trata de custo total zero.
+
+Antes de reutilizar esse staging, restaurar explicitamente `staging_database_activation_policy=ALWAYS` e conferir a necessidade do ambiente. A produção conserva `ALWAYS`, a revisão publicada e a configuração anterior. Os 33 testes de infraestrutura passaram, incluindo a recusa de suspender produção ou staging com API, workers ou databases de outros clientes habilitados.
