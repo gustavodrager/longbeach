@@ -1,6 +1,6 @@
 # Migração do LongBeach para Google Cloud
 
-O estado da janela de produção de 25/10/2026 está no [relatório de entrega](google-cloud-entrega-2026-10-25.md), com etapas concluídas e pendentes. Os registros datados abaixo preservam o histórico da preparação e dos ensaios.
+A migração foi concluída em 25/10/2026 e o Financeiro foi publicado depois, no mesmo dia. O estado da release atual, com 27 migrations, está em [Financeiro no Google Cloud](financeiro-google-cloud-2026-10-25.md); a [entrega da migração](google-cloud-entrega-2026-10-25.md) preserva o corte com 26 migrations. Os registros datados abaixo descrevem a preparação e os ensaios anteriores. Suas referências antigas não substituem o manifesto atual nem devem ser reaplicadas como configuração da release vigente.
 
 ## Estado e fronteiras
 
@@ -14,7 +14,7 @@ Os jobs concluíram com `SUCCESS`: `longbeach-migrate-wzw9l` em produção e `lo
 
 O responsável ativou a conta completa, confirmado no Console: primeiro serão usados os créditos restantes e depois haverá cobrança conforme consumo. Os **R$ 1.779,29**, originalmente disponíveis em 100% no Free Trial iniciado em 22/10/2026, foram preservados, com término em 21/01/2027. Esse benefício não corresponde aos US$ 2.000 do Google for Startups. Os custos exibidos estavam em zero, mas podem levar até 24 horas para consolidar e não comprovam ausência de consumo.
 
-As referências verificadas são distintas: API `4c6a7a0afd46ee8f5f8ecf6f3a186465a608a723` e web `42e5ac8338a921ad7dcf96dfa6065e264712c601`, conforme `deploy/google/source-revisions.json`. O deployment web de referência é `d5daa648-bb3b-4055-8225-f3ffd553a9bc`, concluído em 20/10/2026 às 17:03 UTC. A branch de migração parte da API; seu `app/dist` local não é artefato comprovado do frontend de produção. Revalidar essas referências antes da promoção; alteração de versão exige revisar o manifesto e reconstruir, sem aproveitar um dist antigo. A release de despesas/reembolsos fica para outra promoção, após estabilizar a migração.
+As referências de origem verificadas em 22/10 eram distintas: API `4c6a7a0afd46ee8f5f8ecf6f3a186465a608a723` e web `42e5ac8338a921ad7dcf96dfa6065e264712c601`. O deployment web de referência era `d5daa648-bb3b-4055-8225-f3ffd553a9bc`, concluído em 20/10/2026 às 17:03 UTC. A branch de migração partiu da API; seu `app/dist` local não era artefato comprovado do frontend de produção. Essas referências são históricas; `deploy/google/source-revisions.json` agora registra a integração publicada posteriormente. Alteração de versão exige revisar o manifesto e reconstruir, sem aproveitar um dist antigo. A release de despesas/reembolsos foi uma promoção separada, concluída conforme o registro atual acima.
 
 A administração usa a conta escolhida para a Parsero, com faturamento no Brasil e moeda BRL. O responsável preenche dados pessoais, pagamento, autenticação e termos diretamente no Google. Não copiar esses dados, senhas, tokens, dumps ou certificados para Git, logs ou chat. Usar conta individual e segundo fator; a aplicação recebe contas de serviço próprias, nunca a credencial humana.
 

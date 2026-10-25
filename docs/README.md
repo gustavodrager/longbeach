@@ -35,7 +35,8 @@
 - [`operacao/despesas-e-pagamentos.md`](operacao/despesas-e-pagamentos.md) — lançamento simplificado, baixas parciais, reembolsos e implantação
 
 - [`operacao/ci-cd-e-ambientes.md`](operacao/ci-cd-e-ambientes.md)
-- [`operacao/google-cloud.md`](operacao/google-cloud.md) — cadastro, infraestrutura, ensaio, migração e retorno; implantação ainda em preparação
+- [`operacao/google-cloud.md`](operacao/google-cloud.md) — runbook e histórico da migração concluída para Google Cloud
+- [`operacao/financeiro-google-cloud-2026-10-25.md`](operacao/financeiro-google-cloud-2026-10-25.md) — release Financeiro publicada, artefatos, validações e recuperação
 - [`operacao/deploy-railway-production.md`](operacao/deploy-railway-production.md)
 - [`operacao/checklist-app-store-google-play.md`](operacao/checklist-app-store-google-play.md)
 - [`operacao/matriz-de-riscos.md`](operacao/matriz-de-riscos.md)

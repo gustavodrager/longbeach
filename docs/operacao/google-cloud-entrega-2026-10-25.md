@@ -1,6 +1,6 @@
 # LongBeach no Google Cloud — entrega de 25/10/2026
 
-**Migração concluída em 25/10/2026**, com infraestrutura, DNS, rotinas, conferência no navegador e encerramento dos acessos temporários verificados. Os recibos finais foram registrados após **02h20, horário de São Paulo**. O banco oficial é o database canônico `longbeach`, **OID 24760**, no Google; o candidato arquivado e a origem Railway não são a base oficial. Seguem a estabilização e, em outra publicação, o módulo Financeiro. As datas anteriores no [runbook técnico](google-cloud.md) são históricas; as contagens deste documento correspondem à cópia final desta janela.
+**Migração concluída em 25/10/2026**, com infraestrutura, DNS, rotinas, conferência no navegador e encerramento dos acessos temporários verificados. Os recibos finais desse corte foram registrados após **02h20, horário de São Paulo**. O banco oficial é o database canônico `longbeach`, **OID 24760**, no Google; o candidato arquivado e a origem Railway não são a base oficial. O Financeiro foi publicado posteriormente no mesmo dia; consultar a [entrega dessa release](financeiro-google-cloud-2026-10-25.md) para as versões atuais e suas 27 migrations. As datas anteriores no [runbook técnico](google-cloud.md) são históricas; as contagens abaixo preservam a cópia final da migração, ainda com 26 migrations.
 
 ## Acessos e estrutura
 
@@ -38,7 +38,7 @@ Para usar o sistema, abrir o endereço habitual do LongBeach e entrar com a cont
 - Um refresh inicial HTTP 400 foi preservado nas evidências, junto dos três refreshes posteriores HTTP 200. Não foi determinada a causa daquele primeiro erro; os sucessos posteriores não apagam esse registro.
 - Os logs das rotinas registraram HTTP 200 em consultas GET de quatro feeds EDI reais. Isso comprova as consultas externas observadas, não a gravação ou conciliação posterior no banco.
 
-A imagem aprovada da API permanece vinculada ao commit `a5117c625caa662f64bb2359d39ba7b7a05327bd` e ao digest `sha256:a9358fea0263d451d8395c051eacd91522bf70fc7567a45116f8e43965fed2a7`. **O módulo Financeiro não faz parte desta promoção**; sua publicação continua sendo uma etapa separada.
+A imagem usada no corte da migração foi a do commit `a5117c625caa662f64bb2359d39ba7b7a05327bd`, digest `sha256:a9358fea0263d451d8395c051eacd91522bf70fc7567a45116f8e43965fed2a7`. O Financeiro não fez parte desse corte; foi publicado depois em [promoção separada](financeiro-google-cloud-2026-10-25.md), que registra a imagem vigente.
 
 ## Conferência de encerramento
 
@@ -61,11 +61,11 @@ A chave SSH criada para esta operação foi revogada e seu arquivo privado remov
 
 Separadamente, foram removidos apenas os quatro campos de credencial da configuração local do Railway CLI, preservando o identificador do usuário e todos os bytes externos ao objeto de usuário, inclusive vínculos e preferências. A limpeza local não foi usada como prova de revogação; a conferência no servidor foi registrada à parte. A autorização do Google Cloud SDK permanece intencionalmente em configuração local privada para administração da infraestrutura, fora do código.
 
-## Estabilização e próxima publicação
+## Estabilização e publicações posteriores
 
 Acompanhar erros e reinícios no Cloud Run, execução das rotinas, sucesso dos backups, armazenamento e faturamento. Revalidar os fluxos usados no dia a dia com operações reais autorizadas. Os testes realizados não comprovam capacidade sustentada para três clientes, recuperação real por PITR ou todas as integrações de pagamento. A mudança de provedor não ativa integrações bancárias que estavam desligadas.
 
-O Financeiro — despesas, pagamentos da equipe e reembolsos aos sócios — permanece para uma publicação separada após a estabilização. LavaMais e Danielli também exigem migrações próprias. Nenhuma dessas etapas foi incluída como concluída nesta entrega.
+O Financeiro — despesas, pagamentos da equipe e reembolsos aos sócios — foi publicado em [etapa separada](financeiro-google-cloud-2026-10-25.md) após este corte. LavaMais e Danielli continuam exigindo migrações próprias e não estão incluídos como concluídos nesta entrega.
 
 ## Custos e acompanhamento
 
