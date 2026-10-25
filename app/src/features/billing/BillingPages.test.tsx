@@ -278,11 +278,14 @@ it('estorno pendente mantém recebido confirmado e impede outra solicitação de
 })
 
 it('gestão somente leitura mantém comprovante e não oferece cobrança, vínculo ou estorno',async()=>{
- adminData([{...account,paid:70,payable:30,payments:[received]}])
+ adminData([{...account,paid:70,payable:0,pending:30,payments:[received,{...received,id:'resume-readonly',state:'Pending',amount:30,refunded:0,canResume:true}]}])
  mount(<BillingPage admin/>,'/recebimentos',{...manager,roles:['Student'],permissions:['finance:read']})
  const row=await screen.findByRole('article',{name:account.title})
  fireEvent.click(within(row).getByText(account.title,{selector:'summary strong'}))
- fireEvent.click(within(row).getByText('Histórico de pagamentos (1)'))
+ fireEvent.click(within(row).getByText('Histórico de pagamentos (2)'))
+ expect(within(row).getByRole('button',{name:'Consultar confirmação'})).toBeVisible()
+ expect(within(row).queryByRole('button',{name:'Retomar pagamento pendente'})).not.toBeInTheDocument()
+ expect(within(row).queryByLabelText('CPF ou CNPJ')).not.toBeInTheDocument()
  expect(within(row).getByRole('button',{name:'Baixar comprovante'})).toBeInTheDocument()
  expect(within(row).queryByRole('button',{name:'Estornar'})).not.toBeInTheDocument()
  expect(within(row).queryByRole('button',{name:'Pagar esta conta'})).not.toBeInTheDocument()
@@ -389,4 +392,110 @@ it('histórico de comanda identifica estorno total mesmo quando o pagamento perm
  expect(within(row).getByText('Estornado · R$ 80,00')).toBeVisible()
  expect(within(row).queryByText(/Estornado parcialmente/)).not.toBeInTheDocument()
  expect(within(row).queryByRole('button',{name:'Estornar'})).not.toBeInTheDocument()
+})
+
+it('gestor retoma pagamento pendente com a mesma conta e sem iniciar outra operação',async()=>{
+ const resume={...received,id:'resume-manager',state:'Pending',amount:100,refunded:0,canResume:true}
+ adminData([{...account,payable:0,pending:100,payments:[resume]}])
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ const row=await screen.findByRole('article',{name:account.title})
+ fireEvent.click(within(row).getByText(account.title,{selector:'summary strong'}))
+ fireEvent.click(within(row).getByRole('button',{name:'Retomar pagamento pendente'}))
+ expect(within(row).getByRole('heading',{name:'Retomar o mesmo pagamento'})).toBeVisible()
+ expect(within(row).getByLabelText('CPF ou CNPJ')).toBeVisible()
+ expect(vi.mocked(fetch).mock.calls.every(([,init])=>!init?.method)).toBe(true)
+})
+
+it('responsáveis informam carregamento, falha e recuperação sem simular busca vazia ou vínculo disponível',async()=>{
+ let release:((response:Response)=>void)|undefined;let loading=true;let fail=false
+ const candidates={accounts:[{id:'entry-to-link',kind:'Quadra',name:'Conta para vínculo'}],users:[{id:user.id,name:'João Silva'}],students:[]}
+ vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
+  const url=String(input)
+  if(url.endsWith('/config'))return json(config)
+  if(url.endsWith('/candidates'))return loading?new Promise<Response>(resolve=>{release=resolve}):fail?new Response('{}',{status:503}):json(candidates)
+  return json([account,{...account,id:'other-account',title:'Conta de outra pessoa',userId:'other-user'}])
+ })
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ await screen.findByRole('article',{name:account.title})
+ const search=screen.getByLabelText('Buscar conta ou responsável')
+ expect(search).toBeDisabled()
+ expect(screen.getByRole('status')).toHaveTextContent('Carregando responsáveis')
+ expect(screen.queryByLabelText('Responsável financeiro')).not.toBeInTheDocument()
+ loading=false;release!(json(candidates))
+ await waitFor(()=>expect(search).toBeEnabled())
+ fireEvent.change(search,{target:{value:'joao'}})
+ expect(screen.queryByRole('article',{name:'Conta de outra pessoa'})).not.toBeInTheDocument()
+ fireEvent.click(screen.getByText('Vincular conta ao responsável'))
+ expect(screen.getByLabelText('Responsável financeiro')).toBeVisible()
+ fail=true
+ await clients.at(-1)!.invalidateQueries({queryKey:['billing-candidates']})
+ expect(await screen.findByRole('alert')).toHaveTextContent('A busca está pausada')
+ expect(search).toBeDisabled()
+ expect(screen.getByRole('article',{name:'Conta de outra pessoa'})).toBeInTheDocument()
+ expect(screen.queryByLabelText('Responsável financeiro')).not.toBeInTheDocument()
+ fail=false
+ fireEvent.click(screen.getByRole('button',{name:'Consultar responsáveis novamente'}))
+ await waitFor(()=>expect(search).toBeEnabled())
+ expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+ expect(screen.queryByRole('article',{name:'Conta de outra pessoa'})).not.toBeInTheDocument()
+ expect(screen.getByText('Vincular conta ao responsável')).toBeInTheDocument()
+})
+
+it('vínculo vazio apresenta explicação e não oferece formulário sem contas',async()=>{
+ adminData([account])
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ await screen.findByRole('article',{name:account.title})
+ fireEvent.click(screen.getByText('Vincular conta ao responsável'))
+ expect(screen.getByText('Nenhuma conta disponível para vínculo.')).toBeVisible()
+ expect(screen.queryByLabelText('Conta')).not.toBeInTheDocument()
+ expect(screen.queryByRole('button',{name:'Confirmar vínculo'})).not.toBeInTheDocument()
+})
+
+it('gestão prioriza confirmações e vencidos e permite selecionar somente valores vencidos',async()=>{
+ adminData([
+  {...account,id:'received-account',title:'Conta recebida',paid:100,payable:0,payments:[received]},
+  {...account,id:'future-account',title:'Conta futura',dueDate:'2099-10-10'},
+  {...account,id:'overdue-account',title:'Conta atrasada',dueDate:'2000-10-10'},
+  {...account,id:'confirmation-account',title:'Conta em confirmação',dueDate:'2099-10-10',payable:0,pending:100,payments:[{...received,state:'Pending',refunded:0}]},
+ ])
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ await screen.findByRole('article',{name:'Conta atrasada'})
+ const rows=within(screen.getByRole('region',{name:'Contas e recebimentos'})).getAllByRole('article').filter(row=>row.hasAttribute('aria-label'))
+ expect(rows.map(row=>row.getAttribute('aria-label'))).toEqual(['Conta em confirmação','Conta atrasada','Conta futura','Conta recebida'])
+ expect(within(rows[1]).getByText(/Vencido em 10\/10\/2000/)).toBeVisible()
+ fireEvent.change(screen.getByLabelText('Situação'),{target:{value:'overdue'}})
+ expect(screen.getAllByRole('article')).toHaveLength(1)
+ expect(screen.getByRole('article',{name:'Conta atrasada'})).toBeInTheDocument()
+ expect(screen.getByRole('region',{name:'Resumo dos recebimentos da seleção'})).toHaveTextContent('Saldo a receberR$ 100,00')
+})
+
+it('mostra o último pagamento confirmado em São Paulo sem usar tentativas ou inventar datas',async()=>{
+ const current={...account,paid:80,payable:20,payments:[
+  {...received,id:'later-pending',state:'Pending',paidAtUtc:'2026-10-28T12:00:00Z',refunded:0},
+  {...received,id:'older-approved',paidAtUtc:'2026-10-20T12:00:00Z',refunded:0},
+  {...received,id:'latest-approved',paidAtUtc:'2026-10-25T01:30:00Z',refunded:0},
+  {...received,id:'invalid-approved',paidAtUtc:'não é uma data',refunded:0},
+ ]}
+ adminData([current,{...account,id:'manual-receipt',title:'Pagamento sem data',isLinked:false,paid:100,payable:0,payments:[]}])
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ const row=await screen.findByRole('article',{name:account.title})
+ expect(within(row).getByText('Último pagamento: 24/10/2026, 22:30')).toBeVisible()
+ expect(within(screen.getByRole('article',{name:'Pagamento sem data'})).queryByText(/Último pagamento/)).not.toBeInTheDocument()
+ fireEvent.click(within(row).getByText(account.title,{selector:'summary strong'}))
+ fireEvent.click(within(row).getByText('Histórico de pagamentos (4)'))
+ expect(within(row).getByText('Pix · Pago em 24/10/2026, 22:30')).toBeVisible()
+})
+
+it('orienta a renovar uma sessão expirada e não mantém ações de vínculo disponíveis',async()=>{
+ vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
+  const url=String(input)
+  if(url.endsWith('/config'))return json(config)
+  if(url.endsWith('/candidates'))return json({accounts:[{id:'entry-a',kind:'Quadra',name:'Conta'}],users:[{id:user.id,name:'Aluno teste'}],students:[]})
+  return new Response(JSON.stringify({message:'Não autorizado.'}),{status:401,headers:{'Content-Type':'application/json'}})
+ })
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ expect(await screen.findByText(/Sua sessão expirou/)).toBeVisible()
+ expect(screen.getByRole('link',{name:'Entrar novamente'})).toHaveAttribute('href','/login')
+ expect(screen.queryByText('Vincular conta ao responsável')).not.toBeInTheDocument()
+ expect(screen.queryByRole('region',{name:'Resumo dos recebimentos da seleção'})).not.toBeInTheDocument()
 })
