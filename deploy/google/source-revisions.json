@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "verified_at": "2026-10-25",
-  "api_source_commit": "ee33a37ed9f3df3458ddae1a2b031a9a8434d014",
-  "web_source_commit": "ee33a37ed9f3df3458ddae1a2b031a9a8434d014",
+  "api_source_commit": "42f2ffeae2c7424dafecb4862e0c211664edddfa",
+  "web_source_commit": "42f2ffeae2c7424dafecb4862e0c211664edddfa",
   "production_api_origin": "https://api.longbeach.quebranunca.com.br",
   "production_web_origin": "https://longbeach.quebranunca.com.br",
-  "purpose": "Finance release integrated over the Google production baseline, preserving the published Bar/monthly-group frontend, background-job gate and current cash JSON-null fix."
+  "purpose": "Approved payments simplification release for production and staging: retire manual PagBank matching and expose recorded receipts, payable amounts and pending confirmations while preserving financial history, automatic confirmation, provider flags and the Google production baseline."
 }
