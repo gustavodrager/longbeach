@@ -2,8 +2,8 @@
   "schema_version": 1,
   "verified_at": "2026-10-25",
   "api_source_commit": "42f2ffeae2c7424dafecb4862e0c211664edddfa",
-  "web_source_commit": "42f2ffeae2c7424dafecb4862e0c211664edddfa",
+  "web_source_commit": "e30a43822cc69ff49b414d69039df6e6d61bfb6d",
   "production_api_origin": "https://api.longbeach.quebranunca.com.br",
   "production_web_origin": "https://longbeach.quebranunca.com.br",
-  "purpose": "Approved production payments release: retire manual PagBank matching and expose recorded receipts, payable amounts and pending confirmations while preserving financial history, automatic confirmation and provider flags. Additional hosted homologation was cancelled by the owner on 2026-10-25 to prioritize cost savings; use local validation unless hosted infrastructure is necessary."
+  "purpose": "Production receipts review: prioritize pending confirmations and overdue accounts, show Sao Paulo payment timestamps and last query time, correct refund receipts, and restrict payment actions to writers. API remains on the approved payments release. Reuse existing production hosting; no additional hosted homologation or database."
 }

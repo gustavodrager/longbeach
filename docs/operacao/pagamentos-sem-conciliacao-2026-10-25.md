@@ -50,6 +50,18 @@ A promoção atualizou as imagens da API e do job de migrations, sem executar o 
 
 A tela real de [Recebimentos](https://longbeach.quebranunca.com.br/recebimentos) foi conferida com a sessão já autorizada: pesquisa, totais da seleção, detalhamento de uma comanda sem responsável vinculado e ausência da conciliação na navegação. Essa conferência foi somente de leitura, sem criar cobranças, registrar pagamentos ou solicitar estornos. O resumo continua sujeito ao escopo de contas operacionais descrito acima.
 
+## Revisão da consulta em produção
+
+A revisão do frontend `e30a43822cc69ff49b414d69039df6e6d61bfb6d` foi publicada em 25/10/2026 às 22:47 UTC, na versão Firebase `sites/parsero-prod-20261022/versions/2fde9a85bc062014`, release `sites/parsero-prod-20261022/channels/live/releases/1792968427520000`. O artefato tem SHA256 `4518f9ae3d2a2bb19a225e89d25fe4952804fd2f54126cee63adbfc8cc8b1585`. A API permanece em `42f2ffe`, revisão `longbeach-api-00005-7fz`; não houve alteração de banco, migrations ou infraestrutura.
+
+A lista passa a priorizar pagamentos/estornos em confirmação, contas vencidas e contas a receber. O filtro Vencidos considera somente saldo exigível com vencimento anterior ao dia atual de São Paulo, excluindo cancelamentos. As demais contas preservam o histórico; as recebidas usam as datas disponíveis para mostrar os pagamentos mais recentes primeiro. A ordenação não altera os dados nem executa conciliação.
+
+O cartão mostra o último pagamento confirmado quando sua data existe. Histórico e comprovante usam o horário de São Paulo, enquanto vencimentos permanecem datas civis. Comprovantes distinguem estornos confirmados parciais/totais e pedidos ainda em confirmação. Não é fabricada uma data para pagamentos informados diretamente no lançamento.
+
+A consulta exibe a hora da última leitura. Falhas na lista de responsáveis têm aviso e nova tentativa, pausando explicitamente a pesquisa por nome e o vínculo até recuperar a consulta. Uma sessão expirada orienta a entrar novamente. Retomada e checkout administrativos exigem permissão de escrita; consulta de confirmação e comprovantes permanecem acessíveis conforme a permissão de leitura.
+
+A suíte frontend passou com 519 testes antes do ajuste final da sessão; os 71 testes focados da versão final e o build TypeScript/Vite passaram. A prévia local conferiu filtros, totais, ordem e leitura em tela ampla e celular, somente com dados fictícios e rotas locais de leitura. Os 72 arquivos públicos publicados, suas rotas, hashes e cabeçalhos foram comparados com o artefato. Busca, filtro Vencidos, origem e histórico foram conferidos também com os dados de produção, sem operações financeiras. Nenhum novo ambiente ou banco de homologação foi criado.
+
 ## Cancelamento da preparação adicional de homologação
 
 A preparação chegou a criar um database vazio, quatro recipientes vazios de segredos e sete recursos de endereço/certificado, além do guard Terraform. Em seguida, o proprietário cancelou esse ambiente e orientou economizar o máximo possível. Os 13 recursos foram removidos por plano completo revisado; os 33 recursos anteriores de staging, o database `longbeach` e as execuções anteriores foram preservados. O IP reservado foi liberado. Não foram criados usuários SQL ou valores de credenciais, nem executadas migrations ou contas fictícias nesse database.
