@@ -15,7 +15,7 @@ resource "google_cloud_run_v2_service" "api" {
     timeout                          = "300s"
     max_instance_request_concurrency = 40
     scaling {
-      min_instance_count = 1
+      min_instance_count = local.homologation_enabled ? 0 : 1
       max_instance_count = 1
     }
     volumes {
@@ -27,7 +27,7 @@ resource "google_cloud_run_v2_service" "api" {
       ports { container_port = 8080 }
       resources {
         limits            = { cpu = "1", memory = "2Gi" }
-        cpu_idle          = false
+        cpu_idle          = local.homologation_enabled
         startup_cpu_boost = true
       }
       dynamic "env" {
@@ -174,7 +174,7 @@ resource "google_cloud_run_v2_job" "migration" {
 # Serverless NEG traffic is accepted only through this managed HTTPS load balancer.
 # DNS authorization allows issuing the new TLS certificate before changing the existing API A record.
 resource "google_compute_global_address" "api" {
-  count      = local.app_ready ? 1 : 0
+  count      = local.endpoints_ready ? 1 : 0
   project    = local.project_id
   name       = "longbeach-api-ip"
   ip_version = "IPV4"
@@ -182,7 +182,7 @@ resource "google_compute_global_address" "api" {
 }
 
 resource "google_certificate_manager_dns_authorization" "api" {
-  count      = local.app_ready ? 1 : 0
+  count      = local.endpoints_ready ? 1 : 0
   project    = local.project_id
   name       = "longbeach-api-dns"
   domain     = var.api_domain
@@ -191,7 +191,7 @@ resource "google_certificate_manager_dns_authorization" "api" {
 }
 
 resource "google_certificate_manager_certificate" "api" {
-  count   = local.app_ready ? 1 : 0
+  count   = local.endpoints_ready ? 1 : 0
   project = local.project_id
   name    = "longbeach-api-tls"
   managed {
@@ -201,14 +201,14 @@ resource "google_certificate_manager_certificate" "api" {
 }
 
 resource "google_certificate_manager_certificate_map" "api" {
-  count      = local.app_ready ? 1 : 0
+  count      = local.endpoints_ready ? 1 : 0
   project    = local.project_id
   name       = "longbeach-api-certificates"
   depends_on = [google_project_service.required]
 }
 
 resource "google_certificate_manager_certificate_map_entry" "api" {
-  count        = local.app_ready ? 1 : 0
+  count        = local.endpoints_ready ? 1 : 0
   project      = local.project_id
   name         = "longbeach-api-host"
   map          = google_certificate_manager_certificate_map.api[0].name
@@ -247,7 +247,7 @@ resource "google_compute_url_map" "api" {
 }
 
 resource "google_compute_ssl_policy" "api" {
-  count           = local.app_ready ? 1 : 0
+  count           = local.endpoints_ready ? 1 : 0
   project         = local.project_id
   name            = "longbeach-api-tls12"
   min_tls_version = "TLS_1_2"

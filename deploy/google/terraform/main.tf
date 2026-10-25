@@ -1,19 +1,22 @@
 locals {
-  project_id = var.project_ids[var.environment]
-  region     = "southamerica-east1"
-  app_ready  = var.api_image != "" && var.enable_api_service
-  site_id    = var.firebase_site_id != "" ? var.firebase_site_id : local.project_id
+  project_id            = var.project_ids[var.environment]
+  region                = "southamerica-east1"
+  app_ready             = var.api_image != "" && var.enable_api_service
+  endpoints_ready       = local.app_ready || (local.homologation_enabled && var.enable_homologation_endpoints)
+  runtime_web_origin    = local.homologation_enabled && !local.homologation_credentials_ready ? "" : var.web_origin
+  runtime_cookie_domain = local.homologation_enabled && !local.homologation_credentials_ready ? "" : var.csrf_cookie_domain
+  site_id               = var.firebase_site_id != "" ? var.firebase_site_id : local.project_id
   databases = toset(concat(["longbeach"],
     var.enable_lavamais_database ? ["lavamais"] : [],
     var.enable_danielli_database ? ["danielli"] : []
   ))
   core_secret_suffixes = toset(["db-runtime-connection", "db-migration-connection", "jwt-signing-key"])
-  secret_suffixes      = setunion(local.core_secret_suffixes, toset([for s in values(var.extra_runtime_secrets) : s.secret_suffix]))
-  runtime_secrets = merge({
+  secret_suffixes      = setunion(local.core_secret_suffixes, local.homologation_secret_suffixes, toset([for s in values(var.extra_runtime_secrets) : s.secret_suffix]))
+  runtime_secrets = local.homologation_credentials_ready ? local.homologation_runtime_secrets : merge({
     ConnectionStrings__LongBeach    = { secret_suffix = "db-runtime-connection", version = var.db_runtime_secret_version }
     Authentication__Jwt__SigningKey = { secret_suffix = "jwt-signing-key", version = var.jwt_secret_version }
   }, var.extra_runtime_secrets)
-  migration_secrets = {
+  migration_secrets = local.homologation_credentials_ready ? local.homologation_migration_secrets : {
     ConnectionStrings__LongBeach    = { secret_suffix = "db-migration-connection", version = var.db_migration_secret_version }
     Authentication__Jwt__SigningKey = { secret_suffix = "jwt-signing-key", version = var.jwt_secret_version }
   }
@@ -25,8 +28,8 @@ locals {
     Bootstrap__InitialOwner__Enabled                       = "false"
     Authentication__Google__ProvisionAllowedEmailsAsOwners = "false"
     BackgroundJobs__Enabled                                = tostring(var.workers_enabled)
-    Cors__AllowedOrigins__0                                = var.web_origin
-    Authentication__CookieDomain                           = var.csrf_cookie_domain
+    Cors__AllowedOrigins__0                                = local.runtime_web_origin
+    Authentication__CookieDomain                           = local.runtime_cookie_domain
     ReverseProxy__TrustAllForwarders                       = "true"
   }
   # .NET configuration keys are case-insensitive, even though Terraform map keys are not.
@@ -34,7 +37,7 @@ locals {
     [for name in keys(local.safety_environment) : lower(name)],
     ["connectionstrings__longbeach", "authentication__jwt__signingkey"]
   ))
-  api_environment       = merge(var.runtime_environment, local.safety_environment)
+  api_environment       = merge(var.runtime_environment, local.homologation_environment, local.safety_environment)
   migration_environment = merge(local.api_environment, { BackgroundJobs__Enabled = "false" })
   apis = toset([
     "artifactregistry.googleapis.com", "billingbudgets.googleapis.com", "cloudresourcemanager.googleapis.com",
