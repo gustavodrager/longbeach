@@ -54,6 +54,13 @@ resource "terraform_data" "deployment_guards" {
       condition     = !var.public_api_enabled || (local.app_ready && var.cutover_gate_confirmed)
       error_message = "Public invocation requires the prepared API and confirmation of backup, validation and the approved cutover window."
     }
+    precondition {
+      condition = var.environment != "staging" || var.staging_database_activation_policy != "NEVER" || (
+        !var.enable_api_service && !var.public_api_enabled && !var.workers_enabled &&
+        !var.enable_lavamais_database && !var.enable_danielli_database
+      )
+      error_message = "Stop only unused LongBeach staging: API, public invocation, workers and other client databases must remain disabled."
+    }
   }
 }
 
@@ -75,6 +82,7 @@ resource "google_sql_database_instance" "shared" {
     edition                     = "ENTERPRISE"
     tier                        = "db-custom-1-4096"
     availability_type           = var.environment == "production" ? "REGIONAL" : "ZONAL"
+    activation_policy           = var.environment == "staging" ? var.staging_database_activation_policy : "ALWAYS"
     disk_type                   = "PD_SSD"
     disk_size                   = 20
     disk_autoresize             = true

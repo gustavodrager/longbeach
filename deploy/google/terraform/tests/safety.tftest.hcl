@@ -56,6 +56,63 @@ run "staging_uses_separate_project" {
   }
 }
 
+run "unused_staging_can_stop_compute_without_removing_data" {
+  command = plan
+  variables {
+    environment                        = "staging"
+    staging_database_activation_policy = "NEVER"
+  }
+  assert {
+    condition = (google_sql_database_instance.shared.settings[0].activation_policy == "NEVER" &&
+      google_sql_database_instance.shared.deletion_protection &&
+      google_sql_database_instance.shared.settings[0].backup_configuration[0].enabled &&
+      length(google_sql_database.client) == 1 && google_sql_database.client["longbeach"].name == "longbeach" &&
+    length(google_cloud_run_v2_service.api) == 0)
+    error_message = "Stopping unused staging must preserve its instance, existing database and backup configuration."
+  }
+}
+
+run "reject_stopped_staging_with_api" {
+  command = plan
+  variables {
+    environment                        = "staging"
+    staging_database_activation_policy = "NEVER"
+    enable_api_service                 = true
+    api_image                          = "southamerica-east1-docker.pkg.dev/parsero-test-staging/longbeach/api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    api_domain                         = "api.staging.example.com"
+    web_origin                         = "https://staging.example.com"
+    csrf_cookie_domain                 = "staging.example.com"
+  }
+  expect_failures = [terraform_data.deployment_guards]
+}
+
+run "reject_stopped_staging_with_workers" {
+  command = plan
+  variables {
+    environment                        = "staging"
+    staging_database_activation_policy = "NEVER"
+    workers_enabled                    = true
+    source_workers_disabled_confirmed  = true
+  }
+  expect_failures = [terraform_data.deployment_guards]
+}
+
+run "reject_stopping_production" {
+  command = plan
+  variables { staging_database_activation_policy = "NEVER" }
+  expect_failures = [var.staging_database_activation_policy]
+}
+
+run "reject_stopping_another_clients_staging_database" {
+  command = plan
+  variables {
+    environment                        = "staging"
+    staging_database_activation_policy = "NEVER"
+    enable_lavamais_database           = true
+  }
+  expect_failures = [terraform_data.deployment_guards]
+}
+
 run "migration_can_be_prepared_before_api" {
   command = plan
   variables {

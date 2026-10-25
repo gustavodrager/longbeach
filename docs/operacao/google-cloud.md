@@ -2,6 +2,14 @@
 
 A migração foi concluída em 25/10/2026 e o Financeiro foi publicado depois, no mesmo dia. O estado da release atual, com 27 migrations, está em [Financeiro no Google Cloud](financeiro-google-cloud-2026-10-25.md); a [entrega da migração](google-cloud-entrega-2026-10-25.md) preserva o corte com 26 migrations. Os registros datados abaixo descrevem a preparação e os ensaios anteriores. Suas referências antigas não substituem o manifesto atual nem devem ser reaplicadas como configuração da release vigente.
 
+## Economia de staging
+
+Em 25/10/2026, o responsável cancelou a preparação de uma homologação adicional. Foram removidos somente os treze recursos novos dessa preparação; o banco `longbeach`, a instância staging, seus backups, o job anterior e produção foram preservados. O módulo de banco/credenciais/preparação exclusivos foi retirado do código. Validações locais têm prioridade quando atendem à necessidade.
+
+A opção `staging_database_activation_policy` começa em `ALWAYS`. Depois de comprovar que staging está sem consumidores, um plano separado com `NEVER` pode suspender sua instância sem excluir dados. O módulo recusa esse modo em produção e bloqueia API, invocação pública, workers ou outros clientes enquanto staging estiver suspenso. O job de migração anterior é preservado, sem execução automática; antes de reutilizar staging ou executar qualquer job, restaurar `ALWAYS` e confirmar a instância pronta. Não há job de preparação de homologação no módulo.
+
+A [documentação oficial de parada do Cloud SQL](https://docs.cloud.google.com/sql/docs/postgres/start-stop-restart-instance) informa que os dados são preservados e que armazenamento/IP continuam cobrados. Suspender a instância não equivale a custo total zero. Conferir o plano e registrar a execução; a existência dessa opção não comprova que a instância já tenha sido parada. Produção continua `ALWAYS`.
+
 ## Estado e fronteiras
 
 Estado conferido em 22/10/2026: a conta administrativa escolhida está autenticada no SDK e criou os projetos `parsero-prod-20261022` (Parsero Producao) e `parsero-staging-20261022` (Parsero Homologacao). O projeto padrão anterior foi preservado. O faturamento brasileiro em BRL está aberto (`open=true`) e habilitado nos dois projetos. O orçamento mensal de **R$ 1.500** foi criado, com avisos em 50%, 80% e 100%, destinatários IAM padrão e créditos promocionais excluídos da base de consumo. A existência do orçamento não comprova entrega de e-mails nem limita a cobrança.

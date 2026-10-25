@@ -36,6 +36,18 @@ variable "pg_version" {
   }
 }
 
+variable "staging_database_activation_policy" {
+  type        = string
+  default     = "ALWAYS"
+  description = "Set NEVER only for verified unused staging to stop instance compute while preserving data and prior backups. Restore ALWAYS before using the environment. Production always remains ALWAYS."
+  validation {
+    condition = contains(["ALWAYS", "NEVER"], var.staging_database_activation_policy) && (
+      var.staging_database_activation_policy == "ALWAYS" || var.environment == "staging"
+    )
+    error_message = "Only staging may use NEVER; production must remain ALWAYS."
+  }
+}
+
 variable "api_image" {
   type        = string
   default     = ""
