@@ -2,8 +2,6 @@
 
 A migração foi concluída em 25/10/2026 e o Financeiro foi publicado depois, no mesmo dia. O estado da release atual, com 27 migrations, está em [Financeiro no Google Cloud](financeiro-google-cloud-2026-10-25.md); a [entrega da migração](google-cloud-entrega-2026-10-25.md) preserva o corte com 26 migrations. Os registros datados abaixo descrevem a preparação e os ensaios anteriores. Suas referências antigas não substituem o manifesto atual nem devem ser reaplicadas como configuração da release vigente.
 
-A homologação PagBank usa o projeto staging e o banco fictício exclusivo `longbeach_pagbank_homolog`, preservando o banco dos ensaios anteriores. Os hosts, o JWT novo, as fases de fundação/TLS/preparação/API privada e os controles de integrações estão no [runbook de homologação Google](homologacao-google-pagbank.md). Sua opção Terraform começa desabilitada e não altera os defaults de produção.
-
 ## Estado e fronteiras
 
 Estado conferido em 22/10/2026: a conta administrativa escolhida está autenticada no SDK e criou os projetos `parsero-prod-20261022` (Parsero Producao) e `parsero-staging-20261022` (Parsero Homologacao). O projeto padrão anterior foi preservado. O faturamento brasileiro em BRL está aberto (`open=true`) e habilitado nos dois projetos. O orçamento mensal de **R$ 1.500** foi criado, com avisos em 50%, 80% e 100%, destinatários IAM padrão e créditos promocionais excluídos da base de consumo. A existência do orçamento não comprova entrega de e-mails nem limita a cobrança.

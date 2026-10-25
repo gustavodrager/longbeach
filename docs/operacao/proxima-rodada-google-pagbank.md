@@ -2,9 +2,9 @@
 
 Preparação inicial em 10/10/2026. Atualização: Google já configurado e testado com duas contas reais na prévia local; pagamentos online permanecem desativados. Para o estado vigente, consultar `homologacao-local.md` e `fechamento-homologacao-local-2026-10-10.md`. Os passos Google abaixo são roteiro de referência, não pendências a repetir.
 
-## Decisão vigente: homologação Google isolada
+## Decisão vigente: homologação local
 
-Em 25/10/2026, o responsável autorizou a homologação no Google Cloud, com banco, credenciais, JWT e dados fictícios exclusivos. Seguir [Homologação PagBank no Google Cloud](homologacao-google-pagbank.md) para hosts, fases, TLS/DNS, login fictício e controles externos. O ambiente staging do Railway não é destino desta publicação. Os roteiros locais abaixo e seus resultados anteriores permanecem como referência histórica; não substituem as validações do ambiente hospedado.
+O usuário escolheu manter aplicação e banco no computador. O ambiente staging do Railway continuará vazio. Seguir `homologacao-local.md`. Um endereço HTTPS externo para notificações não é requisito para manter a prévia; é uma pendência específica do ensaio de callbacks PagBank, cuja exposição temporária depende de aprovação própria. Não há autorização para publicar ou provisionar infraestrutura hospedada.
 
 ## Entrada necessária
 

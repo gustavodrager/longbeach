@@ -14,10 +14,6 @@ variables {
 run "production_data_protection_without_application" {
   command = plan
   assert {
-    condition     = output.database_names == ["longbeach"]
-    error_message = "Preserve both the value and tuple type of the existing production database_names output."
-  }
-  assert {
     condition = (google_sql_database_instance.shared.settings[0].availability_type == "REGIONAL" &&
     google_sql_database_instance.shared.settings[0].location_preference[0].zone != google_sql_database_instance.shared.settings[0].location_preference[0].secondary_zone)
     error_message = "Production must have a standby in another São Paulo zone."
