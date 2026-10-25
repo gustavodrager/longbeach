@@ -33,7 +33,13 @@ public static class BarEndpoints
         bar.MapPost("/counts/{id:guid}/approve", (Guid id, InventoryApprovalInput i, HttpContext h, IBarStock s, CancellationToken ct) => s.Approve(id,i.Reason,Actor(h),ct,i.ZeroUncounted)).RequireAuthorization(SystemPermissions.BarSupervise);
         bar.MapGet("/cash/history", (string? search, string? state, int? page, IBarCash s, CancellationToken ct) => s.History(search,state,page ?? 1,ct)).RequireAuthorization(SystemPermissions.BarSupervise);
         bar.MapGet("/cash/sessions/{id:guid}/details", (Guid id, IBarCash s, CancellationToken ct) => s.Details(id,ct)).RequireAuthorization(SystemPermissions.BarSupervise);
-        bar.MapGet("/cash/current", async (IBarCash s, CancellationToken ct) => Results.Json(await s.Current(ct))).RequireAuthorization(SystemPermissions.BarCashOperate);
+        bar.MapGet("/cash/current", async (IBarCash s, CancellationToken ct) =>
+        {
+            var current = await s.Current(ct);
+            return current is null
+                ? (IResult)Results.Text("null", "application/json", statusCode: StatusCodes.Status200OK)
+                : Results.Json(current);
+        }).RequireAuthorization(SystemPermissions.BarCashOperate);
         bar.MapGet("/cash/registers", (IBarCash s, CancellationToken ct) => s.Registers(ct)).RequireAuthorization(SystemPermissions.BarCashOperate);
         bar.MapPost("/cash/registers", (LocationInput i, IBarCash s, CancellationToken ct) => s.CreateRegister(i.Name,ct)).RequireAuthorization(SystemPermissions.BarSupervise);
         bar.MapGet("/cash/sessions", (HttpContext h, IBarCash s, CancellationToken ct) => s.Sessions(Actor(h),Has(h,SystemPermissions.BarSupervise)||Has(h,SystemPermissions.BarFinanceRead),ct)).RequireAuthorization(SystemPermissions.BarCashOperate);
