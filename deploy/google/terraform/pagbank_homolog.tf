@@ -124,6 +124,10 @@ resource "terraform_data" "homologation_guards" {
       error_message = "Do not override homologation controls, including through differently cased .NET environment names."
     }
     precondition {
+      condition     = alltrue([for name in keys(var.runtime_environment) : !startswith(lower(name), "cors__allowedorigins__")])
+      error_message = "Homologation CORS must use only its canonical web origin; do not inject additional indices or differently cased CORS names."
+    }
+    precondition {
       condition     = !var.public_api_enabled || var.homologation_ready_for_public
       error_message = "Public homologation requires explicit verified readiness; a prepared DNS record alone is insufficient."
     }

@@ -188,6 +188,18 @@ run "reject_case_insensitive_financial_flag_override" {
   expect_failures = [terraform_data.homologation_guards]
 }
 
+run "reject_extra_lowercase_cors_origin" {
+  command = plan
+  variables { runtime_environment = { cors__allowedorigins__1 = "https://unexpected.invalid" } }
+  expect_failures = [terraform_data.homologation_guards]
+}
+
+run "reject_extra_mixed_case_cors_origin" {
+  command = plan
+  variables { runtime_environment = { cOrS__AlLoWeDoRiGiNs__1 = "https://unexpected.invalid" } }
+  expect_failures = [terraform_data.homologation_guards]
+}
+
 run "reject_public_access_before_private_validation" {
   command = plan
   variables {
