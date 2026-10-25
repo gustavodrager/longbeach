@@ -33,6 +33,6 @@ public static class BillingWriteGuard
         account ??= await db.Set<BillingAccount>().SingleOrDefaultAsync(x=>x.Kind=="Quadra"&&x.SourceId==id,ct);
         if(account is not null&&await db.Set<BillingPayment>().AnyAsync(x=>x.AccountId==account.Id&&x.State!="Canceled",ct))throw new BarRuleException("Este lançamento tem pagamento integrado. Use consulta ou estorno para alterar o recebimento.");
         var (kind,source)=await BillingService.BillingSource(db,old,ct);
-        if(await db.Set<BillingSubscription>().AnyAsync(x=>x.SourceKind==kind&&x.SourceId==source&&x.State!="CANCELED"&&x.State!="EXPIRED"&&x.State!="Rejected",ct))throw new BarRuleException("Há assinatura vinculada. Cancele e concilie antes de alterar a cobrança.");
+        if(await db.Set<BillingSubscription>().AnyAsync(x=>x.SourceKind==kind&&x.SourceId==source&&x.State!="CANCELED"&&x.State!="EXPIRED"&&x.State!="Rejected",ct))throw new BarRuleException("Há assinatura vinculada. Cancele a assinatura e aguarde a confirmação antes de alterar a cobrança.");
     }
 }

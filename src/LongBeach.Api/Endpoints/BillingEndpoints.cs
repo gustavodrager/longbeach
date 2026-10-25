@@ -25,8 +25,6 @@ public static class BillingEndpoints
         admin.MapPost("/accounts/{id:guid}/payments", (Guid id, PayAccountInput i, HttpContext h, IBilling s, CancellationToken ct) => s.Pay(id, i, Actor(h), false, ct)).RequireAuthorization(SystemPermissions.FinanceWrite);
         admin.MapPost("/accounts/{id:guid}/payments/{paymentId:guid}/refresh", (Guid id, Guid paymentId, HttpContext h, IBilling s, CancellationToken ct) => s.Refresh(id, paymentId, Actor(h), false, ct));
         admin.MapPost("/accounts/{id:guid}/payments/{paymentId:guid}/refund", (Guid id, Guid paymentId, RefundInput i, HttpContext h, IBilling s, CancellationToken ct) => s.Refund(id, paymentId, i, Actor(h), ct)).RequireAuthorization(SystemPermissions.FinanceWrite);
-        admin.MapGet("/settlements", (IBilling s, CancellationToken ct) => s.SettlementCandidates(ct));
-        admin.MapPost("/accounts/{id:guid}/settlements", (Guid id, SettlementInput i, HttpContext h, IBilling s, CancellationToken ct) => s.Settle(id, i, Actor(h), ct)).RequireAuthorization(SystemPermissions.FinanceWrite);
         endpoints.MapPost("/api/v1/integrations/pagbank/subscriptions/webhook", async (HttpContext h, IBilling s, CancellationToken ct) =>
         {
             if (h.Request.ContentLength > 65536) return Results.StatusCode(413);

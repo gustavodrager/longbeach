@@ -491,7 +491,7 @@ it('traduz todos os eventos de histórico enviados pela API de comandas',async()
   expect(screen.getByText('Comanda aberta')).toBeInTheDocument()
   expect(screen.getByText('Pedido recebido, aguardando aceite')).toBeInTheDocument()
   expect(screen.getByText('Acesso do cliente encerrado')).toBeInTheDocument()
-  expect(screen.getByText('Taxa conciliada')).toBeInTheDocument()
+  expect(screen.getByText('Taxa registrada')).toBeInTheDocument()
 })
 
 it.each(['cliente'])('Pix parcial confirmado pelo POST bloqueia nova cobrança quando consulta falha: %s',async scene=>{

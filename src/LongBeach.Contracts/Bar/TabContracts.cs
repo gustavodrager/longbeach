@@ -11,7 +11,6 @@ public sealed record TabPaymentInput(Guid OperationId, string Method, decimal Am
     decimal? Tendered = null, bool CardApproved = false, string? Authorization = null,
     string? Name = null, string? Email = null, string? TaxId = null, string? EncryptedCard = null, string? TerminalType = null, bool TerminalApproved = false);
 public sealed record TabAdjustmentInput(Guid OperationId, string Kind, decimal Amount, string Reason);
-public sealed record TabReconcileInput(Guid OperationId, decimal Fee, string Reason);
 public sealed record TabRefundInput(Guid OperationId, decimal Amount, string Reason, bool ManualConfirmed = false);
 public sealed record TabAccessInput(Guid OperationId);
 public sealed record TabAccessResponse(Guid TabId, string Token, DateTimeOffset ExpiresAtUtc);

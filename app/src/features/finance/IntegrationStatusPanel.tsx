@@ -32,6 +32,6 @@ export function IntegrationStatusPanel() {
       {item.failureCode && <p role="alert">A atualização requer atenção. Referência: {item.failureCode}</p>}
       {item.requirements && item.requirements.length > 0 && <><h4>Pendências e próximos passos</h4><ul>{item.requirements.map(requirement => <li key={requirement}>{requirement}</li>)}</ul></>}
     </article>)}
-    <div className="arena-actions"><Link to="/financeiro/historico?c6=1#c6-extrato">Conferir extrato C6</Link><Link to="/importacoes">Conferir arquivos do PagVendas</Link><Link to="/recebimentos/conciliacao">Conciliar recebimentos</Link><Link to="/bar/estoque">Conferir estoque do bar</Link></div>
+    <div className="arena-actions"><Link to="/financeiro/historico?c6=1#c6-extrato">Conferir extrato C6</Link><Link to="/importacoes">Conferir arquivos do PagVendas</Link><Link to="/recebimentos">Ver pagamentos</Link><Link to="/bar/estoque">Conferir estoque do bar</Link></div>
   </section>
 }

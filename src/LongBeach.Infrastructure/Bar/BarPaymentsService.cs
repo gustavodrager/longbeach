@@ -93,13 +93,6 @@ public sealed class BarPaymentsService(LongBeachDbContext db,IPaymentGateway gat
         }
         await Refresh(payment.Id,ct);db.Add(new PaymentWebhookInbox(hash,orderId!));await db.SaveChangesAsync(ct);return true;
     }
-    public async Task<object> Reconcile(Guid paymentId,ReconcileInput input,Guid actor,CancellationToken ct)
-    {
-        var payment=await db.Set<BarPayment>().SingleOrDefaultAsync(x=>x.Id==paymentId,ct)??throw new BarRuleException("Pagamento inexistente.");
-        if(payment.Method=="Pix" && payment.ProviderId is not null){var remote=await gateway.Get(payment.ProviderId,ct);Validate(payment,remote);if(remote.Refunded>0||remote.State!="PAID")throw new BarRuleException("Pagamento divergente no PagBank; revise o estorno antes de conciliar.");}
-        var reconciliation=new PaymentReconciliation(payment,input.Fee,input.Net,input.Reason,actor);db.Add(reconciliation);
-        if(input.Fee>0)db.Add(new BarEvent("PaymentFeeRegistered",paymentId,input.Fee));await db.SaveChangesAsync(ct);return reconciliation;
-    }
     public async Task<object> Dashboard(DateTimeOffset? fromUtc,DateTimeOffset? toUtc,CancellationToken ct)
     {
         var zone=TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");

@@ -1,9 +1,9 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { BarOverviewPage, BarReportPage } from './ReportPages'
+import { BarOverviewPage, BarReportPage, BarSourcePage } from './ReportPages'
 
-vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'report-test', permissions: ['bar:finance:read'] } }) }))
+vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'report-test', permissions: ['bar:finance:read', 'bar:payments:reconcile'] } }) }))
 vi.mock('../bar/StockValuation', () => ({ StockValuation: () => <section aria-label="Valor do estoque">Projeção do estoque</section> }))
 const clients: QueryClient[] = []
 function mount(path = '/bar/indicadores') {
@@ -11,6 +11,7 @@ function mount(path = '/bar/indicadores') {
   render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><Routes>
     <Route path="/bar/indicadores" element={<BarOverviewPage />} />
     <Route path="/bar/indicadores/:metric" element={<BarReportPage />} />
+    <Route path="/bar/registros/:kind/:resourceId" element={<BarSourcePage />} />
   </Routes></MemoryRouter></QueryClientProvider>)
 }
 function server() {
@@ -21,6 +22,24 @@ function server() {
   })
 }
 afterEach(() => { clients.splice(0).forEach(client => client.clear()); vi.restoreAllMocks() })
+
+it.each([null, 2.50])('mantém o pagamento e sua taxa histórica consultáveis sem conciliação manual (%s)', async fee => {
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+    id: 'tab-1', number: 14, total: 100, paid: 80, pending: 0, due: 20, payable: 20,
+    items: [], payments: [{ id: 'payment-1', method: 'CardManual', state: 'Approved', amount: 100,
+      refunded: 20, refundPending: 5, fee, createdAtUtc: '2026-10-25T12:00:00Z', confirmedAtUtc: '2026-10-25T12:01:00Z' }],
+  }), { status: 200 }))
+  mount('/bar/registros/payment/payment-1')
+  expect(await screen.findByRole('heading', { name: 'Comanda 14' })).toBeInTheDocument()
+  expect(screen.getByText(fee == null ? 'Taxa registrada: Ainda não disponível' : /Taxa registrada: R\$\s*2,50/)).toBeInTheDocument()
+  expect(screen.getByText(/Estornado:/)).toHaveTextContent(/20,00/)
+  expect(screen.getByText(/Estorno aguardando confirmação:/)).toHaveTextContent(/5,00/)
+  expect(screen.queryByText(/Conciliação|Registrar conciliação|Conferir a taxa/)).not.toBeInTheDocument()
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(String(fetch.mock.calls[0][0])).toContain('/api/v1/bar/tabs/payments/payment-1')
+  expect(fetch.mock.calls[0][1]?.method ?? 'GET').toBe('GET')
+})
 
 it('mantém a operação atual consultável com datas inválidas e recupera os resultados ao corrigir', async () => {
   const fetch = server(); mount('/bar/indicadores?de=2026-10-20&ate=2026-10-19')

@@ -25,7 +25,7 @@ export const managementNavigation: NavigationGroup[] = [
   ] },
   { label: 'Financeiro', icon: 'wallet', href: '/financeiro/despesas', children: [
     { label: 'Despesas e pagamentos', href: '/financeiro/despesas', kind: 'financeEntries' },
-    { label: 'Recebimentos', href: '/recebimentos', permission: 'finance:read', related: [{ label: 'Conciliação PagBank', href: '/recebimentos/conciliacao', permission: 'finance:read' }, { label: 'Pagamentos antigos do Bar', href: '/recebimentos/conciliacao-bar', permission: 'bar:payments:reconcile' }] }, { label: 'Lançamentos gerais', href: '/financeiro', kind: 'financeEntries' }, { label: 'Controle mensal', href: '/financeiro/controle-mensal', owner: true }, { label: 'Histórico', href: '/financeiro/historico', owner: true },
+    { label: 'Recebimentos', href: '/recebimentos', permission: 'finance:read' }, { label: 'Lançamentos gerais', href: '/financeiro', kind: 'financeEntries' }, { label: 'Controle mensal', href: '/financeiro/controle-mensal', owner: true }, { label: 'Histórico', href: '/financeiro/historico', owner: true },
     { label: 'Notas recebidas', href: '/notas-recebidas', permission: 'fiscal:invoices:manage' },
   ] },
   { label: 'Bar', icon: 'bar', href: '/bar', children: barNavigation },

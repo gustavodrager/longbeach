@@ -33,7 +33,7 @@ public sealed partial class BillingService
             if(s is not null)Require(s.AccountId==accountId&&s.UserId==userId&&s.Amount==input.ExpectedAmount&&s.FirstDue==input.ExpectedFirstDue&&s.UpdateExistingCustomerCard==input.UpdateExistingCustomerCard,"Operação de outra assinatura.");
             else
             {
-                Require(!await db.Set<BillingSubscription>().AnyAsync(x=>x.UserId==userId&&x.State=="Creating"&&x.CreationAttempted&&x.ProviderId==null,ct),"Há outra adesão deste responsável aguardando confirmação. Concilie antes de atualizar o cartão ou iniciar outra mensalidade.");
+                Require(!await db.Set<BillingSubscription>().AnyAsync(x=>x.UserId==userId&&x.State=="Creating"&&x.CreationAttempted&&x.ProviderId==null,ct),"Há outra adesão deste responsável aguardando confirmação. Confira a situação da assinatura antes de atualizar o cartão ou iniciar outra mensalidade.");
                 var account=await Account(accountId,userId,ct);Require(account.RecurringEligible&&account.Paid==0&&account.Pending==0&&account.Payable==account.Total&&account.Total>0,"Escolha uma mensalidade integral ainda não paga.");
                 Require(account.DueDate.HasValue&&account.DueDate.Value>=Today&&account.Total==input.ExpectedAmount&&account.DueDate.Value==input.ExpectedFirstDue,"Valor ou vencimento mudou. Confira antes de autorizar.");
                 Require(account.Competence==input.ExpectedFirstDue.ToString("yyyy-MM"),"A primeira cobrança deve pertencer à competência do vencimento.");
@@ -50,9 +50,9 @@ public sealed partial class BillingService
                     var payload=Payload(existing);
                     if(StringComparer.Ordinal.Compare(Text(payload,"month"),account.Competence)<0)continue;
                     if(await BillingSource(db,payload,ct)!=(kind,source))continue;
-                    Require(Text(payload,"status")!="Pago","Há competências futuras pagas. Concilie antes de aderir.");
+                    Require(Text(payload,"status")!="Pago","Há competências futuras pagas. Confira os pagamentos com o responsável financeiro antes de aderir.");
                     var existingAccount=await db.Set<BillingAccount>().SingleOrDefaultAsync(x=>x.Kind=="Quadra"&&x.SourceId==existing.Id,ct);
-                    if(existingAccount is not null)Require(!await db.Set<BillingPayment>().AnyAsync(x=>x.AccountId==existingAccount.Id&&x.State!="Canceled"&&x.State!="Refunded",ct),"Há cobrança futura em processamento. Concilie antes de aderir.");
+                    if(existingAccount is not null)Require(!await db.Set<BillingPayment>().AnyAsync(x=>x.AccountId==existingAccount.Id&&x.State!="Canceled"&&x.State!="Refunded",ct),"Há cobrança futura em processamento. Confira a situação do pagamento antes de aderir.");
                 }
                 s=new BillingSubscription(accountId,input.OperationId,userId,kind,source,account.Total,input.ExpectedFirstDue,time.GetUtcNow(),input.UpdateExistingCustomerCard);db.Add(s);await db.SaveChangesAsync(ct);
             }
@@ -68,9 +68,9 @@ public sealed partial class BillingService
         }
         if(s.ProviderId is null)
         {
-            Require(!await db.Set<BillingSubscription>().AnyAsync(x=>x.UserId==userId&&x.Id!=s.Id&&x.State=="Creating"&&x.CreationAttempted&&x.ProviderId==null,ct),"Há outra adesão deste responsável aguardando confirmação. Concilie antes de atualizar o cartão ou iniciar outra mensalidade.");
-            Require(time.GetUtcNow()-s.CreatedAtUtc<TimeSpan.FromHours(24),"Assinatura sem confirmação há mais de um dia. Concilie a operação no PagBank.");
-            Require(DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(s.CreatedAtUtc,TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo")).DateTime)==Today,"Retomada após mudança de data exige conciliação para preservar o vencimento autorizado.");
+            Require(!await db.Set<BillingSubscription>().AnyAsync(x=>x.UserId==userId&&x.Id!=s.Id&&x.State=="Creating"&&x.CreationAttempted&&x.ProviderId==null,ct),"Há outra adesão deste responsável aguardando confirmação. Confira a situação da assinatura antes de atualizar o cartão ou iniciar outra mensalidade.");
+            Require(time.GetUtcNow()-s.CreatedAtUtc<TimeSpan.FromHours(24),"Assinatura sem confirmação há mais de um dia. Confira a situação no PagBank com o responsável financeiro.");
+            Require(DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(s.CreatedAtUtc,TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo")).DateTime)==Today,"A data mudou desde a adesão. Confira o vencimento com o responsável financeiro antes de retomar.");
             try
             {
                 var customer=await recurring.FindCustomer(input.TaxId,ct);
@@ -152,7 +152,7 @@ public sealed partial class BillingService
                 Require(invoice.Occurrence>0,"Ciclo inválido.");
                 var month=s.FirstDue.AddMonths(invoice.Occurrence-1).ToString("yyyy-MM");
                 var preview=await rentals.Preview(s.SourceId,month,ct);
-                Require(preview.Amount==s.Amount,"Valor do grupo mudou; concilie a assinatura antes de gerar outra competência.");
+                Require(preview.Amount==s.Amount,"Valor do grupo mudou. Confira a assinatura com o responsável financeiro antes de gerar outra competência.");
                 await rentals.Generate(s.SourceId,new(month,preview.GroupVersion,true),ct);
             }
         }
@@ -161,7 +161,7 @@ public sealed partial class BillingService
         // reconcile all returned invoices in the same local transaction first.
         foreach(var invoice in invoices)
         {
-            Require(invoice.Occurrence>0&&invoice.Amount==checked((long)(s.Amount*100))&&invoice.Currency=="BRL","Fatura fora do valor/ciclo autorizado. Conciliação necessária.");
+            Require(invoice.Occurrence>0&&invoice.Amount==checked((long)(s.Amount*100))&&invoice.Currency=="BRL","Fatura fora do valor ou ciclo autorizado. Confira a situação com o responsável financeiro.");
             var due=s.FirstDue.AddMonths(invoice.Occurrence-1);var month=due.ToString("yyyy-MM");
             var sourceEntries=await db.OperationalRecords.Where(x=>x.Kind=="financeEntries").ToListAsync(ct);
             var matching=new List<OperationalRecord>();
@@ -171,11 +171,11 @@ public sealed partial class BillingService
                 if(Text(payload,"month")==month&&Text(payload,"status")!="Cancelado"&&await BillingSource(db,payload,ct)==(s.SourceKind,s.SourceId))matching.Add(candidate);
             }
             var matches=matching.ToArray();
-            Require(matches.Length<=1,"Competência com cobranças duplicadas. Concilie antes de continuar.");
+            Require(matches.Length<=1,"Competência com cobranças duplicadas. Confira a situação com o responsável financeiro antes de continuar.");
             OperationalRecord entry;
             if(matches.Length==0)
             {
-                Require(s.SourceKind=="enrollments","Gere a competência do grupo antes de conciliar.");
+                Require(s.SourceKind=="enrollments","Gere a competência do grupo antes de atualizar os pagamentos da assinatura.");
                 var original=Payload(await Entry(await Access(s.AccountId,null,ct),ct));var entryId=Guid.NewGuid();
                 original["id"]=entryId.ToString();original["month"]=month;original["dueDate"]=due.ToString("yyyy-MM-dd");original["status"]="Pendente";original["paidDate"]="";original["amount"]=s.Amount;original["version"]=1;original["name"]="Mensalidade · "+month;
                 entry=new OperationalRecord(entryId,"financeEntries",Text(original,"name"),original.ToJsonString());db.Add(entry);

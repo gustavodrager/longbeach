@@ -24,7 +24,6 @@ public interface IBarTabs
     Task<TabPaymentResponse> RefreshProviderPayment(Guid paymentId, CancellationToken ct);
     Task<TabPaymentResponse> Refund(Guid id, Guid paymentId, TabRefundInput input, Guid actor, CancellationToken ct);
     Task<TabResponse> Adjust(Guid id, TabAdjustmentInput input, Guid actor, CancellationToken ct);
-    Task<TabPaymentResponse> Reconcile(Guid id, Guid paymentId, TabReconcileInput input, Guid actor, CancellationToken ct);
     Task<TabResponse> Close(Guid id, TabActionInput input, Guid actor, CancellationToken ct);
     Task<TabAccessResponse> IssueAccess(Guid id, TabAccessInput input, Guid actor, CancellationToken ct);
     Task<TabResponse> RevokeAccess(Guid id, TabActionInput input, Guid actor, CancellationToken ct);

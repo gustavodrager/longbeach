@@ -23,6 +23,8 @@ it('separa configuração, coleta real e importação sem prometer conexão ativ
   expect(screen.getByRole('heading', { name: 'PagBank Pix · Configurado; validar operação' })).toBeInTheDocument()
   expect(screen.queryByText(/Última leitura concluída/)).not.toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Conferir arquivos do PagVendas' })).toHaveAttribute('href', '/importacoes')
+  expect(screen.getByRole('link', { name: 'Ver pagamentos' })).toHaveAttribute('href', '/recebimentos')
+  expect(screen.queryByRole('link', { name: /Conciliar/ })).not.toBeInTheDocument()
 })
 it('permite repetir a leitura após falha sem informar conexão inexistente', async () => {
   request.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce([])

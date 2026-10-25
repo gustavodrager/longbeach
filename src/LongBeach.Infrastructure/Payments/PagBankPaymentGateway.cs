@@ -67,7 +67,7 @@ public sealed partial class PagBankPaymentGateway(HttpClient http, IConfiguratio
         BarRules.Money(amount); BarRules.Money(previouslyRefunded); if(amount<=0)throw new BarRuleException("Estorno precisa ser positivo.");
         var expected = checked((long)((amount + previouslyRefunded) * 100));
         var current=await Get(orderId,ct);if(current.Refunded==expected)return current;
-        if(current.Refunded!=checked((long)(previouslyRefunded*100)))throw new BarRuleException("Estorno externo diverge do histórico. Concilie antes de continuar.");
+        if(current.Refunded!=checked((long)(previouslyRefunded*100)))throw new BarRuleException("Estorno externo diverge do histórico. Confira a situação com o responsável financeiro antes de continuar.");
         if(!ChargePattern().IsMatch(current.ChargeId))throw new BarRuleException("Identificador da cobrança inválido.");
         using var request=new HttpRequestMessage(HttpMethod.Post,"charges/"+current.ChargeId+"/cancel"){Content=JsonContent.Create(new {amount=new {value=checked((long)(amount*100))}})};
         request.Headers.Add("x-idempotency-key",operationId.ToString());

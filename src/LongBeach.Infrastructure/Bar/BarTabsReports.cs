@@ -95,10 +95,10 @@ public sealed partial class BarTabsService
                         where r.State == "Confirmed" && r.ConfirmedAtUtc >= start && r.ConfirmedAtUtc < to
                         select new ReportProjection { Id = r.Id, Label = "Comanda " + t.Number + (t.Name == "" ? "" : " · " + t.Name), Detail = r.Reason, Date = r.ConfirmedAtUtc!.Value, Amount = r.Amount, Count = null, Resource = "payment", ResourceId = r.PaymentId }; break;
             case "fees":
-                title = "Taxas conciliadas"; explanation = "Somente taxas efetivamente registradas; nenhuma porcentagem é presumida.";
+                title = "Taxas registradas"; explanation = "Somente taxas efetivamente registradas no histórico; nenhuma porcentagem é presumida.";
                 query = from p in payments join t in tabs on p.TabId equals t.Id
                         where p.State == "Approved" && p.FeeConfirmedAtUtc != null && p.ConfirmedAtUtc >= start && p.ConfirmedAtUtc < to
-                        select new ReportProjection { Id = p.Id, Label = "Comanda " + t.Number + (t.Name == "" ? "" : " · " + t.Name), Detail = "Taxa conciliada", Date = p.ConfirmedAtUtc!.Value, Amount = p.Fee, Count = null, Resource = "payment", ResourceId = p.Id }; break;
+                        select new ReportProjection { Id = p.Id, Label = "Comanda " + t.Number + (t.Name == "" ? "" : " · " + t.Name), Detail = "Taxa registrada", Date = p.ConfirmedAtUtc!.Value, Amount = p.Fee, Count = null, Resource = "payment", ResourceId = p.Id }; break;
             case "pending":
                 title = "Pix pendentes agora"; explanation = "Alocações esperando provedor, sem recebimento confirmado ou dinheiro físico.";
                 query = from p in payments join t in tabs on p.TabId equals t.Id where p.State == "Pending"

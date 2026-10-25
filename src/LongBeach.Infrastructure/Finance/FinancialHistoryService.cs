@@ -192,7 +192,7 @@ public sealed partial class FinancialHistoryService(LongBeachDbContext db, IAudi
         var configured=enabled && requirements.Count==0;
         if(!enabled)requirements.Add("Habilite a coleta EDI após conferir credencial e data inicial.");
         result.Add(new("PagBank EDI",!configured?"Aguardando configuração":failure is not null?"Requer atenção":last is null?"Aguardando primeira leitura":time.GetUtcNow()-last.Value>TimeSpan.FromHours(26)?"Coleta atrasada":complete is null||complete<yesterday?"Atualizando histórico":"Automático",
-            "Vendas, liquidações e saldos em D+1. Documentos originais preservados; classificação financeira depende de conciliação.",last,failure,complete,"Produção",requirements));
+            "Vendas, recebimentos e saldos em D+1, com origem e data da atualização preservadas.",last,failure,complete,"Produção",requirements));
         result.AddRange(Payments.PaymentIntegrationDiagnostics.Read(config));
         result.Add(await C6Integration(ct));
         result.Add(new("PagVendas","Histórico de arquivos","O catálogo, as vendas e o estoque são controlados no Long Beach. Lotes PagVendas anteriores continuam disponíveis para consulta.",null,null,null,null,

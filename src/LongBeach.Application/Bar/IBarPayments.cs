@@ -10,6 +10,5 @@ public interface IBarPayments
     Task<object> Refresh(Guid paymentId,CancellationToken ct);
     Task<bool> Webhook(byte[] body,IEnumerable<string> signatures,CancellationToken ct);
     Task<bool> RefreshNotificationHint(string orderId, CancellationToken ct) => Task.FromResult(false);
-    Task<object> Reconcile(Guid paymentId,ReconcileInput input,Guid actor,CancellationToken ct);
     Task<object> Dashboard(DateTimeOffset? fromUtc,DateTimeOffset? toUtc,CancellationToken ct);
 }

@@ -10,7 +10,7 @@ const user:AuthUser={id:'student-a',name:'Aluno teste',email:'student@example.in
 const account:Account={id:'account-a',kind:'Quadra',sourceId:'entry-a',title:'Mensalidade de outubro',dueDate:'2026-10-10',total:100,paid:0,pending:0,payable:100,state:'Pendente',payments:[],recurringEligible:true,userId:user.id,competence:'2026-10'}
 const config:Config={pixEnabled:true,cardEnabled:true,subscriptionsEnabled:true,cardPublicKey:'public-key',subscriptionPublicKey:'subscription-key'}
 const clients:QueryClient[]=[]
-function mount(content:React.ReactNode, path='/minha-area/pagamentos'){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{},completeFirstAccessWithGoogle:async()=>{}};render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}>{content}</MemoryRouter></AuthContext.Provider></QueryClientProvider>)}
+function mount(content:React.ReactNode, path='/minha-area/pagamentos', currentUser=user){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);const auth:AuthContextValue={user:currentUser,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{},completeFirstAccessWithGoogle:async()=>{}};render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}>{content}</MemoryRouter></AuthContext.Provider></QueryClientProvider>)}
 function json(body:unknown){return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}})}
 afterEach(()=>{cleanup();clients.splice(0).forEach(c=>c.clear());delete window.PagSeguro;localStorage.clear();sessionStorage.clear()})
 it('consulta apenas minhas contas e separa bar e quadra',async()=>{
@@ -205,4 +205,188 @@ it('suspender novos Pix preserva a retomada da mesma operação já persistida',
  await waitFor(()=>expect(attempts).toHaveLength(1))
  expect(attempts[0].operationId).toBe('c6-operation')
  expect(screen.getByRole('button',{name:'Consultar confirmação'})).toBeEnabled()
+})
+
+const manager:AuthUser={...user,id:'manager',roles:['Owner'],permissions:['finance:write']}
+const received={id:'received',operationId:'received-operation',method:'Pix',amount:80,state:'Approved',refunded:10,refundPending:0,canResume:false}
+function adminData(accounts:Account[]){
+ vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
+  const url=String(input)
+  return url.endsWith('/config')?json(config):url.endsWith('/candidates')?json({accounts:[],users:[{id:user.id,name:'João Silva'},{id:'other-user',name:'Maria Souza'}],students:[]}):json(accounts)
+ })
+}
+
+it('gestão separa recebido líquido, saldo livre e confirmação com histórico sob demanda',async()=>{
+ const current={...account,paid:70,payable:10,pending:20,payments:[received,{...received,id:'pending',amount:20,state:'Pending',refunded:0}]}
+ adminData([current])
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ const summary=await screen.findByRole('region',{name:'Resumo dos recebimentos da seleção'})
+ expect(summary).toHaveTextContent('Recebido registradoR$ 70,00')
+ expect(summary).toHaveTextContent('Saldo a receberR$ 10,00')
+ expect(summary).toHaveTextContent('Em confirmaçãoR$ 20,00')
+ expect(screen.queryByRole('link',{name:/Conciliação/})).not.toBeInTheDocument()
+ const row=screen.getByRole('article',{name:account.title})
+ expect(within(row).getByText('Pagamento em confirmação')).toBeInTheDocument()
+ expect(within(row).getByRole('button',{name:'Pagar esta conta'})).not.toBeVisible()
+ expect(within(row).getByRole('region',{name:'Histórico de pagamentos'})).not.toBeVisible()
+ fireEvent.click(within(row).getByText(account.title,{selector:'summary strong'}))
+ expect(within(row).getByRole('button',{name:'Pagar esta conta'})).toBeVisible()
+ expect(within(row).getByRole('button',{name:'Pagar esta conta'})).toBeEnabled()
+ expect(within(row).getByText('Origem: Conta da Quadra · entry-a')).toBeInTheDocument()
+ expect(within(row).getByRole('button',{name:'Baixar comprovante'})).not.toBeVisible()
+ fireEvent.click(within(row).getByText('Histórico de pagamentos (2)'))
+ expect(within(row).getByRole('button',{name:'Baixar comprovante'})).toBeVisible()
+ expect(within(row).getByRole('button',{name:'Estornar'})).toBeInTheDocument()
+ expect(within(row).getByRole('button',{name:'Consultar confirmação'})).toBeInTheDocument()
+ expect(within(row).getByText('Estornado parcialmente · R$ 80,00')).toBeInTheDocument()
+})
+
+it('gestão combina busca, unidade e situação e recalcula somente o resumo da seleção',async()=>{
+ adminData([
+  {...account,paid:70,payable:30,payments:[received]},
+  {...account,id:'bar-open',kind:'Bar',title:'Comanda 12',userId:'other-user',paid:0,payable:80},
+  {...account,id:'bar-paid',kind:'Bar',title:'Comanda 20',paid:25,payable:0,payments:[{...received,amount:25,refunded:0}]},
+ ])
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ await screen.findByRole('article',{name:'Comanda 12'})
+ fireEvent.change(screen.getByLabelText('Buscar conta ou responsável'),{target:{value:'joao'}})
+ expect(screen.queryByRole('article',{name:'Comanda 12'})).not.toBeInTheDocument()
+ expect(screen.getByRole('region',{name:'Resumo dos recebimentos da seleção'})).toHaveTextContent('R$ 95,00')
+ fireEvent.change(screen.getByLabelText('Unidade'),{target:{value:'Bar'}})
+ expect(screen.queryByRole('article',{name:account.title})).not.toBeInTheDocument()
+ expect(screen.getByRole('article',{name:'Comanda 20'})).toBeInTheDocument()
+ fireEvent.change(screen.getByLabelText('Situação'),{target:{value:'due'}})
+ expect(screen.queryByRole('article')).not.toBeInTheDocument()
+ expect(screen.getByText('Nenhuma conta nesta seleção.')).toBeInTheDocument()
+ expect(screen.getByRole('region',{name:'Resumo dos recebimentos da seleção'})).toHaveTextContent('Recebido registradoR$ 0,00')
+ fireEvent.change(screen.getByLabelText('Buscar conta ou responsável'),{target:{value:''}})
+ expect(screen.getByRole('article',{name:'Comanda 12'})).toBeInTheDocument()
+ expect(screen.getByRole('region',{name:'Resumo dos recebimentos da seleção'})).toHaveTextContent('Saldo a receberR$ 80,00')
+})
+
+it('estorno pendente mantém recebido confirmado e impede outra solicitação de estorno',async()=>{
+ adminData([{...account,paid:70,payable:30,payments:[{...received,refundPending:20}]}])
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ expect(await screen.findByText('Estornos em confirmação: R$ 20,00. Esse valor permanece no recebido até a confirmação.')).toBeInTheDocument()
+ const row=screen.getByRole('article',{name:account.title})
+ expect(within(row).getByText('Estorno em confirmação')).toBeInTheDocument()
+ fireEvent.click(within(row).getByText(account.title,{selector:'summary strong'}))
+ fireEvent.click(within(row).getByText('Histórico de pagamentos (1)'))
+ expect(within(row).getByText('Estorno aguardando confirmação: R$ 20,00')).toBeInTheDocument()
+ expect(within(row).queryByRole('button',{name:'Estornar'})).not.toBeInTheDocument()
+ expect(screen.getByRole('region',{name:'Resumo dos recebimentos da seleção'})).toHaveTextContent('Recebido registradoR$ 70,00')
+})
+
+it('gestão somente leitura mantém comprovante e não oferece cobrança, vínculo ou estorno',async()=>{
+ adminData([{...account,paid:70,payable:30,payments:[received]}])
+ mount(<BillingPage admin/>,'/recebimentos',{...manager,roles:['Student'],permissions:['finance:read']})
+ const row=await screen.findByRole('article',{name:account.title})
+ fireEvent.click(within(row).getByText(account.title,{selector:'summary strong'}))
+ fireEvent.click(within(row).getByText('Histórico de pagamentos (1)'))
+ expect(within(row).getByRole('button',{name:'Baixar comprovante'})).toBeInTheDocument()
+ expect(within(row).queryByRole('button',{name:'Estornar'})).not.toBeInTheDocument()
+ expect(within(row).queryByRole('button',{name:'Pagar esta conta'})).not.toBeInTheDocument()
+ expect(screen.queryByText('Vincular conta ao responsável')).not.toBeInTheDocument()
+})
+
+it('gestão indica carregamento e oculta resumo e ações quando a atualização falha',async()=>{
+ let release:((response:Response)=>void)|undefined;let fail=false
+ vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
+  const url=String(input)
+  if(url.endsWith('/config'))return json(config)
+  if(url.endsWith('/candidates'))return json({accounts:[],users:[],students:[]})
+  return fail?new Response('{}',{status:503}):new Promise<Response>(resolve=>{release=resolve})
+ })
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ expect(screen.getByRole('status')).toHaveTextContent('Carregando contas')
+ expect(screen.queryByRole('region',{name:'Resumo dos recebimentos da seleção'})).not.toBeInTheDocument()
+ release!(json([account]))
+ await screen.findByRole('article',{name:account.title})
+ fail=true
+ await clients.at(-1)!.invalidateQueries({queryKey:['billing']})
+ expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível consultar')
+ expect(screen.queryByRole('article')).not.toBeInTheDocument()
+ expect(screen.queryByRole('region',{name:'Resumo dos recebimentos da seleção'})).not.toBeInTheDocument()
+ fireEvent.click(screen.getByRole('button',{name:'Tentar novamente'}))
+})
+
+it('comanda sem vínculo aparece com valores e comprovante, com ações somente na origem',async()=>{
+ const source={...account,id:'unlinked-bar',sourceId:'tab-original',kind:'Bar' as const,title:'Comanda 80',isLinked:false,paid:70,payable:10,pending:20,payments:[received,{...received,id:'unlinked-pending',state:'Pending',amount:20,refunded:0,canResume:true}],items:[{id:'item',name:'Água',quantity:2,unitPrice:5,total:10,state:'Fulfilled'}]}
+ adminData([source])
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ const row=await screen.findByRole('article',{name:source.title})
+ expect(within(row).getByText(/Sem responsável vinculado/,{selector:'summary span'})).toBeVisible()
+ expect(screen.getByRole('region',{name:'Resumo dos recebimentos da seleção'})).toHaveTextContent('Recebido registradoR$ 70,00Saldo a receberR$ 10,00Em confirmaçãoR$ 20,00')
+ fireEvent.click(within(row).getByText(source.title,{selector:'summary strong'}))
+ expect(within(row).getByRole('link',{name:'Abrir comanda original'})).toHaveAttribute('href','/atendimento/comandas/tab-original')
+ fireEvent.click(within(row).getByText('Itens da comanda'))
+ expect(within(row).getByText('2 × Água')).toBeVisible()
+ fireEvent.click(within(row).getByText('Histórico de pagamentos (2)'))
+ expect(within(row).getByRole('button',{name:'Baixar comprovante'})).toBeVisible()
+ expect(within(row).getByText('Pagamento unlinked-pending')).toBeVisible()
+ for(const name of ['Pagar esta conta','Retomar pagamento pendente','Consultar confirmação','Estornar'])expect(within(row).queryByRole('button',{name})).not.toBeInTheDocument()
+ expect(vi.mocked(fetch).mock.calls.every(([,init])=>!init?.method)).toBe(true)
+})
+
+it('pagamento de Quadra informado no lançamento não fabrica confirmação ou comprovante da operadora',async()=>{
+ const source={...account,id:'unlinked-court',sourceId:'entry-original',isLinked:false,paid:100,payable:0,payments:[]}
+ adminData([source])
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ const row=await screen.findByRole('article',{name:source.title})
+ expect(within(row).getByText('Pagamento informado no lançamento')).toBeInTheDocument()
+ fireEvent.click(within(row).getByText(source.title,{selector:'summary strong'}))
+ expect(within(row).getByRole('link',{name:'Abrir lançamento original'})).toHaveAttribute('href','/financeiro/entry-original')
+ fireEvent.click(within(row).getByText('Histórico de pagamentos (0)'))
+ expect(within(row).getByText('Pagamento informado no lançamento: R$ 100,00. Não há confirmação da operadora registrada nesta conta.')).toBeVisible()
+ expect(within(row).queryByRole('button',{name:'Baixar comprovante'})).not.toBeInTheDocument()
+ expect(within(row).queryByText('Nenhum pagamento registrado nesta conta.')).not.toBeInTheDocument()
+ expect(screen.getByRole('region',{name:'Resumo dos recebimentos da seleção'})).toHaveTextContent('Recebido registradoR$ 100,00')
+ expect(vi.mocked(fetch).mock.calls.every(([,init])=>!init?.method)).toBe(true)
+})
+
+it('projeção de Quadra em aberto permanece visível sem habilitar cobrança por billing',async()=>{
+ adminData([{...account,isLinked:false}])
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ const row=await screen.findByRole('article',{name:account.title})
+ expect(within(row).getByText('A receber',{selector:'.billing-situation'})).toBeVisible()
+ fireEvent.click(within(row).getByText(account.title,{selector:'summary strong'}))
+ expect(within(row).getByRole('link',{name:'Abrir lançamento original'})).toBeVisible()
+ expect(within(row).queryByRole('button',{name:'Pagar esta conta'})).not.toBeInTheDocument()
+ expect(vi.mocked(fetch).mock.calls.every(([,init])=>!init?.method)).toBe(true)
+})
+
+it('Quadra marcada como paga mantém a origem manual quando só há tentativas canceladas',async()=>{
+ adminData([{...account,paid:100,payable:0,state:'Pago',payments:[{...received,id:'canceled-attempt',amount:100,refunded:0,state:'Canceled'}]}])
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ const row=await screen.findByRole('article',{name:account.title})
+ expect(within(row).getByText('Pagamento informado no lançamento',{selector:'.billing-situation'})).toBeVisible()
+ fireEvent.click(within(row).getByText(account.title,{selector:'summary strong'}))
+ fireEvent.click(within(row).getByText('Histórico de pagamentos (1)'))
+ expect(within(row).getByText('Pagamento informado no lançamento: R$ 100,00. Não há confirmação da operadora registrada nesta conta.')).toBeVisible()
+ expect(within(row).getByText('Cancelado · R$ 100,00')).toBeVisible()
+ expect(within(row).queryByRole('button',{name:'Baixar comprovante'})).not.toBeInTheDocument()
+ expect(screen.getByRole('region',{name:'Resumo dos recebimentos da seleção'})).toHaveTextContent('Recebido registradoR$ 100,00')
+})
+
+it.each(['Viewer','Auditor'] as const)('leitor %s consulta comanda sem receber link para área sem permissão',async role=>{
+ const original={...account,kind:'Bar' as const,isLinked:false,paid:70,payable:30,payments:[received]}
+ adminData([original])
+ mount(<BillingPage admin/>,'/recebimentos',{...manager,roles:[role],permissions:['finance:read']})
+ const row=await screen.findByRole('article',{name:account.title})
+ fireEvent.click(within(row).getByText(account.title,{selector:'summary strong'}))
+ expect(within(row).queryByRole('link',{name:'Abrir comanda original'})).not.toBeInTheDocument()
+ fireEvent.click(within(row).getByText('Histórico de pagamentos (1)'))
+ expect(within(row).getByRole('button',{name:'Baixar comprovante'})).toBeVisible()
+ expect(within(row).getByText('Estornado parcialmente · R$ 80,00')).toBeVisible()
+})
+
+it('histórico de comanda identifica estorno total mesmo quando o pagamento permanece Approved',async()=>{
+ adminData([{...account,kind:'Bar',paid:0,payable:100,payments:[{...received,refunded:received.amount}]}])
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ const row=await screen.findByRole('article',{name:account.title})
+ fireEvent.click(within(row).getByText(account.title,{selector:'summary strong'}))
+ fireEvent.click(within(row).getByText('Histórico de pagamentos (1)'))
+ expect(within(row).getByText('Estornado · R$ 80,00')).toBeVisible()
+ expect(within(row).queryByText(/Estornado parcialmente/)).not.toBeInTheDocument()
+ expect(within(row).queryByRole('button',{name:'Estornar'})).not.toBeInTheDocument()
 })

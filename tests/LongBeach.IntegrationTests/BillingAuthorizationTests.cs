@@ -19,7 +19,6 @@ public sealed class BillingAuthorizationTests
     [InlineData("/api/v1/bar/tabs/customers?search=cliente") ]
     [InlineData("/api/v1/billing/accounts")]
     [InlineData("/api/v1/billing/candidates")]
-    [InlineData("/api/v1/billing/settlements")]
     [InlineData("/api/v1/portal/candidates")]
     [InlineData("/api/v1/portal/options")]
     public async Task Billing_always_requires_individual_login(string path)
@@ -35,7 +34,6 @@ public sealed class BillingAuthorizationTests
     [InlineData("/api/v1/bar/tabs/customers?search=cliente") ]
     [InlineData("/api/v1/billing/accounts")]
     [InlineData("/api/v1/billing/candidates")]
-    [InlineData("/api/v1/billing/settlements")]
     [InlineData("/api/v1/portal/candidates")]
     [InlineData("/api/v1/portal/options")]
     [InlineData("/api/v1/portal/requests")]

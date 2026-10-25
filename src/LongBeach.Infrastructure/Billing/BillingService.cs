@@ -65,6 +65,21 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
             && BusinessAllocationRules.Validate(body) is null && FinancialReceiptRules.Validate(body) is null;
     }
     private static bool Eligible(JsonObject p) => CourtEntry(p) && Text(p,"status")!="Cancelado";
+    private bool VisibleCourtReceipt(JsonObject p)
+    {
+        // The administrative read model also includes direct receipts recorded by staff.
+        // Assign and payment creation keep their narrower source-linked eligibility rules.
+        if(Text(p,"direction")!="Receber"||Text(p,"status") is not ("Pendente" or "Pago")
+            ||p["amount"] is not JsonValue value||!value.TryGetValue<decimal>(out var amount)
+            ||amount<=0||amount>999_999_999||decimal.Round(amount,2)!=amount||Date(p,"dueDate") is null
+            ||Text(p,"origin") is not ("Bar" or "Escola" or "Locações" or "Arena"))return false;
+        if(Text(p,"status")=="Pago"&&(Date(p,"paidDate") is not { } paid||paid>Today))return false;
+        var body=JsonSerializer.SerializeToElement(p);
+        if(BusinessAllocationRules.Validate(body) is not null||FinancialReceiptRules.Validate(body) is not null)return false;
+        return CourtEntry(p)||Text(p,"receiptSource")=="CourtPix"
+            ||Text(p,"allocationScope")=="Unit"&&Text(p,"businessUnitId")==BusinessUnits.Court
+            ||BusinessAllocationRules.FromLegacy(Text(p,"origin")).BusinessUnitId==BusinessUnits.Court;
+    }
     public async Task<AccountDto> Assign(AssignAccountInput input, Guid actor, CancellationToken ct)
     {
         await using var tx=await db.Database.BeginTransactionAsync(ct); await ArenaLock(ct);
@@ -108,16 +123,64 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
     }
     public async Task<IReadOnlyList<AccountDto>> Accounts(Guid? userId,CancellationToken ct)
     {
-        var ids=await db.Set<BillingAccount>().Where(x=>userId==null||x.UserId==userId).OrderByDescending(x=>x.CreatedAtUtc).Select(x=>x.Id).ToListAsync(ct);
-        var results=new List<AccountDto>();foreach(var id in ids)results.Add(await Account(id,userId,ct));return results;
+        // Keep the administrative overview consistent if an assignment is committed between reads.
+        await using var snapshot=userId is null&&db.Database.CurrentTransaction is null
+            ? await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead,ct) : null;
+        var accounts=await db.Set<BillingAccount>().AsNoTracking().Where(x=>userId==null||x.UserId==userId).OrderByDescending(x=>x.CreatedAtUtc).ToListAsync(ct);
+        var administrativeBar=userId is null?await AdministrativeBarAccounts(accounts,ct):null;
+        var results=new List<AccountDto>();
+        foreach(var account in accounts)
+            results.Add(account.Kind=="Bar"&&administrativeBar is not null
+                ? administrativeBar.GetValueOrDefault(account.SourceId)??throw new BarRuleException("Comanda não encontrada.")
+                : await Account(account.Id,userId,ct));
+        if(userId is null)
+        {
+            var linked=accounts.Select(x=>(x.Kind,x.SourceId)).ToHashSet();
+            results.AddRange(administrativeBar!.Values.Where(x=>!x.IsLinked));
+            var entries=await db.OperationalRecords.AsNoTracking().Where(x=>x.Kind=="financeEntries").OrderByDescending(x=>x.CreatedAtUtc).ToListAsync(ct);
+            foreach(var entry in entries.Where(x=>!linked.Contains(("Quadra",x.Id))))
+            {
+                var payload=Payload(entry);if(!VisibleCourtReceipt(payload))continue;
+                var total=payload["amount"]!.GetValue<decimal>();var paid=Text(payload,"status")=="Pago"?total:0;
+                // A recorded receipt is not proof of a new bank transaction. Keep its payment list empty.
+                results.Add(new(entry.Id,"Quadra",entry.Id,Text(payload,"name"),Date(payload,"dueDate"),total,paid,0,Math.Max(0,total-paid),Text(payload,"status"),[],false,Guid.Empty,Text(payload,"month"),null,IsLinked:false));
+            }
+        }
+        if(snapshot is not null)await snapshot.CommitAsync(ct);
+        return results;
     }
+    private async Task<Dictionary<Guid,AccountDto>> AdministrativeBarAccounts(IReadOnlyList<BillingAccount> accounts,CancellationToken ct)
+    {
+        var barTabs=await db.Set<BarTab>().AsNoTracking().OrderByDescending(x=>x.CreatedAtUtc).ThenByDescending(x=>x.Number).ToListAsync(ct);
+        if(barTabs.Count==0)return [];
+        var ids=barTabs.Select(x=>x.Id).ToArray();
+        var items=(await db.Set<BarTabItem>().AsNoTracking().Where(x=>ids.Contains(x.TabId)).OrderBy(x=>x.CreatedAtUtc).ThenBy(x=>x.Id).ToListAsync(ct)).ToLookup(x=>x.TabId);
+        var payments=(await db.Set<BarTabPayment>().AsNoTracking().Where(x=>ids.Contains(x.TabId)).OrderByDescending(x=>x.CreatedAtUtc).ThenByDescending(x=>x.Id).ToListAsync(ct)).ToLookup(x=>x.TabId);
+        var pendingRefunds=await db.Set<BarTabRefund>().AsNoTracking().Where(x=>ids.Contains(x.TabId)&&x.State=="Pending")
+            .GroupBy(x=>x.PaymentId).Select(g=>new{PaymentId=g.Key,Amount=g.Sum(x=>x.Amount)}).ToDictionaryAsync(x=>x.PaymentId,x=>x.Amount,ct);
+        var linked=accounts.Where(x=>x.Kind=="Bar").ToDictionary(x=>x.SourceId);
+        var result=new Dictionary<Guid,AccountDto>();
+        foreach(var tab in barTabs)
+        {
+            var rows=payments[tab.Id].ToArray();var consumption=items[tab.Id].ToArray();
+            var totals=LongBeach.Infrastructure.Bar.BarTabsService.Calculate(consumption,rows,tab.Discount);
+            var account=linked.GetValueOrDefault(tab.Id);
+            result.Add(tab.Id,new(account?.Id??tab.Id,"Bar",tab.Id,$"{(tab.Mode=="Immediate"?"Venda":"Comanda")} {tab.Number} · {tab.Name}",null,
+                totals.Total,totals.Paid,totals.Pending,totals.Payable,tab.State,
+                rows.Select(p=>new AccountPaymentDto(p.Id,p.OperationId,p.Method,p.Amount,p.State,p.Refunded,p.PixText,p.QrImageUrl,p.ExpiresAtUtc,p.ConfirmedAtUtc,p.State=="Pending"&&p.ProviderId==null,pendingRefunds.GetValueOrDefault(p.Id),p.TerminalType)).ToArray(),
+                false,account?.UserId??Guid.Empty,null,null,consumption.Select(i=>new AccountItemDto(i.Id,i.Name,i.Quantity,i.UnitPrice,i.Total,i.State)).ToArray(),tab.Discount,account is not null));
+        }
+        return result;
+    }
+    private static AccountDto BarAccount(Guid id,Guid userId,TabResponse tab) =>
+        new(id,"Bar",tab.Id,$"{(tab.Mode=="Immediate"?"Venda":"Comanda")} {tab.Number} · {tab.Name}",null,tab.Total,tab.Paid,tab.Pending,tab.Payable,tab.State,tab.Payments.OrderByDescending(p=>p.CreatedAtUtc).ThenByDescending(p=>p.Id).Select(p=>new AccountPaymentDto(p.Id,p.OperationId,p.Method,p.Amount,p.State,p.Refunded,p.PixText,p.QrImageUrl,p.ExpiresAtUtc,p.ConfirmedAtUtc,p.CanResume,p.RefundPending,p.TerminalType)).ToArray(),false,userId,null,null,tab.Items.Select(i=>new AccountItemDto(i.Id,i.Name,i.Quantity,i.UnitPrice,i.Total,i.State)).ToArray(),tab.Discount);
     public async Task<AccountDto> Account(Guid id,Guid? userId,CancellationToken ct)
     {
         var a=await Access(id,userId,ct);
         if(a.Kind=="Bar")
         {
             var t=await tabs.Get(a.SourceId,false,ct);
-            return new(a.Id,a.Kind,a.SourceId,$"Comanda {t.Number} · {t.Name}",null,t.Total,t.Paid,t.Pending,t.Payable,t.State,t.Payments.Select(p=>new AccountPaymentDto(p.Id,p.OperationId,p.Method,p.Amount,p.State,p.Refunded,p.PixText,p.QrImageUrl,p.ExpiresAtUtc,p.ConfirmedAtUtc,p.CanResume,p.RefundPending,p.TerminalType)).ToArray(),false,a.UserId,null,null,t.Items.Select(i=>new AccountItemDto(i.Id,i.Name,i.Quantity,i.UnitPrice,i.Total,i.State)).ToArray(),t.Discount);
+            return BarAccount(a.Id,a.UserId,t);
         }
         var p=Payload(await Entry(a,ct));var payments=await db.Set<BillingPayment>().Where(x=>x.AccountId==id).OrderByDescending(x=>x.CreatedAtUtc).ToListAsync(ct);
         var total=p["amount"]!.GetValue<decimal>();var paid=payments.Where(x=>x.State is "Approved" or "Refunded").Sum(x=>x.Amount-x.Refunded);
@@ -172,7 +235,7 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
         if(payment.State!="Pending")return await Account(id,own?actor:null,ct);
         if(payment.ProviderId is null)
         {
-            Require(time.GetUtcNow()-payment.CreatedAtUtc<TimeSpan.FromHours(24),"Cobrança antiga sem confirmação. Concilie com o provedor antes de repetir.");
+            Require(time.GetUtcNow()-payment.CreatedAtUtc<TimeSpan.FromHours(24),"Cobrança antiga sem confirmação. Confira a situação com o responsável financeiro antes de repetir.");
             var customer=new PixCustomer(input.Name,input.Email,input.TaxId);
             GatewayPayment remote;
             var selected=PaymentGateway(payment);

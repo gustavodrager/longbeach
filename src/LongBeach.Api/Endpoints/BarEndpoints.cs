@@ -76,9 +76,8 @@ public static class BarEndpoints
         bar.MapPost("/sales/{id:guid}/payments/pix", (Guid id,PixInput i,HttpContext h,IBarPayments s,CancellationToken ct)=>s.Pix(id,i,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
         bar.MapGet("/sales/{id:guid}/payments",(Guid id,HttpContext h,IBarPayments s,CancellationToken ct)=>s.OwnPayment(id,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarSalesRead);
         bar.MapPost("/sales/{id:guid}/payments/pix/refresh",(Guid id,HttpContext h,IBarPayments s,CancellationToken ct)=>s.OperatorRefresh(id,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
-        bar.MapGet("/payments", (IBarPayments s,CancellationToken ct)=>s.Payments(ct)).RequireAuthorization(SystemPermissions.BarReconcile);
-        bar.MapPost("/payments/{id:guid}/refresh", (Guid id,IBarPayments s,CancellationToken ct)=>s.Refresh(id,ct)).RequireAuthorization(SystemPermissions.BarReconcile);
-        bar.MapPost("/payments/{id:guid}/reconcile", (Guid id,ReconcileInput i,HttpContext h,IBarPayments s,CancellationToken ct)=>s.Reconcile(id,i,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarReconcile);
+        bar.MapGet("/payments", (IBarPayments s,CancellationToken ct)=>s.Payments(ct)).RequireAuthorization(SystemPermissions.BarFinanceRead);
+        bar.MapPost("/payments/{id:guid}/refresh", (Guid id,IBarPayments s,CancellationToken ct)=>s.Refresh(id,ct)).RequireAuthorization(SystemPermissions.BarFinanceRead);
         bar.MapGet("/dashboard", (DateTimeOffset? fromUtc,DateTimeOffset? toUtc,IBarPayments s,CancellationToken ct)=>s.Dashboard(fromUtc,toUtc,ct)).RequireAuthorization(SystemPermissions.BarFinanceRead);
         endpoints.MapPost("/api/v1/integrations/pagbank/webhook", async (HttpContext h,IBarPayments s,LongBeach.Application.Billing.IBilling billing,CancellationToken ct)=>
         {

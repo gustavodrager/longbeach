@@ -12,7 +12,7 @@ public interface IPaymentGateway
     Task<GatewayPayment> Refund(string orderId,Guid operationId,decimal amount,CancellationToken ct);
     Task<GatewayPayment> RefundPartial(string orderId, Guid operationId, decimal amount, decimal previouslyRefunded, CancellationToken ct) => previouslyRefunded == 0
         ? Refund(orderId, operationId, amount, ct)
-        : throw new LongBeach.Domain.Bar.BarRuleException("Provedor não oferece estorno parcial conciliado.");
+        : throw new LongBeach.Domain.Bar.BarRuleException("Provedor não oferece confirmação de estorno parcial.");
     bool VerifyWebhook(byte[] body, IEnumerable<string> signatures);
     Task<bool> VerifyWebhookAsync(byte[] body,IEnumerable<string> signatures,CancellationToken ct) => Task.FromResult(VerifyWebhook(body,signatures));
 }

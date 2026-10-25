@@ -32,7 +32,6 @@ public static class SystemPermissions
     public const string BarSalesOperate = "bar:sales:operate";
     public const string BarFinanceRead = "bar:finance:read";
     public const string BarPurchasesManage = "bar:purchases:manage";
-    public const string BarReconcile = "bar:payments:reconcile";
     public const string BarCatalogRead = "bar:catalog:read";
     public const string BarCatalogWrite = "bar:catalog:write";
     public const string StudentsRead = "students:read";
@@ -51,7 +50,7 @@ public static class SystemPermissions
     public static readonly IReadOnlyCollection<string> All =
     [
         BarCatalogRead, BarCatalogWrite, BarStockOutput, BarStockRead, BarStockManage, BarCashOperate, BarSupervise,
-        BarRefundApprove, BarSalesRead, BarSalesOperate, BarFinanceRead, BarPurchasesManage, BarReconcile,
+        BarRefundApprove, BarSalesRead, BarSalesOperate, BarFinanceRead, BarPurchasesManage,
         StudentsRead, StudentsWrite,
         EmployeesRead, EmployeesWrite,
         InventoryRead, InventoryWrite,

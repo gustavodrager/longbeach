@@ -208,12 +208,12 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         // provider idempotency key instead of allowing a second allocation.
         if (payment.ProviderId is null)
         {
-            if(time.GetUtcNow()-payment.CreatedAtUtc>=TimeSpan.FromHours(24))throw new BarPaymentConfirmationPendingException(payment.Id,payment.OperationId,"Cobrança antiga sem confirmação. Concilie no provedor antes de retomar.");
+            if(time.GetUtcNow()-payment.CreatedAtUtc>=TimeSpan.FromHours(24))throw new BarPaymentConfirmationPendingException(payment.Id,payment.OperationId,"Cobrança antiga sem confirmação. Confira a situação com o responsável financeiro antes de retomar.");
             var remote = await ProviderCall(payment, payment.OperationId, () => input.Method == "CreditCard" ? gateway.CreateCard(payment.Id, payment.OperationId, payment.Amount, new PixCustomer(name, email, taxId), input.EncryptedCard ?? "", ct) : gateway.CreatePix(payment.Id, payment.OperationId, payment.Amount, payment.ExpiresAtUtc!.Value, new PixCustomer(name, email, taxId), ct), ct);
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             await Lock(id, ct); await db.Entry(payment).ReloadAsync(ct);
             if (payment.ProviderId is null) { payment.Provider(remote.OrderId, remote.PixText, remote.QrImageUrl); await db.SaveChangesAsync(ct); }
-            else if (payment.ProviderId != remote.OrderId) throw new BarPaymentConfirmationPendingException(payment.Id, payment.OperationId, "O vínculo da cobrança precisa de conciliação. A operação continua reservada; não gere outra chave de pagamento.");
+            else if (payment.ProviderId != remote.OrderId) throw new BarPaymentConfirmationPendingException(payment.Id, payment.OperationId, "O vínculo da cobrança precisa ser conferido pelo responsável financeiro. A operação continua reservada; não gere outra chave de pagamento.");
             await tx.CommitAsync(ct);
         }
         return await RefreshProviderPayment(payment.Id, ct);
@@ -238,7 +238,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         var tab = await Lock(payment.TabId, ct); await db.Entry(payment).ReloadAsync(ct);
         if (payment.State == "Pending")
         {
-            if (remote.State == "PAID") { if (remote.Refunded != 0) throw new BarPaymentConfirmationPendingException(payment.Id, payment.OperationId, "Pix apresenta estorno inesperado; concilie antes de confirmar. A parcela continua pendente."); payment.Confirm(time.GetUtcNow()); db.Add(new BarTabHistory(tab.Id, "PaymentApproved", payment.ActorId, payment.Amount, paymentId: payment.Id)); }
+            if (remote.State == "PAID") { if (remote.Refunded != 0) throw new BarPaymentConfirmationPendingException(payment.Id, payment.OperationId, "Pix apresenta estorno inesperado. Confira o pagamento com o responsável financeiro. A parcela continua pendente."); payment.Confirm(time.GetUtcNow()); db.Add(new BarTabHistory(tab.Id, "PaymentApproved", payment.ActorId, payment.Amount, paymentId: payment.Id)); }
             else if (remote.State is "DECLINED" or "CANCELED") { payment.Decline(); db.Add(new BarTabHistory(tab.Id, "PaymentDeclined", payment.ActorId, payment.Amount, paymentId: payment.Id)); }
             // A local expiry is not proof that an external charge was canceled.
             // The allocation remains reserved until the provider resolves it.
@@ -295,7 +295,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             }
             catch { db.ChangeTracker.Clear(); throw; }
         }
-        if (payment.ProviderId is null) throw new BarPaymentConfirmationPendingException(payment.Id, input.OperationId, "Cobrança sem vínculo com o provedor; a solicitação de estorno permanece pendente. Concilie antes de tentar outra operação.");
+        if (payment.ProviderId is null) throw new BarPaymentConfirmationPendingException(payment.Id, input.OperationId, "Cobrança sem vínculo com o provedor; a solicitação de estorno permanece pendente. Confira a situação com o responsável financeiro antes de tentar outra operação.");
         var remote = await ProviderCall(payment, input.OperationId, () => gateway.RefundPartial(payment.ProviderId, input.OperationId, input.Amount, payment.Refunded, ct), ct);
         if (remote.Refunded != checked((long)((payment.Refunded + input.Amount) * 100))) throw new BarPaymentConfirmationPendingException(payment.Id, input.OperationId, "Estorno não confirmado pelo provedor. Repita a mesma operação; a solicitação permanece pendente.");
         await using (var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct))
@@ -326,13 +326,6 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         var amount = input.Kind == "Courtesy" ? totals.Payable : BarRules.Money(input.Amount);
         if (amount <= 0 || amount > totals.Payable) throw new BarRuleException("O ajuste precisa caber no saldo livre da comanda.");
         tab.Adjust(amount); db.Add(new BarTabHistory(id, input.Kind, actor, amount, reason)); await db.SaveChangesAsync(ct); return await Public(tab, false, false, ct, true);
-    }, ct);
-    public Task<TabPaymentResponse> Reconcile(Guid id, Guid paymentId, TabReconcileInput input, Guid actor, CancellationToken ct) => Run(input.OperationId, Hash(new { action = "reconcile", id, paymentId, input, actor }), async () =>
-    {
-        await Lock(id, ct);
-        var payment = await db.Set<BarTabPayment>().SingleOrDefaultAsync(x => x.Id == paymentId && x.TabId == id, ct) ?? throw new BarRuleException("Pagamento não pertence a esta comanda.");
-        var reason = BarRules.Text(input.Reason, 500, "Referência da conciliação"); payment.Reconcile(input.Fee, time.GetUtcNow());
-        db.Add(new BarTabHistory(id, "FeeReconciled", actor, input.Fee, reason, paymentId: payment.Id)); await db.SaveChangesAsync(ct); return await PublicPayment(payment, ct, true);
     }, ct);
     public Task<TabResponse> Close(Guid id, TabActionInput input, Guid actor, CancellationToken ct) => Run(input.OperationId, Hash(new { action = "close", id, input, actor }), async () =>
     {

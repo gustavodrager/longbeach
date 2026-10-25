@@ -81,7 +81,7 @@ public sealed class PagBankRecurringGateway(HttpClient http, IConfiguration conf
         await foreach (var customer in ListResources("customers", "customers", ct, taxId))
         {
             if (S(customer, "tax_id") != taxId) continue;
-            if (found is not null) throw new BarRuleException("Mais de um assinante corresponde ao documento. Conciliação necessária.");
+            if (found is not null) throw new BarRuleException("Mais de um assinante corresponde ao documento. Confira o cadastro com o responsável financeiro.");
             found = new(Id(S(customer, "id"), "CUST"), S(customer, "reference_id"), taxId);
         }
         return found;
@@ -92,7 +92,7 @@ public sealed class PagBankRecurringGateway(HttpClient http, IConfiguration conf
         await foreach (var subscription in ListResources("subscriptions", "subscriptions", ct))
         {
             if (S(subscription, "reference_id") != reference.ToString()) continue;
-            if (found is not null) throw new BarRuleException("Mais de uma assinatura corresponde à adesão. Conciliação necessária.");
+            if (found is not null) throw new BarRuleException("Mais de uma assinatura corresponde à adesão. Confira a situação com o responsável financeiro.");
             found = Id(S(subscription, "id"), "SUBS");
         }
         if (found is null) return null;
@@ -122,7 +122,7 @@ public sealed class PagBankRecurringGateway(HttpClient http, IConfiguration conf
             if (expectedTotal.HasValue ? offset == expectedTotal.Value : count < 100) yield break;
             if (count == 0) throw new BarRuleException("Paginação do PagBank incompleta. Consulte novamente.");
         }
-        throw new BarRuleException("Limite de consulta do PagBank excedido. Conciliação necessária.");
+        throw new BarRuleException("Limite de consulta do PagBank excedido. Confira a situação com o responsável financeiro antes de repetir.");
     }
     public async Task<RecurringState> CreateForCustomer(Guid reference, Guid operation, string plan, SubscribeInput input, RecurringCustomer customer, CancellationToken ct)
     {
@@ -161,7 +161,7 @@ public sealed class PagBankRecurringGateway(HttpClient http, IConfiguration conf
                 var complete = payments.GetProperty("result_set").GetProperty("total").GetInt32() == attempts.GetArrayLength();
                 var safe = complete && attempts.EnumerateArray().All(p => S(p, "status") is "DENIED" or "UNPAID") && S(invoice, "status") is "UNPAID" or "OVERDUE";
                 var paid = attempts.EnumerateArray().Where(p => S(p, "status") is "APPROVED" or "REFUNDED").ToArray();
-                if (paid.Length > 1) throw new BarRuleException("Mais de um pagamento confirmado na mesma fatura. Conciliação necessária.");
+                if (paid.Length > 1) throw new BarRuleException("Mais de um pagamento confirmado na mesma fatura. Confira a situação com o responsável financeiro.");
                 string? paymentId = null, state = null;
                 if (paid.Length == 1)
                 {

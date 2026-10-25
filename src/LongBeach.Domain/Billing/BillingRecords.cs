@@ -59,10 +59,10 @@ public sealed class BillingPayment : Entity
     }
     public void Observe(string status, decimal refunded, DateTimeOffset now)
     {
-        if (refunded < 0 || refunded > Amount) throw new BarRuleException("Estorno divergente; concilie o pagamento.");
+        if (refunded < 0 || refunded > Amount) throw new BarRuleException("Estorno divergente. Confira o pagamento com o responsável financeiro.");
         var before=(State,Refunded,PaidAtUtc);
         refunded=Math.Max(refunded,Refunded);
-        if (State == "Canceled" && status == "PAID") throw new BarRuleException("Pagamento confirmado após cancelamento. Concilie antes de baixar novamente.");
+        if (State == "Canceled" && status == "PAID") throw new BarRuleException("Pagamento confirmado após cancelamento. Confira a situação com o responsável financeiro antes de registrar outro pagamento.");
         if (State == "Pending" && status == "PAID") { State = "Approved"; PaidAtUtc = now; }
         else if (State == "Pending" && status is "CANCELED" or "DECLINED") State = "Canceled";
         if (State is "Approved" or "Refunded") { Refunded = refunded; if (Refunded == Amount) State = "Refunded"; }
@@ -109,7 +109,7 @@ public sealed class BillingSubscription : Entity
     public int Version { get; private set; }
     public void Plan(string id) { PlanId = id; Version++; }
     public void BeginCreation() { if (State != "Creating" || CreationAttempted) throw new BarRuleException("Esta adesão já foi enviada. Consulte sua confirmação."); CreationAttempted = true; Version++; }
-    public void Reject(string reason) { if (ProviderId is not null || State != "Creating") throw new BarRuleException("Concilie a assinatura já vinculada."); State = "Rejected"; FailureReason = BarRules.Text(reason, 300, "Motivo"); Version++; }
+    public void Reject(string reason) { if (ProviderId is not null || State != "Creating") throw new BarRuleException("Confira a situação da assinatura já vinculada."); State = "Rejected"; FailureReason = BarRules.Text(reason, 300, "Motivo"); Version++; }
     public void Bind(string id) { if (State == "Rejected" || (ProviderId is not null && ProviderId != id)) throw new BarRuleException("Assinatura divergente."); ProviderId = id; Version++; }
     public void Observe(string state) { if (State is not ("CANCELED" or "Rejected")) State = state; Version++; }
     public void Cancel(Guid operation) { if (operation == Guid.Empty) throw new BarRuleException("Operação obrigatória."); CancelOperationId ??= operation; State = "CancelPending"; Version++; }

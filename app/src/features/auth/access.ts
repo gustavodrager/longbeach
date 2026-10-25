@@ -29,7 +29,6 @@ export function barHome(user: AuthUser | null | undefined): string | null {
     ['bar:stock:read', '/bar/produtos'], ['bar:supervise', '/bar/caixa'],
     ['bar:catalog:write', '/bar/produtos'], ['bar:sales:read', '/atendimento/comandas'],
     ['bar:cash:operate', '/bar/caixa'], ['bar:purchases:manage', '/bar/compras'],
-    ['bar:payments:reconcile', '/recebimentos/conciliacao-bar'],
   ]
   return destinations.find(([permission]) => hasPermission(user, permission))?.[1] ?? null
 }

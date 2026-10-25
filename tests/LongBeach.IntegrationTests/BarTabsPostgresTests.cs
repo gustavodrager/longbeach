@@ -270,12 +270,16 @@ public sealed class BarTabsPostgresTests
     public async Task Report_totals_pages_and_original_resources_use_the_same_persisted_facts()
     {
         await using var f=await Fixture.Create(); var tab=await f.Tabs.Open(new(Guid.NewGuid(),f.Location.Id),f.Actor,default); await f.Tabs.Add(tab.Id,new(Guid.NewGuid(),[new(f.Product.Id,2)],true),f.Actor,null,default);
-        var payment=await f.Tabs.Pay(tab.Id,new(Guid.NewGuid(),"Cash",20,f.Session.Id),f.Actor,null,default); await f.Tabs.Reconcile(tab.Id,payment.Id,new(Guid.NewGuid(),0,"Extrato de teste"),f.Actor,default);
+        var payment=await f.Tabs.Pay(tab.Id,new(Guid.NewGuid(),"Cash",20,f.Session.Id),f.Actor,null,default);
+        // Preserve previously recorded fees in reports without exposing a new manual matching action.
+        var historical=await f.Db.Set<BarTabPayment>().SingleAsync(x=>x.Id==payment.Id); historical.Reconcile(3,DateTimeOffset.UtcNow);
+        f.Db.Add(new BarTabHistory(tab.Id,"FeeReconciled",f.Actor,3,"Histórico de teste",paymentId:payment.Id)); await f.Db.SaveChangesAsync();
         var from=DateTimeOffset.UtcNow.AddDays(-1); var to=DateTimeOffset.UtcNow.AddDays(1);
         foreach(var metric in new[]{"open-tabs","orders","pending-payments","consumption","received","refunds","fees","low-stock","cash-differences","receivable","cash"})
         {
             var report=await f.Tabs.Report(metric,from,to,1,2,default); Assert.Equal(metric,report.Metric); Assert.True(report.Rows.Items.Count<=2);
             if(metric=="received") foreach(var row in report.Rows.Items) Assert.Contains(row.Detail,new[]{"Dinheiro","Cartão aprovado na maquininha","Pix confirmado"});
+            if(metric=="fees") { Assert.Equal("Taxas registradas",report.Title); Assert.Contains(report.Rows.Items,x=>x.Id==payment.Id&&x.Amount==3&&x.Detail=="Taxa registrada"); }
             if(metric=="orders") foreach(var row in report.Rows.Items) {Assert.DoesNotContain("Requested",row.Detail); Assert.DoesNotContain("Accepted",row.Detail);}
             if(report.Unit=="count")Assert.Equal(report.Rows.Total,report.Value);
             decimal sum=0; for(var page=1; page<=Math.Max(1,(report.Rows.Total+99)/100);page++)sum+=(await f.Tabs.Report(metric,from,to,page,100,default)).Rows.Items.Sum(x=>x.Amount??0);

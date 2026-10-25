@@ -1,7 +1,6 @@
 import { LegacyDestination, BarDestination, MissingDestination } from './components/RouteDestinations'
 import { hasPermission, isManagement, workHome } from './features/auth/access'
 const BillingPage = lazy(() => import("./features/billing/BillingPages").then(m => ({ default: m.BillingPage })))
-const SettlementsPage = lazy(() => import("./features/billing/SettlementsPage").then(m => ({ default: m.SettlementsPage })))
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createBrowserRouter, RouterProvider, Navigate, Route, Routes } from 'react-router-dom'
@@ -25,7 +24,6 @@ const BarSalesPage = lazy(() => import('./features/bar/BarPages').then(module =>
 const BarLossesPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarLossesPage })))
 const ReceivedInvoicesPage = lazy(() => import('./features/fiscal/ReceivedInvoicesPage').then(module => ({ default: module.ReceivedInvoicesPage })))
 const BarPurchasesPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarPurchasesPage })))
-const BarReconciliationPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarReconciliationPage })))
 const BarRecipesPage = lazy(() => import('./features/bar/RecipePage').then(module => ({ default: module.BarRecipesPage })))
 import { AccountPage } from './pages/AccountPage'
 import { DemoDataProvider } from './features/operations/DemoDataProvider'
@@ -127,8 +125,8 @@ function OperationalRoutes() {
     {!demoMode && <Route path="solicitacoes-clientes" element={<RequestManagement />} />}
     {!demoMode && <Route path="minhas-contas" element={<LegacyDestination to="/minha-area/pagamentos" />} />}
     {!demoMode && <Route path="recebimentos" element={bar('finance:read', <BillingPage admin />)} />}
-    {!demoMode && <Route path="recebimentos/conciliacao" element={bar('finance:read', <SettlementsPage />)} />}
-    {!demoMode && <Route path="recebimentos/conciliacao-bar" element={bar('bar:payments:reconcile', <BarReconciliationPage />)} />}
+    {!demoMode && <Route path="recebimentos/conciliacao" element={<LegacyDestination to="/recebimentos" />} />}
+    {!demoMode && <Route path="recebimentos/conciliacao-bar" element={<LegacyDestination to="/recebimentos" />} />}
     {!demoMode && <Route path="notas-recebidas" element={<Permission permission="fiscal:invoices:manage"><ReceivedInvoicesPage /></Permission>} />}
     <Route path="financeiro/historico" element={<FinancialHistoryPage />} />
     <Route path="financeiro/controle-mensal" element={<MonthlyControlPage />} />
@@ -183,7 +181,7 @@ function OperationalRoutes() {
         <Route path="indicadores" element={bar('bar:finance:read', <BarOverviewPage />)} />
         <Route path="indicadores/:metric" element={bar('bar:finance:read', <BarReportPage />)} />
         <Route path="registros/:kind/:resourceId" element={bar('bar:finance:read', <BarSourcePage />)} />
-        <Route path="conciliacao" element={<LegacyDestination to="/recebimentos/conciliacao-bar" />} />
+        <Route path="conciliacao" element={<LegacyDestination to="/recebimentos" />} />
       </Route>
       <Route path="importacoes" element={bar('users:manage', <ImportPage />)} />
     </>}

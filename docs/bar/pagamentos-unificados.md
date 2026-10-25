@@ -3,8 +3,8 @@
 ## Telas e permissões
 
 - `/minhas-contas`: contas do usuário autenticado, separadas em Bar e Quadra, com histórico, Pix, cartão, comprovante individual e assinaturas.
-- `/recebimentos`: gestão (`finance:read`). Vincular conta ao usuário responsável exige `finance:write`. Matrícula exige selecionar explicitamente seu aluno.
-- `/recebimentos/conciliacao`: documentos EDI validados e liquidações associadas. A justificativa do vínculo fica na auditoria.
+- `/recebimentos`: gestão (`finance:read`) com busca, filtros e valores recebidos, a receber e em confirmação. Inclui contas sem vínculo, consultadas pela origem. Vincular conta ao usuário responsável exige `finance:write`. Matrícula exige selecionar explicitamente seu aluno.
+- A conciliação manual foi retirada por decisão de 25/10/2026. `/recebimentos/conciliacao` redireciona para `/recebimentos`; vínculos e taxas históricos permanecem preservados. Fluxo atual: [consulta sem conciliação manual](../operacao/pagamentos-sem-conciliacao-2026-10-25.md).
 - O atendimento do Bar continua disponível e oferece Pix, dinheiro, cartão na maquininha e crédito integrado. Dinheiro e maquininha conservam as regras existentes.
 
 Criar usuários e conceder acesso Student usa o processo individual existente. Não criar associação por nome. Contas sem vínculo continuam na operação interna, preservando histórico e baixas manuais. Reservas e mensalidades são pagas pelo saldo integral; comandas permitem valores parciais. Não há pagamento conjunto de Bar e Quadra.
@@ -39,8 +39,8 @@ Cadastrar no produto Recorrência o callback HTTPS `/api/v1/integrations/pagbank
 3. Habilitar base e Pix no sandbox. Testar dois usuários, uma comanda, uma reserva e uma matrícula. Confirmar baixa única na origem; estorno não movimenta estoque nem agenda.
 4. Testar crédito à vista aprovado, recusado e timeout. Retomar a mesma operação. Desativar criação e verificar que consulta/webhook/recuperação continuam funcionando.
 5. Homologar assinatura com vencimento hoje e futuro, ciclos 29–31, cobrança negada, retentativa, cancelamento com cobrança em andamento, estorno total e mensalidade previamente quitada. Conferir que `occurrence` identifica o ciclo esperado e o retorno paginado inclui todas as faturas/tentativas. Estorno parcial de assinatura não é suportado pelo adaptador.
-6. Testar grupo fixo em duas competências: exatamente uma cobrança por mês; geração repetida não duplica encontros. Acordos de quinto encontro Extra/A confirmar permanecem avulsos. Divergências de agenda/valor bloqueiam conciliação automática e precisam ser corrigidas pela gestão.
-7. EDI não tem sandbox equivalente: validar habilitação, primeira coleta, D+1, `VALIDADO=true`, paginação e `provider_sync_state`. Associar somente evento simples elegível cujo identificador foi conferido. Antecipação, parcelamento ou estorno exigem tratamento separado e não aparecem como associação automática.
+6. Testar grupo fixo em duas competências: exatamente uma cobrança por mês; geração repetida não duplica encontros. Acordos de quinto encontro Extra/A confirmar permanecem avulsos. Divergências de agenda/valor bloqueiam a atualização automática dos pagamentos e precisam ser corrigidas pela gestão.
+7. EDI não tem sandbox equivalente: validar habilitação, primeira coleta, D+1, `VALIDADO=true`, paginação e `provider_sync_state`. Documentos ficam disponíveis como fonte de consulta e não são somados novamente aos recebimentos operacionais. A associação manual de liquidação foi retirada; não é uma etapa para visualizar pagamentos.
 8. Confirmar credenciais/habilitações de produção. Publicar pelo fluxo existente com aprovação do environment e artefato identificado por commit/digest; habilitar cada recurso após aceite.
 
 Os testes locais usam PostgreSQL descartável e provedores simulados. Eles não comprovam homologação do PagBank, habilitação da conta ou coleta real EDI.
@@ -91,7 +91,7 @@ O trabalhador consulta operações em andamento a cada minuto. Logs `Billing rec
 
 Timeout não libera o saldo. Usar “Retomar pagamento pendente” e a mesma operação. Se a intenção não obteve identificador externo em 24 horas, não recriar: conferir a referência local no PagBank. A integração bloqueia retentativa tardia para evitar ultrapassar a retenção de idempotência do provedor. Corrigir por procedimento administrativo auditado; não editar saldo nem apagar intenção para forçar outra cobrança.
 
-Notificação inválida de Pedidos é rejeitada. Notificação válida provoca consulta autenticada; nunca é usada diretamente para dar baixa. Uma confirmação tardia de operação cancelada, duplicidade externa, valor/moeda divergente ou competência duplicada exige conciliação.
+Notificação inválida de Pedidos é rejeitada. Notificação válida provoca consulta autenticada; nunca é usada diretamente para dar baixa. Uma confirmação tardia de operação cancelada, duplicidade externa, valor/moeda divergente ou competência duplicada exige investigação pelo responsável financeiro; não usar a antiga tela de conciliação nem forçar outra baixa.
 
 Assinatura cancelada interrompe o futuro após confirmação. Valores ainda em tentativa permanecem reservados até a consulta completa. Devolver dinheiro e encerrar matrícula são ações separadas. Falha financeira não cancela aula/reserva.
 

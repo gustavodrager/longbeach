@@ -7,7 +7,9 @@ import { LegacyDestination, MissingDestination } from './RouteDestinations'
 import { destinationFor, managementNavigation, visibleNavigation } from './navigation'
 
 it.each([
-  ['/bar/conciliacao','/recebimentos/conciliacao-bar',undefined],
+  ['/bar/conciliacao','/recebimentos',undefined],
+  ['/recebimentos/conciliacao','/recebimentos',undefined],
+  ['/recebimentos/conciliacao-bar','/recebimentos',undefined],
   ['/atendimento/caixa','/bar/caixa',undefined],
   ['/quadras', '/agenda/funcionamento', undefined],
   ['/estoque', '/administracao/materiais', undefined],
@@ -32,10 +34,11 @@ it('entrada do bar respeita perfil e permissões efetivas', () => {
 it('menus apontam para destinos canônicos e mantêm seções profundas identificadas',()=>{
   expect(destinationFor('/administracao/materiais/item',managementNavigation)?.destination.label).toBe('Materiais')
   expect(destinationFor('/agenda/funcionamento',managementNavigation)?.destination.label).toBe('Funcionamento e preços')
-  expect(destinationFor('/recebimentos/conciliacao',managementNavigation)?.destination.label).toBe('Conciliação PagBank')
+  expect(destinationFor('/recebimentos/conciliacao',managementNavigation)?.destination.label).toBe('Recebimentos')
   expect(destinationFor('/administracao/professores',managementNavigation)?.item.label).toBe('Equipe')
   const hrefs=visibleNavigation(()=>true).flatMap(g=>(g.children??[g]).flatMap(c=>[c.href,...(c.related??[]).map(r=>r.href)]))
   expect(new Set(hrefs).size).toBe(hrefs.length);expect(hrefs).not.toContain('/estoque');expect(hrefs).not.toContain('/quadras')
+  expect(hrefs.some(href=>href.includes('conciliacao'))).toBe(false)
 })
 it('endereço inexistente orienta o cliente sem abrir a gestão',async()=>{
  const user:AuthUser={id:'client',name:'Cliente',email:'client@example.invalid',roles:['Student'],permissions:[]}

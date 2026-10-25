@@ -18,7 +18,7 @@ public static class ProfileAccess
             [SystemRoles.BarOperator] = [SystemPermissions.BarCatalogRead,SystemPermissions.BarCashOperate,SystemPermissions.BarSalesRead,SystemPermissions.BarSalesOperate],
             [SystemRoles.BarSupervisor] = [SystemPermissions.BarCatalogRead,SystemPermissions.BarStockRead,SystemPermissions.BarStockOutput,SystemPermissions.BarStockManage,SystemPermissions.BarCashOperate,SystemPermissions.BarSalesRead,SystemPermissions.BarSalesOperate,SystemPermissions.BarSupervise,SystemPermissions.BarRefundApprove],
             [SystemRoles.StockManager] = [SystemPermissions.BarCatalogRead,SystemPermissions.BarCatalogWrite,SystemPermissions.BarStockRead,SystemPermissions.BarStockManage,SystemPermissions.BarStockOutput,SystemPermissions.BarPurchasesManage],
-            [SystemRoles.BarFinance] = [SystemPermissions.BarCatalogRead,SystemPermissions.BarStockRead,SystemPermissions.BarSalesRead,SystemPermissions.BarFinanceRead,SystemPermissions.BarReconcile,SystemPermissions.BarRefundApprove],
+            [SystemRoles.BarFinance] = [SystemPermissions.BarCatalogRead,SystemPermissions.BarStockRead,SystemPermissions.BarSalesRead,SystemPermissions.BarFinanceRead,SystemPermissions.BarRefundApprove],
             [SystemRoles.Owner] = SystemPermissions.All,
             [SystemRoles.Administrator] = SystemPermissions.All,
             [SystemRoles.Manager] = SystemPermissions.All,

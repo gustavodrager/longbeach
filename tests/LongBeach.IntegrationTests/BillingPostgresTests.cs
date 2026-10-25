@@ -182,27 +182,22 @@ public sealed class BillingPostgresTests
         await service.Refresh(seed.Account, p.Id, seed.User, true, default); var after = await service.Account(seed.Account, seed.User, default); Assert.Equal("Cancelado", after.State); Assert.Equal(0, after.Payable);
     }
     [PostgresFact]
-    public async Task Edi_links_one_validated_event_without_creating_another_receipt()
+    public async Task Provider_confirmation_updates_receipts_without_matching_and_preserves_historical_settlements()
     {
         await using var db = Database(); var gateway = new Gateway { State = "PAID" }; var seed = await Seed(db, gateway); var service = Service(db, gateway);
         var account = await service.Pay(seed.Account, Input(), seed.User, true, default); var payment = Assert.Single(account.Payments); var document = Guid.NewGuid(); var external = Guid.NewGuid().ToString(); var day = DateOnly.FromDateTime(DateTime.UtcNow);
-        var payload = JsonSerializer.Serialize(new { detalhes = new[] { new { movimento_api_codigo = external, codigo_transacao = "EDI_TEST", tipo_evento = "1", status_pagamento = "3", quantidade_parcelas = "1", taxa_antecipacao = 0m, valor_original_transacao = 100m, valor_liquido_transacao = 97m, taxa_intermediacao = 2m, tarifa_intermediacao = 1m, data_movimentacao = day.ToString("yyyy-MM-dd") } } });
-        var hash = new string('a', 32) + document.ToString("N");
-        await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO provider_documents(id,provider,movement,movement_date,page_number,source_sha256,payload,validated,fetched_at_utc) VALUES({document},'pagbank-edi','financial',{day},1,{hash},{payload}::jsonb,true,{DateTimeOffset.UtcNow})");
-        var candidates = JsonSerializer.SerializeToElement(await service.SettlementCandidates(default)); Assert.Contains(candidates.GetProperty("records").EnumerateArray(), x => x.GetProperty("externalId").GetString() == external);
-        var stale=Guid.NewGuid();var staleHash=new string('b',32)+stale.ToString("N");
-        await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO provider_documents(id,provider,movement,movement_date,page_number,source_sha256,payload,validated,fetched_at_utc) VALUES({stale},'pagbank-edi','financial',{day},1,{staleHash},{payload}::jsonb,true,{DateTimeOffset.UtcNow.AddDays(-1)})");
-        await Assert.ThrowsAsync<BarRuleException>(()=>service.Settle(seed.Account,new(payment.Id,stale,external,"Documento substituído"),seed.User,default));
-        candidates=JsonSerializer.SerializeToElement(await service.SettlementCandidates(default));
-        Assert.DoesNotContain(candidates.GetProperty("records").EnumerateArray(),x=>x.GetProperty("documentId").GetGuid()==stale);
-        await using(var collectorDb=Database())
-        await using(var collectorTx=await collectorDb.Database.BeginTransactionAsync())
-        {
-            await collectorDb.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(19771007)");
-            await Assert.ThrowsAsync<BarRuleException>(()=>service.Settle(seed.Account,new(payment.Id,document,external,"Coleta concorrente"),seed.User,default));
-        }
-        var input = new SettlementInput(payment.Id, document, external, "Conferido por transação no extrato"); await service.Settle(seed.Account, input, seed.User, default); await service.Settle(seed.Account, input, seed.User, default);
-        Assert.Equal(1, await db.Set<BillingSettlement>().CountAsync(x => x.PaymentId == payment.Id)); Assert.Equal(1, await db.Set<BillingPayment>().CountAsync(x => x.AccountId == seed.Account)); Assert.Equal(100, (await service.Account(seed.Account, seed.User, default)).Paid);
+        Assert.Equal("Approved", payment.State); Assert.Equal(100, account.Paid);
+        Assert.False(await db.Set<BillingSettlement>().AnyAsync(x => x.PaymentId == payment.Id));
+        // Historical rows remain readable and immutable after the manual matching API is removed.
+        var historical = new BillingSettlement(seed.Account, payment.Id, document, external, 100, 3, 97, day);
+        db.Add(historical); await db.SaveChangesAsync();
+        await service.Refresh(seed.Account, payment.Id, seed.User, true, default);
+        var stored = await db.Set<BillingSettlement>().AsNoTracking().SingleAsync(x => x.Id == historical.Id);
+        Assert.Equal(document, stored.DocumentId); Assert.Equal(external, stored.ExternalId);
+        Assert.Equal(3, stored.Fee); Assert.Equal(97, stored.Net);
+        Assert.Equal(1, await db.Set<BillingPayment>().CountAsync(x => x.AccountId == seed.Account));
+        Assert.Equal(100, (await service.Account(seed.Account, seed.User, default)).Paid);
+        db.Remove(historical); await Assert.ThrowsAsync<BarRuleException>(() => db.SaveChangesAsync());
     }
     [PostgresFact]
     public async Task Rental_subscription_follows_group_across_months_without_duplicate_meetings()

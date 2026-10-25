@@ -19,6 +19,4 @@ public interface IBilling
     Task<SubscriptionDto> RefreshSubscription(Guid subscriptionId, Guid userId, CancellationToken ct) => throw new NotSupportedException();
     Task<SubscriptionDto> Cancel(Guid subscriptionId, CancelSubscriptionInput input, Guid userId, CancellationToken ct);
     Task<bool> SubscriptionWebhook(byte[] body, CancellationToken ct);
-    Task<object> SettlementCandidates(CancellationToken ct);
-    Task<object> Settle(Guid accountId, SettlementInput input, Guid actor, CancellationToken ct);
 }
