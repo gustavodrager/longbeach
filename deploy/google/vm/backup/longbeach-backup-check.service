@@ -1,0 +1,17 @@
+[Unit]
+Description=Check LongBeach backup age, repository and WAL archiving
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+OnFailure=longbeach-backup-failed@%n.service
+RequiresMountsFor=/var/lib/longbeach
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/bin/python3 /opt/longbeach/backup/run.py check
+TimeoutStartSec=7h
+Nice=10
+StandardOutput=journal
+StandardError=journal

@@ -1,0 +1,11 @@
+[Unit]
+Description=Check backup and continuous WAL archiving every five minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=5min
+RandomizedDelaySec=15
+Unit=longbeach-backup-check.service
+
+[Install]
+WantedBy=timers.target

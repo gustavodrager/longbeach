@@ -1,0 +1,7 @@
+# Reviewed addition to the VM Terraform root, only when enabling this host monitor.
+# No Logging role, project editor or Ops Agent is required.
+resource "google_project_iam_member" "vm_metric_writer" {
+  project = "parsero-prod-20261022"
+  role    = "roles/monitoring.metricWriter"
+  member  = "serviceAccount:longbeach-economy-vm@parsero-prod-20261022.iam.gserviceaccount.com"
+}

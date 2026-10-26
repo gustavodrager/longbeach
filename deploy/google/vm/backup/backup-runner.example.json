@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "compose_file": "/opt/longbeach/runtime/compose.yaml",
+  "env_file": "/etc/longbeach/runtime.env",
+  "project_name": "longbeach",
+  "postgres_service": "postgres",
+  "postgres_image": "REGISTRY/longbeach-postgres@sha256:REPLACE_WITH_REVIEWED_BUILD_DIGEST",
+  "data_mount": "/var/lib/longbeach",
+  "pgbackrest_config": "/etc/longbeach/backup/pgbackrest.conf",
+  "config_sha256": "REPLACE_WITH_RENDERED_CONFIG_SHA256"
+}

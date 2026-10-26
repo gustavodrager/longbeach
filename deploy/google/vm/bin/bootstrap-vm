@@ -1,0 +1,454 @@
+#!/usr/bin/env python3
+"""Prepare only the reviewed LongBeach candidate. Never starts application containers.
+
+Commands that format a new data disk require --initialize-empty-disk as well as
+the device, root-disk, filesystem-signature and size checks below. Secrets use
+GCE metadata credentials and live only under /run; no SDK/key file is installed.
+"""
+import argparse
+import base64
+import datetime as dt
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import shlex
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+import urllib.error
+import urllib.request
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import vm_config
+
+PROJECT = "parsero-prod-20261022"
+INSTANCE = "longbeach-economy"
+DEVICE = "/dev/disk/by-id/google-longbeach-postgres"
+DATA = "/var/lib/longbeach"
+MANIFEST = "/etc/longbeach/bootstrap.json"
+CADDY_DIGEST = "504a44d7d74bd2bc28a66afc4774912fc21223ca8a67734af1c54ab2f999b489"
+DATA_BYTES = 20 * 1024 ** 3
+METADATA_RULE_SOURCES = ("172.29.10.0/24", "172.29.11.0/24")
+RUNTIME_FILES = ("compose.yaml", "preflight.py", "health-api.sh", "check-health.py", "proxy.caddy",
+                 "Caddyfile.certificate", "Caddyfile.automatic")
+RUNTIME_UNITS = ("longbeach-runtime.service", "longbeach-health.service", "longbeach-health.timer")
+BACKUP_UNITS = ("longbeach-backup.service", "longbeach-backup.timer", "longbeach-backup-check.service",
+                "longbeach-backup-check.timer", "longbeach-backup-failed@.service")
+CLEAN_ENV = {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "HOME": "/root", "LANG": "C.UTF-8"}
+
+
+class Refused(RuntimeError):
+    pass
+
+
+def require(condition, code):
+    if not condition:
+        raise Refused(code)
+
+
+def command(argv, *, accepted=(0,), input_bytes=None, extra_env=None, timeout=120):
+    result = subprocess.run(argv, input=input_bytes, capture_output=True,
+                            env={**CLEAN_ENV, **(extra_env or {})}, timeout=timeout, check=False)
+    require(result.returncode in accepted, "host-command-failed:" + Path(argv[0]).name)
+    return result
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise Refused("credential-request-redirect-refused")
+
+
+class CloudReader:
+    """Only metadata GET and numbered SM version GET; never logs response bodies."""
+    def __init__(self):
+        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+
+    def get(self, url, headers):
+        with self.opener.open(urllib.request.Request(url, headers=headers), timeout=30) as response:
+            if url.startswith("http://169.254.169.254/"):
+                require(response.headers.get("Metadata-Flavor") == "Google", "metadata-identity-missing")
+            return response.read()
+
+    def metadata(self, path):
+        return self.get("http://169.254.169.254/computeMetadata/v1/" + path, {"Metadata-Flavor": "Google"})
+
+    def identity(self):
+        require(self.metadata("project/project-id").decode() == PROJECT, "wrong-host-project")
+        require(self.metadata("instance/name").decode() == INSTANCE, "wrong-host-instance")
+        require(self.metadata("instance/zone").decode().endswith("/zones/southamerica-east1-a"), "wrong-host-zone")
+        require(self.metadata("instance/service-accounts/default/email").decode() ==
+                "longbeach-economy-vm@" + PROJECT + ".iam.gserviceaccount.com", "wrong-host-service-account")
+
+    def token(self):
+        token = json.loads(self.metadata("instance/service-accounts/default/token"))["access_token"]
+        require(isinstance(token, str) and token and "\n" not in token, "invalid-metadata-token")
+        return token
+
+    def secret(self, reference, token):
+        secret_id, version = reference["secret_id"], str(reference["version"])
+        require(re.fullmatch(r"longbeach-[a-z0-9-]+", secret_id) and re.fullmatch(r"[1-9][0-9]*", version),
+                "invalid-numbered-secret-reference")
+        url = "https://secretmanager.googleapis.com/v1/projects/" + PROJECT + "/secrets/" + secret_id + "/versions/" + version + ":access"
+        payload = json.loads(self.get(url, {"Authorization": "Bearer " + token}))
+        require(payload.get("name", "").endswith("/secrets/" + secret_id + "/versions/" + version), "secret-version-identity-mismatch")
+        value = base64.b64decode(payload["payload"]["data"], validate=True).decode("utf-8")
+        require(value and "\x00" not in value, "invalid-secret-value")
+        return value
+
+
+def checked_manifest(value):
+    vm_config.validate_manifest(value)
+    require(re.fullmatch(r"docker\.io/library/caddy@sha256:" + CADDY_DIGEST, value.get("caddy_image", "")), "unreviewed-caddy-image")
+    require(value["backup"]["prefix"] == "pgbackrest/longbeach/", "backup-prefix-changed")
+    return value
+
+
+def classify_disk(row, signatures, blkid_status, root_ancestors):
+    """Pure pre-format gate: permits only the expected whole 20 GiB non-root disk."""
+    require(row.get("type") == "disk" and int(row.get("size", 0)) == DATA_BYTES, "wrong-data-disk-type-or-size")
+    require(not row.get("children"), "partitioned-data-disk-refused")
+    require(row.get("name") not in root_ancestors, "root-disk-refused")
+    mounts = [m for m in (row.get("mountpoints") or []) if m]
+    require(not mounts or mounts == [DATA], "data-disk-mounted-elsewhere")
+    filesystem, uuid = row.get("fstype"), row.get("uuid")
+    if filesystem:
+        require(filesystem == "ext4" and re.fullmatch(r"[a-fA-F0-9-]{36}", uuid or ""), "unreviewed-data-filesystem")
+        return "existing"
+    require(not uuid and not mounts and not signatures and blkid_status == 2, "nonempty-or-unknown-data-disk")
+    return "blank"
+
+
+def metadata_rule(source):
+    return ["-s", source, "-d", "169.254.169.254/32", "-p", "tcp", "-m", "multiport", "--dports", "80,443", "-j", "DROP"]
+
+
+def image_matches(image, inspected):
+    if inspected.get("Architecture") != "amd64" or inspected.get("Os") != "linux":
+        return False
+    candidates = {image}
+    if image.startswith("docker.io/library/caddy@sha256:"):
+        suffix = image.split("@", 1)[1]
+        candidates.update({"caddy@" + suffix, "index.docker.io/library/caddy@" + suffix})
+    return bool(candidates.intersection(inspected.get("RepoDigests") or []))
+
+
+class Installer:
+    def __init__(self, manifest, *, bundle=None, run=command, cloud=None):
+        self.manifest = checked_manifest(manifest)
+        self.bundle = bundle or Path(__file__).resolve().parent.parent
+        self.run = run
+        self.cloud = cloud or CloudReader()
+
+    def host(self):
+        require(os.geteuid() == 0, "root-required")
+        require(sys.platform == "linux" and os.uname().machine == "x86_64", "debian13-amd64-required")
+        release = dict(line.split("=", 1) for line in Path("/etc/os-release").read_text().splitlines() if "=" in line)
+        require(release.get("ID", "").strip('"') == "debian" and release.get("VERSION_ID", "").strip('"') == "13", "debian13-required")
+        self.cloud.identity()
+
+    def directory(self, path, uid=0, gid=0, mode=0o700):
+        path = Path(path)
+        if path.exists() or path.is_symlink():
+            info = path.lstat()
+            require(stat.S_ISDIR(info.st_mode) and info.st_uid == uid and info.st_gid == gid, "unsafe-directory:" + path.name)
+        else:
+            path.mkdir(parents=True, mode=mode)
+            os.chown(path, uid, gid)
+        os.chmod(path, mode)
+        return path
+
+    def write(self, path, data, gid=0, mode=0o600):
+        path = Path(path)
+        if path.exists() or path.is_symlink():
+            info = path.lstat()
+            require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and info.st_nlink == 1,
+                    "unsafe-existing-file:" + path.name)
+        data = data.encode() if isinstance(data, str) else data
+        fd, temporary = tempfile.mkstemp(prefix=".prepare-", dir=path.parent)
+        try:
+            os.fchmod(fd, mode)
+            os.fchown(fd, 0, gid)
+            with os.fdopen(fd, "wb") as output:
+                output.write(data)
+                output.flush()
+                os.fsync(output.fileno())
+            os.replace(temporary, path)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+
+    def refuse_active_prepare(self):
+        existing = Path("/etc/longbeach/runtime.env")
+        if existing.exists():
+            flags = dict(line.split("=", 1) for line in existing.read_text().splitlines() if "=" in line and not line.startswith("#"))
+            require(all(flags.get(k, "false") == "false" for k in ("WORKERS_ENABLED", "VM_PRODUCTION_CUTOVER_CONFIRMED", "SOURCE_WORKERS_STOPPED_CONFIRMED")),
+                    "prepare-cannot-reset-cutover-controls")
+        if shutil.which("docker", path=CLEAN_ENV["PATH"]):
+            status = self.run(["systemctl", "is-active", "--quiet", "docker.service"], accepted=(0, 3, 4))
+            # Starting an inactive pre-existing daemon can auto-resume old containers.
+            # Only the fresh-image path without Docker may install/start it automatically.
+            require(status.returncode == 0, "docker-inactive-needs-manual-review-before-prepare")
+            containers = self.run(["docker", "ps", "--quiet", "--filter", "label=com.docker.compose.project=longbeach"])
+            require(not containers.stdout.strip(), "prepare-refuses-running-longbeach-containers")
+        else:
+            persisted = Path("/var/lib/docker/containers")
+            require(not persisted.exists() or not any(persisted.iterdir()), "existing-docker-state-needs-manual-review")
+            require(not Path("/etc/docker/daemon.json").exists(), "existing-docker-configuration-needs-manual-review")
+
+    def disk_probe(self):
+        require(stat.S_ISBLK(os.stat(DEVICE).st_mode), "data-device-not-block-device")
+        root = self.run(["findmnt", "--noheadings", "--output", "SOURCE", "--target", "/"]).stdout.decode().strip()
+        require(root.startswith("/dev/"), "root-device-identity-unknown")
+        root_ancestors = self.run(["lsblk", "--inverse", "--noheadings", "--paths", "--output", "NAME", root]).stdout.decode().split()
+        result = self.run(["lsblk", "--json", "--paths", "--bytes", "--output", "NAME,TYPE,SIZE,FSTYPE,UUID,MOUNTPOINTS,PKNAME", DEVICE])
+        rows = json.loads(result.stdout).get("blockdevices", [])
+        require(len(rows) == 1 and Path(rows[0]["name"]).resolve() == Path(DEVICE).resolve(), "data-device-identity-mismatch")
+        wipe = json.loads(self.run(["wipefs", "--no-act", "--json", DEVICE]).stdout)
+        blkid = self.run(["blkid", "--probe", "--output", "export", DEVICE], accepted=(0, 2))
+        kind = classify_disk(rows[0], wipe.get("signatures", []), blkid.returncode, root_ancestors)
+        return kind, rows[0]
+
+    def mount_data(self, initialize_empty):
+        kind, row = self.disk_probe()
+        if kind == "blank":
+            require(initialize_empty, "empty-disk-needs-explicit-initialize-empty-disk")
+            # Recheck immediately. Never use wipefs -a or mkfs -F to bypass a signature/usage warning.
+            require(self.disk_probe()[0] == "blank", "data-disk-changed-before-format")
+            self.run(["mkfs.ext4", "-m", "1", "-L", "longbeach-data", DEVICE], timeout=180)
+            kind, row = self.disk_probe()
+            require(kind == "existing", "filesystem-not-confirmed-after-initialize")
+        uuid = row["uuid"]
+        self.directory(DATA)
+        mount = self.run(["findmnt", "--json", "--mountpoint", DATA, "--output", "TARGET,UUID,SOURCE,FSTYPE"], accepted=(0, 1))
+        if mount.returncode == 0:
+            rows = json.loads(mount.stdout).get("filesystems", [])
+            require(len(rows) == 1 and rows[0].get("uuid") == uuid and rows[0].get("fstype") == "ext4", "mounted-data-uuid-mismatch")
+        else:
+            require(not any(Path(DATA).iterdir()), "unmounted-data-directory-not-empty")
+        fstab = Path("/etc/fstab")
+        previous = fstab.read_text()
+        matching = [line.split() for line in previous.splitlines() if line.strip() and not line.lstrip().startswith("#")]
+        require(all((parts[0] == "UUID=" + uuid and parts[1] == DATA and parts[2] == "ext4")
+                    for parts in matching if len(parts) >= 3 and (parts[1] == DATA or parts[0] == "UUID=" + uuid)), "fstab-data-entry-conflict")
+        if not any(len(parts) >= 2 and parts[1] == DATA for parts in matching):
+            line = "UUID=" + uuid + " " + DATA + " ext4 defaults,noatime,nofail,x-systemd.device-timeout=30s 0 2\n"
+            self.write(fstab, previous.rstrip() + "\n# LongBeach separate persistent data disk\n" + line, mode=0o644)
+        if mount.returncode != 0:
+            self.run(["mount", DATA], timeout=60)
+        verified = json.loads(self.run(["findmnt", "--json", "--mountpoint", DATA, "--output", "TARGET,UUID,FSTYPE"]).stdout)["filesystems"]
+        require(len(verified) == 1 and verified[0].get("uuid") == uuid and verified[0].get("target") == DATA and verified[0].get("fstype") == "ext4", "data-mount-postcheck-failed")
+        return uuid
+
+    def packages(self):
+        self.run(["apt-get", "update"], timeout=600)
+        self.run(["apt-get", "install", "--yes", "--no-install-recommends", "docker.io", "docker-cli", "docker-compose",
+                  "ca-certificates", "python3", "e2fsprogs", "util-linux", "iptables"],
+                 extra_env={"DEBIAN_FRONTEND": "noninteractive"}, timeout=900)
+        version = self.run(["docker", "compose", "version", "--short"]).stdout.decode().strip().lstrip("v")
+        require(tuple(int(x) for x in version.split(".")[:2]) >= (2, 26), "docker-compose-v2-26-required")
+        self.run(["systemctl", "enable", "--now", "docker.service"])
+
+    def firewall(self):
+        backend = self.run(["iptables", "--version"]).stdout.decode()
+        require("nf_tables" in backend, "debian-iptables-nft-backend-required")
+        chain = self.run(["iptables", "-w", "5", "-S", "DOCKER-USER"], accepted=(0, 1))
+        if chain.returncode != 0:
+            self.run(["iptables", "-w", "5", "-N", "DOCKER-USER"])
+            text = ""
+        else:
+            text = chain.stdout.decode()
+        prefix = [shlex.split(line)[2:] for line in text.splitlines() if line.startswith("-A DOCKER-USER ")][:2]
+        expected = [metadata_rule(source) for source in METADATA_RULE_SOURCES]
+        if len(prefix) != 2 or {tuple(rule) for rule in prefix} != {tuple(rule) for rule in expected}:
+            # Presence below a RETURN/ACCEPT is insufficient. Insert both ahead of any existing rule.
+            # Do not delete unrelated rules or briefly remove an existing protective DROP.
+            for rule in expected:
+                self.run(["iptables", "-w", "5", "-I", "DOCKER-USER", "1", *rule])
+        for source in METADATA_RULE_SOURCES:
+            rule = metadata_rule(source)
+            self.run(["iptables", "-w", "5", "-C", "DOCKER-USER", *rule])
+        verified = self.run(["iptables", "-w", "5", "-S", "DOCKER-USER"]).stdout.decode()
+        prefix = [shlex.split(line)[2:] for line in verified.splitlines() if line.startswith("-A DOCKER-USER ")][:2]
+        require(len(prefix) == 2 and {tuple(rule) for rule in prefix} == {tuple(rule) for rule in expected}, "metadata-drop-prefix-not-effective")
+
+    def run_tmpfs(self):
+        fs = json.loads(self.run(["findmnt", "--json", "--target", "/run", "--output", "TARGET,FSTYPE"]).stdout).get("filesystems", [])
+        require(len(fs) == 1 and fs[0].get("fstype") == "tmpfs", "run-must-be-tmpfs")
+        self.directory("/run/longbeach")
+
+    def refresh_secrets(self):
+        self.run_tmpfs()
+        token = self.cloud.token()
+        values = {name: self.cloud.secret(ref, token) for name, ref in self.manifest["secret_refs"].items()}
+        admin = self.cloud.secret(self.manifest["postgres_admin_secret"], token)
+        require(len(admin) >= 32 and not any(char in admin for char in "\r\n\x00"), "vm-admin-password-invalid")
+        _, user, runtime_password = vm_config.database_credentials(values["ConnectionStrings__LongBeach"])
+        require(user == "longbeach_runtime", "runtime-role-changed")
+        require(admin != runtime_password, "vm-admin-must-not-reuse-runtime-password")
+        app = vm_config.app_config(self.manifest, values)
+        self.write("/run/longbeach/appsettings.Production.json", json.dumps(app, ensure_ascii=False), gid=1654, mode=0o640)
+        self.write("/run/longbeach/postgres-admin-password", admin, gid=999, mode=0o640)
+        self.directory("/run/longbeach/tls", gid=1000, mode=0o750)
+        del token, values, admin, app, runtime_password
+
+    def pull_images(self):
+        self.run_tmpfs()
+        token = self.cloud.token()
+        with tempfile.TemporaryDirectory(prefix="docker-login-", dir="/run/longbeach") as temporary:
+            os.chmod(temporary, 0o700)
+            environment = {"DOCKER_CONFIG": temporary}
+            self.run(["docker", "login", "--username", "oauth2accesstoken", "--password-stdin", "southamerica-east1-docker.pkg.dev"],
+                     input_bytes=(token + "\n").encode(), extra_env=environment)
+            del token
+            for name in ("api_image", "postgres_backup_image", "caddy_image"):
+                image = self.manifest[name]
+                self.run(["docker", "pull", "--platform", "linux/amd64", image], extra_env=environment, timeout=600)
+                rows = json.loads(self.run(["docker", "image", "inspect", image], extra_env=environment).stdout)
+                require(len(rows) == 1 and image_matches(image, rows[0]), "pulled-image-platform-or-digest-mismatch")
+        # TemporaryDirectory deletes Docker's token-bearing config; no user SDK config is used.
+
+    def install_files(self, uuid):
+        for path in ("/opt/longbeach", "/opt/longbeach/bin", "/opt/longbeach/runtime", "/opt/longbeach/backup", "/etc/longbeach"):
+            self.directory(path, mode=0o750)
+        self.directory("/etc/longbeach/backup", gid=999, mode=0o750)
+        for relative, uid in (("postgres", 999), ("pgbackrest", 999), ("pgbackrest/spool", 999),
+                              ("pgbackrest/log", 999), ("pgbackrest/lock", 999), ("caddy", 1000),
+                              ("caddy/data", 1000), ("caddy/config", 1000)):
+            self.directory(Path(DATA) / relative, uid=uid, gid=uid)
+        self.directory(Path(DATA) / "backup-state")
+        for relative in ("bootstrap-vm", "vm_config.py"):
+            self.copy(self.bundle / "bin" / relative, Path("/opt/longbeach/bin") / relative, mode=0o750)
+        for relative in RUNTIME_FILES:
+            self.copy(self.bundle / "runtime" / relative, Path("/opt/longbeach/runtime") / relative,
+                      mode=0o755 if relative == "health-api.sh" else 0o644)
+        for relative in ("run.py", "render-config.py"):
+            self.copy(self.bundle / "backup" / relative, Path("/opt/longbeach/backup") / relative, mode=0o644)
+        for directory, names in (("runtime", RUNTIME_UNITS), ("backup", BACKUP_UNITS)):
+            for relative in names:
+                self.copy(self.bundle / directory / relative, Path("/etc/systemd/system") / relative, mode=0o644)
+        spec = importlib.util.spec_from_file_location("backup_render", self.bundle / "backup/render-config.py")
+        renderer = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(renderer)
+        config = renderer.render(bucket=self.manifest["backup"]["bucket"], prefix=self.manifest["backup"]["prefix"])
+        self.write("/etc/longbeach/backup/pgbackrest.conf", config, gid=999, mode=0o640)
+        runner = {"schema_version": 1, "compose_file": "/opt/longbeach/runtime/compose.yaml", "env_file": "/etc/longbeach/runtime.env",
+                  "project_name": "longbeach", "postgres_service": "postgres", "postgres_image": self.manifest["postgres_backup_image"],
+                  "data_mount": DATA, "pgbackrest_config": "/etc/longbeach/backup/pgbackrest.conf", "config_sha256": hashlib.sha256(config.encode()).hexdigest()}
+        self.write("/etc/longbeach/backup-runner.json", json.dumps(runner, sort_keys=True) + "\n")
+        environment = {"API_IMAGE": self.manifest["api_image"], "POSTGRES_BACKUP_IMAGE": self.manifest["postgres_backup_image"],
+                       "API_DOMAIN": self.manifest["api_domain"], "WEB_ORIGIN": self.manifest["web_origin"], "DATA_DISK_UUID": uuid,
+                       "CADDY_CONFIG": "/opt/longbeach/runtime/Caddyfile.certificate", "WORKERS_ENABLED": "false",
+                       "VM_PRODUCTION_CUTOVER_CONFIRMED": "false", "SOURCE_WORKERS_STOPPED_CONFIRMED": "false"}
+        self.write("/etc/longbeach/runtime.env", "".join(key + "=" + value + "\n" for key, value in environment.items()))
+        self.install_units()
+
+    def copy(self, source, destination, mode):
+        info = source.lstat()
+        require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1, "unsafe-bundle-file:" + source.name)
+        self.write(destination, source.read_bytes(), mode=mode)
+
+    def install_units(self):
+        self.write("/etc/systemd/system/longbeach-metadata-firewall.service", """[Unit]
+Description=Block web containers from GCE credentials while preserving DNS and backup ADC
+Wants=network-online.target
+After=network-online.target
+Before=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/python3 -B /opt/longbeach/bin/bootstrap-vm --manifest /etc/longbeach/bootstrap.json --metadata-firewall-only
+UMask=0077
+""", mode=0o644)
+        self.directory("/etc/systemd/system/docker.service.d", mode=0o755)
+        self.write("/etc/systemd/system/docker.service.d/longbeach-metadata.conf", """[Unit]
+Requires=longbeach-metadata-firewall.service longbeach-secrets.service
+After=longbeach-metadata-firewall.service longbeach-secrets.service
+RequiresMountsFor=/var/lib/longbeach
+""", mode=0o644)
+        self.write("/etc/systemd/system/longbeach-secrets.service", """[Unit]
+Description=Refresh ephemeral LongBeach credentials with VM identity
+Wants=network-online.target
+After=network-online.target
+Before=longbeach-runtime.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -B /opt/longbeach/bin/bootstrap-vm --manifest /etc/longbeach/bootstrap.json --refresh-secrets-only
+UMask=0077
+RuntimeDirectory=longbeach
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/run/longbeach
+PrivateTmp=true
+""", mode=0o644)
+        self.directory("/etc/systemd/system/longbeach-runtime.service.d", mode=0o755)
+        self.write("/etc/systemd/system/longbeach-runtime.service.d/credentials.conf", """[Unit]
+Requires=longbeach-secrets.service
+After=longbeach-secrets.service
+""", mode=0o644)
+
+    def prepare(self, initialize_empty=False):
+        self.host()
+        self.refuse_active_prepare()
+        uuid = self.mount_data(initialize_empty)
+        self.packages()
+        self.refuse_active_prepare()
+        self.firewall()
+        self.refresh_secrets()
+        self.pull_images()
+        self.install_files(uuid)
+        self.run(["systemctl", "daemon-reload"])
+        # No compose up/run, no PostgreSQL init/restore, no migrations, no application/timer enable/start.
+        receipt = {"status": "prepared", "at": dt.datetime.now(dt.timezone.utc).isoformat(), "prepare_only": True,
+                   "data_disk_uuid": uuid, "runtime_started": False, "workers_enabled": False,
+                   "manifest_sha256": hashlib.sha256(Path(MANIFEST).read_bytes()).hexdigest()}
+        self.write("/etc/longbeach/host-prepared.json", json.dumps(receipt, sort_keys=True) + "\n")
+        return receipt
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--manifest", default=MANIFEST)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--prepare-only", action="store_true")
+    mode.add_argument("--refresh-secrets-only", action="store_true")
+    mode.add_argument("--metadata-firewall-only", action="store_true")
+    parser.add_argument("--initialize-empty-disk", action="store_true")
+    args = parser.parse_args()
+    require(args.manifest == MANIFEST, "canonical-manifest-path-required")
+    require(not args.initialize_empty_disk or args.prepare_only, "disk-initialize-only-during-explicit-prepare")
+    os.umask(0o077)
+    info = Path(args.manifest).lstat()
+    require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and info.st_nlink == 1 and stat.S_IMODE(info.st_mode) == 0o600,
+            "unsafe-bootstrap-manifest")
+    installer = Installer(json.loads(Path(args.manifest).read_bytes()))
+    if args.prepare_only:
+        result = installer.prepare(args.initialize_empty_disk)
+    else:
+        installer.host()
+        if args.refresh_secrets_only:
+            installer.refresh_secrets()
+            result = {"status": "ephemeral-secrets-refreshed"}
+        else:
+            installer.firewall()
+            result = {"status": "metadata-firewall-verified"}
+    print(json.dumps(result, sort_keys=True))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as error:
+        # No subprocess output, HTTP response, token, credentials or parser input is logged.
+        print(json.dumps({"status": "refused", "code": str(error) if isinstance(error, Refused) else type(error).__name__}), file=sys.stderr)
+        sys.exit(1)

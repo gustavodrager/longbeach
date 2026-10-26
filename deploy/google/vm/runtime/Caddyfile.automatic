@@ -1,0 +1,19 @@
+{
+    admin off
+    http_port 8080
+    https_port 8443
+    servers {
+        protocols h1 h2
+    }
+}
+
+# Only select after validating the canonical certificate and the renewal procedure.
+# ACME HTTP/TLS challenges require the public DNS to reach this VM.
+{$API_DOMAIN} {
+    import /etc/caddy/proxy.caddy
+}
+
+http://:8081 {
+    bind 127.0.0.1
+    respond /health/live "ok" 200
+}

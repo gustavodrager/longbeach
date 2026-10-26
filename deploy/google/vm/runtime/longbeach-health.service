@@ -1,0 +1,13 @@
+[Unit]
+Description=Check LongBeach container health
+After=longbeach-runtime.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/longbeach/runtime
+ExecStart=/usr/bin/python3 -B /opt/longbeach/runtime/check-health.py
+UMask=0077
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+PrivateTmp=true

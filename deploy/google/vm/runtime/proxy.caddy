@@ -1,0 +1,21 @@
+# Caddy is the only ingress to the API. Discard caller-supplied forwarding headers.
+reverse_proxy api:8080 {
+    header_up Host {http.request.host}
+    header_up -Forwarded
+    header_up -X-Forwarded-Host
+    header_up X-Forwarded-For {http.request.remote.host}
+    header_up X-Forwarded-Proto {http.request.scheme}
+    health_uri /health/ready
+    health_interval 30s
+    health_timeout 5s
+    health_headers {
+        Host {$API_DOMAIN}
+    }
+    transport http {
+        versions 1.1
+        max_conns_per_host 40
+        keepalive 90s
+        dial_timeout 5s
+        response_header_timeout 300s
+    }
+}

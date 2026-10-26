@@ -1,0 +1,6 @@
+[Unit]
+Description=Record LongBeach backup failure for operations monitoring
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/logger --priority daemon.err --tag longbeach-backup LONGBEACH_BACKUP_FAILURE %i
