@@ -27,3 +27,28 @@ Importar extrato não cria venda, baixa conta, quita Pix pendente ou atribui uni
 As flags específicas C6, EDI e pagamentos também devem ficar false em produção como proteção adicional. Não retirar credenciais ou apagar os dados existentes. A retomada das APIs exige decisão explícita, validação do acesso, revisão dos pagamentos/estornos que permaneceram pendentes e alteração controlada das flags. Não transformar indisponibilidade em pagamento ou cancelamento confirmado.
 
 A implantação reutiliza o Cloud Run e o Firebase Hosting existentes. Não há migration, nova tabela, banco ou ambiente de homologação para esta alteração. Testes usam somente PostgreSQL local e dados fictícios.
+
+## Validação da versão
+
+Código da API e da interface: `932f1f6b1a905b29e43dd571ab553c598f49a533`. Passaram 554 testes de interface, 472 testes unitários do backend e 21 testes com PostgreSQL local. Os testes de banco cobrem preservação de operações pendentes, seleção de saldo C6 e deduplicação entre arquivos. TypeScript e builds Release passaram. A imagem OCI linux/amd64 foi conferida sem rede, banco ou portas públicas, com autenticação fictícia; nove verificações HTTP incluíram a configuração ImportOnly e os meios online desativados. A prévia de importação foi conferida visualmente em computador e celular com dados fictícios.
+
+## Publicação verificada
+
+Publicado em 25/10/2026 às 21h17 em São Paulo (26/10 às 00h17 UTC), no projeto Google existente `parsero-prod-20261022`.
+
+| Referência | Valor verificado |
+| --- | --- |
+| API Cloud Run | `longbeach-api-00006-b4k`, Ready, 100% do tráfego |
+| Índice OCI | `sha256:b8e6fdc254cc1226ea25881e046a6e627a8eefa2b4c354bc98059aa6a79ab548` |
+| Filho Linux/AMD64 | `sha256:ce3fb6eb6f5a9449a2f4282561e386aaeaf328a3e51dcd177635476d03a0a47d` |
+| Firebase Hosting | versão `69f089d0105cddbd`, release `1792973839016000` |
+| Artefato web | `441fbba65967294fcf42bd329b222f52113c87ac7281a6a6c910b0dc4bc0a1c7` |
+| Arquivos públicos conferidos | 73, hashes e cabeçalhos compatíveis com o build |
+
+O plano completo conservou 57 recursos e propôs somente dois updates existentes: imagem e dez flags de modo bancário na API e na definição do job de migration. O job não foi executado. A revisão independente confirmou configurações SQL, referências a segredos, IAM, DNS, rede, CORS, limites e controles automáticos de migration/seed preservados. O drift SQL aceito limitou-se ao campo computado `settings.version` de 14 para 15, comprovado pelo schema local do provider Google 8.6.0; o recurso SQL ficou no-op.
+
+O pós-publicação confirmou saúde, autenticação obrigatória, CORS, revisão, digest, 100% do tráfego e ImportOnly, com releitura final do serviço. A interface autenticada mostrou o formulário OFX/CSV, os saldos com data/origem e a ausência de Atualizar dados no topo. Não houve importação real, pagamento, estorno, migration, novo banco ou ambiente hospedado nesta conferência. Os saldos exibidos continuam sendo as últimas referências já importadas; não foram atualizados por este deploy.
+
+As variáveis locais definitivas passaram a refletir o novo digest e as flags conferidas (SHA256 `722f6398305081231fdba2386e46941b92458b79797e42a1f4fa28f64f1cca34`). Assim uma próxima publicação não reativa o EDI pela configuração anterior. A homologação suspensa permanece sem alteração; esta release não cria custo de infraestrutura adicional.
+
+Para recuperação, manter ImportOnly e as flags dos provedores desativadas. Não retornar automaticamente à configuração anterior com EDI habilitado. Reverter a web somente se necessário, após avaliar compatibilidade, preservando dados e pagamentos pendentes. A retomada das APIs exige nova validação e decisão explícita do proprietário. Recibos completos e capturas com dados do sistema ficam nos artefatos locais privados, fora do GitHub.

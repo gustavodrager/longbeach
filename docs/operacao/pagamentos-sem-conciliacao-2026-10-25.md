@@ -2,6 +2,8 @@
 
 Decisão do proprietário em 25/10/2026: retirar a conciliação PagBank e facilitar a consulta dos pagamentos. A versão da aplicação `42f2ffeae2c7424dafecb4862e0c211664edddfa`, preparada a partir da release financeira Google `ee33a37`, foi autorizada e publicada em produção no Google em 25/10/2026. O proprietário cancelou a preparação adicional de homologação e determinou priorizar economia e reaproveitamento.
 
+A versão atual passou ao [modo temporário por arquivos C6 e PagBank](importacao-bancos-2026-10-25.md). A consulta de recebimentos e os históricos permanecem; consultas automáticas aos provedores, cobranças online e estornos remotos estão suspensos. Os registros de publicação abaixo descrevem as versões anteriores.
+
 ## Fluxo de consulta
 
 Recebimentos reúne busca por conta ou responsável, filtros de situação e Bar/Quadra e valores da seleção. Os detalhes de cada conta mantêm pagamentos, estornos, origem e comprovantes. Contas e lançamentos sem responsável financeiro vinculado também aparecem na gestão, com acesso ao registro original.
@@ -24,13 +26,13 @@ As projeções sem vínculo usam `isLinked=false` e não criam contas, pagamento
 
 As projeções abrem a comanda ou o lançamento original. Ações que dependem de uma conta de cobrança vinculada permanecem disponíveis somente nas contas vinculadas. A área do cliente conserva o filtro de suas próprias contas; não recebe projeções administrativas.
 
-A lista administrativa atualiza a cada minuto. A leitura do Bar carrega comandas, itens, pagamentos e estornos pendentes em quatro consultas em lote, reutilizando o cálculo original; não consulta o provedor nem carrega histórico de ações por comanda. Contas vinculadas da Quadra conservam seu carregamento individual. A lista ainda retorna o histórico completo, sem truncamento silencioso.
+A lista administrativa carrega ao abrir e é invalidada após alterações internas; não faz consultas periódicas automáticas. A leitura do Bar carrega comandas, itens, pagamentos e estornos pendentes em quatro consultas em lote, reutilizando o cálculo original; não consulta o provedor nem carrega histórico de ações por comanda. Contas vinculadas da Quadra conservam seu carregamento individual. A lista ainda retorna o histórico completo, sem truncamento silencioso.
 
 Documentos EDI, resumos PagVendas e extratos continuam preservados como fontes de consulta. Não são somados outra vez aos pagamentos da operação. Lançamentos gerais que não representam contas elegíveis da Quadra e vendas do fluxo antigo permanecem em suas consultas de origem; o resumo de recebimentos não é um consolidado de toda movimentação bancária ou de despesas.
 
 ## Preservação e publicação
 
-Históricos de vínculos e taxas anteriores, documentos bancários, pagamentos e estornos permanecem guardados. Não há exclusão de tabelas nem nova migration para esta alteração. As rotinas automáticas de confirmação e os bloqueios de repetição, valor, moeda, vínculo e operação pendente continuam ativos.
+Históricos de vínculos e taxas anteriores, documentos bancários, pagamentos e estornos permanecem guardados. Não há exclusão de tabelas nem nova migration para esta alteração. Os bloqueios de repetição, valor, moeda, vínculo e operação pendente continuam ativos. No modo temporário por arquivos, as rotinas automáticas de confirmação externa ficam suspensas e os pagamentos/estornos pendentes conservam sua situação até revisão explícita.
 
 Antes de promover, conferir os testes da interface, as rotas manuais removidas, os fluxos automáticos de pagamento/estorno e a leitura administrativa em PostgreSQL sintético. Conferir a tela em desktop e celular com dados fictícios. A promoção deve identificar o commit e os artefatos aprovados do Google; não reaplicar migrations ou dados de homologação.
 

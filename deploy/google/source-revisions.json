@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "verified_at": "2026-10-25",
-  "api_source_commit": "42f2ffeae2c7424dafecb4862e0c211664edddfa",
-  "web_source_commit": "e30a43822cc69ff49b414d69039df6e6d61bfb6d",
+  "api_source_commit": "932f1f6b1a905b29e43dd571ab553c598f49a533",
+  "web_source_commit": "932f1f6b1a905b29e43dd571ab553c598f49a533",
   "production_api_origin": "https://api.longbeach.quebranunca.com.br",
   "production_web_origin": "https://longbeach.quebranunca.com.br",
-  "purpose": "Production receipts review: prioritize pending confirmations and overdue accounts, show Sao Paulo payment timestamps and last query time, correct refund receipts, and restrict payment actions to writers. API remains on the approved payments release. Reuse existing production hosting; no additional hosted homologation or database."
+  "purpose": "Temporary bank import mode: suspend provider API calls; import C6 and PagBank OFX/CSV statements, movements and dated balances with identity-based deduplication; retire financial polling and the global refresh button. Preserve pending operations and history. Reuse existing production hosting with no new database, migration or hosted staging."
 }
