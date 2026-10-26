@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using LongBeach.Contracts.Finance;
 using Microsoft.Extensions.Configuration;
+using LongBeach.Infrastructure.Finance;
 
 namespace LongBeach.Infrastructure.Payments;
 
@@ -8,6 +9,11 @@ public static class PaymentIntegrationDiagnostics
 {
     public static IReadOnlyList<IntegrationStatus> Read(IConfiguration config)
     {
+        if (BankImportMode.Enabled(config))
+            return new[] { "PagBank Pix", "PagBank cartão online", "PagBank assinaturas", "C6 Pix" }
+                .Select(provider => new IntegrationStatus(provider, BankImportMode.State,
+                    "Operações online suspensas. Importe extratos, movimentos e saldos; pagamentos e estornos anteriores permanecem no histórico, sem confirmação automática.",
+                    null, null, null, null, [])).ToArray();
         var orders = "Payments:PagBank:";
         var common = new List<string>();
         var environment = Environment(config[orders + "BaseUrl"] ?? "https://sandbox.api.pagseguro.com/", false);

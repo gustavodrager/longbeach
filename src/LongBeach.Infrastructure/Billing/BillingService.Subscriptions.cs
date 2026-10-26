@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using LongBeach.Infrastructure.Finance;
 using LongBeach.Application.Billing;
 using LongBeach.Contracts.Billing;
 using LongBeach.Domain.Bar;
@@ -14,6 +15,7 @@ public sealed partial class BillingService
     public async Task<IReadOnlyList<SubscriptionDto>> Subscriptions(Guid userId,CancellationToken ct)=> (await db.Set<BillingSubscription>().Where(x=>x.UserId==userId).OrderByDescending(x=>x.CreatedAtUtc).ToListAsync(ct)).Select(Dto).ToArray();
     public async Task<SubscriptionDto> Subscribe(Guid accountId,SubscribeInput input,Guid userId,CancellationToken ct)
     {
+        BankImportMode.RequireApi(config);
         // A session lock spans the customer-card update AND subscription creation,
         // across replicas. Keep the physical connection open until explicit release.
         await using var customerLock=await LockSubscriptionCustomer(userId,ct);
@@ -120,6 +122,7 @@ public sealed partial class BillingService
     }
     public async Task<SubscriptionDto> RefreshSubscription(Guid subscriptionId,Guid userId,CancellationToken ct)
     {
+        BankImportMode.RequireApi(config);
         var s=await db.Set<BillingSubscription>().SingleOrDefaultAsync(x=>x.Id==subscriptionId&&x.UserId==userId,ct)
             ??throw new BarTabAccessException(BarTabAccessFailure.Forbidden,"Assinatura não disponível para seu usuário.");
         if(s.State=="Rejected")return Dto(s);
@@ -129,6 +132,7 @@ public sealed partial class BillingService
     }
     public async Task<SubscriptionDto> Cancel(Guid subscriptionId,CancelSubscriptionInput input,Guid userId,CancellationToken ct)
     {
+        BankImportMode.RequireApi(config);
         var s=await db.Set<BillingSubscription>().SingleOrDefaultAsync(x=>x.Id==subscriptionId&&x.UserId==userId,ct)??throw new BarTabAccessException(BarTabAccessFailure.Forbidden,"Assinatura não disponível para seu usuário.");
         if(s.State=="CANCELED")return Dto(s);Require(s.ProviderId is not null,"Confirme a criação antes de cancelar a assinatura.");
         await using(var tx=await db.Database.BeginTransactionAsync(ct)){await ArenaLock(ct);await db.Entry(s).ReloadAsync(ct);s.Cancel(input.OperationId);await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);}
@@ -203,6 +207,7 @@ public sealed partial class BillingService
     }
     public async Task<bool> SubscriptionWebhook(byte[] body,CancellationToken ct)
     {
+        if(BankImportMode.Enabled(config))return false;
         // This product has a different webhook contract. The notification is only
         // a refresh hint: never use its amount/status/URLs as financial authority.
         using var json=JsonDocument.Parse(body);

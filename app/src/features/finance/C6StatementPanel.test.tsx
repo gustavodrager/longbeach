@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { C6StatementPanel } from './C6StatementPanel'
 
@@ -40,18 +40,18 @@ it('valida período antes da consulta e solicita páginas distintas', async () =
   await waitFor(() => expect(request).toHaveBeenCalledWith('/api/v1/financial-history/c6?from=2026-01-01&through=2026-01-30&page=2'))
 })
 
-it('reconsulta o período filtrado com motivo e atualiza a consulta local', async () => {
-  request.mockResolvedValue(report); show()
-  await screen.findByRole('table')
-  fireEvent.change(screen.getByLabelText('Início do extrato C6'), { target: { value: '2026-01-01' } })
-  fireEvent.change(screen.getByLabelText('Fim do extrato C6'), { target: { value: '2026-01-30' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Filtrar extrato' }))
-  await screen.findByRole('table')
-  fireEvent.click(screen.getByText('Consultar novamente este período no C6'))
-  fireEvent.change(screen.getByLabelText('Motivo da consulta C6'), { target: { value: ' Conferência mensal ' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Consultar e atualizar extrato C6' }))
-  await waitFor(() => expect(request).toHaveBeenCalledWith('/api/v1/financial-history/c6/reprocess', expect.objectContaining({ method: 'POST', body: JSON.stringify({ from: '2026-01-01', through: '2026-01-30', reason: 'Conferência mensal' }) })))
-  expect(await screen.findByText(/Consulta concluída/)).toBeInTheDocument()
+it('preserva consulta local sem reprocessar no banco nem repetir por intervalo', async () => {
+  vi.useFakeTimers()
+  request.mockResolvedValue(report); const view = show()
+  await act(async () => { await vi.advanceTimersByTimeAsync(50) })
+  expect(screen.getByRole('table')).toBeInTheDocument()
+  expect(request).toHaveBeenCalledTimes(1)
+  expect(screen.queryByText('Consultar novamente este período no C6')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Motivo da consulta C6')).not.toBeInTheDocument()
+  await act(async () => { await vi.advanceTimersByTimeAsync(120_000) })
+  expect(request).toHaveBeenCalledTimes(1)
+  expect(request.mock.calls.every(([,options])=>!options?.method)).toBe(true)
+  view.unmount(); view.client.clear(); vi.useRealTimers()
 })
 
 it('oculta dados antigos em falha e permite repetir sem afirmar extrato vazio', async () => {

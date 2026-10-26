@@ -8,13 +8,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using LongBeach.Infrastructure.Finance;
 namespace LongBeach.Infrastructure.Payments;
 // Runs inside the existing API. Concurrency tokens protect against webhook/operator/replica overlap.
-public sealed class PagBankReconciliationWorker(IServiceScopeFactory scopes,TimeProvider time,ILogger<PagBankReconciliationWorker> logger):BackgroundService
+public sealed class PagBankReconciliationWorker(IServiceScopeFactory scopes,TimeProvider time,ILogger<PagBankReconciliationWorker> logger,IConfiguration config):BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-
+        if(BankImportMode.Enabled(config))return;
         using var timer=new PeriodicTimer(TimeSpan.FromMinutes(1),time);
         while(await timer.WaitForNextTickAsync(stoppingToken))
         {

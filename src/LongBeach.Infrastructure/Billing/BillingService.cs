@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using LongBeach.Application.Operations;
+using LongBeach.Infrastructure.Finance;
 
 namespace LongBeach.Infrastructure.Billing;
 
@@ -40,9 +41,10 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
         return account;
     }
     private async Task<OperationalRecord> Entry(BillingAccount a, CancellationToken ct) => await db.OperationalRecords.SingleOrDefaultAsync(x=>x.Id==a.SourceId && x.Kind=="financeEntries",ct) ?? throw new BarRuleException("Lançamento não encontrado.");
-    private bool Enabled=>config.GetValue("Payments:Billing:Enabled",false);
+    private bool Enabled=>!BankImportMode.Enabled(config)&&config.GetValue("Payments:Billing:Enabled",false);
     public async Task<BillingConfig> Config(CancellationToken ct)
     {
+        if(BankImportMode.Enabled(config))return new(false,false,false,null,null,false,false,true);
         string? card=null,subscription=null;
         if(Enabled&&gateway.CardEnabled)try{card=await gateway.CardPublicKey(ct);}catch(Exception e)when(!ct.IsCancellationRequested){logger.LogWarning("Card setup unavailable: {FailureType}",e.GetType().Name);}
         if(Enabled&&recurring.Enabled)try{subscription=await recurring.PublicKey(ct);}catch(Exception e)when(!ct.IsCancellationRequested){logger.LogWarning("Subscription setup unavailable: {FailureType}",e.GetType().Name);}
@@ -202,6 +204,7 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
     }
     public async Task<AccountDto> Pay(Guid id,PayAccountInput input,Guid actor,bool own,CancellationToken ct)
     {
+        BankImportMode.RequireApi(config);
         ValidatePayer(input);var a=await Access(id,own?actor:null,ct);
         if(a.Kind=="Bar")
         {
@@ -255,6 +258,7 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
     }
     public async Task<AccountDto> Refresh(Guid id,Guid paymentId,Guid actor,bool own,CancellationToken ct)
     {
+        BankImportMode.RequireApi(config);
         var a=await Access(id,own?actor:null,ct);
         if(a.Kind=="Bar")await tabs.Refresh(a.SourceId,paymentId,actor,null,ct);
         else

@@ -4,6 +4,7 @@ import { ApiError, apiFetch } from '../lib/http'
 import { useAuth } from '../features/auth/authContext'
 import { centsMoney, seriesLabels, type HistoryPreview } from '../features/finance/FinancialHistory'
 import { GradeImportReview } from '../features/arena/GradeImportReview'
+import { BankStatementImport } from '../features/finance/BankStatementImportPanel'
 
 type StagedBatch = { id: string; sourceName: string; sourceSha256: string; status: string; rowCount: number; createdAtUtc: string }
 type ImportPackage = { sourceName: string; sourceSha256: string; records: Array<{ sheetName: string; rowNumber: number; recordType: string; externalId?: string | null; data: unknown }> }
@@ -72,6 +73,7 @@ export function ImportPage() {
   return <main className="dashboard import-page">
     <header className="page-heading"><div><p className="eyebrow">DADOS E CONFERÊNCIA</p><h1>Importações</h1><p>Os arquivos ficam registrados com hash e origem antes de qualquer integração com os cadastros.</p></div></header>
     {!canImport ? <p role="alert">Esta área está disponível para a gestão.</p> : <>
+      <BankStatementImport onApplied={load} />
       <section className="foundation-card import-card"><div><span className="card-kicker">Etapa segura</span><h2>Preparar lote para conferência</h2><p>Selecione um pacote JSON preparado a partir das planilhas. As linhas ficam em staging com a aba e o número original. Status, pagamentos e saldos não são confirmados nem lançados automaticamente.</p></div>
         <label className="button-primary import-picker">{busy ? 'Carregando lote…' : 'Selecionar pacote JSON'}<input aria-label="Selecionar pacote JSON" type="file" accept="application/json,.json" disabled={busy} onChange={(event) => void upload(event)} /></label>
       </section>

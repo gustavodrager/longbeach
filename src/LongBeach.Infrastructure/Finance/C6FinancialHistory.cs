@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using LongBeach.Application.Finance;
 using LongBeach.Contracts.Finance;
 using Microsoft.EntityFrameworkCore;
@@ -43,6 +44,7 @@ public sealed partial class FinancialHistoryService
 
     private async Task<CurrentBankBalance> C6CurrentBalance(CancellationToken ct)
     {
+        if (BankImportMode.Enabled(config)) return await C6ImportedCurrentBalance(ct);
         if (!C6FinanceScope.Enabled(config)) return new(null, null, "NotConnected", "Saldo atual da conta não conectado. Extratos importados e a carteira EDI não informam o saldo bancário de agora.");
         C6FinanceScope scope;
         try { scope = C6FinanceScope.Read(config); }
@@ -63,8 +65,41 @@ public sealed partial class FinancialHistoryService
                 : "Saldo disponível C6 informado pelo banco; não inclui limite de crédito nem outras contas.", source, scope.Environment, balance.SourceDate);
     }
 
+    private async Task<CurrentBankBalance> C6ImportedCurrentBalance(CancellationToken ct)
+    {
+        var today = C6FinanceScope.Today(time);
+        var rows = new List<(HistoryItem Item, DateTimeOffset ImportedAtUtc)>();
+        await using (var command = await Command("""
+            WITH candidates AS (
+                SELECT * FROM financial_observations
+                WHERE series='saldos' AND lower(trim(metric))='saldo c6'
+                  AND payload->>'Grain'='snapshot' AND period_start<=@p0
+            )
+            SELECT o.id,o.batch_id,b.source_name,o.source_sha256,o.payload::text,o.created_at_utc
+            FROM candidates o JOIN import_batches b ON b.id=o.batch_id
+            WHERE o.period_start=(SELECT MAX(period_start) FROM candidates)
+            ORDER BY o.source_cell,o.id
+            """, ct, today))
+        await using (var reader = await command.ExecuteReaderAsync(ct))
+            while (await reader.ReadAsync(ct))
+            {
+                using var json = JsonDocument.Parse(reader.GetString(4));
+                rows.Add((new(reader.GetGuid(0), reader.GetGuid(1), reader.GetString(2), reader.GetString(3).Trim(),
+                    FinancialHistoryRules.Parse(json.RootElement)), reader.GetFieldValue<DateTimeOffset>(5)));
+            }
+        var balance = DashboardBalanceRules.BankSnapshot(rows.Select(x => x.Item), today, "Saldo C6", "C6");
+        if (balance.AmountCents is null)
+            return new(null, null, "Imported", balance.Issue!, "C6", SourceDate: balance.Date);
+        var importedAtUtc = rows.Single(x => x.Item.Data.PeriodStart == balance.Date).ImportedAtUtc;
+        return new(balance.AmountCents, importedAtUtc, "Imported",
+            "Saldo C6 importado de arquivo, com a data da fonte preservada. Confira a data antes de usar este saldo.",
+            "C6 · " + balance.SourceName, SourceDate: balance.Date);
+    }
+
     private async Task<IntegrationStatus> C6Integration(CancellationToken ct)
     {
+        if (BankImportMode.Enabled(config)) return new("C6 saldo e extrato", BankImportMode.State,
+            "Importe extratos, movimentos e saldos C6 com data e origem. A consulta bancária está suspensa e o histórico anterior foi preservado.", null, null, null, null, []);
         var requirements = new List<string>();
         C6FinanceScope scope;
         try { scope = C6FinanceScope.Read(config); }

@@ -9,13 +9,15 @@ using LongBeach.Application.Billing;
 using LongBeach.Contracts.Billing;
 using LongBeach.Domain.Bar;
 using Microsoft.Extensions.Configuration;
+using LongBeach.Infrastructure.Finance;
 namespace LongBeach.Infrastructure.Payments;
 
 public sealed class PagBankRecurringGateway(HttpClient http, IConfiguration config) : IRecurringGateway
 {
-    public bool Enabled => config.GetValue("Payments:PagBankSubscriptions:Enabled", false);
+    public bool Enabled => !BankImportMode.Enabled(config) && config.GetValue("Payments:PagBankSubscriptions:Enabled", false);
     private void Configure()
     {
+        BankImportMode.RequireApi(config);
         var url = config["Payments:PagBankSubscriptions:BaseUrl"] ?? "https://sandbox.api.assinaturas.pagseguro.com/";
         if (url is not ("https://sandbox.api.assinaturas.pagseguro.com/" or "https://api.assinaturas.pagseguro.com/")) throw new BarRuleException("Ambiente de assinaturas inválido.");
         var token = config["Payments:PagBankSubscriptions:Token"]; if (string.IsNullOrWhiteSpace(token)) throw new BarRuleException("Credencial de assinaturas ausente.");

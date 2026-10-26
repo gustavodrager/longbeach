@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthContext, type AuthContextValue } from '../auth/authContext'
@@ -12,7 +12,7 @@ const config:Config={pixEnabled:true,cardEnabled:true,subscriptionsEnabled:true,
 const clients:QueryClient[]=[]
 function mount(content:React.ReactNode, path='/minha-area/pagamentos', currentUser=user){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);const auth:AuthContextValue={user:currentUser,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{},completeFirstAccessWithGoogle:async()=>{}};render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}>{content}</MemoryRouter></AuthContext.Provider></QueryClientProvider>)}
 function json(body:unknown){return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}})}
-afterEach(()=>{cleanup();clients.splice(0).forEach(c=>c.clear());delete window.PagSeguro;localStorage.clear();sessionStorage.clear()})
+afterEach(()=>{cleanup();vi.useRealTimers();clients.splice(0).forEach(c=>c.clear());delete window.PagSeguro;localStorage.clear();sessionStorage.clear()})
 it('consulta apenas minhas contas e separa bar e quadra',async()=>{
  const requests:string[]=[];vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{const url=String(input);requests.push(url);if(url.endsWith('/config'))return json(config);if(url.endsWith('/subscriptions'))return json([]);return json([account,{...account,id:'bar-a',kind:'Bar',title:'Comanda 10'}])});mount(<BillingPage />)
  expect(await screen.findByText('Mensalidade de outubro')).toBeInTheDocument();expect(screen.getByRole('heading',{name:'Conta do Bar'})).toBeInTheDocument();expect(screen.getByRole('heading',{name:'Conta da Quadra'})).toBeInTheDocument();expect(screen.queryByText('Vincular conta ao responsável')).not.toBeInTheDocument();expect(requests.every(r=>r.startsWith('/api/v1/me/billing/'))).toBe(true)
@@ -209,10 +209,10 @@ it('suspender novos Pix preserva a retomada da mesma operação já persistida',
 
 const manager:AuthUser={...user,id:'manager',roles:['Owner'],permissions:['finance:write']}
 const received={id:'received',operationId:'received-operation',method:'Pix',amount:80,state:'Approved',refunded:10,refundPending:0,canResume:false}
-function adminData(accounts:Account[]){
+function adminData(accounts:Account[],billingConfig:Config=config){
  vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
   const url=String(input)
-  return url.endsWith('/config')?json(config):url.endsWith('/candidates')?json({accounts:[],users:[{id:user.id,name:'João Silva'},{id:'other-user',name:'Maria Souza'}],students:[]}):json(accounts)
+  return url.endsWith('/config')?json(billingConfig):url.endsWith('/candidates')?json({accounts:[],users:[{id:user.id,name:'João Silva'},{id:'other-user',name:'Maria Souza'}],students:[]}):json(accounts)
  })
 }
 
@@ -498,4 +498,70 @@ it('orienta a renovar uma sessão expirada e não mantém ações de vínculo di
  expect(screen.getByRole('link',{name:'Entrar novamente'})).toHaveAttribute('href','/login')
  expect(screen.queryByText('Vincular conta ao responsável')).not.toBeInTheDocument()
  expect(screen.queryByRole('region',{name:'Resumo dos recebimentos da seleção'})).not.toBeInTheDocument()
+})
+
+
+it('modo por arquivos mantém histórico e comprovantes sem Pix, consulta, cobrança ou estorno online',async()=>{
+ const pending={...received,id:'import-pending',state:'Pending',amount:20,refunded:0,canResume:true,pixText:'pix-historico-suspenso',qrImageUrl:'https://example.invalid/qr.png'}
+ adminData([{...account,paid:70,payable:10,pending:20,payments:[received,{...received,id:'credit',method:'CreditCard'},{...received,id:'subscription',method:'Subscription'},pending]}],{...config,importOnly:true})
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ const row=await screen.findByRole('article',{name:account.title})
+ expect(screen.getByText(/consultas às operadoras estão suspensos/)).toBeInTheDocument()
+ fireEvent.click(within(row).getByText(account.title,{selector:'summary strong'}))
+ fireEvent.click(within(row).getByText('Histórico de pagamentos (4)'))
+ expect(within(row).getAllByRole('button',{name:'Baixar comprovante'})).toHaveLength(3)
+ for(const name of ['Pagar esta conta','Retomar pagamento pendente','Consultar confirmação','Estornar','Copiar código Pix'])expect(within(row).queryByRole('button',{name})).not.toBeInTheDocument()
+ expect(within(row).queryByLabelText('CPF ou CNPJ')).not.toBeInTheDocument()
+ expect(within(row).queryByRole('img',{name:'QR Code Pix desta conta'})).not.toBeInTheDocument()
+ expect(within(row).getByText('Pagamento import-pending')).toBeVisible()
+ expect(vi.mocked(fetch).mock.calls.every(([,options])=>!options?.method)).toBe(true)
+})
+
+it.each(['Cash','CardManual','TerminalManual'])('modo por arquivos preserva estorno interno %s e atualiza a conta após confirmar',async method=>{
+ let current={...account,paid:20,payable:80,payments:[{...received,method,amount:20,refunded:0}]};let reads=0
+ const requests=vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{
+  const path=String(input)
+  if(init?.method==='POST'){
+   expect(path).toBe('/api/v1/billing/accounts/account-a/payments/received/refund')
+   expect(JSON.parse(String(init.body))).toMatchObject({amount:20,reason:'Correção manual'})
+   current={...current,paid:0,payable:100,payments:[{...current.payments[0],refunded:20}]}
+   return json({})
+  }
+  if(path.endsWith('/config'))return json({...config,importOnly:true})
+  if(path.endsWith('/candidates'))return json({accounts:[],users:[],students:[]})
+  reads++;return json([current])
+ })
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ const row=await screen.findByRole('article',{name:account.title})
+ fireEvent.click(within(row).getByText(account.title,{selector:'summary strong'}))
+ fireEvent.click(within(row).getByText('Histórico de pagamentos (1)'))
+ fireEvent.click(within(row).getByRole('button',{name:'Estornar'}))
+ fireEvent.change(within(row).getByLabelText('Motivo'),{target:{value:'Correção manual'}})
+ fireEvent.click(within(row).getByRole('button',{name:'Solicitar estorno'}))
+ expect(await within(row).findByText('Estornado · R$ 20,00')).toBeVisible()
+ expect(reads).toBe(2)
+ expect(screen.getByRole('region',{name:'Resumo dos recebimentos da seleção'})).toHaveTextContent('Recebido registradoR$ 0,00')
+ expect(requests.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(1)
+})
+
+it.each([['Creating',true],['Creating',false],['ACTIVE',false]] as const)('modo por arquivos preserva assinatura %s sem ações online (retomável=%s)',async(state,canResume)=>{
+ const subscription={id:'import-subscription',accountId:account.id,operationId:'import-operation',amount:100,firstDue:account.dueDate!,state,canResume}
+ vi.spyOn(globalThis,'fetch').mockImplementation(async input=>String(input).endsWith('/config')?json({...config,importOnly:true}):String(input).endsWith('/subscriptions')?json([subscription]):json([{...account,subscriptionId:subscription.id}]))
+ mount(<BillingPage />)
+ const row=await screen.findByRole('article',{name:account.title})
+ await screen.findByText(/Pagamentos online e consultas às operadoras estão suspensos/)
+ expect(within(row).getByText(/Mensalidade automática:/)).toBeInTheDocument()
+ for(const name of ['Pagar esta conta','Ativar mensalidade automática','Retomar adesão','Consultar adesão pendente','Cancelar cobranças futuras'])expect(within(row).queryByRole('button',{name})).not.toBeInTheDocument()
+ expect(within(row).queryByLabelText('CPF ou CNPJ')).not.toBeInTheDocument()
+})
+
+it.each([false,true])('não repete contas por intervalo na gestão nem no modo por arquivos do portal (gestão=%s)',async admin=>{
+ vi.useFakeTimers()
+ const request=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>String(input).endsWith('/config')?json({...config,importOnly:!admin}):String(input).endsWith('/subscriptions')?json([]):String(input).endsWith('/candidates')?json({accounts:[],users:[],students:[]}):json([account]))
+ mount(<BillingPage admin={admin}/>,admin?'/recebimentos':'/minha-area/pagamentos',admin?manager:user)
+ await act(async()=>{await vi.advanceTimersByTimeAsync(50)})
+ const count=request.mock.calls.length
+ expect(screen.getByRole('article',{name:account.title})).toBeInTheDocument()
+ await act(async()=>{await vi.advanceTimersByTimeAsync(120_000)})
+ expect(request).toHaveBeenCalledTimes(count)
 })

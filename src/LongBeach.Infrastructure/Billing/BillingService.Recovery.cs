@@ -6,6 +6,7 @@ using LongBeach.Domain.Bar;
 using LongBeach.Domain.Billing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using LongBeach.Infrastructure.Finance;
 namespace LongBeach.Infrastructure.Billing;
 public sealed partial class BillingService
 {
@@ -13,6 +14,7 @@ public sealed partial class BillingService
     {
         var a=await Access(id,null,ct);
         if(a.Kind=="Bar") {await tabs.Refund(a.SourceId,paymentId,new TabRefundInput(input.OperationId,input.Amount,input.Reason),actor,ct);return await Account(id,null,ct);}
+        BankImportMode.RequireApi(config);
         BillingPayment payment;BillingRefund refund;
         await using(var tx=await db.Database.BeginTransactionAsync(ct))
         {
@@ -69,6 +71,7 @@ public sealed partial class BillingService
     }
     public async Task Recover(CancellationToken ct)
     {
+        if(BankImportMode.Enabled(config))return;
         var pending=await db.Set<BillingPayment>().Where(x=>x.State=="Pending"&&(x.ProviderId!=null||x.Provider=="C6")&&x.Method!="Subscription").Select(x=>new{x.Id,x.AccountId,x.ActorId}).ToListAsync(ct);
         foreach(var p in pending) {try{await Refresh(p.AccountId,p.Id,p.ActorId,false,ct);}catch(Exception ex)when(!ct.IsCancellationRequested){logger.LogWarning("Billing recovery deferred: {FailureType}",ex.GetType().Name);db.ChangeTracker.Clear();}}
         var refunds=await db.Set<BillingRefund>().Where(x=>x.State=="Pending").ToListAsync(ct);

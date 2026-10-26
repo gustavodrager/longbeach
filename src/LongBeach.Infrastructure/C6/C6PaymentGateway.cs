@@ -14,7 +14,7 @@ public sealed partial class C6PaymentGateway(C6ApiClient client, IOptions<C6Opti
     private readonly TimeProvider time = clock ?? TimeProvider.System;
     private const string PaymentReference = "longbeach-payment-id";
     private const string AccountReference = "longbeach-account-id";
-    public bool Enabled => options.Value.Enabled && options.Value.PixEnabled;
+    public bool Enabled => client?.ImportOnly != true && options.Value.Enabled && options.Value.PixEnabled;
     public static string TransactionId(Guid operationId) => operationId.ToString("N");
 
     public async Task<GatewayPayment> CreatePix(Guid paymentId, Guid operationId, decimal amount, DateTimeOffset expires, PixCustomer customer, CancellationToken ct)

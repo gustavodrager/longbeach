@@ -33,11 +33,11 @@ function ValueCards({ control }: { control: MonthlyControl }) {
 export function MonthlyControlPage() {
   const { user } = useAuth(); const owner = Boolean(isManagement(user))
   const [params, setParams] = useSearchParams(); const cache = useQueryClient(); const guard = useUnsavedChanges()
-  const selected = params.get('month'); const query = useQuery({ queryKey: ['monthly-control', user?.id, selected], queryFn: () => apiFetch<Report>(`/api/v1/financial-history/monthly-controls${selected ? `?month=${encodeURIComponent(selected)}` : ''}`), enabled: owner, refetchInterval: 60_000 })
+  const selected = params.get('month'); const query = useQuery({ queryKey: ['monthly-control', user?.id, selected], queryFn: () => apiFetch<Report>(`/api/v1/financial-history/monthly-controls${selected ? `?month=${encodeURIComponent(selected)}` : ''}`), enabled: owner })
   const [edit, setEdit] = useState<{ base: MonthlyControl; line: ControlLine } | null>(null)
   const [staged, setStaged] = useState<MonthlyControl | null>(null); const [source, setSource] = useState<ControlLine | null>(null)
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState('')
-  const control = query.data?.control; const month = query.data?.month ?? selected ?? today().slice(0, 7)
+  const control = query.isError ? undefined : query.data?.control; const month = query.data?.month ?? selected ?? today().slice(0, 7)
   const requestedGroup = params.get('grupo') ?? 'todos'
   const group = requestedGroup === 'receitas' || expenseGroups.some(item => item.key === requestedGroup) ? requestedGroup : 'todos'
   const visibleLines = control?.lines.filter(line => matchesControlGroup(line, group) && (!params.get('unit') || allocationChoice(line.costCenter,line) === params.get('unit'))) ?? []

@@ -4,6 +4,8 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using LongBeach.Domain.Bar;
+using LongBeach.Infrastructure.Finance;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
@@ -13,8 +15,9 @@ public sealed class C6ApiException(HttpStatusCode? statusCode = null)
     : HttpRequestException("O C6 não confirmou a operação. Consulte novamente antes de repetir uma cobrança ou devolução.", null, statusCode);
 
 /// <summary>Authenticated transport restricted to the configured official C6 environment.</summary>
-public sealed class C6ApiClient(HttpClient http, IOptions<C6Options> options, IHostEnvironment environment, TimeProvider? clock = null) : IDisposable
+public sealed class C6ApiClient(HttpClient http, IOptions<C6Options> options, IHostEnvironment environment, TimeProvider? clock = null, IConfiguration? configuration = null) : IDisposable
 {
+    public bool ImportOnly => BankImportMode.Enabled(configuration);
     private readonly TimeProvider time = clock ?? TimeProvider.System;
     private readonly SemaphoreSlim tokenGate = new(1, 1);
     private readonly SemaphoreSlim rateQueue = new(16, 16);
@@ -35,6 +38,7 @@ public sealed class C6ApiClient(HttpClient http, IOptions<C6Options> options, IH
 
     public async Task<JsonDocument> Send(HttpMethod method, string relativePath, object? payload, CancellationToken ct)
     {
+        BankImportMode.RequireApi(configuration);
         var settings = options.Value;
         if (!settings.Enabled) throw new BarRuleException("Conexão C6 desabilitada.");
         var problems = settings.ConfigurationProblems(environment);

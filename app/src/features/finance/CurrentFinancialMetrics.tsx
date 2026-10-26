@@ -34,30 +34,32 @@ export function CurrentFinancialMetrics({ compact = false }: { compact?: boolean
   const { user } = useAuth()
   const [details, setDetails] = useState<'Receber' | 'Pagar' | null>(null)
   const allowed = isManagement(user)
-  const position = useQuery({ queryKey: ['current-financial-position', user?.id], queryFn: loadPosition, enabled: allowed, refetchInterval: 30_000 })
-  const bar = useQueries({ queries: barMetrics.map(({ metric }) => ({ queryKey: ['bar-runtime', user?.id, `/tabs/reports/${metric}`], queryFn: () => loadBarPosition(metric), enabled: allowed, refetchInterval: 30_000 })) })
+  const position = useQuery({ queryKey: ['current-financial-position', user?.id], queryFn: loadPosition, enabled: allowed })
+  const bar = useQueries({ queries: barMetrics.map(({ metric }) => ({ queryKey: ['bar-runtime', user?.id, `/tabs/reports/${metric}`], queryFn: () => loadBarPosition(metric), enabled: allowed })) })
   if (!allowed) return null
   const current = position.isError ? undefined : position.data
   const bank = current?.currentBank
-  const bankValue = position.isError ? 'Saldo indisponível' : position.isPending ? 'Carregando…' : bank?.amountCents != null ? centsMoney(bank.amountCents) : bank?.status === 'NotConnected' ? 'Não conectado' : 'Ainda não disponível'
-  const bankState = bank?.status === 'Stale' ? 'Leitura atrasada' : bank?.status === 'Error' ? 'Última atualização falhou' : bank?.status === 'Current' ? 'Última leitura confirmada' : null
+  const bankValue = position.isError ? 'Saldo indisponível' : position.isPending ? 'Carregando…' : bank?.amountCents != null ? centsMoney(bank.amountCents) : 'Ainda não disponível'
+  const bankState = bank?.status === 'Imported' ? 'Extrato importado' : bank?.status === 'Stale' ? 'Referência histórica' : bank?.status === 'Error' ? 'Última leitura preservada' : bank?.amountCents != null ? 'Referência registrada' : null
   const amount = (value?: number) => position.isError ? 'Falha na atualização' : position.isPending ? 'Carregando…' : value == null ? 'Ainda não disponível' : centsMoney(value)
   const refreshing = position.isFetching || bar.some(query => query.isFetching)
   const update = () => { void Promise.allSettled([position.refetch(), ...bar.map(query => query.refetch())]) }
   return <>
-    {!compact && <div className="arena-section-heading"><div><h3>Registrado no Long Beach OS</h3><p>Contas e caixas consultados a cada 30 segundos. Produtos, vendas e estoque são registrados no Long Beach. Extratos bancários são conferidos separadamente.</p></div><button type="button" className="secondary-link" onClick={update} disabled={refreshing}>{refreshing ? 'Atualizando…' : 'Atualizar agora'}</button></div>}
+    {!compact && <div className="arena-section-heading"><div><h3>Registrado no Long Beach OS</h3><p>Contas e caixas mostram os registros do Long Beach. A atualização é manual. Extratos, movimentos e saldos bancários são atualizados por importação de arquivos.</p></div><button type="button" className="secondary-link" onClick={update} disabled={refreshing}>{refreshing ? 'Atualizando…' : 'Atualizar agora'}</button></div>}
     {position.isError && <p role="alert">Não foi possível atualizar as contas internas. Consulte novamente antes de usar os valores.</p>}
     <div className="arena-metric-grid arena-financial-grid">
-      {!compact && <div className={`arena-metric ${bank?.amountCents == null ? 'arena-metric-unavailable' : ''}`}>
-        <span className="arena-metric-label">Saldo disponível da conta C6</span>
+      <div className={`arena-metric ${bank?.amountCents == null ? 'arena-metric-unavailable' : ''}`}>
+        <span className="arena-metric-label">Saldo da conta C6 · referência importada</span>
         <strong>{bankValue}</strong>
         {bankState && <small>{bankState}</small>}
         {bank?.environment === 'Sandbox' && <small>Ambiente de testes — não representa dinheiro real.</small>}
-        <small>{bank?.issue ?? 'A integração de saldo atual da conta ainda não está disponível.'}</small>
+        <small>{bank?.issue ?? 'Importe um extrato com saldo e data para disponibilizar esta referência.'}</small>
         {bank?.source && <small>Fonte: {bank.source}</small>}
-        {bank?.asOfUtc && <small>Consulta ao banco: {dateTime(bank.asOfUtc)}{bank.sourceDate ? ` · Data bancária: ${bank.sourceDate.split('-').reverse().join('/')}` : ''}</small>}
-        <Link to="/financeiro/historico?c6=1#c6-extrato">Conferir extrato C6 →</Link>
-      </div>}
+        {bank?.sourceDate && <small>Saldo informado em {bank.sourceDate.split('-').reverse().join('/')}</small>}
+        {bank?.asOfUtc && <small>{bank.status === 'Imported' ? 'Importado em' : 'Registrado em'}: {dateTime(bank.asOfUtc)}</small>}
+        <small>Valor da data da fonte. A importação não acompanha o saldo da conta em tempo real.</small>
+        <Link to="/financeiro/historico?series=c6-conta">Conferir extrato C6 →</Link>
+      </div>
       {(['receivable', 'payable'] as const).map(key => {
         const entry = current?.[key]
         const receivable = key === 'receivable'
@@ -88,9 +90,8 @@ export function CurrentFinancialMetrics({ compact = false }: { compact?: boolean
       <p className="arena-hint">Valor original menos os pagamentos líquidos confirmados = saldo pendente. Estornos já estão descontados dos pagamentos; Pix sem confirmação permanece pendente.</p>
       {!current ? <p role="status">Atualize as contas para conferir os saldos pendentes.</p> : current.entries.filter(entry => entry.direction === details).length === 0 ? <p>Nenhuma conta com saldo pendente registrada.</p> : <div className="responsive-records"><table aria-label="Composição do saldo pendente"><thead><tr><th scope="col">Lançamento</th><th scope="col">Vencimento</th><th scope="col">Valor original</th><th scope="col">Pagamentos líquidos</th><th scope="col">Saldo pendente</th></tr></thead><tbody>{current.entries.filter(entry => entry.direction === details).map(entry => <tr key={entry.id}><td data-label="Lançamento"><Link to={entry.managedExpense ? `/financeiro/despesas?acao=ver&registro=${encodeURIComponent(entry.id)}` : `/financeiro/${entry.id}`}>{entry.name}</Link></td><td data-label="Vencimento">{entry.hasDueDate === false ? 'Sem prazo' : <>{entry.dueDate.split('-').reverse().join('/')}{entry.dueDate < current.date ? ' · vencido' : ''}</>}</td><td data-label="Valor original">{centsMoney(entry.originalCents)}</td><td data-label="Pagamentos líquidos">{centsMoney(entry.confirmedPaymentsCents)}</td><td data-label="Saldo pendente">{centsMoney(entry.outstandingCents)}</td></tr>)}</tbody><tfoot><tr><th scope="row" colSpan={4}>Total pendente</th><td>{centsMoney(details === 'Receber' ? current.receivable.amountCents : current.payable.amountCents)}</td></tr></tfoot></table></div>}
     </div></ModalPanel>}
-    {compact && <p className="dashboard-bank-status"><strong>Conta C6:</strong> {bankValue}{bankState ? ` · ${bankState}` : ''}{bank?.environment === 'Sandbox' ? ' · Ambiente de testes' : ''}{bank?.asOfUtc ? ` · Consulta: ${dateTime(bank.asOfUtc)}` : ''} · Saldo bancário separado das contas e caixas. <Link to="/financeiro/historico?c6=1#c6-extrato">Conferir extrato C6</Link></p>}
     <Disclosure title="Fontes e atualização dos valores" open={!compact}>
-    {compact && <p className="arena-hint">Contas e caixas consultados a cada 30 segundos. Produtos, vendas e estoque são registrados no Long Beach. Extratos bancários são conferidos separadamente.</p>}
+    {compact && <p className="arena-hint">Contas e caixas mostram os registros do Long Beach. A atualização é manual. Extratos, movimentos e saldos bancários são atualizados por importação de arquivos.</p>}
     <p className="arena-hint">Os saldos a receber e a pagar descontam pagamentos confirmados. Estornos confirmados reabrem o saldo; Pix pendente ainda não é recebimento.</p>
     {current && <p className="arena-hint">Consulta das contas: {dateTime(current.readAtUtc)} · {current.registeredEntries} lançamento(s) no Financeiro.{current.lastRecordChangeAtUtc ? ` Última alteração registrada: ${dateTime(current.lastRecordChangeAtUtc)}.` : ' Nenhum lançamento registrado.'}</p>}
     <p className="arena-hint">Os valores mostram apenas o que foi registrado neste sistema. Financeiro, comandas, caixa físico e carteira EDI são fontes separadas e não são somados como saldo bancário.</p>

@@ -5,8 +5,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AppShell } from './AppShell'
 import { AuthContext, type AuthContextValue } from '../features/auth/authContext'
 import type { AuthUser } from '../features/auth/types'
-vi.mock('../features/operations/DemoDataProvider',()=>({useOperations:()=>({canRead:()=>false,reload:async()=>{},persistenceStatus:'connected'})}))
+const operations=vi.hoisted(()=>({reload:vi.fn(async()=>{}),persistenceStatus:'connected',persistenceMessage:'',refreshFailed:false}))
+vi.mock('../features/operations/DemoDataProvider',()=>({useOperations:()=>({...operations,canRead:()=>false})}))
 vi.mock('../features/attendance/api',()=>({useBarData:()=>({data:{total:2}})}))
+beforeEach(()=>{operations.reload.mockClear();operations.persistenceStatus='connected';operations.persistenceMessage='';operations.refreshFailed=false})
 const owner:AuthUser={id:'test',name:'Teste',email:'test@example.invalid',roles:['Owner'],permissions:[]}
 function mount(user=owner,path='/bar/produtos'){
  const router=createMemoryRouter([{element:<AppShell/>,children:[{path:'*',element:<h1>Conteúdo</h1>}]}],{initialEntries:[path]})
@@ -37,4 +39,23 @@ it('mantém acesso ao estoque sem liberar vendas ou cadastro de produtos',async(
  expect(nav.getByRole('link',{name:'Produtos e estoque'})).toBeInTheDocument()
  await userEvent.click(screen.getByRole('button',{name:'Mais'}))
  expect(within(screen.getByRole('dialog')).queryByRole('link',{name:'Compras'})).not.toBeInTheDocument();router.dispose()
+})
+
+
+it.each(['/','/recebimentos','/importacoes','/conta'])('mantém cabeçalho e navegação sem botão global de atualização em %s',path=>{
+ const router=mount(owner,path)
+ expect(screen.getByRole('navigation',{name:'Localização'})).toBeInTheDocument()
+ expect(screen.queryByRole('button',{name:'Atualizar dados'})).not.toBeInTheDocument()
+ expect(operations.reload).not.toHaveBeenCalled()
+ router.dispose()
+})
+
+it('preserva a tentativa local de recuperação quando os registros falham',async()=>{
+ operations.persistenceStatus='error';operations.persistenceMessage='Falha ao carregar registros.'
+ const router=mount(owner,'/')
+ expect(screen.getByRole('alert')).toHaveTextContent('Falha ao carregar registros.')
+ await userEvent.click(screen.getByRole('button',{name:'Tentar novamente'}))
+ expect(operations.reload).toHaveBeenCalledTimes(1)
+ expect(screen.queryByRole('button',{name:'Atualizar dados'})).not.toBeInTheDocument()
+ router.dispose()
 })

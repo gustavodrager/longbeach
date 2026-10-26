@@ -14,7 +14,7 @@ public sealed record C6FinanceScope(string Environment, string Account)
         return new(environment, account);
     }
 
-    public static bool Enabled(IConfiguration config) => config.GetValue("Integrations:C6:Enabled", false)
+    public static bool Enabled(IConfiguration config) => !BankImportMode.Enabled(config) && config.GetValue("Integrations:C6:Enabled", false)
         && config.GetValue("Integrations:C6:BankingEnabled", false);
 
     public static DateOnly Today(TimeProvider time) => DateOnly.FromDateTime(

@@ -3,6 +3,7 @@ using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using LongBeach.Domain.Bar;
+using LongBeach.Infrastructure.Finance;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -20,8 +21,8 @@ public static class C6ClientRegistration
             var options = sp.GetRequiredService<IOptions<C6Options>>();
             var environment = sp.GetRequiredService<IHostEnvironment>();
             var time = sp.GetService<TimeProvider>() ?? TimeProvider.System;
-            return new C6ApiClient(new HttpClient(new C6CertificateTransport(options.Value, environment, time))
-                { Timeout = Timeout.InfiniteTimeSpan }, options, environment, time);
+            return new C6ApiClient(new HttpClient(new C6CertificateTransport(options.Value, environment, time, configuration))
+                { Timeout = Timeout.InfiniteTimeSpan }, options, environment, time, configuration);
         });
         services.AddSingleton<C6PaymentGateway>();
         return services;
@@ -29,7 +30,7 @@ public static class C6ClientRegistration
 }
 
 /// <summary>Loads the server-only certificate lazily; disabled integration never needs credentials to boot.</summary>
-public sealed class C6CertificateTransport(C6Options options, IHostEnvironment environment, TimeProvider? clock = null) : HttpMessageHandler
+public sealed class C6CertificateTransport(C6Options options, IHostEnvironment environment, TimeProvider? clock = null, IConfiguration? configuration = null) : HttpMessageHandler
 {
     private readonly object gate = new();
     private readonly TimeProvider time = clock ?? TimeProvider.System;
@@ -38,6 +39,7 @@ public sealed class C6CertificateTransport(C6Options options, IHostEnvironment e
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        BankImportMode.RequireApi(configuration);
         var expected = C6ApiClient.BaseAddress(options.Environment);
         if (request.RequestUri is null || request.RequestUri.Scheme != "https" || request.RequestUri.Host != expected.Host
             || request.RequestUri.Port != 443 || !string.IsNullOrEmpty(request.RequestUri.UserInfo))

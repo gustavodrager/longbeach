@@ -19,6 +19,7 @@ public sealed class PagBankEdiWorker(IServiceScopeFactory scopes,IHttpClientFact
     private static readonly string[] Movements=["transactional","financial","cashouts","balances"];
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
+        if(BankImportMode.Enabled(config))return;
         if(!config.GetValue("Integrations:PagBankEdi:Enabled",false))return;
         var merchant=config["Integrations:PagBankEdi:User"];var token=config["Integrations:PagBankEdi:Token"];
         if(string.IsNullOrWhiteSpace(merchant)||!merchant.All(char.IsAsciiDigit)||string.IsNullOrWhiteSpace(token))
@@ -40,6 +41,7 @@ public sealed class PagBankEdiWorker(IServiceScopeFactory scopes,IHttpClientFact
     // Failure reporting must never become a second unhandled worker failure.
     public async Task RecordFailure(string code,CancellationToken ct)
     {
+        if(BankImportMode.Enabled(config))return;
         try
         {
             await using var scope=scopes.CreateAsyncScope();var db=scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
@@ -54,6 +56,7 @@ public sealed class PagBankEdiWorker(IServiceScopeFactory scopes,IHttpClientFact
     // per-day audit as the scheduler, but need not wait out a corrected failure.
     public async Task<DateOnly> BackfillNow(CancellationToken ct)
     {
+        BankImportMode.RequireApi(config);
         var merchant=config["Integrations:PagBankEdi:User"];var token=config["Integrations:PagBankEdi:Token"];
         if(!config.GetValue("Integrations:PagBankEdi:Enabled",false) || string.IsNullOrWhiteSpace(merchant)
             || !merchant.All(char.IsAsciiDigit) || string.IsNullOrWhiteSpace(token)
@@ -77,6 +80,7 @@ public sealed class PagBankEdiWorker(IServiceScopeFactory scopes,IHttpClientFact
 
     public async Task Reprocess(DateOnly from,DateOnly through,string reason,Guid actor,CancellationToken ct)
     {
+        BankImportMode.RequireApi(config);
         if(actor==Guid.Empty || string.IsNullOrWhiteSpace(reason) || reason.Trim().Length is < 3 or > 500)
             throw new FinancialRuleException("Informe o responsável e o motivo do reprocessamento.");
         if(from<new DateOnly(2000,1,1)||through<from||through>Yesterday||through.DayNumber-from.DayNumber>6)
@@ -88,6 +92,7 @@ public sealed class PagBankEdiWorker(IServiceScopeFactory scopes,IHttpClientFact
     }
     private async Task Collect(string merchant,string token,DateOnly start,DateOnly? replayThrough,Guid? actor,string? reason,CancellationToken ct,bool retryNow=false)
     {
+        BankImportMode.RequireApi(config);
         await using var scope=scopes.CreateAsyncScope();var db=scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
         DateOnly? cursor=null;DateTimeOffset? lastAttempt=null;int failures=0;
         await db.Database.OpenConnectionAsync(ct);

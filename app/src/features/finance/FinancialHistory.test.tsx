@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { BankStatementOverview, FinancialHistoryOverview, FinancialHistoryPage } from './FinancialHistory'
@@ -68,4 +68,19 @@ it('mostra a unidade derivada sem atribuir Pix genérico ou saldo à Quadra', as
   expect(screen.getByText('Pix no PagVendas').closest('tr')).toHaveTextContent('Bar')
   expect(screen.getByText('Mensalidade teste').closest('tr')).toHaveTextContent('Quadra')
   expect(screen.getByText('Pix sem origem confirmada').closest('tr')).toHaveTextContent('Sem unidade atribuída')
+})
+
+
+it('oferece arquivos importados e preserva documentos sem formulário de consulta ao provedor', async () => {
+  const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>new Response(JSON.stringify(String(input).includes('/pagbank-edi') ? {date:null,dates:[],items:[],total:0,page:1} : String(input).includes('/c6?') ? {environment:'Production',account:'C6 importado',from:'2026-10-01',through:'2026-10-25',items:[],total:0,page:1} : report)))
+  wrap(<FinancialHistoryPage />)
+  await screen.findByRole('table',{name:'Registros financeiros de origem'})
+  expect(screen.getAllByRole('link',{name:'Importar extratos'}).every(link=>link.getAttribute('href')==='/importacoes')).toBe(true)
+  fireEvent.click(screen.getByText('Histórico de consultas C6 anteriores',{selector:'summary'}))
+  fireEvent.click(screen.getByText('Documentos originais do PagBank',{selector:'summary'}))
+  expect(await screen.findByText('Nenhum documento EDI preservado. Importe os extratos para consultar movimentos e saldos.')).toBeVisible()
+  expect(screen.queryByText('Consultar novamente um período do PagBank')).not.toBeInTheDocument()
+  expect(screen.queryByText('Consultar novamente este período no C6')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Motivo da consulta')).not.toBeInTheDocument()
+  expect(fetch.mock.calls.every(([path,options])=>!String(path).includes('reprocess')&&!options?.method)).toBe(true)
 })

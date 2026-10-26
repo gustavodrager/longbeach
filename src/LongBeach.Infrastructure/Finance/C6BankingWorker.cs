@@ -49,6 +49,7 @@ public sealed class C6BankingWorker(IServiceScopeFactory scopes, IConfiguration 
 
     public async Task RecordFailure(string code, CancellationToken ct, DateTimeOffset? attemptedAt = null)
     {
+        if (BankImportMode.Enabled(config)) return;
         try
         {
             var account = C6FinanceScope.Read(config);
@@ -72,6 +73,7 @@ public sealed class C6BankingWorker(IServiceScopeFactory scopes, IConfiguration 
 
     private async Task Collect(DateOnly? replayFrom, DateOnly? replayThrough, Guid? actor, string? reason, CancellationToken ct)
     {
+        BankImportMode.RequireApi(config);
         var account = C6FinanceScope.Read(config);
         if (!C6FinanceScope.Enabled(config) || string.IsNullOrWhiteSpace(account.Account))
             throw new FinancialRuleException("Saldo e extrato C6 ainda não habilitados ou configurados.");

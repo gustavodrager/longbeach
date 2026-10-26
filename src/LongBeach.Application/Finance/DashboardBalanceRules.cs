@@ -8,14 +8,7 @@ public static class DashboardBalanceRules
     public static DashboardBalances Summarize(IEnumerable<HistoryItem> items, DateOnly today)
     {
         var rows = items.ToArray();
-        // A balance is a dated snapshot, never the sum of balances across different days.
-        var bankRows = rows.Where(x => x.Data.Series == "saldos" && x.Data.Grain == "snapshot" &&
-            x.Data.Metric.Trim().Equals("Saldo Pagbank", StringComparison.OrdinalIgnoreCase) && x.Data.PeriodStart <= today).ToArray();
-        var bankDate = bankRows.Select(x => (DateOnly?)x.Data.PeriodStart).Max();
-        var latest = bankRows.Where(x => x.Data.PeriodStart == bankDate).ToArray();
-        var bank = latest.Length == 1
-            ? new BankBalanceSnapshot(latest[0].Data.AmountCents, bankDate, latest[0].SourceName, latest[0].Data.SourceCell, latest[0].Data.Metric, null)
-            : new BankBalanceSnapshot(null, bankDate, null, null, null, latest.Length > 1 ? "Há mais de um saldo PagBank nesta data. Confira as fontes." : "Aguardando saldo da conta com data e origem.");
+        var bank = BankSnapshot(rows, today, "Saldo Pagbank", "PagBank");
         // Only the original monthly summary: other controls can overlap and cannot be added again.
         var monthly = rows.Where(x => x.Data.Series == "consolidado" && x.Data.Grain == "month" && x.Data.PeriodStart <= today).ToArray();
         var month = monthly.Select(x => (DateOnly?)x.Data.PeriodStart).Max();
@@ -34,5 +27,17 @@ public static class DashboardBalanceRules
             issue is null ? income : null, issue is null ? expenses : null, current.Length,
             current.Select(x => x.SourceName).Distinct().ToArray(), issue);
         return new(bank, general);
+    }
+
+    public static BankBalanceSnapshot BankSnapshot(IEnumerable<HistoryItem> items, DateOnly today, string metric, string bankName)
+    {
+        // A balance is a dated snapshot, never the sum of balances across different days.
+        var bankRows = items.Where(x => x.Data.Series == "saldos" && x.Data.Grain == "snapshot" &&
+            x.Data.Metric.Trim().Equals(metric, StringComparison.OrdinalIgnoreCase) && x.Data.PeriodStart <= today).ToArray();
+        var bankDate = bankRows.Select(x => (DateOnly?)x.Data.PeriodStart).Max();
+        var latest = bankRows.Where(x => x.Data.PeriodStart == bankDate).ToArray();
+        return latest.Length == 1
+            ? new BankBalanceSnapshot(latest[0].Data.AmountCents, bankDate, latest[0].SourceName, latest[0].Data.SourceCell, latest[0].Data.Metric, null)
+            : new BankBalanceSnapshot(null, bankDate, null, null, null, latest.Length > 1 ? $"Há mais de um saldo {bankName} nesta data. Confira as fontes." : "Aguardando saldo da conta com data e origem.");
     }
 }

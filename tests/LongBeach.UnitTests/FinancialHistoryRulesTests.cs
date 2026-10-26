@@ -6,6 +6,12 @@ public sealed class FinancialHistoryRulesTests
 {
     private static FinancialObservation Row(string grain="month",int month=8,string state="Não Pago",long amount=12345)=>new("financial-observation-v1","BRL","Teste!G2","alunos","valor-informado","Aluno teste",state,new(2026,month,1),grain is "month" or "estimate"?new DateOnly(2026,month,1).AddMonths(1).AddDays(-1):new(2026,month,1),grain,amount,"");
     [Fact] public void Preserves_unpaid_status_and_centavos()=>Assert.Equal(Row(),FinancialHistoryRules.Parse(JsonSerializer.SerializeToElement(Row())));
+    [Fact] public void Accepts_C6_statement_series_without_treating_it_as_a_balance_snapshot()
+    {
+        var item = Row(grain: "day", amount: -12345) with { Series = "c6-conta", Metric = "saidas-extrato" };
+        Assert.Equal(item, FinancialHistoryRules.Parse(JsonSerializer.SerializeToElement(item)));
+        Assert.Equal("day", Assert.Single(FinancialHistoryRules.Totals([item])).Grain);
+    }
     [Fact] public void Totals_do_not_mix_periods_estimates_or_snapshots()
     {
         var totals=FinancialHistoryRules.Totals([Row(),Row(month:7),Row(grain:"estimate"),Row(grain:"snapshot"),Row(grain:"snapshot") with{PeriodStart=new(2026,8,2),PeriodEnd=new(2026,8,2)}]);

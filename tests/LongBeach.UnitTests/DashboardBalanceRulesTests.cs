@@ -51,4 +51,46 @@ public sealed class DashboardBalanceRulesTests
         var result = DashboardBalanceRules.Summarize([Row("consolidado", "despesas", -1000), Row("consolidado", "receitas-arena", 3000), Row("consolidado", "vendas-bar-bruto", 1000), Row("consolidado", "receitas-arena", 100, 9), Row("saldos", "Saldo Pagbank", 900, 12, "snapshot")], new(2026,10,6));
         Assert.Equal("2026-09", result.General.Month); Assert.Null(result.General.AmountCents); Assert.Null(result.PagBank.AmountCents);
     }
+
+    [Fact] public void C6_snapshot_selects_latest_eligible_source_and_preserves_negative_amount()
+    {
+        var latest = Row("saldos", " Saldo C6 ", -321, 10, "snapshot");
+        var result = DashboardBalanceRules.BankSnapshot([
+            Row("saldos", "Saldo C6", 100, 9, "snapshot"), latest,
+            Row("saldos", "Saldo C6", 999999, 12, "snapshot"),
+            Row("saldos", "Saldo Pagbank", 777, 10, "snapshot"),
+            Row("c6-conta", "Saldo C6", 888, 10, "snapshot"),
+            Row("saldos", "Saldo C6", 666, 10, "month")], new(2026, 10, 1), "Saldo C6", "C6");
+        Assert.Equal(-321, result.AmountCents); Assert.Equal(latest.Data.PeriodStart, result.Date);
+        Assert.Equal(latest.SourceName, result.SourceName); Assert.Equal(latest.Data.SourceCell, result.SourceCell);
+        Assert.Equal(latest.Data.Metric, result.Metric); Assert.Null(result.Issue);
+    }
+
+    [Fact] public void Ambiguous_latest_C6_snapshot_is_unavailable_without_falling_back_to_older_source()
+    {
+        var result = DashboardBalanceRules.BankSnapshot([
+            Row("saldos", "Saldo C6", 100, 8, "snapshot"),
+            Row("saldos", "Saldo C6", 200, 9, "snapshot"),
+            Row("saldos", "Saldo C6", 200, 9, "snapshot")], new(2026, 10, 6), "Saldo C6", "C6");
+        Assert.Null(result.AmountCents); Assert.Equal(new DateOnly(2026, 9, 1), result.Date);
+        Assert.Contains("mais de um saldo C6", result.Issue); Assert.Null(result.SourceName);
+    }
+
+    [Fact] public void Earlier_ambiguous_C6_snapshots_do_not_hide_a_later_unique_snapshot()
+    {
+        var result = DashboardBalanceRules.BankSnapshot([
+            Row("saldos", "Saldo C6", 100, 8, "snapshot"),
+            Row("saldos", "Saldo C6", 200, 8, "snapshot"),
+            Row("saldos", "Saldo C6", 0, 9, "snapshot")], new(2026, 10, 6), "Saldo C6", "C6");
+        Assert.Equal(0, result.AmountCents); Assert.Equal(new DateOnly(2026, 9, 1), result.Date); Assert.Null(result.Issue);
+    }
+
+    [Fact] public void Missing_or_only_future_C6_snapshots_are_unavailable_with_an_issue()
+    {
+        foreach (HistoryItem[] rows in new[] { Array.Empty<HistoryItem>(), new[] { Row("saldos", "Saldo C6", 123, 12, "snapshot") } })
+        {
+            var result = DashboardBalanceRules.BankSnapshot(rows, new(2026, 10, 6), "Saldo C6", "C6");
+            Assert.Null(result.AmountCents); Assert.Null(result.Date); Assert.NotNull(result.Issue);
+        }
+    }
 }

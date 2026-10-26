@@ -6,11 +6,12 @@ using System.Text.RegularExpressions;
 using LongBeach.Application.Bar;
 using LongBeach.Domain.Bar;
 using Microsoft.Extensions.Configuration;
+using LongBeach.Infrastructure.Finance;
 namespace LongBeach.Infrastructure.Payments;
 public sealed partial class PagBankPaymentGateway(HttpClient http, IConfiguration config, PagBankWebhookKeys? keys = null) : IPaymentGateway
 {
-    public bool Enabled => config.GetValue("Payments:PagBank:Enabled",false) && config.GetValue("Payments:PagBank:PixEnabled",true);
-    public bool CardEnabled => config.GetValue("Payments:PagBank:Enabled",false) && config.GetValue("Payments:PagBank:CardEnabled", false);
+    public bool Enabled => !BankImportMode.Enabled(config) && config.GetValue("Payments:PagBank:Enabled",false) && config.GetValue("Payments:PagBank:PixEnabled",true);
+    public bool CardEnabled => !BankImportMode.Enabled(config) && config.GetValue("Payments:PagBank:Enabled",false) && config.GetValue("Payments:PagBank:CardEnabled", false);
     public async Task<string?> CardPublicKey(CancellationToken ct)
     {
         if (!CardEnabled) return null;
@@ -35,7 +36,7 @@ public sealed partial class PagBankPaymentGateway(HttpClient http, IConfiguratio
     }
     private void Configure()
     {
-
+        BankImportMode.RequireApi(config);
         var url=config["Payments:PagBank:BaseUrl"] ?? "https://sandbox.api.pagseguro.com/";
         if(url!="https://sandbox.api.pagseguro.com/" && url!="https://api.pagseguro.com/")throw new BarRuleException("Ambiente PagBank inválido.");
         var token=config["Payments:PagBank:Token"];if(string.IsNullOrWhiteSpace(token))throw new BarRuleException("Credencial PagBank ausente.");
@@ -76,10 +77,11 @@ public sealed partial class PagBankPaymentGateway(HttpClient http, IConfiguratio
         if(confirmed.Refunded!=expected)throw new BarRuleException("Estorno PagBank ainda não confirmado. Consulte antes de repetir.");
         return confirmed;
     }
-    public bool VerifyWebhook(byte[] body,IEnumerable<string> signatures) => Verify(body,signatures,config["Payments:PagBank:WebhookPublicKey"]);
+    public bool VerifyWebhook(byte[] body,IEnumerable<string> signatures) => !BankImportMode.Enabled(config) && Verify(body,signatures,config["Payments:PagBank:WebhookPublicKey"]);
     private readonly PagBankWebhookKeys keyCache=keys??new();
     public async Task<bool> VerifyWebhookAsync(byte[] body,IEnumerable<string> signatures,CancellationToken ct)
     {
+        if(BankImportMode.Enabled(config))return false;
         var values=signatures.ToArray();if(values.Length==0||values.All(string.IsNullOrWhiteSpace))return false;
         if(!config.GetValue("Payments:PagBank:RefreshWebhookKeys",false))return VerifyWebhook(body,values);
         Configure();var identity=http.BaseAddress+":"+Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(config["Payments:PagBank:Token"]!)));

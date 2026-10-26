@@ -11,6 +11,7 @@ using LongBeach.Domain.Cash;
 using LongBeach.Domain.Inventory;
 using LongBeach.Domain.Payments;
 using LongBeach.Infrastructure.Persistence;
+using LongBeach.Infrastructure.Finance;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
@@ -157,6 +158,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     }, ct);
     public async Task<TabPaymentResponse> Pay(Guid id, TabPaymentInput input, Guid? actor, string? accessToken, CancellationToken ct)
     {
+        if (input.Method is "Pix" or "CreditCard") BankImportMode.RequireApi(configuration);
         var scope = await Scope(id, actor, accessToken, ct);
         var fingerprint = input.Method is "Pix" or "CreditCard" ? Hash(new { action = "payPix", id, input.OperationId, input.Method, input.Amount, scope }) : input.Method == "TerminalManual" ? Hash(new { action = "pay", id, input, scope }) : Hash(new { action = "pay", id, input = new { input.OperationId, input.Method, input.Amount, input.SessionId, input.Tendered, input.CardApproved, input.Authorization, input.Name, input.Email, input.TaxId, input.EncryptedCard }, scope });
         if (actor is null && input.Method is not ("Pix" or "CreditCard")) throw new BarRuleException("O cliente pode pagar por Pix ou cartão online.");
@@ -268,6 +270,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
                 }
                 await CheckOperation(input.OperationId, fingerprint, ct); var tab = await Lock(id, ct);
                 payment = await db.Set<BarTabPayment>().SingleOrDefaultAsync(x => x.Id == paymentId && x.TabId == id, ct) ?? throw new BarRuleException("Pagamento não pertence a esta comanda.");
+                if (payment.Method is "Pix" or "CreditCard") BankImportMode.RequireApi(configuration);
                 if (refund is not null)
                 {
                     if (refund.Fingerprint != fingerprint) throw new BarRuleException("Chave reutilizada para outro estorno.");

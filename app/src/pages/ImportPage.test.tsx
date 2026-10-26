@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ImportPage } from './ImportPage'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 const auth = vi.hoisted(() => ({ roles: ['Owner'] }))
 vi.mock('../features/auth/authContext', () => ({ useAuth: () => ({ user: { roles: auth.roles } }) }))
@@ -10,10 +11,11 @@ const preview = { batchId: 'batch', sourceName: batch.sourceName, applied: false
     { code: 'PV-2', name: 'Suco teste', category: 'Bebidas teste', salePrice: 8, action: 'Create', conflict: null }] }
 function response(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }) }
 afterEach(() => { vi.restoreAllMocks(); auth.roles = ['Owner'] })
+const renderImport = () => render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><ImportPage /></QueryClientProvider>)
 
 it.each([false,true])('consulta histórico aplicado=%s sem oferecer aplicação ou gravar catálogo', async applied => {
   const api=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>response(String(input).endsWith('/bar-catalog')?{...preview,applied}:[batch]))
-  render(<ImportPage />)
+  renderImport()
   await userEvent.click(await screen.findByRole('button',{name:/Conferir produtos do bar:/}))
   expect(await screen.findByText('Arquivo: produtos-teste.xlsx')).toBeInTheDocument()
   expect(screen.queryByRole('button',{name:'Aplicar catálogo conferido'})).not.toBeInTheDocument()
@@ -23,7 +25,7 @@ it.each([false,true])('consulta histórico aplicado=%s sem oferecer aplicação 
 it('divergências impedem aplicar o lote', async () => {
   const api = vi.spyOn(globalThis, 'fetch').mockImplementation(async input => String(input).endsWith('/bar-catalog')
     ? response({ ...preview, canApply: false, items: [{ ...preview.items[0], action: 'Conflict', conflict: 'Preço mudou; revise o cadastro.' }] }) : response([batch]))
-  render(<ImportPage />); const user = userEvent.setup()
+  renderImport(); const user = userEvent.setup()
   await user.click(await screen.findByRole('button', { name: /Conferir produtos do bar:/ }))
   expect(await screen.findByText('Preço mudou; revise o cadastro.')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Aplicar catálogo conferido' })).not.toBeInTheDocument()
@@ -32,7 +34,7 @@ it('divergências impedem aplicar o lote', async () => {
 
 it('atendente não acessa nem consulta os lotes', () => {
   auth.roles = ['Operations']; const api = vi.spyOn(globalThis, 'fetch')
-  render(<ImportPage />)
+  renderImport()
   expect(screen.getByRole('alert')).toHaveTextContent('disponível para a gestão')
   expect(api).not.toHaveBeenCalled()
 })

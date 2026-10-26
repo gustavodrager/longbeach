@@ -13,7 +13,10 @@ namespace LongBeach.Infrastructure.Finance;
 
 public sealed partial class FinancialHistoryService(LongBeachDbContext db, IAuditContext audit, TimeProvider time, IConfiguration config) : IFinancialHistory
 {
-    private sealed record Plan(string Name, string Hash, string Status, FinancialObservation[] Items, int Matches);
+    private sealed record Plan(string Name, string Hash, string Status, FinancialObservation[] Items, HashSet<string> MatchedCells)
+    {
+        public int Matches => MatchedCells.Count;
+    }
     private async Task<Plan> Read(Guid batchId, CancellationToken ct)
     {
         string name, hash, status; int count;
@@ -32,6 +35,7 @@ public sealed partial class FinancialHistoryService(LongBeachDbContext db, IAudi
                 using var json=JsonDocument.Parse(reader.GetString(2)); var item=FinancialHistoryRules.Parse(json.RootElement);
                 if(reader.GetString(0)!="reference-data" || reader.IsDBNull(1) || reader.GetString(1)!="finance:"+item.SourceCell)
                     throw new FinancialRuleException("Referência financeira de origem inválida.");
+                BankImportIdentityRules.Read(item);
                 rows.Add(item);
             }
         }
@@ -44,14 +48,41 @@ public sealed partial class FinancialHistoryService(LongBeachDbContext db, IAudi
         foreach(var item in rows)
             if(originals.TryGetValue(item.SourceCell,out var original) && original!=item)
                 throw new FinancialRuleException("Uma célula desta fonte já foi aplicada com interpretação diferente. Revise a conciliação.");
-        // A newer export may repeat a period with changed cells. Require reconciliation instead of adding it twice.
-        var otherSources=new List<(string Series,string Metric,DateOnly Start,DateOnly End)>();
-        await using(var command=await Command("SELECT DISTINCT series,metric,period_start,period_end FROM financial_observations WHERE source_sha256<>@p0 AND period_start<=@p1 AND period_end>=@p2",ct,hash,rows.Max(x=>x.PeriodEnd),rows.Min(x=>x.PeriodStart)))
+        var matchedCells = rows.Where(x => originals.ContainsKey(x.SourceCell)).Select(x => x.SourceCell).ToHashSet(StringComparer.Ordinal);
+        var bankCells = rows.Where(x => BankImportIdentityRules.Read(x) is not null).Select(x => x.SourceCell).ToArray();
+        if (bankCells.Length > 0)
+        {
+            // A bank identity remains stable across exports. Never reinterpret its date, amount or description.
+            var incoming = rows.ToDictionary(x => x.SourceCell, StringComparer.Ordinal);
+            await using var command = await Command("SELECT source_cell,payload::text FROM financial_observations WHERE source_cell=ANY(@p0)", ct, (object)bankCells);
+            await using var reader = await command.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                var cell = reader.GetString(0);
+                using var json = JsonDocument.Parse(reader.GetString(1));
+                if (FinancialHistoryRules.Parse(json.RootElement) != incoming[cell])
+                    throw new FinancialRuleException("Uma identidade bancária já foi aplicada com conteúdo diferente. Concilie a origem antes de importar novamente.");
+                matchedCells.Add(cell);
+            }
+        }
+        // Stable bank IDs allow additional movements on the same date. Older aggregates still require reconciliation.
+        var otherSources = new List<(string Hash, FinancialObservation Item)>();
+        await using(var command=await Command("SELECT source_sha256,payload::text FROM financial_observations WHERE period_start<=@p0 AND period_end>=@p1",ct,rows.Max(x=>x.PeriodEnd),rows.Min(x=>x.PeriodStart)))
         await using(var reader=await command.ExecuteReaderAsync(ct))
-            while(await reader.ReadAsync(ct))otherSources.Add((reader.GetString(0),reader.GetString(1),reader.GetFieldValue<DateOnly>(2),reader.GetFieldValue<DateOnly>(3)));
-        if(rows.Any(item=>otherSources.Any(old=>old.Series==item.Series && old.Metric==item.Metric && old.Start<=item.PeriodEnd && old.End>=item.PeriodStart)))
+            while (await reader.ReadAsync(ct))
+            {
+                using var json = JsonDocument.Parse(reader.GetString(1));
+                otherSources.Add((reader.GetString(0).Trim(), FinancialHistoryRules.Parse(json.RootElement)));
+            }
+        static bool Overlaps(FinancialObservation item, FinancialObservation old) => old.Series == item.Series && old.Metric == item.Metric &&
+            old.PeriodStart <= item.PeriodEnd && old.PeriodEnd >= item.PeriodStart;
+        if (rows.Any(item => otherSources.Any(old => Overlaps(item, old.Item) &&
+            (old.Hash != hash || BankImportIdentityRules.Read(item) is not null || BankImportIdentityRules.Read(old.Item) is not null) &&
+            !BankImportIdentityRules.MayOverlap(item, old.Item))) ||
+            rows.Any(item => BankImportIdentityRules.Read(item) is not null && rows.Any(other =>
+                item.SourceCell != other.SourceCell && Overlaps(item, other) && !BankImportIdentityRules.MayOverlap(item, other))))
             throw new FinancialRuleException("Outra fonte já cobre este controle e período. Concilie as versões antes de aplicar para evitar valores duplicados.");
-        return new(name,hash,status,rows.ToArray(),rows.Count(x=>originals.ContainsKey(x.SourceCell)));
+        return new(name,hash,status,rows.ToArray(),matchedCells);
     }
     public async Task<HistoryPreview> Preview(Guid batchId,CancellationToken ct)
     {
@@ -67,7 +98,7 @@ public sealed partial class FinancialHistoryService(LongBeachDbContext db, IAudi
         if(plan.Status=="Applied") return await Preview(batchId,ct);
         if(FinancialHistoryRules.Fingerprint(plan.Hash,plan.Items)!=confirmationToken)
             throw new FinancialRuleException("A conferência mudou. Confira novamente antes de aplicar.");
-        foreach(var item in plan.Items)
+        foreach(var item in plan.Items.Where(x => !plan.MatchedCells.Contains(x.SourceCell)))
         {
             await using var insert=await Command("""
                 INSERT INTO financial_observations(id,batch_id,source_sha256,source_cell,series,metric,state,period_start,period_end,amount_cents,payload,created_at_utc)
@@ -182,21 +213,22 @@ public sealed partial class FinancialHistoryService(LongBeachDbContext db, IAudi
     public async Task<IReadOnlyList<IntegrationStatus>> Integrations(CancellationToken ct)
     {
         var result=new List<IntegrationStatus>();
+        var importOnly=BankImportMode.Enabled(config);
         var enabled=config.GetValue("Integrations:PagBankEdi:Enabled",false);
         DateTimeOffset? last=null; DateOnly? complete=null; string? failure=null;
         await using(var command=await Command("SELECT last_success_utc,complete_through,failure_code FROM provider_sync_state WHERE provider='pagbank-edi'",ct))
         await using(var reader=await command.ExecuteReaderAsync(ct)) if(await reader.ReadAsync(ct))
         {last=reader.IsDBNull(0)?null:reader.GetFieldValue<DateTimeOffset>(0);complete=reader.IsDBNull(1)?null:reader.GetFieldValue<DateOnly>(1);failure=reader.IsDBNull(2)?null:reader.GetString(2);}
         var yesterday=DateOnly.FromDateTime(time.GetUtcNow().UtcDateTime.AddHours(-3)).AddDays(-1);
-        var requirements=PagBankEdiConfiguration.Problems(config,yesterday).ToList();
+        var requirements=importOnly?[]:PagBankEdiConfiguration.Problems(config,yesterday).ToList();
         var configured=enabled && requirements.Count==0;
-        if(!enabled)requirements.Add("Habilite a coleta EDI após conferir credencial e data inicial.");
-        result.Add(new("PagBank EDI",!configured?"Aguardando configuração":failure is not null?"Requer atenção":last is null?"Aguardando primeira leitura":time.GetUtcNow()-last.Value>TimeSpan.FromHours(26)?"Coleta atrasada":complete is null||complete<yesterday?"Atualizando histórico":"Automático",
-            "Vendas, recebimentos e saldos em D+1, com origem e data da atualização preservadas.",last,failure,complete,"Produção",requirements));
+        if(!enabled&&!importOnly)requirements.Add("Habilite a coleta EDI após conferir credencial e data inicial.");
+        result.Add(new("PagBank EDI",importOnly?BankImportMode.State:!configured?"Aguardando configuração":failure is not null?"Requer atenção":last is null?"Aguardando primeira leitura":time.GetUtcNow()-last.Value>TimeSpan.FromHours(26)?"Coleta atrasada":complete is null||complete<yesterday?"Atualizando histórico":"Automático",
+            importOnly?"Coleta por API suspensa. Documentos EDI anteriores continuam no histórico; a carteira EDI não representa o saldo da conta digital.":"Vendas, recebimentos e saldos em D+1, com origem e data da atualização preservadas.",last,importOnly?null:failure,complete,"Produção",requirements));
         result.AddRange(Payments.PaymentIntegrationDiagnostics.Read(config));
         result.Add(await C6Integration(ct));
-        result.Add(new("PagVendas","Histórico de arquivos","O catálogo, as vendas e o estoque são controlados no Long Beach. Lotes PagVendas anteriores continuam disponíveis para consulta.",null,null,null,null,
-            ["Cadastre produtos e confira o estoque no Bar. Novas aplicações de catálogo PagVendas estão desativadas."]));
+        result.Add(new("PagVendas",importOnly?BankImportMode.State:"Histórico de arquivos","O catálogo, as vendas e o estoque são controlados no Long Beach. Lotes PagVendas anteriores continuam disponíveis para consulta.",null,null,null,null,
+            importOnly?[]:["Cadastre produtos e confira o estoque no Bar. Novas aplicações de catálogo PagVendas estão desativadas."]));
         return result;
     }
     public async Task<ProviderReport> ProviderRecords(string? date,int page,CancellationToken ct)
