@@ -1,6 +1,6 @@
 # ADR-015 — VM econômica no Google Cloud com backup externo
 
-Data: 26/10/2026. Implementação autorizada; o corte depende das verificações e da execução registrada no runbook.
+Data: 26/10/2026. Implementação autorizada e corte de infraestrutura aplicado; estabilização e encerramento registrados no runbook.
 
 ## Contexto e decisão
 
@@ -24,10 +24,14 @@ Preservar Cloud SQL/Cloud Run e seus artefatos durante estabilização; não apa
 
 A economia troca disponibilidade gerenciada por administração de host, patches, capacidade, TLS, backup e recuperação. O banco pode ficar indisponível enquanto o host é reparado ou restaurado. O RPO depende do WAL já enviado; o RTO será medido em ensaio. Backups externos continuam necessários e têm custo por armazenamento, operações e transferência. Não contratar CUD antes de medir consumo e de o responsável aceitar separadamente o compromisso financeiro.
 
-## Estado da preparação em 26/10/2026
+## Estado em 26/10/2026
 
 A candidata privada passou pelos testes locais e de infraestrutura, builds da API/frontend, fixture GCS com recuperação latest/PITR e restauração lógica reconciliada da cópia real. A collation conserva `en_US.UTF8`/libc: somente a versão 2.19 da origem para 2.36 nativa foi aceita, com índices reconstruídos logicamente e índices/constraints válidos. Os dois grants administrativos de schema exclusivos do provedor foram auditados e não são transferidos; não se importam roles de Cloud SQL.
 
-O full MAIN real e suas recuperações latest/PITR passaram com a cópia original preservada. A QA nativa privada passou em 30 verificações, incluindo 40 leituras concorrentes sem OOM; os recursos próprios dos ensaios foram removidos. Isso não substitui a validação de login Google e sessão pública. Alertas estão preparados. O corte e o aceite de produção continuam pendentes dos gates e da janela previstos no ADR-003; este estado não autoriza desativar a origem nem declara a VM como produção.
+O full MAIN de ensaio e suas recuperações latest/PITR passaram com a cópia original preservada. A QA nativa privada passou em 30 verificações, incluindo 40 leituras concorrentes sem OOM; os recursos próprios dos ensaios foram removidos. A cópia de ensaio tinha 13.576 linhas e permanece distinta da cópia final.
 
-Procedimento: [Operação da VM Google](../operacao/google-vm.md) e [backup](../../deploy/google/vm/backup/README.md). Este ADR registra a decisão, não um corte já concluído.
+Na janela autorizada, a cópia final reconciliou 60 tabelas, 13.609 linhas, 99 totais numéricos e 27 migrations. O full final GCS e o WAL passaram. Às 17h12 UTC, o DNS da API passou para a VM; HTTPS com certificado público válido, health200 e autorização401 passaram às 17h16 UTC, e API/workers previstos foram ativados e conferidos. O frontend e seus endereços permanecem no Firebase.
+
+O emissor e as duas políticas estão ativos, com ponto operacional real `1` recebido pelo Google. O teste de login no navegador ainda atingiu a origem congelada pelo DNS antigo em cache; a validação aguarda propagação natural. Faltam a conferência no navegador normal de login Google/sessão e dos fluxos usuais, a comprovação de uptime saudável em todas as regiões e entrega de alertas, a estabilização e o aceite para retirar a infraestrutura anterior. A origem mantém runtime CONNECT bloqueado, zero sessões desse usuário e workers Cloud Run desativados. Cloud SQL HA ainda RUNNABLE e balanceador provisionado continuam gerando cobrança; a economia recorrente depende da retirada desses recursos após o aceite. Esta decisão não autoriza apagá-los nem reabrir uma origem desatualizada para gravações.
+
+Procedimento e situação atual: [Operação da VM Google](../operacao/google-vm.md) e [backup](../../deploy/google/vm/backup/README.md). O corte aplicado e as pendências de encerramento devem ser avaliados separadamente.
