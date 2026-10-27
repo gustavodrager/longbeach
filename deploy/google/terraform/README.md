@@ -1,5 +1,21 @@
 # Infraestrutura Google Cloud da Parsero
 
+## Raiz histórica — não aplicar nos estados atuais
+
+A retirada definitiva da infraestrutura gerenciada e da homologação foi concluída e conferida em 26/10/2026. Esta raiz descreve a estrutura anterior; reaplicá-la pode recriar bancos, serviços e custos já retirados. O estado de apoio à produção usa [support/terraform](../support/terraform/README.md), e os metadados da homologação usam [staging-retired/terraform](../staging-retired/terraform/README.md). As cópias retidas continuam nos projetos preservados. A VM mantém sua [raiz e estado próprios](../vm/terraform/README.md). Os planos completos das duas raízes finais retornaram sem alterações. Consulte o runbook para o resultado real da operação.
+
+## Histórico — origem gerenciada após o corte para a VM
+
+O estado operacional de 26/10/2026 está no [runbook da VM](../../../docs/operacao/google-vm.md); o histórico de preparação abaixo não descreve a produção atual. Antes da retirada definitiva, este módulo era responsável pela infraestrutura gerenciada preservada. Seu estado `longbeach/production` é distinto de `longbeach-economy-vm/production`; nunca intercambiar esses prefixos.
+
+Às 17h24 de Brasília, após aceite explícito, a suspensão foi aplicada e conferida: SQL `STOPPED/NEVER`, duas forwarding rules antigas ausentes e Run pausado sem alterações. Os dados e demais componentes preservados continuam existentes. Para manter esse estado desejado, conservar `managed_source_suspended=true` e a revisão congelada conferida; não reaplicar tfvars históricos.
+
+Depois do aceite explícito e da conferência dos consumidores, `managed_source_suspended=true` permite suspender o processamento do Cloud SQL e retirar somente as forwarding rules HTTP/HTTPS substituídas. Exige produção, workers desligados, outros clientes desabilitados e `managed_source_revision` igual à revisão congelada observada na origem. Preserva dados, HA configurada, backups, proteções, Cloud Run pausado, IP reservado e os demais componentes. Discos, cópias e recursos preservados ainda podem custar.
+
+Aplicar apenas um plano salvo e revisado que contenha exatamente um update SQL (`activation_policy: ALWAYS→NEVER`) e duas exclusões das forwarding rules antigas. Os targets incluem dependências; qualquer update do Run ou outra mudança deve impedir a execução. Usar a imagem, configuração e referências de segredos atuais da origem; um tfvars histórico pode introduzir alterações extras. O opt-in é falso por padrão e não constitui autorização de execução.
+
+Para recuperação, preparar separadamente um plano restrito à reativação técnica; restaurar o módulo inteiro pode também reativar a API antiga. Iniciar a instância não autoriza tráfego, workers ou escrita em dados desatualizados. Reconciliar a cópia atual da VM antes de considerar um retorno.
+
 ## Estado real em 22/10/2026
 
 Projetos `parsero-prod-20261022` (produção) e `parsero-staging-20261022` (staging) criados; a conta administrativa escolhida está autenticada no SDK. O faturamento brasileiro em BRL está aberto (`open=true`) e habilitado nos dois projetos. O orçamento mensal de R$ 1.500 foi criado, com limiares de 50%, 80% e 100%, destinatários IAM padrão e créditos promocionais excluídos da base. Não é limite de cobrança; a entrega das notificações ainda deve ser acompanhada.

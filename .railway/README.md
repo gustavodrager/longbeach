@@ -1,3 +1,7 @@
+# Referência histórica Railway
+
+Snapshot anterior à migração Google. Preservado para rastreabilidade dos commits e recursos antigos; não é a configuração operacional da aplicação consolidada. Consulte `docs/operacao/google-vm.md` na raiz do repositório para a direção atual. Os caminhos neste snapshot correspondem ao layout do commit registrado nele.
+
 # Railway configuration
 
 This project defines its Railway infrastructure in code.

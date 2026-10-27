@@ -65,8 +65,35 @@ def tree_hash(directory):
     return digest.hexdigest()
 
 
+def source_path(source):
+    """Resolve the layout in the pinned commit, never in the working checkout."""
+    manifest = json.loads(MANIFEST.read_text())
+    configured = manifest.get("web_source_path")
+    if configured is not None and configured not in ("app", "frontend"):
+        raise ValueError("web_source_path deve ser app ou frontend.")
+    candidates = (configured,) if configured is not None else ("app", "frontend")
+    matches = []
+    for candidate in candidates:
+        objects = ((candidate, "tree"), (candidate + "/package.json", "blob"))
+        for path, object_type in objects:
+            result = subprocess.run(
+                ["git", "-C", str(REPOSITORY), "cat-file", "-t", source + ":" + path],
+                text=True, capture_output=True, check=False)
+            if result.returncode != 0 or result.stdout.strip() != object_type:
+                break
+        else:
+            matches.append(candidate)
+    if len(matches) != 1:
+        raise ValueError("Revisão sem frontend único válido; confira web_source_path no manifesto.")
+    return matches[0]
+
+
 def source_tree(source):
-    return subprocess.check_output(["git", "-C", str(REPOSITORY), "rev-parse", source + ":app"], text=True).strip()
+    # The commit and subtree hash retain the historical metadata contract even
+    # when the directory changes name; existing app artifacts remain verifiable.
+    return subprocess.check_output(
+        ["git", "-C", str(REPOSITORY), "rev-parse", source + ":" + source_path(source)],
+        text=True).strip()
 
 
 def artifact_metadata(directory, expected):
@@ -83,6 +110,8 @@ def main():
     directory, expected = inputs()
     if command == "source":
         print(expected["source_commit"])
+    elif command == "source-path":
+        print(source_path(expected["source_commit"]))
     elif command == "record":
         metadata = artifact_metadata(directory, expected)
         with (directory / METADATA).open("x") as file:
@@ -95,7 +124,7 @@ def main():
         if metadata != artifact_metadata(directory, expected):
             raise ValueError("Artefato, revisão ou configuração difere do build verificado. Reconstrua antes de publicar.")
     else:
-        raise ValueError("Use source, record ou verify.")
+        raise ValueError("Use source, source-path, record ou verify.")
 
 
 if __name__ == "__main__":

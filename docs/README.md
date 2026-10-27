@@ -1,5 +1,8 @@
 # Documentação do Long Beach OS
 
+Entrada atual: [estrutura local](operacao/estrutura-local.md), [consolidação de 26/10](operacao/consolidacao-2026-10-26.md), [ADR-016](adr/ADR-016-consolidacao-do-repositorio-local.md) e [operação da VM](operacao/google-vm.md). Os demais registros de implantação são fotografias datadas.
+
+
 ## Decisão e arquitetura
 
 - [`adr/ADR-001-produto-standalone.md`](adr/ADR-001-produto-standalone.md)

@@ -75,7 +75,7 @@ class WebArtifactTests(unittest.TestCase):
             WEB.inputs()
 
     def test_output_inside_checkout_is_refused(self):
-        os.environ["GCP_WEB_DIST_DIR"] = str(WEB.REPOSITORY / "app" / "dist")
+        os.environ["GCP_WEB_DIST_DIR"] = str(WEB.REPOSITORY / "frontend" / "dist")
         with self.assertRaises(ValueError):
             WEB.inputs()
 

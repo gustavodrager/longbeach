@@ -1,6 +1,6 @@
 # Infraestrutura candidata da VM LongBeach
 
-Este root Terraform tem estado próprio. Ele prepara uma VM nova e não declara Cloud SQL, Cloud Run, Firebase, DNS, recursos de outros clientes ou a infraestrutura atual. Não reutilize o prefixo de estado de `deploy/google/terraform`. O backend GCS deve ser inicializado com um prefixo novo e revisado.
+Este root Terraform tem estado próprio, `longbeach-economy-vm/production`, e mantém a VM de produção. Não declara Cloud SQL, Cloud Run, Firebase, DNS ou recursos de outros clientes. Nunca reutilize os prefixos dos estados de [apoio à produção](../../support/terraform/README.md) ou [homologação encerrada](../../staging-retired/terraform/README.md). A raiz antiga `deploy/google/terraform` é histórica e não deve ser reaplicada aos estados atuais.
 
 O tamanho autorizado é `e2-medium`, São Paulo `southamerica-east1-a`, boot de 10 GiB e disco PostgreSQL separado de 20 GiB, ambos `pd-balanced`. O IP é regional reservado. A VM usa Debian 13 amd64 com versão de imagem explícita, Secure Boot, OS Login e SSH apenas pelo IAP. O módulo habilita a API IAP e concede à administradora já autorizada `parserotech@gmail.com` acesso IAP e OS Admin Login somente nesta VM, além de `serviceAccountUser` somente na identidade desta VM. Não cria novos administradores nem concede papéis de operação no projeto inteiro.
 

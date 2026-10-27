@@ -39,13 +39,36 @@ variable "pg_version" {
 variable "staging_database_activation_policy" {
   type        = string
   default     = "ALWAYS"
-  description = "Set NEVER only for verified unused staging to stop instance compute while preserving data and prior backups. Restore ALWAYS before using the environment. Production always remains ALWAYS."
+  description = "Set NEVER only for verified unused staging to stop instance compute while preserving data and prior backups. Restore ALWAYS before using the environment. Production suspension uses the separate managed_source_suspended opt-in."
   validation {
     condition = contains(["ALWAYS", "NEVER"], var.staging_database_activation_policy) && (
       var.staging_database_activation_policy == "ALWAYS" || var.environment == "staging"
     )
-    error_message = "Only staging may use NEVER; production must remain ALWAYS."
+    error_message = "Only staging may use NEVER through staging_database_activation_policy."
   }
+}
+
+variable "managed_source_suspended" {
+  type        = bool
+  default     = false
+  description = "Future production-source suspension after explicit migration acceptance and consumer checks: stop SQL compute and remove the two global forwarding rules. Preserve data, HA, backups, the already-paused Run and remaining LB resources. This flag grants no approval. Targets include dependencies: before any apply, require a separately reviewed plan with exactly one SQL policy update and two forwarding-rule deletions; refuse every Run or unrelated change."
+  validation {
+    condition = !var.managed_source_suspended || (
+      var.environment == "production" && !var.workers_enabled &&
+      !var.enable_lavamais_database && !var.enable_danielli_database
+    )
+    error_message = "Suspend only the migrated LongBeach production source, with source workers and both other client databases disabled."
+  }
+  validation {
+    condition     = !var.managed_source_suspended || can(regex("^longbeach-api-freeze-[a-z0-9][a-z0-9-]{6,34}[a-z0-9]$", var.managed_source_revision))
+    error_message = "Suspension requires the exact already-paused longbeach-api-freeze-* revision verified from the live source."
+  }
+}
+
+variable "managed_source_revision" {
+  type        = string
+  default     = ""
+  description = "Exact existing paused revision from the reviewed source inventory. Required only when managed_source_suspended is true; ignored otherwise. This preserves the revision rather than creating or ignoring a Run change."
 }
 
 variable "api_image" {

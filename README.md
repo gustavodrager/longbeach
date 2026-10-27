@@ -1,73 +1,71 @@
 # Long Beach OS
 
-Base standalone para a operação da Long Beach Arena. O produto reúne uma API .NET, uma aplicação React/PWA, clientes móveis Capacitor e um PostgreSQL exclusivo.
-
-Para a implantação e as funcionalidades vigentes, comece pelo [estado atual do sistema](docs/operacao/estado-atual.md) e pelo [manifesto da release de produção](docs/operacao/release-producao.json). As seções de bootstrap abaixo descrevem a fundação e não substituem esse inventário.
-
-O projeto não compartilha código, banco, API, autenticação, migrations, storage ou deploy com outros produtos. O painel legado continua independente durante a transição.
+Aplicação principal da Long Beach Arena: frontend React/TypeScript/Vite, PWA e Capacitor; backend .NET em monólito modular; PostgreSQL e migrations próprios.
 
 ## Estrutura
 
-- `src/LongBeach.Api`: entrada HTTP, autenticação, autorização e health checks.
-- `src/LongBeach.Application`: casos de uso e contratos internos.
-- `src/LongBeach.Domain`: modelo e regras de domínio.
-- `src/LongBeach.Infrastructure`: PostgreSQL, segurança e auditoria.
-- `src/LongBeach.Contracts`: contratos públicos da API.
-- `tests`: testes unitários e de integração.
-- `app`: React, TypeScript, Vite, PWA e Capacitor.
-- `docs`: decisões, arquitetura, migração e operação.
-- `deploy`: imagens OCI e servidor estático do frontend.
-
-Leia primeiro a [ADR-001](docs/adr/ADR-001-produto-standalone.md), os [diagramas C4](docs/arquitetura/C4-contexto.md) e o [plano de transição](docs/migracao/plano-transicao-e-rollback.md).
-
-## Desenvolvimento local com contêineres
-
-Requisitos: Docker com Compose.
-
-```bash
-cp .env.example .env
-# Troque as credenciais de desenvolvimento no arquivo .env.
-docker compose up --build
+```text
+frontend/       React, PWA, Android e iOS (Capacitor)
+backend/
+  src/          Api, Application, Domain, Infrastructure e Contracts
+  tests/        Testes unitários, integração e fixtures
+  LongBeach.sln
+  global.json   SDK .NET fixado
+  Directory.Build.props
+deploy/        Docker, Google Cloud/Firebase e infraestrutura
+scripts/        Importadores, auditoria SQL e identidade visual
+tools/          Utilitários locais com execução explícita
+docs/           Arquitetura, decisões e operação
+.github/        CI e publicação de imagens
 ```
 
-A aplicação web fica em `http://localhost:4173`, a API em `http://localhost:5100` e o health check em `http://localhost:5100/health`. O PostgreSQL usa um volume próprio chamado `longbeach_postgres_data`.
+Importações, backups, configurações privadas e evidências ficam fora deste repositório, nas pastas de suporte do diretório LongBeach. As cópias anteriores são preservadas como histórico. Comece por [estrutura local](docs/operacao/estrutura-local.md) e [registro da consolidação](docs/operacao/consolidacao-2026-10-26.md).
 
-O usuário administrador inicial é opcional. Para criá-lo, defina `LONG_BEACH_BOOTSTRAP_ADMIN_EMAIL` e `LONG_BEACH_BOOTSTRAP_ADMIN_PASSWORD` no `.env`; essa inicialização só funciona no ambiente Development.
+## Desenvolvimento e validação
 
-## Desenvolvimento sem contêineres
-
-Requisitos: .NET SDK 10.0.401, Node.js 24, pnpm 11.25 e PostgreSQL 17.
+Requisitos: SDK de `backend/global.json`, Node.js 24 e pnpm 11.25. PostgreSQL 17 e 18 são cobertos no CI; preserve a versão principal do volume local existente.
 
 ```bash
+cd backend
 dotnet restore LongBeach.sln
 dotnet build LongBeach.sln --configuration Release --no-restore
 dotnet test LongBeach.sln --configuration Release --no-build
-
-pnpm --dir app install --frozen-lockfile
-pnpm --dir app test
-pnpm --dir app build
+cd ..
+pnpm --dir frontend install --frozen-lockfile
+pnpm --dir frontend test
+pnpm --dir frontend build
 ```
 
-Use `app/.env.example` como referência para o frontend. Credenciais e chaves reais devem ficar no secret store local ou no cofre do ambiente.
+Os conversores de planilhas usam Python e a dependência fixada em `scripts/requirements.txt`:
 
-## CI/CD e ambientes
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r scripts/requirements.txt
+.venv/bin/python -m unittest discover -s scripts -p 'test_*.py'
+```
 
-O workflow de CI testa backend e frontend em pull requests e em `main`. O workflow manual de release publica imagens OCI da API e da web no GitHub Container Registry, protegido pelo environment escolhido: `Development`, `Test`, `Staging` ou `Production`. Ele não executa deploy.
+Os testes PostgreSQL exigem `LONG_BEACH_TEST_DATABASE_URL` em um banco exclusivo de teste. Consulte [estrutura local](docs/operacao/estrutura-local.md).
 
-Antes de publicar, configure em cada GitHub Environment:
+Para abrir o ambiente local existente, use `iniciar-local.command` na pasta principal LongBeach. A configuração privada fica fora do Git; migrations e seeds desse ambiente continuam sendo operações explícitas.
 
-- a variável `LONG_BEACH_PUBLIC_API_URL` com a URL pública da API daquele ambiente;
-- regras de proteção e responsáveis, especialmente para `Staging` e `Production`;
-- permissão do repositório para publicar pacotes no GitHub Container Registry.
+Para um ambiente de desenvolvimento novo, com dados fictícios e volume próprio:
 
-Conexões de banco, chaves JWT, storage e demais secrets são configurados somente no runtime do provedor escolhido. A estratégia completa está em [CI/CD e ambientes](docs/operacao/ci-cd-e-ambientes.md).
+```bash
+cp .env.example .env
+# Configure credenciais próprias de desenvolvimento no .env.
+docker compose up --build
+```
 
-Na produção web, configure `Authentication__CookieDomain=longbeach.quebranunca.com.br`. Esse domínio é usado somente pelo cookie anti-CSRF legível pela aplicação; o refresh token permanece em cookie `HttpOnly` restrito a `api.longbeach.quebranunca.com.br`. O procedimento completo está no [runbook do Railway](docs/operacao/deploy-railway-production.md).
+Esse Compose usa PostgreSQL 17. Web: `http://localhost:4173`; API: `http://localhost:5100`; prontidão: `/health/ready`. Upgrade major de um volume existente exige migração própria.
 
-O modo temporário sem login está descrito em [modo de teste público](docs/operacao/modo-demo-publico.md). Ele deve permanecer limitado a conteúdo fictício e interfaces sem escrita operacional.
+`frontend/.env.example` documenta as opções públicas da interface. Conexões, JWT e demais secrets pertencem ao ambiente da API. O identificador mobile continua `br.com.longbeacharena.app`.
 
-## Estado deste bootstrap
+## Arquitetura e publicações
 
-Esta base prepara desenvolvimento, testes e publicação de imagens. Nenhum ambiente hospedado novo, DNS ou banco de produção é criado por estes arquivos. O sistema atual permanece disponível até o novo produto cumprir os critérios de paridade, reconciliação e rollback documentados.
+Consulte a [ADR-001](docs/adr/ADR-001-produto-standalone.md), as [convenções](docs/arquitetura/convencoes-backend-frontend.md) e a [ADR-016](docs/adr/ADR-016-consolidacao-do-repositorio-local.md).
 
-A evolução para duas unidades de negócio está definida na [ADR-008 — Bar e Quadra](docs/adr/ADR-008-unidades-de-negocio-bar-e-quadra.md), incluindo a classificação financeira inicial e os critérios para equipe, estoque, permissões e rateio.
+O [manifesto de fontes Google](deploy/google/source-revisions.json) fixa os commits da release registrada em 25/10/2026. O build web reconhece `app/` dos commits antigos e `frontend/` dos novos. A organização local preserva o manifesto e a identidade dos artefatos publicados.
+
+A [ADR-015](docs/adr/ADR-015-google-vm-economia.md) e o [runbook da VM](docs/operacao/google-vm.md) registram a evolução econômica da hospedagem. Consulte os recibos finais da operação para seu estado de implantação. `estado-atual.md`, `release-producao.json` e `.railway/` permanecem como fotografias históricas datadas.
+
+CI testa frontend/backend. A publicação de imagens exige o environment escolhido e não executa deploy. A consolidação local preserva regras de negócio, migrations e dados.

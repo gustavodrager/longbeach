@@ -82,7 +82,7 @@ resource "google_sql_database_instance" "shared" {
     edition                     = "ENTERPRISE"
     tier                        = "db-custom-1-4096"
     availability_type           = var.environment == "production" ? "REGIONAL" : "ZONAL"
-    activation_policy           = var.environment == "staging" ? var.staging_database_activation_policy : "ALWAYS"
+    activation_policy           = var.environment == "staging" ? var.staging_database_activation_policy : (var.managed_source_suspended ? "NEVER" : "ALWAYS")
     disk_type                   = "PD_SSD"
     disk_size                   = 20
     disk_autoresize             = true

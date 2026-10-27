@@ -10,12 +10,14 @@ resource "google_cloud_run_v2_service" "api" {
   scaling { max_instance_count = 1 }
 
   template {
+    revision                         = var.managed_source_suspended ? var.managed_source_revision : null
     service_account                  = google_service_account.runtime.email
     execution_environment            = "EXECUTION_ENVIRONMENT_GEN2"
     timeout                          = "300s"
     max_instance_request_concurrency = 40
     scaling {
-      min_instance_count = 1
+      # Preserve the already-paused source when suspension planning includes dependencies.
+      min_instance_count = var.managed_source_suspended ? 0 : 1
       max_instance_count = 1
     }
     volumes {
@@ -27,7 +29,7 @@ resource "google_cloud_run_v2_service" "api" {
       ports { container_port = 8080 }
       resources {
         limits            = { cpu = "1", memory = "2Gi" }
-        cpu_idle          = false
+        cpu_idle          = var.managed_source_suspended
         startup_cpu_boost = true
       }
       dynamic "env" {
@@ -265,7 +267,7 @@ resource "google_compute_target_https_proxy" "api" {
 }
 
 resource "google_compute_global_forwarding_rule" "api_https" {
-  count                 = local.app_ready ? 1 : 0
+  count                 = local.app_ready && !var.managed_source_suspended ? 1 : 0
   project               = local.project_id
   name                  = "longbeach-api-https"
   ip_address            = google_compute_global_address.api[0].address
@@ -293,7 +295,7 @@ resource "google_compute_target_http_proxy" "redirect" {
 }
 
 resource "google_compute_global_forwarding_rule" "api_http" {
-  count                 = local.app_ready ? 1 : 0
+  count                 = local.app_ready && !var.managed_source_suspended ? 1 : 0
   project               = local.project_id
   name                  = "longbeach-api-http"
   ip_address            = google_compute_global_address.api[0].address
