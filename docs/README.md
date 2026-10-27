@@ -2,6 +2,8 @@
 
 Entrada atual: [estrutura local](operacao/estrutura-local.md), [consolidação de 26/10](operacao/consolidacao-2026-10-26.md), [ADR-016](adr/ADR-016-consolidacao-do-repositorio-local.md) e [operação da VM](operacao/google-vm.md). Os demais registros de implantação são fotografias datadas.
 
+O [guia dos comprovantes e do retorno local](operacao/comprovantes-e-retorno-local.md) registra o arquivamento final de `outputs`, as conferências de integridade e o procedimento ensaiado para restaurar o caminho real.
+
 
 ## Decisão e arquitetura
 

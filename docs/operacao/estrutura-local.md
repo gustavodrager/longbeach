@@ -7,7 +7,7 @@
 - `LongBeach/evidencias`: relatórios, capturas e recibos de operação.
 - `LongBeach/arquivo`: preservação das bases anteriores e reconciliação.
 
-`work/` é o alias de compatibilidade para `arquivo/ambientes-anteriores/`. `outputs/` permanece como diretório real porque comprovantes da migração Google Cloud exigem caminhos canônicos; o índice `evidencias/operacoes-em-andamento` aponta para ele. O [registro de consolidação](consolidacao-2026-10-26.md) documenta a restrição. Novos trabalhos usam a aplicação principal.
+`work/` é o alias de compatibilidade para `arquivo/ambientes-anteriores/`. A migração Google Cloud terminou e `outputs/` agora é o alias de consulta para `evidencias/outputs/`; o índice histórico `evidencias/operacoes-em-andamento` continua funcionando. O retorno do diretório real foi ensaiado, preservando todos os arquivos. Ferramentas históricas com exigência de caminho canônico dependem desse retorno e de nova revisão, conforme o [guia dos comprovantes](comprovantes-e-retorno-local.md). Novos trabalhos usam a aplicação principal; novas evidências usam pastas próprias em `evidencias/`.
 
 ## Iniciar e encerrar
 

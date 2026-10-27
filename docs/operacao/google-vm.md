@@ -2,6 +2,8 @@
 
 Corte de infraestrutura aplicado em 26/10/2026, com aceite explícito e retirada definitiva dos recursos substituídos concluída no mesmo dia. API e banco operam na VM; o frontend permanece no Firebase. Os planos, hashes e recibos de execução permanecem privados; nunca versionar dumps, credenciais ou dados pessoais. Os registros abaixo preservam a cronologia; a seção mais recente descreve o estado atual.
 
+Em 27/10/2026, após liberação coordenada e revisão do retorno, os comprovantes locais foram arquivados integralmente em `LongBeach/evidencias/outputs/`, mantendo `LongBeach/outputs` como alias de consulta. Antes de qualquer ferramenta histórica que exija caminho canônico, seguir o [procedimento de retorno local ensaiado](comprovantes-e-retorno-local.md). Os recibos originais não foram alterados; esse arquivamento não executou ações em produção.
+
 ## Publicação da estrutura consolidada — 26/10/2026, 22h58 de Brasília
 
 A autorização direta para enviar e publicar a aplicação resultou na promoção do commit `7179c9fad657327d2bd9cc4dfa2e750180dedebf`. O [registro atual da release](release-google-vm.json) é a referência para o digest da API e a versão do Firebase. A API foi substituída isoladamente; os contêineres PostgreSQL e Caddy mantiveram identidade e início de execução. As 27 migrations são idênticas às anteriores: **nenhuma migration foi executada**. Configurações, segredos, permissões, flags de integração, timers e backups foram preservados. Não houve alteração de DNS ou infraestrutura.
