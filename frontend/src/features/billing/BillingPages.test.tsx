@@ -209,9 +209,11 @@ it('suspender novos Pix preserva a retomada da mesma operação já persistida',
 
 const manager:AuthUser={...user,id:'manager',roles:['Owner'],permissions:['finance:write']}
 const received={id:'received',operationId:'received-operation',method:'Pix',amount:80,state:'Approved',refunded:10,refundPending:0,canResume:false}
+const emptyBankHistory={month:'2026-10',months:['2026-10'],total:0,page:1,updatedAtUtc:'2026-10-27T15:00:00Z',totals:[],items:[]}
 function adminData(accounts:Account[],billingConfig:Config=config){
  vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
   const url=String(input)
+  if(url.startsWith('/api/v1/financial-history?'))return json(emptyBankHistory)
   return url.endsWith('/config')?json(billingConfig):url.endsWith('/candidates')?json({accounts:[],users:[{id:user.id,name:'João Silva'},{id:'other-user',name:'Maria Souza'}],students:[]}):json(accounts)
  })
 }
@@ -298,19 +300,21 @@ it('gestão indica carregamento e oculta resumo e ações quando a atualização
   const url=String(input)
   if(url.endsWith('/config'))return json(config)
   if(url.endsWith('/candidates'))return json({accounts:[],users:[],students:[]})
+  if(url.startsWith('/api/v1/financial-history?'))return json(emptyBankHistory)
   return fail?new Response('{}',{status:503}):new Promise<Response>(resolve=>{release=resolve})
  })
  mount(<BillingPage admin/>,'/recebimentos',manager)
- expect(screen.getByRole('status')).toHaveTextContent('Carregando contas')
+ expect(screen.getByText('Carregando contas…')).toHaveAttribute('role','status')
  expect(screen.queryByRole('region',{name:'Resumo dos recebimentos da seleção'})).not.toBeInTheDocument()
  release!(json([account]))
  await screen.findByRole('article',{name:account.title})
  fail=true
  await clients.at(-1)!.invalidateQueries({queryKey:['billing']})
- expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível consultar')
+ const alert=await screen.findByText(/Não foi possível consultar suas contas/)
+ expect(alert).toHaveAttribute('role','alert')
  expect(screen.queryByRole('article')).not.toBeInTheDocument()
  expect(screen.queryByRole('region',{name:'Resumo dos recebimentos da seleção'})).not.toBeInTheDocument()
- fireEvent.click(screen.getByRole('button',{name:'Tentar novamente'}))
+ fireEvent.click(within(alert).getByRole('button',{name:'Tentar novamente'}))
 })
 
 it('comanda sem vínculo aparece com valores e comprovante, com ações somente na origem',async()=>{
@@ -413,13 +417,14 @@ it('responsáveis informam carregamento, falha e recuperação sem simular busca
   const url=String(input)
   if(url.endsWith('/config'))return json(config)
   if(url.endsWith('/candidates'))return loading?new Promise<Response>(resolve=>{release=resolve}):fail?new Response('{}',{status:503}):json(candidates)
+  if(url.startsWith('/api/v1/financial-history?'))return json(emptyBankHistory)
   return json([account,{...account,id:'other-account',title:'Conta de outra pessoa',userId:'other-user'}])
  })
  mount(<BillingPage admin/>,'/recebimentos',manager)
  await screen.findByRole('article',{name:account.title})
  const search=screen.getByLabelText('Buscar conta ou responsável')
  expect(search).toBeDisabled()
- expect(screen.getByRole('status')).toHaveTextContent('Carregando responsáveis')
+ expect(screen.getByText(/Carregando responsáveis\./)).toHaveAttribute('role','status')
  expect(screen.queryByLabelText('Responsável financeiro')).not.toBeInTheDocument()
  loading=false;release!(json(candidates))
  await waitFor(()=>expect(search).toBeEnabled())
@@ -429,14 +434,14 @@ it('responsáveis informam carregamento, falha e recuperação sem simular busca
  expect(screen.getByLabelText('Responsável financeiro')).toBeVisible()
  fail=true
  await clients.at(-1)!.invalidateQueries({queryKey:['billing-candidates']})
- expect(await screen.findByRole('alert')).toHaveTextContent('A busca está pausada')
+ expect(await screen.findByText(/Não foi possível consultar os responsáveis\./)).toHaveTextContent('A busca está pausada')
  expect(search).toBeDisabled()
  expect(screen.getByRole('article',{name:'Conta de outra pessoa'})).toBeInTheDocument()
  expect(screen.queryByLabelText('Responsável financeiro')).not.toBeInTheDocument()
  fail=false
  fireEvent.click(screen.getByRole('button',{name:'Consultar responsáveis novamente'}))
  await waitFor(()=>expect(search).toBeEnabled())
- expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+ expect(screen.queryByText(/Não foi possível consultar os responsáveis\./)).not.toBeInTheDocument()
  expect(screen.queryByRole('article',{name:'Conta de outra pessoa'})).not.toBeInTheDocument()
  expect(screen.getByText('Vincular conta ao responsável')).toBeInTheDocument()
 })
@@ -529,6 +534,7 @@ it.each(['Cash','CardManual','TerminalManual'])('modo por arquivos preserva esto
   }
   if(path.endsWith('/config'))return json({...config,importOnly:true})
   if(path.endsWith('/candidates'))return json({accounts:[],users:[],students:[]})
+  if(path.startsWith('/api/v1/financial-history?'))return json(emptyBankHistory)
   reads++;return json([current])
  })
  mount(<BillingPage admin/>,'/recebimentos',manager)
@@ -564,4 +570,50 @@ it.each([false,true])('não repete contas por intervalo na gestão nem no modo p
  expect(screen.getByRole('article',{name:account.title})).toBeInTheDocument()
  await act(async()=>{await vi.advanceTimersByTimeAsync(120_000)})
  expect(request).toHaveBeenCalledTimes(count)
+})
+
+it('destaca extrato importado sem somar seus movimentos aos recebimentos, pendências ou saldo das contas',async()=>{
+ const current={...account,paid:70,payable:10,pending:20,payments:[received,{...received,id:'bank-pending',amount:20,state:'Pending',refunded:0}]}
+ const bankReport={month:'2026-10',months:['2026-10'],total:307,page:1,updatedAtUtc:'2026-10-27T15:00:00Z',totals:[
+  {series:'pagbank-conta',metric:'entradas-extrato',state:'Informado no extrato',period:'2026-10',grain:'day',records:200,amountCents:1628708},
+  {series:'pagbank-conta',metric:'saidas-extrato',state:'Informado no extrato',period:'2026-10',grain:'day',records:107,amountCents:-1052470},
+ ],items:[{id:'bank-source',sourceName:'Extrato de teste.csv',sourceSha256:'a'.repeat(64),data:{sourceCell:'bank-source',series:'pagbank-conta',metric:'entradas-extrato',label:'Pix e liquidações no extrato',state:'Informado no extrato',periodStart:'2026-10-01',periodEnd:'2026-10-01',grain:'day',amountCents:100,notes:''}}]}
+ const requests=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
+  const path=String(input)
+  if(path.startsWith('/api/v1/financial-history?'))return json(bankReport)
+  if(path.endsWith('/config'))return json({...config,importOnly:true})
+  if(path.endsWith('/candidates'))return json({accounts:[],users:[{id:user.id,name:'João Silva'}],students:[]})
+  return json([current])
+ })
+ mount(<BillingPage admin/>,'/recebimentos',manager)
+ expect(await screen.findByRole('heading',{name:'Movimentos importados dos bancos'})).toBeVisible()
+ expect(await screen.findByText('R$ 16.287,08')).toBeVisible()
+ expect(screen.getByText('R$ 10.524,70')).toBeVisible()
+ expect(screen.getAllByText(/Extrato de teste.csv/).some(element=>!element.closest('details'))).toBe(true)
+ expect(screen.queryByRole('table',{name:'Prévia dos movimentos importados do PagBank'})).not.toBeInTheDocument()
+ const summary=await screen.findByRole('region',{name:'Resumo dos recebimentos da seleção'})
+ expect(summary).toHaveTextContent('Recebido registradoR$ 70,00')
+ expect(summary).toHaveTextContent('Saldo a receberR$ 10,00')
+ expect(summary).toHaveTextContent('Em confirmaçãoR$ 20,00')
+ expect(summary).not.toHaveTextContent('16.287,08')
+ expect(summary).not.toHaveTextContent('10.524,70')
+ expect(screen.getByRole('heading',{name:'Pagamentos registrados nas contas'})).toBeVisible()
+ expect(requests.mock.calls.every(([,init])=>!init?.method)).toBe(true)
+})
+
+it.each([
+ {role:'Student',admin:false,path:'/minha-area/pagamentos'},
+ {role:'Operations',admin:true,path:'/recebimentos'},
+] as const)('não consulta extratos privados em pagamentos para $role',async({role,admin,path})=>{
+ const requests=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
+  const url=String(input)
+  if(url.endsWith('/config'))return json({...config,importOnly:true})
+  if(url.endsWith('/subscriptions'))return json([])
+  if(url.endsWith('/candidates'))return json({accounts:[],users:[],students:[]})
+  return json([account])
+ })
+ mount(<BillingPage admin={admin}/>,path,{...user,roles:[role],permissions:role==='Operations'?['finance:read']:[]})
+ expect(await screen.findByRole('article',{name:account.title})).toBeInTheDocument()
+ expect(screen.queryByRole('heading',{name:'Movimentos importados dos bancos'})).not.toBeInTheDocument()
+ expect(requests.mock.calls.every(([input])=>!String(input).startsWith('/api/v1/financial-history'))).toBe(true)
 })

@@ -7,21 +7,12 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../../lib/http'
 import { useAuth } from '../auth/authContext'
 import { Disclosure, ModalPanel, RecordTable } from '../../components/managementUi'
+import { centsMoney, monthLabel, useHistory, type Classified } from './financialHistoryApi'
+export { centsMoney, type HistoryPreview } from './financialHistoryApi'
 
-type Classified = { businessUnitId?: 'bar' | 'quadra' | null }
 const historyUnit = (value: Classified) => value.businessUnitId === 'bar' ? 'Bar' : value.businessUnitId === 'quadra' ? 'Quadra' : 'Sem unidade atribuída'
-type Total = Classified & { series: string; metric: string; state: string; period: string; grain: string; amountCents: number; records: number }
-type Observation = { sourceCell: string; series: string; metric: string; label: string; state: string; periodStart: string; periodEnd: string; grain: string; amountCents: number; notes: string }
-type Report = { month: string; months: string[]; totals: Total[]; items: (Classified & { id: string; sourceName: string; sourceSha256: string; data: Observation })[]; total: number; page: number; updatedAtUtc: string }
-export type HistoryPreview = { batchId: string; sourceName: string; applied: boolean; confirmationToken: string; creates: number; matches: number; totals: Total[] }
 export const seriesLabels: Record<string, string> = { consolidado: 'Resumo mensal da arena', 'consolidado-com-dividas': 'Resumo mensal com parcelas de dívidas', 'compras-detalhadas': 'Compras detalhadas', 'servicos-detalhados': 'Pagamentos de serviços', saldos: 'Saldos e compromissos em uma data', alunos: 'Controle de alunos', mensalistas: 'Controle de mensalistas', aulas: 'Controle de aulas', 'pagvendas-vendas': 'Bar · vendas registradas no PagVendas', 'pagbank-conta': 'Extrato bancário PagBank', 'c6-conta': 'Extrato bancário C6', 'despesas-fora-pagbank': 'Despesas pagas fora do PagBank' }
 const metrics: Record<string, string> = { 'vendas-bar-bruto': 'Vendas brutas do bar', 'receitas-consolidadas': 'Receitas do consolidado', despesas: 'Despesas informadas', 'receitas-arena': 'Outras receitas da arena', 'valor-informado': 'Valor no controle', 'valor-escalonavel': 'Valor escalonável das aulas', 'vendas-informadas': 'Vendas do Bar informadas no PagVendas', 'entradas-extrato': 'Entradas no extrato', 'saidas-extrato': 'Saídas no extrato' }
-export const centsMoney = (value: number) => (value / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const monthLabel = (value: string) => new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(value + '-01T12:00:00Z'))
-function useHistory(params: URLSearchParams) {
-  const { user } = useAuth()
-  return useQuery({ queryKey: ['financial-history', user?.id, params.toString()], queryFn: async () => { const report = await apiFetch<Report>(`/api/v1/financial-history?${params}`); if (!Array.isArray(report.items) || !Array.isArray(report.totals) || !Array.isArray(report.months) || !/^\d{4}-\d{2}$/.test(report.month)) throw new Error('Resposta financeira inválida.'); return report }, enabled: Boolean(isManagement(user)) })
-}
 
 export function FinancialHistoryOverview() {
   const { user } = useAuth(); const query = useHistory(new URLSearchParams({ series: 'consolidado' })); const vendas = useHistory(new URLSearchParams({ series: 'pagvendas-vendas' }))
