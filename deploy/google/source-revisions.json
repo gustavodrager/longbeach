@@ -2,9 +2,9 @@
   "schema_version": 1,
   "verified_at": "2026-10-27",
   "api_source_commit": "b71dbf22127a6475b91770ba8f643df7933330b9",
-  "web_source_commit": "90dc344ae448b584de45cddc3021c13380c82991",
+  "web_source_commit": "dc59e81a0ea7e6423752976196781a62bed9bfaa",
   "production_api_origin": "https://api.longbeach.quebranunca.com.br",
   "production_web_origin": "https://longbeach.quebranunca.com.br",
-  "purpose": "Correção somente web da duplicação do diálogo de movimentação de materiais, sem alterar a API b71dbf2, o schema 28 ou dados de negócio. Frontend e API têm fontes distintas; manter backups e comprovantes anteriores e impedir escritores incompatíveis em qualquer retorno.",
+  "purpose": "Publicação somente web do destaque dos movimentos bancários importados na Visão geral e em Recebimentos, com competência e origem e sem duplicar pagamentos. API b71dbf2 e schema 28 preservados; não promover a imagem API do gate da web nem reativar consultas bancárias automáticas. Artefato público e conferência autenticada de produção aprovados, conforme registro operacional.",
   "web_source_path": "frontend"
 }

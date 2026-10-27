@@ -2,11 +2,11 @@
   "schema_version": 1,
   "status": "published_and_verified",
   "environment": "Production",
-  "verified_at_utc": "2026-10-27T19:14:20.351385+00:00",
+  "verified_at_utc": "2026-10-27T23:29:41.936341+00:00",
   "release_date_brasilia": "2026-10-27",
-  "source_branch": "codex/estoque-materiais-20261027",
-  "review_url": "https://github.com/gustavodrager/longbeach/pull/48",
-  "approval": "A aprovação da API foi registrada no run 40542381209; a correção somente web no run 40563887143. Ambos usaram release-images.yml, environment Production e revisão do proprietário.",
+  "source_branch": "codex/movimentos-importados-20261027",
+  "review_url": "https://github.com/gustavodrager/longbeach/commit/dc59e81a0ea7e6423752976196781a62bed9bfaa",
+  "approval": "A API preserva a aprovação do run40542381209. A interface dc59e81 foi autorizada expressamente nesta conversa e aprovada em Production no run40599108643, tentativa2; os três jobs de qualidade bem-sucedidos da tentativa1 foram preservados. A liberação temporária da branch foi removida e as regras anteriores e o reviewer foram conferidos.",
   "project_id": "parsero-prod-20261022",
   "region": "southamerica-east1",
   "api": {
@@ -28,18 +28,21 @@
     "source_path": "frontend",
     "hosting": "Firebase Hosting",
     "site": "parsero-prod-20261022",
-    "version": "sites/parsero-prod-20261022/versions/ae06ef2686f65734",
-    "release": "sites/parsero-prod-20261022/channels/live/releases/1793127931269000",
-    "published_at_utc": "2026-10-27T19:05:31.269Z",
-    "dist_tree_sha256": "a01b0bf154822a691133f07c31632e8e2069f9f0a541d25756b6453a8dca10e9",
+    "version": "sites/parsero-prod-20261022/versions/c6b5e6266e9cab5f",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793143302254000",
+    "published_at_utc": "2026-10-27T23:21:42.254Z",
+    "dist_tree_sha256": "a80b66bdf74a5085db941f89e09c1dc20c6965b29d2c6d10a06d5d5199acbc2e",
     "application_files_verified": 73,
     "status": "published_and_verified",
-    "source_commit": "90dc344ae448b584de45cddc3021c13380c82991",
-    "verified_at_utc": "2026-10-27T19:06:00.384856Z",
-    "previous_version": "sites/parsero-prod-20261022/versions/001ec4e450b73ac6",
+    "source_commit": "dc59e81a0ea7e6423752976196781a62bed9bfaa",
+    "verified_at_utc": "2026-10-27T23:22:08.386785+00:00",
+    "previous_version": "sites/parsero-prod-20261022/versions/ae06ef2686f65734",
     "spa_routes_verified": 6,
     "firebase_configuration_preserved": true,
-    "build_metadata_not_exposed": true
+    "build_metadata_not_exposed": true,
+    "previous_source_commit": "90dc344ae448b584de45cddc3021c13380c82991",
+    "browser_verification_status": "passed",
+    "browser_verified_at_utc": "2026-10-27T23:29:41.936341+00:00"
   },
   "database": {
     "migration_count": 28,
@@ -66,25 +69,32 @@
       17,
       18
     ],
-    "frontend_tests_passed": 573,
-    "frontend_build": "TypeScript and production PWA passed",
+    "frontend_tests_passed": 585,
+    "frontend_build": "TypeScript e build PWA de produção aprovados no artefato congelado da fonte dc59e81.",
     "local_launcher_tests_passed": 4,
     "local_oci_smoke": "Pinned linux/amd64 artifact passed against isolated PostgreSQL 18: 28 migrations, no seed, readiness/authentication, material history and cleanup verified.",
     "source_ci_run": "https://github.com/gustavodrager/longbeach/actions/runs/40523354599",
     "production_environment_run": "https://github.com/gustavodrager/longbeach/actions/runs/40542381209",
     "production_environment_workflow": "release-images.yml",
-    "source_ci_checks": "Os registros source_ci_run e production_environment_run são da API b71dbf2. A correção web 90dc344 passou pelos quatro checks e pela revisão Production no run 40563887143; isso não representa nova publicação da API.",
-    "production_health": "Na implantação da API b71dbf2 foram conferidos API/PostgreSQL/Caddy, HTTPS 200 e acesso sem sessão 401. Nesta correção somente web, a prova atual da API é apenas GET /health/ready 200; não houve nova inspeção da VM, de seus contêineres ou hashes do banco.",
-    "public_web": "Os 73 arquivos públicos da web 90dc344 correspondem ao artefato; seis rotas SPA, headers/TLS, configuração Firebase e identidade live passaram, sem exposição de metadados privados.",
-    "browser": "PWA 90dc344 ativado e conferido com sessão Google existente no navegador interno e no Chrome: uma janela, campos preservados por 37,637 segundos, descarte confirmado pela interface nativa do Chrome, zero diálogos após fechar e reabertura vazia. Nenhum envio de movimentação ou edição de cadastro; saldo e histórico observados preservados. Limitações do controle automático de confirmações documentadas no recibo privado.",
-    "backups": "O full, WAL corrente, backup congelado e ensaio real pertencem à implantação da API b71dbf2 e seus recibos permanecem preservados. Esta correção somente web não executou novo backup, migration, restauração ou comparação de dados do banco.",
-    "frontend_test_files_passed": 60,
-    "frontend_affected_tests_passed": 24,
-    "frontend_regression": "A regressão permanente falhou antes da correção e passou depois, cobrindo ficha real, providers, digitação, três refreshes por focus e fechamento/reabertura sem diálogos órfãos; somente GETs simulados.",
+    "source_ci_checks": "Os registros source_ci_run e production_environment_run preservam a prova histórica da API b71. A web dc59e81 foi validada no run40599108643: backend PostgreSQL17/18 e frontend passaram na tentativa1; somente o Publish falho por restrição de branch foi reexecutado, aprovado em Production e concluído na tentativa2. Nenhuma imagem API desse run foi promovida.",
+    "production_health": "Na implantação histórica da API b71 foram conferidos API/PostgreSQL/Caddy, HTTPS e autenticação. Nesta publicação somente web, a prova atual da API foi apenas GET público /health/ready 200; não houve reinspeção da VM, contêineres, hashes de dados ou schema.",
+    "public_web": "Os 73 arquivos públicos da web dc59e81 correspondem ao artefato congelado; seis rotas SPA, headers/TLS, configuração Firebase e identidade live passaram, sem exposição de metadados privados.",
+    "browser": "Conferência autenticada em produção aprovada nas duas telas, com competência e origem visíveis; troca entre Setembro e Outubro, histórico completo e modal de origem, ausência de movimentos C6 com aviso próprio, período bancário independente dos resultados operacionais e pagamentos das contas mantidos separados. Prévia recolhida e Outubro restaurado ao final; sem escrita de negócio, consultas aos provedores bancários, acesso a credenciais ou infraestrutura adicional.",
+    "backups": "Os backups, WAL e ensaios históricos pertencem à implantação da API b71 e permanecem preservados. Esta publicação somente web não executou novo backup, migration, restauração ou comparação de dados do banco.",
+    "frontend_test_files_passed": 61,
+    "frontend_affected_tests_passed": 59,
+    "frontend_regression": "Cobertura dos totais completos independentes da prévia paginada, competência e origem nos links, troca de banco sem valores antigos, ausência de movimentos distinta de falha, atualização após importação aplicada e preservação dos pagamentos das contas.",
     "backend_verification_source_commit": "b71dbf22127a6475b91770ba8f643df7933330b9",
-    "frontend_verification_source_commit": "90dc344ae448b584de45cddc3021c13380c82991",
-    "web_production_environment_run": "https://github.com/gustavodrager/longbeach/actions/runs/40563887143",
-    "web_production_environment_workflow": "release-images.yml"
+    "frontend_verification_source_commit": "dc59e81a0ea7e6423752976196781a62bed9bfaa",
+    "web_production_environment_run": "https://github.com/gustavodrager/longbeach/actions/runs/40599108643",
+    "web_production_environment_workflow": "release-images.yml",
+    "frontend_affected_test_files_passed": 2,
+    "web_production_environment_run_attempt": 2,
+    "web_quality_jobs_run_attempt": 1,
+    "backend_ci_source_commit": "dc59e81a0ea7e6423752976196781a62bed9bfaa",
+    "backend_local_build_status": "interrupted_after_remote_equivalent_passed",
+    "browser_status": "passed",
+    "temporary_branch_permission_cleanup": "Permissão temporária removida; políticas originais e reviewer preservados, conforme recibo específico."
   },
   "private_evidence_sha256": {
     "api_release": "67a196849660c598e14beedb53989e28852ab982b8ae1aa8be51be3b654cef7a",
@@ -106,7 +116,25 @@
     "web_dialog_fix_verification_summary": "0815a3a47100bc919c8710d7391f95d110fbc15d8a1f915b44a2983a258d8e82",
     "web_dialog_fix_production_approval": "9fcb1bff499f5e0f3bda4429fe2bd60161366ae522750b9e3f95d8a99f290426",
     "web_dialog_fix_local_validation": "75cd01766ab76ba87792dafd2903c1703b1e675c54b5ec04928fc95d6b9396b7",
-    "web_dialog_fix_browser": "96b0dcae48140af305c96fe279fdb1d31bf0d95ce1e4a07d9da7cc521025b29d"
+    "web_dialog_fix_browser": "96b0dcae48140af305c96fe279fdb1d31bf0d95ce1e4a07d9da7cc521025b29d",
+    "web_imported_movements_authorization": "7613acfa152fa3a115b324379f404111de8e6fb6b83fc21516381f52f3624303",
+    "web_imported_movements_plan_v2": "b4bb5451d141f9935cf1c93f51a2b2d7066bee31c6a47f456459160f41869b2f",
+    "web_imported_movements_gate_v2": "c46980b827373e2f22cdeb687b10f25f7000b694cdf3d7eed755295de80a68c9",
+    "web_imported_movements_production_run": "defff405abe79c816fdb22138517fa1aef214326bc0e757a33fce88570c7d3b0",
+    "web_imported_movements_production_jobs_all": "f74368995ae0ff5ea94cda8aca75198a318b9eac68fba58e74b5e87553178aa5",
+    "web_imported_movements_production_approvals": "a34a70ca5702adbc12c3a1237db651e230c8b3b98a55e2a9055780c1f9c1069b",
+    "web_imported_movements_original_quality_jobs": "0e6a25dd825ab5604321f243f4593e4b8c46b560c294af41684637932db99d7a",
+    "web_imported_movements_capture_before_v2": "f947d5c4aebcd3494cdb15ab2d6af05b28357cd60a5e55f8551e14768ae2fbd3",
+    "web_imported_movements_publish_v2": "56e02a7eef9d4d9096047bbcfad90a862b59be42cf3ee0ddb47d324d515e07b1",
+    "web_imported_movements_verify_v2": "8a75d876406c0c58530bdab08a37dfb125a12102eed5b8328e213d447a75d8f7",
+    "web_imported_movements_temporary_permission_cleanup": "61018ee8838af005865ff4a8de013ea5ca033de1a21cf888e91b64578e0ef2f4",
+    "web_imported_movements_frontend_tests": "4def1b2b6b7dd8cec6ff1252b84eb6f146f31ca79d27af96da87321443d72357",
+    "web_imported_movements_frontend_targeted_tests": "9cba94802f6056190afecd8002c562d3e7f0c8817fe1ffd329ef6e63511fcbe6",
+    "web_imported_movements_frontend_build": "9d5af501ea0eeb67bf08c2c4f0e006951c02f82dae08c3b3beea1a7238cd6c7c",
+    "web_imported_movements_api_build_verification": "c26d293b1cb13c53f3709530b24b39f807da8a8b04877a925a1657a59788d3ca",
+    "web_imported_movements_offline_guards_v2": "fcacbf2e8b83a4e0b8fd48dff114555b1dd9bed4145237e5740c5e677b4a1410",
+    "web_imported_movements_public_verification": "6d733de516e6008fd358df62ddcac7c895d43efdf400ae7b58784bd1cfeb1961",
+    "web_imported_movements_browser": "e5bebbc8270c3469152b72d82b653061ba8bf8cba01174c2a5a7b9405604102c"
   },
   "recovery": {
     "runbook": "docs/operacao/google-vm.md",
@@ -116,14 +144,16 @@
     "rollback": "A WEB-only return retains the protected new API and schema 28. Never restart the old API with incompatible material writers enabled. API failure requires maintenance and a reviewed compatible correction; preserve all history, never run Down or restore over the active database.",
     "publication_runbook": "docs/operacao/publicacao-estoque-materiais-2026-10-27.md",
     "web_correction_runbook": "docs/operacao/correcao-dialogo-materiais-2026-10-27.md",
-    "web_previous_version": "sites/parsero-prod-20261022/versions/001ec4e450b73ac6",
-    "web_correction_rollback": "Retorno somente da web à versão anterior 001ec4e450b73ac6, mediante revisão; essa versão contém a falha de duplicação conhecida. Manter a API b71dbf2 e schema 28, sem Down, writers antigos ou restauração sobre o banco ativo."
+    "web_previous_version": "sites/parsero-prod-20261022/versions/ae06ef2686f65734",
+    "web_correction_rollback": "Retorno somente da web à versão anterior 001ec4e450b73ac6, mediante revisão; essa versão contém a falha de duplicação conhecida. Manter a API b71dbf2 e schema 28, sem Down, writers antigos ou restauração sobre o banco ativo.",
+    "web_imported_movements_runbook": "docs/operacao/publicacao-movimentos-importados-2026-10-27.md",
+    "web_imported_movements_rollback": "Retorno somente da web à versão ae06ef2686f65734 mediante nova autorização e revisão; preservar API b71 e schema28. Não executar Down, reabrir escritores incompatíveis nem restaurar sobre o banco ativo. Esta publicação não executou retorno."
   },
   "source_commits": {
     "api": "b71dbf22127a6475b91770ba8f643df7933330b9",
-    "web": "90dc344ae448b584de45cddc3021c13380c82991"
+    "web": "dc59e81a0ea7e6423752976196781a62bed9bfaa"
   },
-  "latest_publication_scope": "Somente frontend; API e banco não foram alterados nesta correção.",
+  "latest_publication_scope": "Somente frontend: movimentos bancários importados destacados na Visão geral e em Recebimentos com competência e origem, sem somar esses valores aos pagamentos das contas. API, banco, integrações automáticas e infraestrutura preservados.",
   "component_approvals": {
     "api": {
       "source_commit": "b71dbf22127a6475b91770ba8f643df7933330b9",
@@ -133,6 +163,17 @@
       "owner_review_approved": true
     },
     "web": {
+      "source_commit": "dc59e81a0ea7e6423752976196781a62bed9bfaa",
+      "workflow": "release-images.yml",
+      "environment": "Production",
+      "run_url": "https://github.com/gustavodrager/longbeach/actions/runs/40599108643",
+      "run_attempt": 2,
+      "quality_jobs_run_attempt": 1,
+      "owner_review_approved": true,
+      "specific_human_authorization_recorded": true,
+      "temporary_branch_permission_removed": true
+    },
+    "web_previous_material_dialog": {
       "source_commit": "90dc344ae448b584de45cddc3021c13380c82991",
       "workflow": "release-images.yml",
       "environment": "Production",
@@ -140,5 +181,8 @@
       "owner_review_approved": true
     }
   },
-  "private_evidence_scope": "Hashes anteriores, inclusive web_publish/public_web_verification/web_publication_summary, preservam a implantação inicial b71dbf2. Os campos web_dialog_fix_* comprovam a correção web 90dc344; os recibos históricos da API não foram reexecutados."
+  "private_evidence_scope": "Todos os hashes anteriores permanecem históricos e intactos, inclusive API b71 e correção web90dc. Os campos web_imported_movements_* comprovam a publicação web dc59e81, gate Production com qualidade1/Publish2, remoção da permissão temporária e conferência autenticada final. Valores, nomes, documentos e demais conteúdos reais observados permanecem exclusivamente no recibo e nas evidências privadas; o registro público contém somente seus hashes e resultados genéricos.",
+  "historical_review_urls": {
+    "api_and_material_dialog": "https://github.com/gustavodrager/longbeach/pull/48"
+  }
 }
