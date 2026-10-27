@@ -1,7 +1,7 @@
 # ADR-017 — Integridade do catálogo e movimentações de materiais
 
 - Data: 27/10/2026.
-- Estado: implementado localmente; publicação não executada.
+- Estado: API e interface publicadas em 27/10/2026, fonte `b71dbf22127a6475b91770ba8f643df7933330b9`, schema 28, conforme o [registro da release](../operacao/release-google-vm.json).
 - Origem: propostas preservadas em `arquivo/ambientes-anteriores/longbeach-perfis`, especialmente seu ADR-010. Integração autorizada após a auditoria de 27/10, na ordem Bar → materiais.
 
 ## Proteção do Bar
@@ -36,10 +36,12 @@ A migration nova `20261027135728_MaterialStockLedger` é a 28ª e foi gerada a p
 
 O upgrade deve preservar exatamente os registros anteriores e deixar o ledger inicialmente vazio. A execução local inclui teste 27→28 em banco isolado, restauração de backup da prévia e comparação de contagens/hashes antes de sua atualização, conforme a autorização existente. Evidências ficam em `LongBeach/evidencias/integracao-estoque-materiais-2026-10-27/`; backups privados em `LongBeach/dados-locais/backups/`.
 
-Uma futura implantação hospedada exige revisão própria: migration por job único antes da API/interface, conferência de permissões e compatibilidade. Depois de movimentos reais, não usar um Down que apague a tabela. Um retorno de aplicação deve conservar os comprovantes e impedir escritores incompatíveis até a reconciliação. Não reabrir a edição direta de saldo da aplicação antiga sobre o ledger novo.
+A implantação da API em 27/10 foi autorizada e executada por job único antes da API/interface, após backup congelado, restauração e ensaio do SQL exato em PostgreSQL 18 local isolado. Dados anteriores, sequência, 28 IDs, ledger vazio, ownership/grants e imutabilidade foram conferidos antes da retomada. O gate real foi `release-images.yml` com aprovação do environment Production; o [registro da publicação](../operacao/publicacao-estoque-materiais-2026-10-27.md) identifica os recibos. Próximas implantações continuam exigindo revisão própria de migrações, permissões e compatibilidade.
+
+Depois de movimentos reais, não usar um Down que apague a tabela. O retorno apenas da interface mantém a nova API protegida e o schema 28. Uma falha na API exige manutenção e correção compatível, conservando os comprovantes e impedindo escritores incompatíveis até a reconciliação. Não reabrir a edição direta de saldo da aplicação antiga sobre o ledger novo.
 
 ## Verificação
 
 Os testes dirigidos cobrem famílias de uso do Bar, metadados/produto nunca usado, contexto reutilizado e corridas de primeiro uso. Materiais têm testes de regra, HTTP/permissões/custos, replay exato e divergente, concorrência, atualização de metadados, SQL/EF imutáveis e upgrade com registros existentes. A interface cobre reenvio, conflito, recarga falha, troca de identidade, custos, leitura e legados incompletos.
 
-Resultados finais e limites estão no [registro da integração](../operacao/integracao-estoque-materiais-2026-10-27.md). Esta integração não publica a aplicação nem altera produção.
+Resultados de testes e limites estão no [registro da integração](../operacao/integracao-estoque-materiais-2026-10-27.md). A implantação hospedada é uma etapa posterior e separada, registrada na [release](../operacao/release-google-vm.json). Os limites do checkpoint em memória, dos legados incompletos e do retorno com escritores compatíveis permanecem.

@@ -1,6 +1,6 @@
 # Integração de estoque e materiais — 27/10/2026
 
-Implementação local autorizada na sequência proteção do Bar → movimentações de materiais, na branch `codex/estoque-materiais-20261027`. O código publicado registrado continua em `7179c9f`; esta implementação ainda não foi publicada.
+Implementação local autorizada na sequência proteção do Bar → movimentações de materiais, na branch `codex/estoque-materiais-20261027`. A implantação posterior da API/frontend `b71dbf2` e da migration28 está no [registro de publicação](publicacao-estoque-materiais-2026-10-27.md). As verificações e a atualização da prévia abaixo descrevem a etapa local.
 
 ## Entrega
 
@@ -52,4 +52,4 @@ Os comprovantes históricos de `evidencias/outputs/` e seu procedimento de retor
 
 O checkpoint de solicitação da interface é mantido em memória por sessão/identidade. Recarregar completamente exige consultar saldo e histórico antes de criar outra operação. Materiais com unidade antiga ausente e saldo/histórico não recebem unidade inferida. A atualização não declara saldos conciliados e não implementa patrimônio individual, empréstimos ou compras da Arena.
 
-Não houve deploy, alteração de DNS, migration de produção ou modificação de recursos hospedados.
+A etapa local descrita neste documento não executou deploy, alteração de DNS, migration de produção ou modificação de recursos hospedados. A implantação posterior, autorizada separadamente e com seus próprios recibos, está no [registro da release](release-google-vm.json).

@@ -1,16 +1,34 @@
 # Publicação de estoque e materiais — 27/10/2026
 
-Estado inicial: plano preparado para a autorização explícita do proprietário de enviar ao GitHub e publicar a aplicação atualizada com backup, retorno e preservação dos dados. A execução e os artefatos finais serão registrados após as verificações. Este plano não declara uma publicação concluída.
+Publicação concluída em 27/10/2026: API e frontend da fonte `b71dbf22127a6475b91770ba8f643df7933330b9`, com schema atualizado de 27 para 28, backup, ensaio real e dados anteriores preservados. A API foi promovida às 17h20m59s UTC e o frontend às 17h33m35.012s UTC (14h33m35 de Brasília), seguido das verificação pública e conferência da tela de acesso descritas abaixo. O [registro da release](release-google-vm.json) identifica os artefatos efetivos e os hashes dos recibos. A autorização direta incluiu backup, retorno e preservação dos dados.
 
 ## Escopo e gates
 
 Destino existente: projeto `parsero-prod-20261022`, VM `longbeach-economy` em `southamerica-east1-a`, banco PostgreSQL 18 `longbeach`, frontend no site Firebase `parsero-prod-20261022`. Sem alterar DNS, infraestrutura, credenciais, flags bancárias ou dados de negócio.
 
-A fonte deve ser um commit fixo na branch de estoque/materiais, em PR contra `codex/consolidacao-estrutura-20261026`, incorporando sua documentação atual. O workflow `production-approval.yml` repete a qualidade e exige aprovação do environment Production para o mesmo SHA. Ele não cria imagens ou publica a aplicação. A promoção usa API OCI linux/amd64 identificada pelo commit e digest, testada localmente, e web construída de um arquivo Git desse commit com configuração pública de produção. Fontes de build são temporárias; evidências e artefatos não contêm outra cópia de trabalho da aplicação.
+A fonte fixada é `b71dbf22127a6475b91770ba8f643df7933330b9`, na branch `codex/estoque-materiais-20261027`, com revisão no [PR48](https://github.com/gustavodrager/longbeach/pull/48) contra a consolidação. O gate REAL foi o workflow `release-images.yml`, [run40542381209](https://github.com/gustavodrager/longbeach/actions/runs/40542381209), concluído com sucesso e revisão do proprietário no environment Production para o mesmo SHA. O workflow `production-approval.yml` planejado inicialmente não estava registrado na branch default, não foi executado e foi retirado como redundante. O gate publica imagens no GHCR; isso não executa deploy nem substitui a prova do OCI efetivamente promovido ao Artifact Registry.
+
+A API OCI linux/amd64 foi construída uma vez e testada localmente; o frontend foi construído de um arquivo Git da mesma fonte com configuração pública de produção. Fonte igual não implica digests iguais entre builds independentes. Fontes de build são temporárias; evidências e artefatos não contêm outra cópia de trabalho da aplicação. Um commit posterior de documentação não altera a fonte b71 dos artefatos existentes.
+
+## Execução comprovada da API
+
+O congelamento e backup concluíram às 17h18m25s UTC. Somente a API e seus workers foram parados; PostgreSQL e Caddy permaneceram ativos e preservados. O dump privado foi transferido pelo hash e restaurado em PostgreSQL 18 local isolado. O ensaio real, identificado por `is_synthetic: false`, conferiu 59 tabelas, uma sequência e 27 migrations, aplicou o job exato e comprovou rollback total em falha injetada após o DDL, permissões runtime, imutabilidade e remoção do contêiner descartável.
+
+O delta EF tem SHA-256 `2eabf13725f2682783780dcffe20244f9d494c7f72fc752a0cb273aa7a23e5b6`; o job SQL exato, com role migrator, guarda dos 27 IDs, lock e timeouts, tem SHA-256 `541b176b3bd54ef6a2457688e0e3b37cd52e256ea6db235730ea3c19e48d55b8`. O mesmo job foi executado uma vez em produção. Antes da nova API, foram conferidos 28 IDs, os dados e a sequência anteriores idênticos, ledger vazio, owner/grants, função/trigger e validade de índices/constraints. A promoção concluiu às 17h20m59s UTC, recriando somente a API por digest. A conferência externa e o pós-check aprovaram saúde/TLS200, autenticação obrigatória 401, configurações e contêineres preservados, backup/WAL correntes e zero WAL pendente.
+
+## Publicação e conferência do frontend
+
+O frontend foi publicado uma vez no Firebase às 17h33m35.012s UTC, versão `sites/parsero-prod-20261022/versions/001ec4e450b73ac6`, release `sites/parsero-prod-20261022/channels/live/releases/1793122415012000`. A falha inicial do preflight TLS local foi resolvida com raízes públicas, preservando a validação TLS e os mesmos bytes do artefato, sem reconstrução. A versão anterior `8086df7666cf0657` continua identificada para retorno apenas da interface.
+
+A conferência pública terminou às 17h34m12s UTC: os 73 arquivos correspondem aos hashes do artefato, seis rotas SPA, headers/TLS e configuração Firebase passaram, a identidade live permaneceu estável e os metadados privados de build não foram expostos. O hash da árvore pública é `425b0e4ebcea73884ccdc4283b6eef89f41723718874f6d71a6f4c0fc2ec5937`. Os helpers web não alteraram a VM ou o banco.
+
+Às 17h34m55s UTC, a aba própria de teste ativou o PWA atualizado, renderizou a tela de login e o botão Google e voltou ao login ao abrir a rota protegida de materiais. Não houve novo login Google, conferência de telas autenticadas ou escrita de negócio. A validação pública dos bytes foi registrada separadamente dessa conferência de navegador. Clientes antigos continuam sujeitos à proteção de saldo da nova API.
+
+## Procedimento aplicado nesta publicação
 
 Antes da janela: capturar a identidade efetiva da API, versão/release Firebase, hashes da configuração, estado dos contêineres, 27 IDs de migrations, owners/default grants, saúde e backups/WAL. Conferir disponibilidade da imagem anterior `61644951e6b0335e158537d8601d47d4404e559000233a5ee58d33266d0e25c7` e da versão web `8086df7666cf0657`; interromper se a produção tiver mudado. Preparar e conferir o digest novo antes de parar a API.
 
-## Backup e migration única
+### Backup e migração única
 
 1. Conferir o backup nativo e o WAL pelo runner existente. Preservar seus recibos e retenções.
 2. Parar e drenar somente a API, incluindo seus workers; manter PostgreSQL, Caddy e arquivamento de WAL. Conferir ausência de escritores/transações da aplicação.
