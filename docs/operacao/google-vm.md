@@ -2,6 +2,16 @@
 
 Corte de infraestrutura aplicado em 26/10/2026, com aceite explícito e retirada definitiva dos recursos substituídos concluída no mesmo dia. API e banco operam na VM; o frontend permanece no Firebase. Os planos, hashes e recibos de execução permanecem privados; nunca versionar dumps, credenciais ou dados pessoais. Os registros abaixo preservam a cronologia; a seção mais recente descreve o estado atual.
 
+## Publicação da estrutura consolidada — 26/10/2026, 22h58 de Brasília
+
+A autorização direta para enviar e publicar a aplicação resultou na promoção do commit `7179c9fad657327d2bd9cc4dfa2e750180dedebf`. O [registro atual da release](release-google-vm.json) é a referência para o digest da API e a versão do Firebase. A API foi substituída isoladamente; os contêineres PostgreSQL e Caddy mantiveram identidade e início de execução. As 27 migrations são idênticas às anteriores: **nenhuma migration foi executada**. Configurações, segredos, permissões, flags de integração, timers e backups foram preservados. Não houve alteração de DNS ou infraestrutura.
+
+A publicação web preservou os mesmos bytes públicos da versão anterior, agora construídos do layout consolidado `frontend/`. A leitura posterior conferiu os 73 arquivos, seus hashes, TLS, headers, quatro rotas SPA e a identidade da release antes/depois. Os metadados privados de build continuam excluídos da hospedagem. No Chrome normal, a sessão existente abriu o Financeiro e permaneceu autenticada após recarga completa; esta conferência não criou lançamentos nem refez o login Google.
+
+Passaram os 554 testes frontend e o build PWA; 472 testes unitários e 367 integrações por versão PostgreSQL 17/18; 46 testes dos scripts Google, 14 dos importadores, quatro do launcher e nove verificações OCI. Os quatro checks remotos do commit fonte passaram. Após a promoção, API, banco e proxy estavam saudáveis, readiness retornava 200 e endpoints privados sem sessão retornavam 401. O full e o arquivamento corrente de WAL passaram, sem WAL pendente; o histórico de sete dias continua em formação.
+
+O manifesto de bootstrap, seus metadados e o pin Terraform da imagem permanecem como preparação histórica da migração. Uma release normal atualiza somente `API_IMAGE` no runtime e recria apenas a API, preservando os demais contêineres. Em uma reconstrução, usar a imagem atual registrada em `release-google-vm.json` no procedimento revisado; não tratar o pin histórico como versão atualmente publicada, nem reaplicar a raiz Terraform antiga. A imagem anterior permanece disponível para retorno compatível, sem restauração ou sobrescrita do banco.
+
 ## Retirada definitiva e conferência às 18h42 de Brasília (21h42 UTC)
 
 O responsável autorizou remover a estrutura gerenciada antiga e a homologação, preservando a VM e os backups. A conferência posterior confirmou **zero instâncias Cloud SQL, serviços/jobs Cloud Run, forwarding rules, backends e IPs antigos** nos dois projetos. Produção mantém somente a VM `longbeach-economy`, seus dois discos e o IP `34.39.163.230`; homologação está sem VM, disco, IP ou repositório de imagens. O frontend de produção continua no Firebase. Segredos e imagens usados pela VM foram preservados.

@@ -4,7 +4,7 @@
 
 A auditoria encontrou nove áreas em `work/`, sustentadas por dois repositórios Git: `longbeach-perfis` e `longbeach-notas-release`. A base `efa1967` inclui o código publicado `932f1f6` e o registro posterior dessa release. A cópia principal parte de `0ba01b9`, que acrescenta a preparação da VM econômica salva pela frente Google Cloud.
 
-O clone usa objetos próprios (`--no-hardlinks`), preserva as branches de notas-release e refs `arquivo-perfis/*` da segunda história. `origin` aponta para GitHub. Esta consolidação não envia mudanças ao remoto nem publica a aplicação.
+O clone usa objetos próprios (`--no-hardlinks`), preserva as branches de notas-release e refs `arquivo-perfis/*` da segunda história. `origin` aponta para GitHub. A etapa local inicial não enviou mudanças ao remoto nem publicou a aplicação; a publicação posterior autorizada está registrada ao final.
 
 Bundles verificados, patches binários, arquivos novos e inventários privados estão em `LongBeach/arquivo/consolidacao-2026-10-26/preservacao-git/`. Os arquivos ignorados de runtime/configuração e dados permanecem nos originais até sua organização específica.
 
@@ -48,3 +48,7 @@ O wrapper da pasta principal iniciou a aplicação consolidada sem abrir o naveg
 O launcher agora confere schema e vínculo do contêiner/porta em leitura antes da inicialização. Quatro testes CLI cobrem schema pendente, aliases/duplicados da conexão e destino/porta divergentes.
 
 A branch local é codex/consolidacao-estrutura-20261026, com HEAD na referência final298bf244 e a reorganização preparada no índice para revisão. Não houve push ou publicação por esta etapa.
+
+## Publicação posterior autorizada
+
+Em 26/10/2026, o responsável autorizou enviar e publicar a aplicação consolidada. O commit `7179c9fad657327d2bd9cc4dfa2e750180dedebf` foi enviado na branch `codex/consolidacao-estrutura-20261026`, com revisão no [PR 47](https://github.com/gustavodrager/longbeach/pull/47). A API foi promovida por digest à VM econômica e o frontend publicado no Firebase, preservando dados, configurações e backups. As 27 migrations continuam idênticas e nenhuma foi executada em produção. O [registro da release](release-google-vm.json) identifica os artefatos e as verificações; o commit posterior que salva esses registros não altera o código dos artefatos publicados.

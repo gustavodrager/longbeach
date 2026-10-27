@@ -64,7 +64,7 @@ Esse Compose usa PostgreSQL 17. Web: `http://localhost:4173`; API: `http://local
 
 Consulte a [ADR-001](docs/adr/ADR-001-produto-standalone.md), as [convenções](docs/arquitetura/convencoes-backend-frontend.md) e a [ADR-016](docs/adr/ADR-016-consolidacao-do-repositorio-local.md).
 
-O [manifesto de fontes Google](deploy/google/source-revisions.json) fixa os commits da release registrada em 25/10/2026. O build web reconhece `app/` dos commits antigos e `frontend/` dos novos. A organização local preserva o manifesto e a identidade dos artefatos publicados.
+O [manifesto de fontes Google](deploy/google/source-revisions.json) fixa o commit consolidado `7179c9f`, publicado em 26/10/2026. O [registro atual da release na VM](docs/operacao/release-google-vm.json) identifica as imagens, a versão do Firebase e a validação. O build web reconhece `app/` dos commits antigos e `frontend/` dos novos.
 
 A [ADR-015](docs/adr/ADR-015-google-vm-economia.md) e o [runbook da VM](docs/operacao/google-vm.md) registram a evolução econômica da hospedagem. Consulte os recibos finais da operação para seu estado de implantação. `estado-atual.md`, `release-producao.json` e `.railway/` permanecem como fotografias históricas datadas.
 

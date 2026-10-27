@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "status": "published_and_verified",
+  "environment": "Production",
+  "verified_at_utc": "2026-10-27T02:04:56Z",
+  "release_date_brasilia": "2026-10-26",
+  "source_commit": "7179c9fad657327d2bd9cc4dfa2e750180dedebf",
+  "source_branch": "codex/consolidacao-estrutura-20261026",
+  "review_url": "https://github.com/gustavodrager/longbeach/pull/47",
+  "approval": "Direct owner authorization to push and publish the consolidated application.",
+  "project_id": "parsero-prod-20261022",
+  "region": "southamerica-east1",
+  "api": {
+    "origin": "https://api.longbeach.quebranunca.com.br",
+    "host": "longbeach-economy",
+    "zone": "southamerica-east1-a",
+    "source_path": "backend",
+    "image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:61644951e6b0335e158537d8601d47d4404e559000233a5ee58d33266d0e25c7",
+    "linux_amd64_manifest_digest": "sha256:d3acfa557aa501144ccd141ca4ab5b707349782bd51ea786731db3158fa0cfba",
+    "runtime_config_digest": "sha256:ddb1e6a0b05ce6c246fac96d49e48131dd5a9641ec14f17ca43c52967750401b",
+    "previous_image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:b8e6fdc254cc1226ea25881e046a6e627a8eefa2b4c354bc98059aa6a79ab548",
+    "published_at_utc": "2026-10-27T01:57:00.920937Z",
+    "scope": "API container only; database, proxy, secrets, integration flags, timers and infrastructure preserved."
+  },
+  "web": {
+    "origin": "https://longbeach.quebranunca.com.br",
+    "source_path": "frontend",
+    "hosting": "Firebase Hosting",
+    "site": "parsero-prod-20261022",
+    "version": "sites/parsero-prod-20261022/versions/8086df7666cf0657",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793066317046000",
+    "published_at_utc": "2026-10-27T01:58:37.046Z",
+    "dist_tree_sha256": "441fbba65967294fcf42bd329b222f52113c87ac7281a6a6c910b0dc4bc0a1c7",
+    "application_files_verified": 73,
+    "public_bytes_equal_previous_release": true
+  },
+  "database": {
+    "migration_count": 27,
+    "last_migration": "20261021154910_ExpenseAttachments",
+    "migrations_executed": 0,
+    "schema_and_database_identity_preserved": true,
+    "postgres_container_unchanged": true
+  },
+  "verification": {
+    "backend_build": "Release build without errors or warnings",
+    "backend_tests_per_postgresql_version": {
+      "unit": 472,
+      "integration": 367,
+      "failed": 0,
+      "skipped": 0
+    },
+    "postgresql_test_versions": [
+      17,
+      18
+    ],
+    "frontend_tests_passed": 554,
+    "frontend_build": "TypeScript and production PWA passed",
+    "google_release_script_tests_passed": 46,
+    "import_converter_tests_passed": 14,
+    "local_launcher_tests_passed": 4,
+    "local_oci_smoke_checks_passed": 9,
+    "source_ci_run": "https://github.com/gustavodrager/longbeach/actions/runs/40434878041",
+    "source_infrastructure_checks_run": "https://github.com/gustavodrager/longbeach/actions/runs/40434878077",
+    "source_ci_checks": "All four checks passed for source_commit",
+    "production_health": "API, PostgreSQL and proxy healthy; readiness HTTPS 200; unauthenticated private endpoints 401.",
+    "public_web": "All 73 application files match artifact hashes; TLS, headers, four SPA routes and live release identity passed; private build metadata not exposed.",
+    "browser": "Existing authenticated session displayed Financeiro and remained authenticated after a full reload. No business writes performed.",
+    "backups": "Full backup and current WAL archive passed; zero WAL pending; daily backup and monitoring timers active. Seven-day PITR history still accumulating."
+  },
+  "private_evidence_sha256": {
+    "api_release": "d4ccdc8ac7218d0046077fc42a630aa686a132edd520afae8f86e1290a9d16d0",
+    "web_publish": "b25879fbe8cca854b46917afe839d865b3b184da9a27bca1b8b924cece0dd9d2",
+    "public_web_verification": "644ab536e9f58b0f735fe23419692069001e2ef6004d639066a86c3cc2256a62"
+  },
+  "recovery": {
+    "runbook": "docs/operacao/google-vm.md",
+    "backup_runbook": "deploy/google/vm/backup/README.md",
+    "current_runtime_image_record": "api.image in this file",
+    "bootstrap_metadata_and_terraform_image_pin": "Historical migration preparation pin; intentionally unchanged by this API-only release. Do not reapply the historical infrastructure or restart all runtime containers to publish an API.",
+    "rollback": "Previous API image retained. Any rollback requires a reviewed API-only promotion and schema compatibility check; it does not restore or overwrite production data."
+  }
+}
