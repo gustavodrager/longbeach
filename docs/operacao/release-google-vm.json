@@ -2,12 +2,11 @@
   "schema_version": 1,
   "status": "published_and_verified",
   "environment": "Production",
-  "verified_at_utc": "2026-10-27T17:34:55.012428Z",
+  "verified_at_utc": "2026-10-27T19:14:20.351385+00:00",
   "release_date_brasilia": "2026-10-27",
-  "source_commit": "b71dbf22127a6475b91770ba8f643df7933330b9",
   "source_branch": "codex/estoque-materiais-20261027",
   "review_url": "https://github.com/gustavodrager/longbeach/pull/48",
-  "approval": "Direct owner authorization to publish with backup and recovery, followed by the Production environment owner review in release-images.yml run 40542381209.",
+  "approval": "A aprovação da API foi registrada no run 40542381209; a correção somente web no run 40563887143. Ambos usaram release-images.yml, environment Production e revisão do proprietário.",
   "project_id": "parsero-prod-20261022",
   "region": "southamerica-east1",
   "api": {
@@ -29,15 +28,15 @@
     "source_path": "frontend",
     "hosting": "Firebase Hosting",
     "site": "parsero-prod-20261022",
-    "version": "sites/parsero-prod-20261022/versions/001ec4e450b73ac6",
-    "release": "sites/parsero-prod-20261022/channels/live/releases/1793122415012000",
-    "published_at_utc": "2026-10-27T17:33:35.012Z",
-    "dist_tree_sha256": "425b0e4ebcea73884ccdc4283b6eef89f41723718874f6d71a6f4c0fc2ec5937",
+    "version": "sites/parsero-prod-20261022/versions/ae06ef2686f65734",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793127931269000",
+    "published_at_utc": "2026-10-27T19:05:31.269Z",
+    "dist_tree_sha256": "a01b0bf154822a691133f07c31632e8e2069f9f0a541d25756b6453a8dca10e9",
     "application_files_verified": 73,
     "status": "published_and_verified",
-    "source_commit": "b71dbf22127a6475b91770ba8f643df7933330b9",
-    "verified_at_utc": "2026-10-27T17:34:12.914681Z",
-    "previous_version": "sites/parsero-prod-20261022/versions/8086df7666cf0657",
+    "source_commit": "90dc344ae448b584de45cddc3021c13380c82991",
+    "verified_at_utc": "2026-10-27T19:06:00.384856Z",
+    "previous_version": "sites/parsero-prod-20261022/versions/001ec4e450b73ac6",
     "spa_routes_verified": 6,
     "firebase_configuration_preserved": true,
     "build_metadata_not_exposed": true
@@ -67,18 +66,25 @@
       17,
       18
     ],
-    "frontend_tests_passed": 572,
+    "frontend_tests_passed": 573,
     "frontend_build": "TypeScript and production PWA passed",
     "local_launcher_tests_passed": 4,
     "local_oci_smoke": "Pinned linux/amd64 artifact passed against isolated PostgreSQL 18: 28 migrations, no seed, readiness/authentication, material history and cleanup verified.",
     "source_ci_run": "https://github.com/gustavodrager/longbeach/actions/runs/40523354599",
     "production_environment_run": "https://github.com/gustavodrager/longbeach/actions/runs/40542381209",
     "production_environment_workflow": "release-images.yml",
-    "source_ci_checks": "Source CI and the Production workflow quality and owner review passed for source_commit. Workflow image publication does not itself deploy the VM or Firebase.",
-    "production_health": "API, PostgreSQL and proxy healthy; readiness HTTPS 200 and unauthenticated auth/me 401, with verified TLS.",
-    "public_web": "All 73 public application files match the pinned artifact; TLS, headers, six SPA routes, preserved Firebase configuration and live release identity passed. Private build metadata is not exposed.",
-    "browser": "Updated PWA activated in a separate test tab; login heading and Google sign-in button rendered, and the protected materials route returned to login. No new Google sign-in, authenticated business-screen validation or business writes were performed.",
-    "backups": "Existing full and current WAL passed before and after API promotion, with zero WAL pending. A frozen logical backup was restored and rehearsed in isolated local PostgreSQL 18 before the exact production SQL job."
+    "source_ci_checks": "Os registros source_ci_run e production_environment_run são da API b71dbf2. A correção web 90dc344 passou pelos quatro checks e pela revisão Production no run 40563887143; isso não representa nova publicação da API.",
+    "production_health": "Na implantação da API b71dbf2 foram conferidos API/PostgreSQL/Caddy, HTTPS 200 e acesso sem sessão 401. Nesta correção somente web, a prova atual da API é apenas GET /health/ready 200; não houve nova inspeção da VM, de seus contêineres ou hashes do banco.",
+    "public_web": "Os 73 arquivos públicos da web 90dc344 correspondem ao artefato; seis rotas SPA, headers/TLS, configuração Firebase e identidade live passaram, sem exposição de metadados privados.",
+    "browser": "PWA 90dc344 ativado e conferido com sessão Google existente no navegador interno e no Chrome: uma janela, campos preservados por 37,637 segundos, descarte confirmado pela interface nativa do Chrome, zero diálogos após fechar e reabertura vazia. Nenhum envio de movimentação ou edição de cadastro; saldo e histórico observados preservados. Limitações do controle automático de confirmações documentadas no recibo privado.",
+    "backups": "O full, WAL corrente, backup congelado e ensaio real pertencem à implantação da API b71dbf2 e seus recibos permanecem preservados. Esta correção somente web não executou novo backup, migration, restauração ou comparação de dados do banco.",
+    "frontend_test_files_passed": 60,
+    "frontend_affected_tests_passed": 24,
+    "frontend_regression": "A regressão permanente falhou antes da correção e passou depois, cobrindo ficha real, providers, digitação, três refreshes por focus e fechamento/reabertura sem diálogos órfãos; somente GETs simulados.",
+    "backend_verification_source_commit": "b71dbf22127a6475b91770ba8f643df7933330b9",
+    "frontend_verification_source_commit": "90dc344ae448b584de45cddc3021c13380c82991",
+    "web_production_environment_run": "https://github.com/gustavodrager/longbeach/actions/runs/40563887143",
+    "web_production_environment_workflow": "release-images.yml"
   },
   "private_evidence_sha256": {
     "api_release": "67a196849660c598e14beedb53989e28852ab982b8ae1aa8be51be3b654cef7a",
@@ -94,7 +100,13 @@
     "web_publish": "1461cd1f518dbc5603f8312b1617a471357c5b2f35eae6e5a7531441c89406a4",
     "public_web_verification": "7359286d75e00457a997be1f023eb44f2a684f886b448a16c41d0da7fa5c3360",
     "web_publication_summary": "f64b5404ab60a15c84b4598a5e3d5cfd3d71d4b0f5434477f9a195697890430c",
-    "browser_public_login_check": "73ea08a6b255f52ec12cfac2fc6ca0492d375e1a4e5b287b270f59d6031b7850"
+    "browser_public_login_check": "73ea08a6b255f52ec12cfac2fc6ca0492d375e1a4e5b287b270f59d6031b7850",
+    "web_dialog_fix_publish": "a6157a4ec5573b7b2eecb912f64f7e40f7789164007e7af1ecd3e49f6812bdb7",
+    "web_dialog_fix_public_verification": "f56ddeee3e4b4604d6347e741ea20efedc689a2d55e41e1c7bbcaf21a5eeebf8",
+    "web_dialog_fix_verification_summary": "0815a3a47100bc919c8710d7391f95d110fbc15d8a1f915b44a2983a258d8e82",
+    "web_dialog_fix_production_approval": "9fcb1bff499f5e0f3bda4429fe2bd60161366ae522750b9e3f95d8a99f290426",
+    "web_dialog_fix_local_validation": "75cd01766ab76ba87792dafd2903c1703b1e675c54b5ec04928fc95d6b9396b7",
+    "web_dialog_fix_browser": "96b0dcae48140af305c96fe279fdb1d31bf0d95ce1e4a07d9da7cc521025b29d"
   },
   "recovery": {
     "runbook": "docs/operacao/google-vm.md",
@@ -102,6 +114,31 @@
     "current_runtime_image_record": "api.image in this file",
     "bootstrap_metadata_and_terraform_image_pin": "Historical migration preparation pin, intentionally unchanged. Use the current api.image and review the current schema for recovery; do not reapply historical infrastructure or restart all containers for an application release.",
     "rollback": "A WEB-only return retains the protected new API and schema 28. Never restart the old API with incompatible material writers enabled. API failure requires maintenance and a reviewed compatible correction; preserve all history, never run Down or restore over the active database.",
-    "publication_runbook": "docs/operacao/publicacao-estoque-materiais-2026-10-27.md"
-  }
+    "publication_runbook": "docs/operacao/publicacao-estoque-materiais-2026-10-27.md",
+    "web_correction_runbook": "docs/operacao/correcao-dialogo-materiais-2026-10-27.md",
+    "web_previous_version": "sites/parsero-prod-20261022/versions/001ec4e450b73ac6",
+    "web_correction_rollback": "Retorno somente da web à versão anterior 001ec4e450b73ac6, mediante revisão; essa versão contém a falha de duplicação conhecida. Manter a API b71dbf2 e schema 28, sem Down, writers antigos ou restauração sobre o banco ativo."
+  },
+  "source_commits": {
+    "api": "b71dbf22127a6475b91770ba8f643df7933330b9",
+    "web": "90dc344ae448b584de45cddc3021c13380c82991"
+  },
+  "latest_publication_scope": "Somente frontend; API e banco não foram alterados nesta correção.",
+  "component_approvals": {
+    "api": {
+      "source_commit": "b71dbf22127a6475b91770ba8f643df7933330b9",
+      "workflow": "release-images.yml",
+      "environment": "Production",
+      "run_url": "https://github.com/gustavodrager/longbeach/actions/runs/40542381209",
+      "owner_review_approved": true
+    },
+    "web": {
+      "source_commit": "90dc344ae448b584de45cddc3021c13380c82991",
+      "workflow": "release-images.yml",
+      "environment": "Production",
+      "run_url": "https://github.com/gustavodrager/longbeach/actions/runs/40563887143",
+      "owner_review_approved": true
+    }
+  },
+  "private_evidence_scope": "Hashes anteriores, inclusive web_publish/public_web_verification/web_publication_summary, preservam a implantação inicial b71dbf2. Os campos web_dialog_fix_* comprovam a correção web 90dc344; os recibos históricos da API não foram reexecutados."
 }
