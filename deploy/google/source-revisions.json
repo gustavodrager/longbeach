@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-10-26",
+  "api_source_commit": "7179c9fad657327d2bd9cc4dfa2e750180dedebf",
+  "web_source_commit": "7179c9fad657327d2bd9cc4dfa2e750180dedebf",
+  "production_api_origin": "https://api.longbeach.quebranunca.com.br",
+  "production_web_origin": "https://longbeach.quebranunca.com.br",
+  "purpose": "Consolidated backend/frontend source layout and economic Google VM production. Application behavior and all 27 migrations match the previously published bank-import release; preserve production data, identity, backups and existing integration flags.",
+  "web_source_path": "frontend"
+}

@@ -1,0 +1,195 @@
+import { LegacyDestination, BarDestination, MissingDestination } from './components/RouteDestinations'
+import { hasPermission, isManagement, workHome } from './features/auth/access'
+const BillingPage = lazy(() => import("./features/billing/BillingPages").then(m => ({ default: m.BillingPage })))
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { createBrowserRouter, RouterProvider, Navigate, Route, Routes } from 'react-router-dom'
+import { OptionalUnsavedProvider } from './components/managementUi'
+import { AppShell } from './components/AppShell'
+import { PwaUpdatePrompt } from './components/PwaUpdatePrompt'
+import { AuthGuard } from './features/auth/AuthGuard'
+import { AuthProvider } from './features/auth/AuthProvider'
+import { DashboardPage } from './pages/DashboardPage'
+import { FinancialHistoryPage } from './features/finance/FinancialHistory'
+const MonthlyControlPage = lazy(() => import('./features/finance/MonthlyControlPage').then(module => ({ default: module.MonthlyControlPage })))
+const ExpensesPage = lazy(() => import('./features/finance/ExpensesPage').then(module => ({ default: module.ExpensesPage })))
+import { LoginPage } from './pages/LoginPage'
+import { FirstAccessPage } from './pages/FirstAccessPage'
+const BarLayout = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarLayout })))
+const BarProductsPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarProductsPage })))
+const BarStockPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarStockPage })))
+const BarCountsPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarCountsPage })))
+const BarCashPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarCashPage })))
+const BarSalesPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarSalesPage })))
+const BarLossesPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarLossesPage })))
+const ReceivedInvoicesPage = lazy(() => import('./features/fiscal/ReceivedInvoicesPage').then(module => ({ default: module.ReceivedInvoicesPage })))
+const BarPurchasesPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarPurchasesPage })))
+const BarRecipesPage = lazy(() => import('./features/bar/RecipePage').then(module => ({ default: module.BarRecipesPage })))
+import { AccountPage } from './pages/AccountPage'
+import { DemoDataProvider } from './features/operations/DemoDataProvider'
+const StudentsPage = lazy(() => import('./pages/OperationsPages').then(module => ({ default: module.StudentsPage })))
+const StudentDetailsPage = lazy(() => import('./pages/OperationsPages').then(module => ({ default: module.StudentDetailsPage })))
+const TeamPage = lazy(() => import('./pages/OperationsPages').then(module => ({ default: module.TeamPage })))
+const TeamDetailsPage = lazy(() => import('./pages/OperationsPages').then(module => ({ default: module.TeamDetailsPage })))
+const InventoryPage = lazy(() => import('./pages/OperationsPages').then(module => ({ default: module.InventoryPage })))
+const InventoryDetailsPage = lazy(() => import('./pages/OperationsPages').then(module => ({ default: module.InventoryDetailsPage })))
+const ProjectsPage = lazy(() => import('./pages/OperationsPages').then(module => ({ default: module.ProjectsPage })))
+const ProjectDetailsPage = lazy(() => import('./pages/OperationsPages').then(module => ({ default: module.ProjectDetailsPage })))
+const ImportPage = lazy(() => import('./pages/ImportPage').then(module => ({ default: module.ImportPage })))
+import { useAuth } from './features/auth/authContext'
+import { operationalPermissions, type OperationalKind } from './features/operations/DemoDataProvider'
+const RentalGroupsPage = lazy(() => import('./pages/RentalGroupsPage').then(module => ({ default: module.RentalGroupsPage })))
+const RentalGroupPage = lazy(() => import('./pages/RentalGroupsPage').then(module => ({ default: module.RentalGroupPage })))
+const CourtsPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.CourtsPage })))
+const AgendaPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.AgendaPage })))
+const RecurringReservationsPage = lazy(() => import('./pages/RecurringReservationsPage').then(module => ({ default: module.RecurringReservationsPage })))
+const ReservationDetailsPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.ReservationDetailsPage })))
+const SchoolPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.SchoolPage })))
+const ClassDetailsPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.ClassDetailsPage })))
+const EnrollmentsPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.EnrollmentsPage })))
+const PresencesPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.PresencesPage })))
+const FinancePage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.FinancePage })))
+const FinanceDetailsPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.FinanceDetailsPage })))
+const MaintenancePage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.MaintenancePage })))
+const MaintenanceDetailsPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.MaintenanceDetailsPage })))
+const SellPage = lazy(() => import('./features/attendance/AttendancePages').then(module => ({ default: module.SellPage })))
+const TabsPage = lazy(() => import('./features/attendance/AttendancePages').then(module => ({ default: module.TabsPage })))
+const TabDetailsPage = lazy(() => import('./features/attendance/AttendancePages').then(module => ({ default: module.TabDetailsPage })))
+const OrdersPage = lazy(() => import('./features/attendance/AttendancePages').then(module => ({ default: module.OrdersPage })))
+const ReceivePage = lazy(() => import('./features/attendance/PaymentPages').then(module => ({ default: module.ReceivePage })))
+const OnlinePaymentRecoveryPage = lazy(() => import('./features/attendance/OnlinePaymentRecoveryPage').then(module => ({ default: module.OnlinePaymentRecoveryPage })))
+const ReceiptPage = lazy(() => import('./features/attendance/PaymentPages').then(module => ({ default: module.ReceiptPage })))
+const BarOverviewPage = lazy(() => import('./features/attendance/ReportPages').then(module => ({ default: module.BarOverviewPage })))
+const BarReportPage = lazy(() => import('./features/attendance/ReportPages').then(module => ({ default: module.BarReportPage })))
+const BarSourcePage = lazy(() => import('./features/attendance/ReportPages').then(module => ({ default: module.BarSourcePage })))
+
+const ClientLayout = lazy(() => import('./features/portal/ClientLayout').then(m => ({ default: m.ClientLayout })))
+const RequestManagement = lazy(() => import('./features/portal/RequestManagement').then(m => ({ default: m.RequestManagement })))
+const PortalHome = lazy(() => import('./features/portal/ClientPages').then(m => ({ default: m.PortalHome })))
+const PortalAgenda = lazy(() => import('./features/portal/ClientPages').then(m => ({ default: m.PortalAgenda })))
+const PortalRequestForm = lazy(() => import('./features/portal/ClientPages').then(m => ({ default: m.PortalRequestForm })))
+const PortalBar = lazy(() => import('./features/portal/ClientPages').then(m => ({ default: m.PortalBar })))
+const PortalProfile = lazy(() => import('./features/portal/ClientPages').then(m => ({ default: m.PortalProfile })))
+
+const TeacherLayout = lazy(() => import('./features/teaching/TeachingPages').then(m => ({ default: m.TeacherLayout })))
+const TeacherHome = lazy(() => import('./features/teaching/TeachingPages').then(m => ({ default: m.TeacherHome })))
+const TeacherClasses = lazy(() => import('./features/teaching/TeachingPages').then(m => ({ default: m.TeacherClasses })))
+const TeacherRoster = lazy(() => import('./features/teaching/TeachingPages').then(m => ({ default: m.TeacherRoster })))
+const TeacherAccess = lazy(() => import('./features/teaching/TeachingPages').then(m => ({ default: m.TeacherAccess })))
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+})
+
+const PrototypeApp = lazy(() => import('./features/prototype/PrototypeApp').then(module => ({ default: module.PrototypeApp })))
+
+const ClientPage = lazy(() => import('./features/attendance/ClientPage').then(module => ({ default: module.ClientPage })))
+
+export function App() {
+  const [router, setRouter] = useState<ReturnType<typeof createBrowserRouter> | null>(null)
+  useEffect(() => { const instance = createBrowserRouter([{ path: '*', element: <ApplicationRoutes /> }]); setRouter(instance); return () => instance.dispose() }, [])
+  return <QueryClientProvider client={queryClient}>{router ? <RouterProvider router={router} /> : <main role="status">Abrindo sua área…</main>}</QueryClientProvider>
+}
+function ApplicationRoutes() {
+  return <OptionalUnsavedProvider><Routes>
+    <Route path="/prototipo/*" element={<Suspense fallback={<main className="session-loading" role="status">Abrindo protótipo…</main>}><PrototypeApp /></Suspense>} />
+    <Route path="/cliente" element={<Suspense fallback={<main className="session-loading" role="status">Abrindo sua comanda…</main>}><ClientPage /></Suspense>} />
+    <Route path="*" element={<OperationalRoutes />} />
+  </Routes></OptionalUnsavedProvider>
+}
+
+function Permission({ permission, demoMode = false, children }: { permission: string | string[]; demoMode?: boolean; children: ReactNode }) {
+  const { user } = useAuth()
+  return demoMode || (Array.isArray(permission) ? permission.some(value => hasPermission(user,value)) : hasPermission(user, permission)) ? children : <section className="operation-page"><h1>Acesso restrito</h1><p role="alert">Peça à gestão para conferir sua permissão para esta área.</p></section>
+}
+function ManagementOnly({ children }: { children: ReactNode }) { const { user } = useAuth(); return isManagement(user) ? children : <section><h1>Acesso restrito</h1><p>Esta área é exclusiva da gestão.</p></section> }
+function HomePage({ demoMode }: { demoMode: boolean }) {
+  const { user } = useAuth()
+  const home = workHome(user)
+  return !demoMode && home !== '/' ? <Navigate to={home} replace /> : <DashboardPage />
+}
+function OperationalRoutes() {
+  const demoMode = import.meta.env.VITE_DEMO_MODE === 'true'
+  const arena = (kind: OperationalKind, page: ReactNode) => <Permission demoMode={demoMode} permission={operationalPermissions[kind].read}>{page}</Permission>
+  const bar = (permission: string | string[], page: ReactNode) => <Permission permission={permission}>{page}</Permission>
+  const application = <Route element={<Suspense fallback={<main className="session-loading" role="status">Abrindo sua área…</main>}><AppShell demoMode={demoMode} /></Suspense>}>
+    <Route index element={<HomePage demoMode={demoMode} />} />
+    {!demoMode && <Route path="administracao/professores" element={<ManagementOnly><TeacherAccess /></ManagementOnly>} />}
+    <Route path="conta" element={<AccountPage />} />
+    {!demoMode && <Route path="solicitacoes-clientes" element={<RequestManagement />} />}
+    {!demoMode && <Route path="minhas-contas" element={<LegacyDestination to="/minha-area/pagamentos" />} />}
+    {!demoMode && <Route path="recebimentos" element={bar('finance:read', <BillingPage admin />)} />}
+    {!demoMode && <Route path="recebimentos/conciliacao" element={<LegacyDestination to="/recebimentos" />} />}
+    {!demoMode && <Route path="recebimentos/conciliacao-bar" element={<LegacyDestination to="/recebimentos" />} />}
+    {!demoMode && <Route path="notas-recebidas" element={<Permission permission="fiscal:invoices:manage"><ReceivedInvoicesPage /></Permission>} />}
+    <Route path="financeiro/historico" element={<FinancialHistoryPage />} />
+    <Route path="financeiro/controle-mensal" element={<MonthlyControlPage />} />
+    <Route path="financeiro/despesas" element={arena('financeEntries', <ExpensesPage />)} />
+    <Route path="alunos" element={arena('students', <StudentsPage />)} />
+    <Route path="alunos/:studentId" element={arena('students', <StudentDetailsPage />)} />
+    <Route path="equipe" element={arena('team', <TeamPage />)} />
+    <Route path="equipe/:memberId" element={arena('team', <TeamDetailsPage />)} />
+    <Route path="estoque" element={<LegacyDestination to="/administracao/materiais" />} />
+    <Route path="estoque/:itemId" element={<LegacyDestination to="/administracao/materiais" parameter="itemId" />} />
+    <Route path="administracao/materiais" element={arena('inventory', <InventoryPage />)} />
+    <Route path="administracao/materiais/:itemId" element={arena('inventory', <InventoryDetailsPage />)} />
+    <Route path="projetos" element={arena('projects', <ProjectsPage />)} />
+    <Route path="projetos/:projectId" element={arena('projects', <ProjectDetailsPage />)} />
+    <Route path="mensalistas" element={arena('rentalGroups', <RentalGroupsPage />)} />
+    <Route path="mensalistas/:groupId" element={arena('rentalGroups', <RentalGroupPage />)} />
+    <Route path="quadras" element={<LegacyDestination to="/agenda/funcionamento" />} />
+    <Route path="agenda/funcionamento" element={arena('courts', <CourtsPage />)} />
+    <Route path="agenda" element={arena('reservations', <AgendaPage />)} />
+    <Route path="agenda/recorrentes/novo" element={arena('reservations', <RecurringReservationsPage />)} />
+    <Route path="agenda/:reservationId" element={arena('reservations', <ReservationDetailsPage />)} />
+    <Route path="escola" element={arena('classes', <SchoolPage />)} />
+    <Route path="escola/turmas/:classId" element={arena('classes', <ClassDetailsPage />)} />
+    <Route path="escola/:classId" element={<LegacyDestination to="/escola/turmas" parameter="classId" />} />
+    <Route path="escola/matriculas" element={arena('enrollments', <EnrollmentsPage />)} />
+    <Route path="escola/presencas" element={arena('presences', <PresencesPage />)} />
+    <Route path="financeiro" element={arena('financeEntries', <FinancePage />)} />
+    <Route path="financeiro/:entryId" element={arena('financeEntries', <FinanceDetailsPage />)} />
+    <Route path="manutencao" element={arena('maintenance', <MaintenancePage />)} />
+    <Route path="manutencao/:maintenanceId" element={arena('maintenance', <MaintenanceDetailsPage />)} />
+    {!demoMode && <>
+      <Route path="atendimento/vender" element={bar('bar:sales:operate', <SellPage />)} />
+      <Route path="atendimento/comandas" element={bar('bar:sales:read', <TabsPage />)} />
+      <Route path="atendimento/comandas/:tabId" element={bar('bar:sales:read', <TabDetailsPage />)} />
+      <Route path="atendimento/pedidos" element={bar('bar:sales:operate', <OrdersPage />)} />
+      <Route path="atendimento/receber/:tabId" element={bar('bar:sales:operate', <ReceivePage />)} />
+      <Route path="atendimento/pagamento-online/:tabId/:paymentId" element={bar('bar:sales:operate', <OnlinePaymentRecoveryPage />)} />
+      <Route path="atendimento/comprovante/:tabId/:paymentId" element={bar('bar:sales:read', <ReceiptPage />)} />
+      <Route path="atendimento/caixa" element={<LegacyDestination to="/bar/caixa" />} />
+      <Route path="bar" element={<BarLayout />}>
+        <Route index element={<BarDestination />} />
+        <Route path="produtos" element={bar(['bar:catalog:write','bar:stock:read'], <BarProductsPage />)} />
+        <Route path="receitas" element={bar('bar:catalog:write', <BarRecipesPage />)} />
+        <Route path="receitas/:productId" element={bar('bar:catalog:write', <BarRecipesPage />)} />
+        <Route path="estoque" element={bar('bar:stock:read', <BarStockPage />)} />
+        <Route path="inventario" element={bar('bar:stock:manage', <BarCountsPage />)} />
+        <Route path="caixa" element={bar(['bar:cash:operate','bar:supervise'], <BarCashPage />)} />
+        <Route path="vendas" element={bar('bar:sales:read', <BarSalesPage />)} />
+        <Route path="perdas" element={bar('bar:stock:output', <BarLossesPage />)} />
+        <Route path="notas-recebidas" element={<Navigate to="/notas-recebidas" replace />} />
+        <Route path="compras" element={bar('bar:purchases:manage', <BarPurchasesPage />)} />
+        <Route path="indicadores" element={bar('bar:finance:read', <BarOverviewPage />)} />
+        <Route path="indicadores/:metric" element={bar('bar:finance:read', <BarReportPage />)} />
+        <Route path="registros/:kind/:resourceId" element={bar('bar:finance:read', <BarSourcePage />)} />
+        <Route path="conciliacao" element={<LegacyDestination to="/recebimentos" />} />
+      </Route>
+      <Route path="importacoes" element={bar('users:manage', <ImportPage />)} />
+    </>}
+  </Route>
+  return <AuthProvider demoMode={demoMode}><DemoDataProvider enabled demoMode={demoMode}><PwaUpdatePrompt /><Routes>
+    <Route path="login" element={demoMode ? <Navigate to="/" replace /> : <LoginPage />} />
+    <Route path="primeiro-acesso" element={demoMode ? <Navigate to="/" replace /> : <FirstAccessPage />} />
+    {demoMode ? application : <Route element={<AuthGuard />}>{application}<Route path="professor" element={<Suspense fallback={<main role="status">Abrindo aulas…</main>}><TeacherLayout /></Suspense>}><Route index element={<TeacherHome />} /><Route path="turmas" element={<TeacherClasses />} /><Route path="presencas" element={<TeacherClasses attendance />} /><Route path="turmas/:classId" element={<TeacherRoster />} /></Route><Route path="minha-area" element={<Suspense fallback={<main role="status">Abrindo sua área…</main>}><ClientLayout /></Suspense>}><Route index element={<PortalHome />} /><Route path="agenda" element={<PortalAgenda />} /><Route path="solicitar" element={<PortalRequestForm />} /><Route path="ajuda" element={<PortalRequestForm help />} /><Route path="bar" element={<PortalBar />} /><Route path="pagamentos" element={<BillingPage />} /><Route path="perfil" element={<PortalProfile />} /><Route path="seguranca" element={<AccountPage />} /></Route></Route>}
+    <Route path="*" element={<MissingDestination />} />
+  </Routes></DemoDataProvider></AuthProvider>
+}

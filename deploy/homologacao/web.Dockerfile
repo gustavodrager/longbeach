@@ -2,12 +2,12 @@
 
 FROM node:24-alpine AS build
 RUN corepack enable && corepack prepare pnpm@11.25.0 --activate
-WORKDIR /source/app
+WORKDIR /source/frontend
 
-COPY app/package.json app/pnpm-lock.yaml ./
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-COPY app/ ./
+COPY frontend/ ./
 ARG VITE_API_URL
 ARG VITE_DEMO_MODE=false
 ARG VITE_OPERATIONAL_STORAGE=postgres
@@ -20,7 +20,7 @@ RUN pnpm build
 
 FROM nginx:1.29-alpine AS runtime
 COPY deploy/homologacao/nginx.conf /etc/nginx/nginx.conf
-COPY --from=build --chown=nginx:nginx /source/app/dist /usr/share/nginx/html
+COPY --from=build --chown=nginx:nginx /source/frontend/dist /usr/share/nginx/html
 USER nginx
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

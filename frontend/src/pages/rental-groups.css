@@ -1,0 +1,130 @@
+.rental-stats {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:24px 0}
+.rental-stats>div {display:flex;flex-direction:column;gap:14px;padding:24px;border:1px solid var(--line,#ded6c7);border-radius:16px;background:var(--surface,#fff)}
+.rental-stats span {color:var(--muted,#696354);font-size:15px}.rental-stats strong {font-size:30px;letter-spacing:-.7px}
+.rental-intro {border-left:4px solid #eab92f;padding:8px 24px;margin:32px 0;max-width:900px;line-height:1.65}.rental-intro h2 {margin:0;font-size:24px}
+.rental-cards {display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:24px}.rental-card {padding:26px;display:flex;flex-direction:column;gap:12px;text-decoration:none;color:inherit;background:var(--surface,#fff);border:1px solid var(--line,#ded6c7);border-radius:16px}.rental-card:hover {border-color:#a78121}.rental-card>div {display:flex;align-items:start;justify-content:space-between;gap:12px}.rental-card h2,.rental-card p {margin:0}.rental-card>span:last-child {margin-top:auto;font-weight:700}
+.rental-section {padding:28px;margin:24px 0;border:1px solid var(--line,#ded6c7);border-radius:16px;background:var(--surface,#fff)}.rental-section>h2 {margin:0 0 20px}.rental-section>p {line-height:1.7}.rental-section>.operation-field {max-width:400px}
+.rental-roster {display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}.rental-roster>div {display:flex;flex-direction:column;gap:6px;padding:16px;border-bottom:1px solid var(--line,#ded6c7)}.rental-roster small {color:var(--muted,#696354)}
+.rental-member-edit {display:grid;grid-template-columns:2fr 1.4fr 1fr;gap:16px;align-items:end;padding:18px 0;border-bottom:1px solid var(--line,#ded6c7)}.rental-members-editor {display:grid;gap:18px;width:100%}.rental-editor-fields {border:0;padding:0;margin:0;min-width:0}.rental-editor-fields .arena-form-group {margin-bottom:24px}
+.rental-month-preview {padding:22px;border-radius:12px;background:#fff8e5;margin-top:20px;line-height:1.65}.rental-month-preview [role=alert] {color:#8d3124}.rental-checkbox {display:flex;gap:10px;align-items:center;padding:18px 0}.rental-checkbox input {width:22px;height:22px;flex:none}
+.rental-meetings {display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin:22px 0}.rental-meetings>a {display:grid;gap:12px;padding:18px;border:1px solid var(--line,#ded6c7);border-radius:12px;text-decoration:none;color:inherit}.rental-meetings>a:hover {border-color:#a78121}.rental-notes {white-space:pre-wrap}
+.rental-bar-row {display:flex;flex-direction:column;gap:8px;padding:18px 0;border-bottom:1px solid var(--line,#ded6c7)}.rental-bar-row>span {font-size:15px}.rental-linker {margin-top:24px}.rental-linker summary {font-weight:700;cursor:pointer;padding:16px 0}.rental-tab-choice {display:flex;justify-content:space-between;gap:16px;align-items:center;padding:12px 0}.rental-linker p {line-height:1.65}
+@media(max-width:700px){.rental-stats{grid-template-columns:1fr}.rental-stats>div{padding:18px;flex-direction:row;align-items:center;justify-content:space-between}.rental-stats strong{font-size:24px}.rental-section{padding:18px}.rental-member-edit{grid-template-columns:1fr}.rental-cards{grid-template-columns:1fr}}
+
+/* Mensalistas: compact hierarchy and intrinsic sizing, including direct route loads. */
+.rental-page, .rental-page > *, .rental-page .rental-card > *, .rental-page .rental-card > div > * { min-width:0; }
+.app-shell .rental-page .page-heading { margin-bottom:16px; padding-bottom:12px; }
+.app-shell .rental-page .page-heading .eyebrow { display:none; }
+.app-shell .rental-page .page-heading h1 { overflow-wrap:anywhere; }
+.rental-directory-summary { display:flex; flex-wrap:wrap; gap:8px 24px; padding:12px 0; font-size:14px; color:var(--muted); }
+.rental-directory-summary strong { color:var(--ink); font-size:18px; }
+.rental-filters { display:grid; grid-template-columns:minmax(180px,2fr) repeat(3,minmax(130px,1fr)); gap:12px; align-items:end; margin:12px 0; }
+.rental-filters > *, .rental-filters input, .rental-filters select { min-width:0; max-width:100%; }
+.rental-filters .search-box { width:100%; max-width:none; margin:0; }
+.rental-filters .operation-field { margin:0; }
+.rental-filters .rental-checkbox { grid-column:1/-1; margin:0; padding:4px 0; min-height:44px; }
+.rental-results { display:flex; flex-wrap:wrap; gap:12px; justify-content:space-between; align-items:center; font-size:14px; color:var(--muted); }
+.rental-results a { min-height:44px; display:inline-flex; align-items:center; color:var(--ink); }
+.rental-page .rental-cards { grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); margin-top:12px; gap:14px; }
+.rental-page .rental-card { padding:18px; gap:8px; overflow-wrap:anywhere; }
+.rental-page .rental-card h2 { font-size:20px; line-height:1.3; letter-spacing:-.02em; }
+.rental-page .rental-card > div:first-child { align-items:center; }
+.rental-card .status-pill { flex-shrink:0; }
+.rental-page .rental-card p { font-size:14px; line-height:1.5; }
+.rental-card-schedule { font-weight:700; }
+.rental-card > small { color:var(--muted); font-size:13px; }
+.rental-card > strong { font-size:18px; }
+.rental-card > strong small { font-weight:400; font-size:13px; }
+.rental-page .rental-card-pending { display:flex; flex-wrap:wrap; justify-content:flex-start; gap:6px; }
+.rental-card-pending:empty { display:none; }
+.rental-card-pending span { font-size:12px; padding:4px 8px; border-radius:6px; background:#fff6db; color:#695016; border:1px solid #e7d39b; }
+.rental-page .rental-card > span:last-child { font-size:14px; padding-top:4px; }
+.rental-page .record-overview { padding:12px 16px; gap:12px; }
+.rental-page .record-overview > strong { font-size:20px; }
+.rental-page .section-tabs { margin-block:12px; flex-wrap:nowrap; overflow-x:auto; }
+.rental-page .section-tabs button { flex-shrink:0; white-space:nowrap; }
+.rental-month-focus { margin:16px 0; padding:16px; border:1px solid var(--line); border-radius:12px; background:var(--surface,#fff); }
+.rental-month-focus h2 { margin:0 0 8px; font-size:20px; }
+.rental-month-focus p { margin:8px 0; line-height:1.5; }
+.rental-month-focus > button { min-height:44px; margin-top:8px; padding:10px 16px; color:var(--ink); }
+.rental-detail-pending { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:16px; padding-top:12px; border-top:1px solid var(--line); font-size:14px; }
+.rental-detail-pending button { min-height:44px; display:inline-flex; align-items:center; padding:8px 12px; }
+.rental-page .rental-roster { grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr)); }
+.rental-page .rental-roster > *, .rental-page .rental-meetings > * { min-width:0; overflow-wrap:anywhere; }
+.rental-form-step { margin:0 0 16px; border:1px solid var(--line); border-radius:12px; padding:0 16px; min-width:0; }
+.rental-form-step > summary { padding:16px 0; min-height:48px; cursor:pointer; font-weight:700; }
+.rental-form-step > summary small { display:block; color:var(--muted); font-size:13px; font-weight:400; margin:4px 0 0 16px; }
+.rental-form-intro { margin:0 0 16px; color:var(--muted); line-height:1.5; }
+.management-dialog:has(.rental-editor-fields), .management-dialog:has(.rental-editor-fields) .editor-body { min-width:0; }
+.management-dialog:has(.rental-editor-fields) .dialog-heading h2 { min-width:0; overflow-wrap:anywhere; }
+.management-dialog:has(.rental-editor-fields) .dialog-close { flex-shrink:0; }
+.rental-editor-fields input, .rental-editor-fields select, .rental-editor-fields textarea { box-sizing:border-box; min-width:0; max-width:100%; }
+.rental-editor-fields .field-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.rental-editor-fields .rental-member-edit { grid-template-columns:repeat(2,minmax(0,1fr)); }
+@media(max-width:1000px) {
+  .rental-filters { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .rental-filters .search-box { grid-column:1/-1; }
+}
+@media(max-width:700px) {
+  html:has(.rental-page),body:has(.rental-page) { min-width:0; }
+  .app-shell:has(.rental-page), .app-shell:has(.rental-page) .app-main { min-width:0; width:100%; }
+  .app-shell:has(.rental-page) .mobile-mode-link { display:none; }
+  .app-shell:has(.rental-page) .mobile-header .shell-brand-link { min-width:108px; }
+  .app-shell:has(.rental-page) .management-topbar { min-height:44px; padding-block:0; }
+  .app-shell .rental-page { padding:16px 12px 28px; }
+  .app-shell .rental-page .page-heading { gap:10px; }
+  .app-shell .rental-page .page-heading > div > p:last-child { font-size:14px; }
+  .rental-directory-summary { gap:6px; flex-direction:column; padding:0; }
+  .rental-directory-summary span { font-size:13px; }
+  .rental-directory-summary strong { font-size:16px; }
+  .rental-filters { gap:8px; }
+  .rental-filters .operation-field { font-size:13px; }
+  .rental-filters .operation-field input, .rental-filters .operation-field select { min-height:44px; font-size:16px; width:100%; }
+  .rental-filters .operation-field:has(input[type=month]) { grid-column:1/-1; }
+  .rental-page .rental-cards { grid-template-columns:minmax(0,1fr); }
+  .rental-page .record-overview { display:grid; grid-template-columns:auto minmax(0,1fr); padding:10px 12px; }
+  .rental-page .record-overview > strong { text-align:right; font-size:18px; }
+  .rental-page .record-overview .operation-field { grid-column:1/-1; display:grid; grid-template-columns:minmax(0,1fr); gap:4px; font-size:13px; }
+  .rental-page .record-overview input { min-width:0; max-width:100%; width:100%; min-height:44px; font-size:16px; }
+  .rental-page .section-tabs { margin-block:8px; gap:0; }
+  .rental-page .section-tabs button { font-size:13px; padding-inline:10px; }
+  .rental-page .rental-meetings { grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr)); }
+  .rental-page .rental-meetings > a { padding:12px; font-size:14px; }
+  .rental-page .rental-section { padding:12px; }
+  .rental-page .record-overview > p { grid-column:1/-1; }
+  .management-dialog:has(.rental-editor-fields) { inset:0; width:100%; max-width:100%; margin:0; }
+  .management-dialog:has(.rental-editor-fields) .dialog-heading { padding:12px; gap:8px; }
+  .management-dialog:has(.rental-editor-fields) .dialog-heading h2 { font-size:18px; }
+  .management-dialog:has(.rental-editor-fields) .editor-body { padding:12px; }
+  .rental-form-step { padding-inline:12px; }
+  .rental-editor-fields .field-grid, .rental-editor-fields .rental-member-edit { grid-template-columns:minmax(0,1fr); }
+}
+
+/* Edição contextual: mesma ficha, sem empilhar painéis. */
+.rental-page .rental-card-editing { grid-column:1/-1; }
+.rental-page .rental-card-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:flex-start; }
+.rental-page .rental-card-actions a { display:inline-flex; align-items:center; min-height:48px; }
+.rental-page button,.rental-page input,.rental-page select { min-height:48px; }
+.rental-page .section-tabs { flex-wrap:wrap; overflow:visible; gap:4px; }
+.rental-page .section-tabs button { white-space:normal; }
+.rental-page .rental-inline-record { display:flex; flex-direction:column; gap:10px; padding:16px; border:1px solid var(--line); border-radius:12px; min-width:0; }
+.rental-page .rental-inline-record:has(form) { grid-column:1/-1; }
+.rental-page .rental-inline-record form,.rental-page .rental-card form { width:100%; min-width:0; }
+.rental-page form > fieldset { border:0; margin:0; padding:0; min-width:0; }
+.rental-page .form-actions { position:sticky; bottom:0; z-index:2; padding:12px 0; background:var(--surface,#fffdf7); display:flex; flex-wrap:wrap; gap:8px; }
+.rental-page .rental-attendance button[aria-pressed=true] { background:#f5d776; border-color:#a78121; color:var(--ink); }
+.rental-page .rental-attendance .rental-card-actions { display:flex; flex-wrap:wrap; }
+.rental-page .rental-form-step[hidden] { display:none; }
+@media(max-width:700px) {
+  .rental-page .section-tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .rental-page .field-grid { grid-template-columns:minmax(0,1fr); }
+  .rental-page .rental-inline-record { padding:12px; }
+  .rental-page .rental-meetings { grid-template-columns:minmax(0,1fr); }
+  .rental-page input,.rental-page select,.rental-page textarea { font-size:16px; max-width:100%; min-width:0; }
+}
+.rental-page .rental-card > .rental-inline-form { display:block; }
+.rental-page .rental-roster > .rental-inline-record { display:flex; }
+.rental-page .rental-roster > .rental-inline-record:has(form) { grid-column:1/-1; }
+.rental-page button:disabled { cursor:not-allowed; }
+.rental-page fieldset.rental-filters { border:0; padding:0; min-width:0; }
+.rental-page input,.rental-page select,.rental-page textarea { scroll-margin-top:100px; scroll-margin-bottom:160px; }

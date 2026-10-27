@@ -1,0 +1,18 @@
+{
+    admin off
+    http_port 8080
+    https_port 8443
+    servers {
+        protocols h1 h2
+    }
+}
+
+{$API_DOMAIN} {
+    tls /run/secrets/tls/fullchain.pem /run/secrets/tls/privkey.pem
+    import /etc/caddy/proxy.caddy
+}
+
+http://:8081 {
+    bind 127.0.0.1
+    respond /health/live "ok" 200
+}

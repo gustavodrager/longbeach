@@ -1,0 +1,86 @@
+import { fireEvent, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
+import { BankStatementOverview, FinancialHistoryOverview, FinancialHistoryPage } from './FinancialHistory'
+const auth = vi.hoisted(() => ({ roles: ['Owner'] }))
+vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'owner-test', roles: auth.roles } }) }))
+const report = { month: '2026-08', months: ['2026-09', '2026-08'], total: 1, page: 1, totals: [{ series: 'consolidado', metric: 'vendas-bar-bruto', state: 'Informado na planilha', period: '2026-08', grain: 'month', records: 1, amountCents: 155555 }], items: [{ id: 'row', sourceName: 'teste.xlsx', sourceSha256: 'a'.repeat(64), data: { series: 'consolidado', metric: 'vendas-bar-bruto', label: 'Vendas Bar Bruto', state: 'Informado na planilha', sourceCell: 'Teste!I27', periodStart: '2026-08-01', periodEnd: '2026-08-31', grain: 'month', amountCents: 155555, notes: '' } }] }
+function wrap(child: React.ReactNode) { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter>{child}</MemoryRouter></QueryClientProvider>) }
+afterEach(() => { vi.restoreAllMocks(); auth.roles = ['Owner'] })
+it('separa movimentação bancária de despesas pagas por outro meio no mesmo mês', async () => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async input => new Response(JSON.stringify({ ...report, totals: String(input).includes('series=pagbank-conta')
+    ? [{ ...report.totals[0], series: 'pagbank-conta', metric: 'entradas-extrato', amountCents: 50000 }, { ...report.totals[0], series: 'pagbank-conta', metric: 'saidas-extrato', amountCents: -10000 }]
+    : [{ ...report.totals[0], series: 'despesas-fora-pagbank', metric: 'despesas', amountCents: -7000 }] })))
+  wrap(<BankStatementOverview />)
+  expect(await screen.findByText('R$ 500,00')).toBeInTheDocument()
+  expect(await screen.findByText('R$ 70,00')).toBeInTheDocument()
+  expect(screen.getByText('R$ 100,00')).toBeInTheDocument()
+  expect(screen.getByText(/não devem ser somados a ele novamente/)).toBeInTheDocument()
+})
+it('dashboard abre o mês da fonte e identifica o valor informado', async () => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async input => new Response(JSON.stringify(String(input).includes('pagvendas-vendas') ? { ...report, totals: [], items: [] } : report), { headers: { 'Content-Type': 'application/json' } }))
+  wrap(<FinancialHistoryOverview />)
+  expect(await screen.findByText('R$ 1.555,55')).toBeInTheDocument()
+  expect(screen.getByText(/agosto de 2026 · Informado na planilha/)).toBeInTheDocument()
+  expect(screen.getByText('Vendas brutas do bar').closest('a')).toHaveAttribute('href', '/financeiro/historico?month=2026-08&series=consolidado&metric=vendas-bar-bruto')
+})
+it('atendente não consulta o histórico financeiro nem as APIs', () => {
+  auth.roles = ['Operations']; const fetch = vi.spyOn(globalThis, 'fetch')
+  wrap(<FinancialHistoryPage />)
+  expect(screen.getByRole('alert')).toHaveTextContent('para a gestão')
+  expect(fetch).not.toHaveBeenCalled()
+})
+it('apresenta a receita consolidada sem chamá-la de vendas brutas', async () => {
+  const summary = { ...report, month: '2026-09', totals: [{ ...report.totals[0], metric: 'receitas-consolidadas', period: '2026-09', amountCents: 90000 }] }
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async input => new Response(JSON.stringify(String(input).includes('pagvendas-vendas') ? { ...summary, totals: [] } : summary)))
+  wrap(<FinancialHistoryOverview />)
+  expect(await screen.findByText('R$ 900,00')).toBeInTheDocument()
+  expect(screen.getByText('Receitas do consolidado').closest('a')).toHaveAttribute('href', '/financeiro/historico?month=2026-09&series=consolidado&metric=receitas-consolidadas')
+  expect(screen.queryByText('Vendas brutas do bar')).not.toBeInTheDocument()
+})
+it('despesa no início aparece positiva, preservando o valor assinado da fonte', async () => {
+  const expense = { ...report, totals: [{ ...report.totals[0], metric: 'despesas', amountCents: -12345 }] }
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async input => new Response(JSON.stringify(String(input).includes('series=consolidado') ? expense : { ...report, totals: [], items: [] })))
+  wrap(<FinancialHistoryOverview />)
+  expect(await screen.findByText('R$ 123,45')).toBeInTheDocument()
+  expect(screen.queryByText('-R$ 123,45')).not.toBeInTheDocument()
+  expect(expense.totals[0].amountCents).toBe(-12345)
+})
+it('falha de leitura não apresenta valores fictícios de zero', async () => {
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 503 }))
+  wrap(<FinancialHistoryOverview />)
+  expect((await screen.findAllByRole('alert'))[0]).toHaveTextContent('Não foi possível atualizar')
+  expect(screen.queryByText('R$ 0,00')).not.toBeInTheDocument()
+})
+
+it('mostra a unidade derivada sem atribuir Pix genérico ou saldo à Quadra', async () => {
+  const rows = [
+    { id:'bar',unit:'bar',series:'pagvendas-vendas',label:'Pix no PagVendas' },
+    { id:'court',unit:'quadra',series:'alunos',label:'Mensalidade teste' },
+    { id:'unknown',unit:null,series:'pagbank-conta',label:'Pix sem origem confirmada' },
+  ]
+  vi.spyOn(globalThis,'fetch').mockImplementation(async input => new Response(JSON.stringify(String(input).includes('/integrations') ? [] : {
+    ...report,total:3,totals:[],items:rows.map(row=>({...report.items[0],id:row.id,businessUnitId:row.unit,data:{...report.items[0].data,series:row.series,label:row.label}})),
+  })))
+  wrap(<FinancialHistoryPage />)
+  const table=await screen.findByRole('table',{name:'Registros financeiros de origem'})
+  expect(table).toHaveTextContent('Unidade')
+  expect(screen.getByText('Pix no PagVendas').closest('tr')).toHaveTextContent('Bar')
+  expect(screen.getByText('Mensalidade teste').closest('tr')).toHaveTextContent('Quadra')
+  expect(screen.getByText('Pix sem origem confirmada').closest('tr')).toHaveTextContent('Sem unidade atribuída')
+})
+
+
+it('oferece arquivos importados e preserva documentos sem formulário de consulta ao provedor', async () => {
+  const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>new Response(JSON.stringify(String(input).includes('/pagbank-edi') ? {date:null,dates:[],items:[],total:0,page:1} : String(input).includes('/c6?') ? {environment:'Production',account:'C6 importado',from:'2026-10-01',through:'2026-10-25',items:[],total:0,page:1} : report)))
+  wrap(<FinancialHistoryPage />)
+  await screen.findByRole('table',{name:'Registros financeiros de origem'})
+  expect(screen.getAllByRole('link',{name:'Importar extratos'}).every(link=>link.getAttribute('href')==='/importacoes')).toBe(true)
+  fireEvent.click(screen.getByText('Histórico de consultas C6 anteriores',{selector:'summary'}))
+  fireEvent.click(screen.getByText('Documentos originais do PagBank',{selector:'summary'}))
+  expect(await screen.findByText('Nenhum documento EDI preservado. Importe os extratos para consultar movimentos e saldos.')).toBeVisible()
+  expect(screen.queryByText('Consultar novamente um período do PagBank')).not.toBeInTheDocument()
+  expect(screen.queryByText('Consultar novamente este período no C6')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Motivo da consulta')).not.toBeInTheDocument()
+  expect(fetch.mock.calls.every(([path,options])=>!String(path).includes('reprocess')&&!options?.method)).toBe(true)
+})

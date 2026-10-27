@@ -24,8 +24,10 @@ secrets*.json
 *.mobileprovision
 
 # .NET
-**/bin/
-**/obj/
+backend/**/bin/
+backend/**/obj/
+tools/**/bin/
+tools/**/obj/
 TestResults/
 artifacts/
 coverage/
@@ -34,19 +36,19 @@ coverage/
 
 # Node, Vite and test output
 **/node_modules/
-app/dist/
-app/coverage/
+frontend/dist/
+frontend/coverage/
 *.tsbuildinfo
 *.local
 
 # Capacitor native build output and machine-local settings
-app/android/.gradle/
-app/android/local.properties
-app/android/**/build/
-app/ios/App/Pods/
-app/ios/DerivedData/
-app/ios/**/*.xcuserstate
-app/ios/**/*.xcuserdata/
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/android/**/build/
+frontend/ios/App/Pods/
+frontend/ios/DerivedData/
+frontend/ios/**/*.xcuserstate
+frontend/ios/**/*.xcuserdata/
 
 # Local databases and runtime files
 *.db
@@ -63,5 +65,23 @@ app/ios/**/*.xcuserdata/
 .cache/
 
 # Python preparation caches
+.venv/
 __pycache__/
 *.pyc
+
+# Google Cloud local state, plans, credentials and database exports
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+backend*.hcl
+google-local/
+*.dump
+*.backup
+
+# Local launcher state and data stay outside version control
+.runtime.local/
+*.tar
+*.bundle

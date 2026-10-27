@@ -1,0 +1,426 @@
+using System.Security.Claims;
+using System.Text;
+using System.Threading.RateLimiting;
+using LongBeach.Api.Endpoints;
+using LongBeach.Api.Infrastructure;
+using LongBeach.Api.Middleware;
+using LongBeach.Api.Startup;
+using LongBeach.Application;
+using LongBeach.Application.Abstractions;
+using LongBeach.Application.Auth;
+using LongBeach.Application.Authorization;
+using LongBeach.Infrastructure;
+using LongBeach.Infrastructure.Bootstrap;
+using LongBeach.Infrastructure.Health;
+using LongBeach.Infrastructure.Persistence;
+using LongBeach.Infrastructure.Security;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.IdentityModel.Tokens;
+using Serilog;
+
+var builder = WebApplication.CreateBuilder(args);
+PagBankHomologation.Validate(builder.Configuration, builder.Environment);
+var prepareHomologation = args.Contains("--prepare-pagbank-homologation", StringComparer.OrdinalIgnoreCase);
+if (prepareHomologation && args.Length != 1) throw new InvalidOperationException("Run homologation preparation as its own command after migrations.");
+var ediBackfill = args.Contains("--pagbank-edi-backfill", StringComparer.OrdinalIgnoreCase);
+if (ediBackfill && args.Length != 1) throw new InvalidOperationException("Run EDI backfill as its own command.");
+var startupCommand = StartupCommandParser.Parse(args);
+var verifyGoogleOwners = args.Contains("--verify-google-owners", StringComparer.OrdinalIgnoreCase);
+var authorizeGoogleAccess = args.Contains("--authorize-google-access", StringComparer.OrdinalIgnoreCase);
+var provisionFirstAccess = args.Contains("--provision-first-access", StringComparer.OrdinalIgnoreCase);
+var provisionFromStdin = args.Contains("--provision-from-stdin", StringComparer.OrdinalIgnoreCase);
+if (provisionFromStdin && !provisionFirstAccess && !authorizeGoogleAccess)
+    throw new InvalidOperationException("--provision-from-stdin requires a provisioning command.");
+if (authorizeGoogleAccess && (provisionFirstAccess || verifyGoogleOwners || startupCommand == StartupCommand.MigrateOnly))
+    throw new InvalidOperationException("Run Google access authorization as its own command after migrations.");
+if (provisionFirstAccess && (verifyGoogleOwners || startupCommand == StartupCommand.MigrateOnly))
+    throw new InvalidOperationException("Run first-access provisioning as its own command after migrations.");
+if (verifyGoogleOwners && startupCommand == StartupCommand.MigrateOnly)
+{
+    throw new InvalidOperationException("--verify-google-owners cannot be combined with --migrate-only.");
+}
+
+builder.Host.UseSerilog((context, services, logger) => logger
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext());
+
+builder.Services.AddProblemDetails();
+builder.Services.AddOpenApi();
+builder.Services.AddApplication();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IAuditContext, HttpAuditContext>();
+builder.Services.AddInfrastructure(builder.Configuration);
+
+ConfigureAuthentication(builder.Services, builder.Configuration);
+ConfigureAuthorization(builder.Services, builder.Configuration);
+ConfigureCors(builder.Services, builder.Configuration, builder.Environment);
+ConfigureForwardedHeaders(builder.Services, builder.Configuration);
+ConfigureHealthChecks(builder.Services, builder.Configuration);
+ConfigureRateLimiting(builder.Services);
+
+var app = builder.Build();
+
+if (prepareHomologation)
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    await PagBankHomologation.Prepare(scope.ServiceProvider.GetRequiredService<LongBeachDbContext>(),
+        scope.ServiceProvider.GetRequiredService<IPasswordHasher>(), app.Configuration, app.Environment);
+    app.Logger.LogInformation("Isolated PagBank homologation account prepared; existing credentials preserved.");
+    return;
+}
+
+if (ediBackfill)
+{
+    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(30));
+    var collector = app.Services.GetRequiredService<LongBeach.Infrastructure.Finance.PagBankEdiWorker>();
+    try
+    {
+        var through = await collector.BackfillNow(timeout.Token);
+        app.Logger.LogInformation("PagBank EDI backfill completed through {CompleteThrough}.", through);
+    }
+    catch (Exception exception)
+    {
+        var code = exception is LongBeach.Application.Finance.FinancialRuleException rule ? rule.Message : "EDI_BACKFILL_FAILED";
+        await collector.RecordFailure(code, CancellationToken.None);
+        app.Logger.LogError("PagBank EDI backfill stopped: {FailureCode}.", code);
+        Environment.ExitCode = 1;
+    }
+    return;
+}
+
+if (authorizeGoogleAccess)
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var command = new GoogleAccessAuthorizer(scope.ServiceProvider.GetRequiredService<LongBeachDbContext>(),
+        scope.ServiceProvider.GetRequiredService<IPasswordHasher>(), scope.ServiceProvider.GetRequiredService<TimeProvider>());
+    var target = provisionFromStdin
+        ? new ConfigurationBuilder().AddConfiguration(app.Configuration).AddJsonStream(Console.OpenStandardInput()).Build()
+        : app.Configuration;
+    var changed = await command.RunAsync(target);
+    app.Logger.LogInformation("Google access authorization completed for one existing account: changed {Changed}; role preserved; temporary credential disabled.", changed);
+    return;
+}
+
+if (provisionFirstAccess)
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var provisioner = new FirstAccessProvisioner(scope.ServiceProvider.GetRequiredService<LongBeachDbContext>(),
+        scope.ServiceProvider.GetRequiredService<IPasswordHasher>(), scope.ServiceProvider.GetRequiredService<TimeProvider>());
+    var provisioningConfiguration = provisionFromStdin
+        ? new ConfigurationBuilder().AddConfiguration(app.Configuration).AddJsonStream(Console.OpenStandardInput()).Build()
+        : app.Configuration;
+    var result = await provisioner.RunAsync(provisioningConfiguration);
+    app.Logger.LogInformation("First-access provisioning completed: created {Created}; existing {Existing}.", result.Created, result.Existing);
+    return;
+}
+
+if (verifyGoogleOwners)
+{
+    try
+    {
+        await using var verificationScope = app.Services.CreateAsyncScope();
+        var verificationDbContext = verificationScope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+        var verification = new GoogleOwnerVerifier(verificationDbContext, app.Configuration, app.Environment);
+        var result = await verification.VerifyAsync(CancellationToken.None);
+        app.Logger.LogInformation(
+            "Google Owner verification: target count {TargetCount}; active Owner count {ActiveOwnerCount}; grants outside targets {OutsideTargetGrantCount}; succeeded {Succeeded}.",
+            result.TargetCount, result.ActiveOwnerCount, result.OutsideTargetGrantCount, result.Succeeded);
+        Environment.ExitCode = result.Succeeded ? 0 : 1;
+    }
+    catch (Exception)
+    {
+        app.Logger.LogError("Google Owner verification completed: succeeded false.");
+        Environment.ExitCode = 1;
+    }
+    return;
+}
+
+if (startupCommand == StartupCommand.MigrateOnly)
+{
+    await using var migrationScope = app.Services.CreateAsyncScope();
+    var migrationDbContext = migrationScope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+    await migrationDbContext.Database.MigrateAsync();
+    app.Logger.LogInformation("Database migrations completed successfully.");
+    return;
+}
+
+app.UseForwardedHeaders();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/v1"))
+    {
+        context.Response.Headers.CacheControl = "no-store";
+        context.Response.Headers.Pragma = "no-cache";
+        context.Response.Headers["Referrer-Policy"] = "no-referrer";
+    }
+    await next(context);
+});
+app.UseSerilogRequestLogging();
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseCors("web-client");
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
+
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Test"))
+{
+    app.MapOpenApi().AllowAnonymous();
+}
+
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = _ => true
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("live")
+}).AllowAnonymous();
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("ready") || registration.Tags.Contains("live")
+}).AllowAnonymous();
+
+app.MapClientPortalEndpoints();
+app.MapTeachingEndpoints();
+app.MapBillingEndpoints();
+app.MapC6PixEndpoints();
+app.MapBarEndpoints();
+app.MapReceivedInvoiceEndpoints();
+app.MapBarTabsEndpoints();
+app.MapImportEndpoints();
+app.MapFinancialHistoryEndpoints();
+app.MapExpenseEndpoints();
+app.MapExpenseAttachmentEndpoints();
+app.MapAuthEndpoints(builder.Configuration.GetValue<bool>("Authentication:Google:Enabled"));
+var publicOperationalDemo = !app.Environment.IsProduction() && app.Configuration.GetValue("DemoMode:PublicOperationalData", false);
+app.MapRentalGroupsEndpoints();
+app.MapOperationalEndpoints(publicOperationalDemo);
+
+if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
+await app.RunAsync();
+
+static void ConfigureAuthentication(IServiceCollection services, IConfiguration configuration)
+{
+    var authentication = services
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer();
+
+    if (configuration.GetValue<bool>("Authentication:Google:Enabled"))
+    {
+        var googleClientId = configuration["Authentication:Google:ClientId"];
+        if (string.IsNullOrWhiteSpace(googleClientId))
+        {
+            throw new InvalidOperationException("Authentication:Google:ClientId is required when Google sign-in is enabled.");
+        }
+        authentication.AddJwtBearer("Google", google =>
+        {
+            google.Authority = "https://accounts.google.com";
+            google.Audience = googleClientId;
+            google.RequireHttpsMetadata = true;
+            google.MapInboundClaims = false;
+            google.TokenValidationParameters.ValidIssuers = ["https://accounts.google.com", "accounts.google.com"];
+            google.TokenValidationParameters.ValidAudience = googleClientId;
+            google.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    if (context.Request.Path == "/api/v1/auth/first-access/google")
+                    {
+                        var credential = context.Request.Headers["X-Google-Id-Token"].ToString();
+                        if (string.IsNullOrWhiteSpace(credential)) context.NoResult();
+                        else context.Token = credential;
+                    }
+                    return Task.CompletedTask;
+                }
+            };
+        });
+    }
+
+    services
+        .AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+        .Configure<Microsoft.Extensions.Options.IOptions<JwtOptions>>((jwt, configuredOptions) =>
+        {
+            var options = configuredOptions.Value;
+            jwt.MapInboundClaims = false;
+            jwt.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = options.Issuer,
+                ValidateAudience = true,
+                ValidAudience = options.Audience,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(options.SigningKey)),
+                ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
+                ValidateLifetime = true,
+                RequireExpirationTime = true,
+                ClockSkew = TimeSpan.FromSeconds(30),
+                NameClaimType = ClaimTypes.Name,
+                RoleClaimType = ClaimTypes.Role
+            };
+            jwt.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = async context =>
+                {
+                    if (context.Principal?.FindFirstValue("requires_first_access") != "true") return;
+                    if (!Guid.TryParse(context.Principal.FindFirstValue(ClaimTypes.NameIdentifier), out var id))
+                    { context.Fail("Invalid first-access session."); return; }
+                    var repository = context.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
+                    var user = await repository.FindByIdAsync(id, context.HttpContext.RequestAborted);
+                    var clock = context.HttpContext.RequestServices.GetRequiredService<TimeProvider>();
+                    if (user is null || !user.IsActive || !user.RequiresFirstAccess || !user.InitialAccessIsValidAt(clock.GetUtcNow()))
+                        context.Fail("First-access session is no longer valid.");
+                }
+            };
+        });
+}
+
+static void ConfigureAuthorization(IServiceCollection services, IConfiguration configuration)
+{
+    services.AddTransient<Microsoft.AspNetCore.Authentication.IClaimsTransformation, LongBeach.Api.ProfileClaimsTransformation>();
+    services.AddAuthorization(options =>
+    {
+        options.FallbackPolicy = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .RequireAssertion(context => !context.User.HasClaim("requires_first_access", "true"))
+            .Build();
+        options.DefaultPolicy = options.FallbackPolicy;
+        options.AddPolicy("Session", policy => policy.RequireAuthenticatedUser());
+        options.AddPolicy(AuthorizationPolicyCatalog.Owner, policy =>
+            policy.RequireRole(AuthorizationPolicyCatalog.Owner));
+        options.AddPolicy("Management", policy => policy.RequireAuthenticatedUser().RequireAssertion(c => !c.User.HasClaim("requires_first_access", "true")).RequireRole("Owner", "Administrator", "Manager"));
+        options.AddPolicy("Administrator", policy => policy.RequireRole(
+            AuthorizationPolicyCatalog.Owner,
+            AuthorizationPolicyCatalog.Administrator, "Manager"));
+        foreach (var permission in AuthorizationPolicyCatalog.Permissions)
+        {
+            options.AddPolicy(permission, policy => policy.RequireClaim("permission", permission));
+        }
+
+        if (configuration.GetValue<bool>("Authentication:Google:Enabled"))
+        {
+            options.AddPolicy("GoogleSignIn", policy => policy
+                .AddAuthenticationSchemes("Google")
+                .RequireAuthenticatedUser()
+                .RequireClaim("email_verified", "true"));
+        }
+    });
+}
+
+static void ConfigureRateLimiting(IServiceCollection services)
+{
+    services.AddRateLimiter(options =>
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        // Bound public hints globally per replica; periodic bank polling recovers dropped notifications.
+        options.AddPolicy("c6-webhook", _ => RateLimitPartition.GetFixedWindowLimiter(
+            "c6-webhook", _ => new FixedWindowRateLimiterOptions
+            { PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true }));
+        options.AddPolicy("auth-login", context => RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                AutoReplenishment = true
+            }));
+        options.AddPolicy("auth-refresh", context => RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                AutoReplenishment = true
+            }));
+        options.AddPolicy("client-portal", context => RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? context.User.FindFirst("sub")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true }));
+        options.AddPolicy("public-demo-write", context => RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                AutoReplenishment = true
+            }));
+    });
+}
+
+static void ConfigureCors(
+    IServiceCollection services,
+    IConfiguration configuration,
+    IHostEnvironment environment)
+{
+    var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+    var mobileOrigins = configuration.GetSection("Authentication:MobileAllowedOrigins").Get<string[]>() ?? [];
+    var corsOrigins = allowedOrigins
+        .Concat(mobileOrigins)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    if (allowedOrigins.Length == 0 && !environment.IsDevelopment() && !environment.IsEnvironment("Test"))
+    {
+        throw new InvalidOperationException("Cors:AllowedOrigins must be configured outside Development and Test.");
+    }
+
+    services.AddCors(options => options.AddPolicy("web-client", policy =>
+    {
+        if (corsOrigins.Length == 0)
+        {
+            policy.SetIsOriginAllowed(_ => true);
+        }
+        else
+        {
+            policy.WithOrigins(corsOrigins);
+        }
+
+        policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+    }));
+}
+
+static void ConfigureHealthChecks(IServiceCollection services, IConfiguration configuration)
+{
+    var checks = services.AddHealthChecks()
+        .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"]);
+
+    if (configuration.GetValue("HealthChecks:DatabaseEnabled", true))
+    {
+        checks.AddCheck<PostgresHealthCheck>("postgresql", tags: ["ready"]);
+    }
+}
+
+static void ConfigureForwardedHeaders(IServiceCollection services, IConfiguration configuration)
+{
+    services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.ForwardLimit = 1;
+
+        if (configuration.GetValue("ReverseProxy:TrustAllForwarders", false))
+        {
+            options.KnownIPNetworks.Clear();
+            options.KnownProxies.Clear();
+        }
+    });
+}
+
+public partial class Program { }

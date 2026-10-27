@@ -1,17 +1,17 @@
 # syntax=docker/dockerfile:1.7
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-WORKDIR /source
+WORKDIR /source/backend
 
-COPY global.json Directory.Build.props LongBeach.sln ./
-COPY src/LongBeach.Api/LongBeach.Api.csproj src/LongBeach.Api/
-COPY src/LongBeach.Application/LongBeach.Application.csproj src/LongBeach.Application/
-COPY src/LongBeach.Contracts/LongBeach.Contracts.csproj src/LongBeach.Contracts/
-COPY src/LongBeach.Domain/LongBeach.Domain.csproj src/LongBeach.Domain/
-COPY src/LongBeach.Infrastructure/LongBeach.Infrastructure.csproj src/LongBeach.Infrastructure/
+COPY backend/global.json backend/Directory.Build.props backend/LongBeach.sln ./
+COPY backend/src/LongBeach.Api/LongBeach.Api.csproj src/LongBeach.Api/
+COPY backend/src/LongBeach.Application/LongBeach.Application.csproj src/LongBeach.Application/
+COPY backend/src/LongBeach.Contracts/LongBeach.Contracts.csproj src/LongBeach.Contracts/
+COPY backend/src/LongBeach.Domain/LongBeach.Domain.csproj src/LongBeach.Domain/
+COPY backend/src/LongBeach.Infrastructure/LongBeach.Infrastructure.csproj src/LongBeach.Infrastructure/
 RUN dotnet restore src/LongBeach.Api/LongBeach.Api.csproj
 
-COPY src/ src/
+COPY backend/src/ src/
 RUN dotnet publish src/LongBeach.Api/LongBeach.Api.csproj \
     --configuration Release \
     --no-restore \

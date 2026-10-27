@@ -1,0 +1,12 @@
+[Unit]
+Description=LongBeach operational status every minute
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=60s
+AccuracySec=10s
+RandomizedDelaySec=5s
+Unit=longbeach-monitor.service
+
+[Install]
+WantedBy=timers.target

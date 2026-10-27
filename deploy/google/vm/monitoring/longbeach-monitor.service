@@ -1,0 +1,31 @@
+[Unit]
+Description=LongBeach host operational heartbeat without an agent
+Wants=network-online.target
+After=network-online.target longbeach-runtime.service
+RequiresMountsFor=/var/lib/longbeach
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/python3 -I -B /opt/longbeach/monitoring/emit.py --send
+TimeoutStartSec=40s
+UMask=0077
+MemoryMax=64M
+CPUQuota=10%
+TasksMax=8
+NoNewPrivileges=true
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+MemoryDenyWriteExecute=true

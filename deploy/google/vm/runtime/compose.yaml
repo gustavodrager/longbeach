@@ -1,0 +1,238 @@
+name: longbeach
+
+x-logging: &logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: ${POSTGRES_BACKUP_IMAGE:?Set a verified PostgreSQL 18 backup image digest}
+    platform: linux/amd64
+    user: "999:999"
+    restart: unless-stopped
+    stop_grace_period: 90s
+    mem_limit: 1536m
+    shm_size: 320m
+    cpus: "1.25"
+    pids_limit: 256
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      PGDATA: /var/lib/postgresql/18/docker
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-admin-password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=peer
+    command:
+      - postgres
+      - -c
+      - listen_addresses=*
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - max_connections=60
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_timeout=60s
+      - -c
+      - archive_command=pgbackrest --stanza=longbeach archive-push %p
+      - -c
+      - max_wal_size=1GB
+      - -c
+      - log_statement=none
+      - -c
+      - log_min_duration_statement=-1
+    volumes:
+      - type: bind
+        source: /var/lib/longbeach/postgres
+        target: /var/lib/postgresql
+        bind: { create_host_path: false }
+      - type: bind
+        source: /run/longbeach/postgres-admin-password
+        target: /run/secrets/postgres-admin-password
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: /etc/longbeach/backup/pgbackrest.conf
+        target: /etc/pgbackrest/pgbackrest.conf
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: /var/lib/longbeach/pgbackrest/spool
+        target: /var/spool/pgbackrest
+        bind: { create_host_path: false }
+      - type: bind
+        source: /var/lib/longbeach/pgbackrest/log
+        target: /var/log/pgbackrest
+        bind: { create_host_path: false }
+      - type: bind
+        source: /var/lib/longbeach/pgbackrest/lock
+        target: /var/run/pgbackrest
+        bind: { create_host_path: false }
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /var/run/postgresql:size=16m,uid=999,gid=999,mode=3775
+    # Archive delivery needs outbound HTTPS/VM identity, without joining Caddy's network.
+    networks:
+      database: { ipv4_address: 172.29.11.20 }
+      archive: { ipv4_address: 172.29.12.20 }
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -q -U postgres -d postgres']
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 60s
+    logging: *logging
+
+  api:
+    image: ${API_IMAGE:?Set the currently published API digest}
+    platform: linux/amd64
+    user: "1654:1654"
+    restart: unless-stopped
+    stop_grace_period: 45s
+    mem_limit: 1024m
+    cpus: "1.0"
+    pids_limit: 256
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      DOTNET_EnableDiagnostics: "0"
+      API_DOMAIN: ${API_DOMAIN:?Set the canonical API host}
+      AllowedHosts: ${API_DOMAIN:?Set the canonical API host}
+      Database__MigrateOnStartup: "false"
+      Authorization__SeedOnStartup: "false"
+      Bootstrap__InitialOwner__Enabled: "false"
+      Authentication__Google__ProvisionAllowedEmailsAsOwners: "false"
+      BackgroundJobs__Enabled: ${WORKERS_ENABLED:-false}
+      ReverseProxy__TrustAllForwarders: "true"
+      Cors__AllowedOrigins__0: ${WEB_ORIGIN:?Set the preserved web origin}
+      Authentication__CookieDomain: longbeach.quebranunca.com.br
+      # Preserve the published import-only decision. Migration does not resume bank APIs.
+      Integrations__Banking__ImportOnly: "true"
+      Integrations__C6__Enabled: "false"
+      Integrations__C6__BankingEnabled: "false"
+      Integrations__C6__PixEnabled: "false"
+      Integrations__PagBankEdi__Enabled: "false"
+      Payments__Billing__Enabled: "false"
+      Payments__PagBank__Enabled: "false"
+      Payments__PagBank__PixEnabled: "false"
+      Payments__PagBank__CardEnabled: "false"
+      Payments__PagBankSubscriptions__Enabled: "false"
+    volumes:
+      - type: bind
+        source: /run/longbeach/appsettings.Production.json
+        target: /app/appsettings.Production.json
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ./health-api.sh
+        target: /opt/longbeach/health-api.sh
+        read_only: true
+        bind: { create_host_path: false }
+    tmpfs:
+      - /tmp:size=128m,uid=1654,gid=1654,mode=1700
+    networks:
+      edge: { ipv4_address: 172.29.10.10 }
+      database: { ipv4_address: 172.29.11.10 }
+    healthcheck:
+      test: [CMD, /bin/bash, /opt/longbeach/health-api.sh]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 90s
+    logging: *logging
+
+  caddy:
+    # Official 2.11.7 multi-platform index; linux/amd64 is selected above.
+    image: docker.io/library/caddy:2.11.7@sha256:504a44d7d74bd2bc28a66afc4774912fc21223ca8a67734af1c54ab2f999b489
+    platform: linux/amd64
+    user: "1000:1000"
+    restart: unless-stopped
+    stop_grace_period: 15s
+    mem_limit: 256m
+    cpus: "0.5"
+    pids_limit: 128
+    read_only: true
+    cap_drop: [ALL]
+    # The official binary has this file capability; its bounding set must allow exec.
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      api: { condition: service_healthy }
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?Set the canonical API host}
+      XDG_DATA_HOME: /data
+      XDG_CONFIG_HOME: /config
+    ports:
+      - "80:8080/tcp"
+      - "443:8443/tcp"
+    volumes:
+      - type: bind
+        source: ${CADDY_CONFIG:-./Caddyfile.certificate}
+        target: /etc/caddy/Caddyfile
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ./proxy.caddy
+        target: /etc/caddy/proxy.caddy
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: /run/longbeach/tls
+        target: /run/secrets/tls
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: /var/lib/longbeach/caddy/data
+        target: /data
+        bind: { create_host_path: false }
+      - type: bind
+        source: /var/lib/longbeach/caddy/config
+        target: /config
+        bind: { create_host_path: false }
+    tmpfs:
+      - /tmp:size=32m,uid=1000,gid=1000,mode=1700
+    networks:
+      edge: { ipv4_address: 172.29.10.11 }
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8081/health/live']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging: *logging
+
+networks:
+  edge:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config: [{ subnet: 172.29.10.0/24 }]
+  database:
+    driver: bridge
+    internal: true
+    enable_ipv6: false
+    ipam:
+      config: [{ subnet: 172.29.11.0/24 }]
+  archive:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config: [{ subnet: 172.29.12.0/24 }]

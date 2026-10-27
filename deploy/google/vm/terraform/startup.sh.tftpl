@@ -1,0 +1,103 @@
+#!/bin/bash
+# Prepare a private candidate only. This loader never formats disks, restores data or starts consumers.
+set -eu
+umask 077
+command -v python3 >/dev/null
+/usr/bin/python3 - <<'PY'
+import base64
+import hashlib
+import json
+import os
+from pathlib import Path, PurePosixPath
+import shutil
+import subprocess
+import tarfile
+import tempfile
+import urllib.parse
+import urllib.request
+
+bundle = json.loads(base64.b64decode("${bundle_json_b64}"))
+metadata = "http://metadata.google.internal/computeMetadata/v1/"
+
+def metadata_read(path):
+    request = urllib.request.Request(metadata + path, headers={"Metadata-Flavor": "Google"})
+    with urllib.request.urlopen(request, timeout=15) as response:
+        if response.headers.get("Metadata-Flavor") != "Google":
+            raise RuntimeError("metadata response identity missing")
+        return response.read()
+
+manifest_bytes = metadata_read("instance/attributes/longbeach-bootstrap-manifest")
+manifest = json.loads(manifest_bytes)
+if manifest["gates"] != {"database_restore_approved": False, "runtime_enabled": False, "workers_enabled": False}:
+    raise RuntimeError("bootstrap candidate gates must be closed")
+config_dir = Path("/etc/longbeach")
+config_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+os.chmod(config_dir, 0o700)
+manifest_path = config_dir / "bootstrap.json"
+manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+if manifest_path.exists() and manifest_path.read_bytes() != manifest_bytes:
+    raise RuntimeError("existing bootstrap manifest differs; explicit operator review required")
+manifest_path.write_bytes(manifest_bytes)
+os.chmod(manifest_path, 0o600)
+
+base = Path("/opt/longbeach/bootstrap")
+base.mkdir(mode=0o700, parents=True, exist_ok=True)
+prepared_path = base / "prepared.json"
+installed = base / bundle["sha256"]
+if prepared_path.exists():
+    prepared = json.loads(prepared_path.read_text())
+    if (prepared.get("bundle_sha256") != bundle["sha256"] or prepared.get("generation") != bundle["generation"] or
+            prepared.get("manifest_sha256") != manifest_sha256 or not installed.is_dir()):
+        raise RuntimeError("existing prepared candidate differs; explicit operator review required")
+    # Do not rerun prepare or reset the later runtime control on a normal reboot.
+    raise SystemExit(0)
+
+token = json.loads(metadata_read("instance/service-accounts/default/token"))["access_token"]
+url = ("https://storage.googleapis.com/download/storage/v1/b/" + urllib.parse.quote(bundle["bucket"], safe="") +
+       "/o/" + urllib.parse.quote(bundle["object"], safe="") + "?alt=media&generation=" + bundle["generation"])
+staging = Path(tempfile.mkdtemp(prefix="prepare-", dir=base))
+try:
+    archive = staging / "bundle.tar.gz"
+    request = urllib.request.Request(url, headers={"Authorization": "Bearer " + token})
+    token = None
+    with urllib.request.urlopen(request, timeout=120) as response, archive.open("wb") as output:
+        shutil.copyfileobj(response, output)
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    if digest != bundle["sha256"]:
+        raise RuntimeError("bootstrap bundle SHA-256 mismatch")
+    unpacked = staging / "bundle"
+    unpacked.mkdir(mode=0o700)
+    with tarfile.open(archive, "r:gz") as contents:
+        members = contents.getmembers()
+        for member in members:
+            path = PurePosixPath(member.name)
+            if path.is_absolute() or ".." in path.parts or not (member.isfile() or member.isdir()):
+                raise RuntimeError("unsafe bootstrap archive entry")
+            if member.mode & 0o6000:
+                raise RuntimeError("privileged archive mode refused")
+        contents.extractall(unpacked, members=members)
+    entrypoint = unpacked / "bin/bootstrap-vm"
+    if not entrypoint.is_file() or not os.access(entrypoint, os.X_OK):
+        raise RuntimeError("bootstrap entrypoint missing or not executable")
+    if installed.exists():
+        # A missing secret version may make prepare fail. Retry only an identical verified bundle.
+        def tree_fingerprint(directory):
+            result = {}
+            for item in directory.rglob("*"):
+                if item.is_symlink() or not (item.is_file() or item.is_dir()):
+                    raise RuntimeError("unsafe installed bootstrap entry")
+                result[str(item.relative_to(directory))] = (
+                    item.stat().st_mode & 0o7777,
+                    hashlib.sha256(item.read_bytes()).hexdigest() if item.is_file() else None,
+                )
+            return result
+        if not installed.is_dir() or tree_fingerprint(installed) != tree_fingerprint(unpacked):
+            raise RuntimeError("installed bundle differs; explicit operator review required")
+    else:
+        unpacked.rename(installed)
+    subprocess.run([str(installed / "bin/bootstrap-vm"), "--manifest", str(manifest_path), "--prepare-only"], check=True)
+    (base / "prepared.json").write_text(json.dumps({"bundle_sha256": digest, "generation": bundle["generation"], "manifest_sha256": manifest_sha256, "prepared_only": True}) + "\n")
+    os.chmod(base / "prepared.json", 0o600)
+finally:
+    shutil.rmtree(staging)
+PY

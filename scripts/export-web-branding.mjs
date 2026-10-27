@@ -3,7 +3,7 @@ import path from 'node:path'
 
 // Keep the original Canva pixels intact. SVG only sets the presentation viewport;
 // these wrappers are not vector artwork and must not be advertised as such.
-const publicDir = path.resolve(import.meta.dirname, '../app/public')
+const publicDir = path.resolve(import.meta.dirname, '../frontend/public')
 const original = await fs.readFile(path.join(publicDir, 'brand/long-beach-canva.png'))
 const image = `<image width="860" height="376" href="data:image/png;base64,${original.toString('base64')}"/>`
 const title = '<title>Long Beach Arena</title>'
