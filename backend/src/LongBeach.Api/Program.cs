@@ -204,6 +204,7 @@ app.MapAuthEndpoints(builder.Configuration.GetValue<bool>("Authentication:Google
 var publicOperationalDemo = !app.Environment.IsProduction() && app.Configuration.GetValue("DemoMode:PublicOperationalData", false);
 app.MapRentalGroupsEndpoints();
 app.MapOperationalEndpoints(publicOperationalDemo);
+app.MapMaterialEndpoints();
 
 if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
 {

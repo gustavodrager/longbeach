@@ -6,6 +6,7 @@ import { validateArenaRecord } from '../arena/validation'
 import { expandRecurringReservations, validateRecurringInput } from '../arena/recurring'
 import { useAuth } from '../auth/authContext'
 import type { ArenaClass, Court, Enrollment, FinanceEntry, Maintenance, Presence, RecurringReservationInput, RecurringReservationResponse, Reservation } from '../arena/types'
+import { canCompleteMaterialUnit, readDemoMaterialOperations, sameMaterialOperation, validMaterialQuantity, type DemoMaterialOperations, type MaterialAttempt, type MaterialHistory, type MaterialMovementInput, type MaterialMovementRow, type MaterialNature, type MaterialSnapshot } from './materialStock'
 
 export type Student = {
   id: string; version?: number; costsVisible?: boolean; name: string; phone: string; birthDate: string; address: string; shirtSize: string; shortsSize: string
@@ -18,7 +19,7 @@ export type TeamMember = {
 }
 export type InventoryItem = {
   id: string; version?: number; costsVisible?: boolean; name: string; category: string; unit: string; quantity: number; minimum: number
-  unitCost: number; location: string; notes: string; paymentMethod: string; movements: InventoryMovement[]
+  unitCost: number; location: string; notes: string; paymentMethod: string; movements: InventoryMovement[]; nature?: MaterialNature
 }
 export type InventoryMovement = { id: string; kind: 'Entrada' | 'Baixa'; quantity: number; occurredAt: string }
 export type ProjectTask = { id: string; title: string; done: boolean }
@@ -54,7 +55,12 @@ type Operations = OperationalData & {
   saveStudent: (value: New<Student>, id?: string) => Promise<string>
   saveTeamMember: (value: New<TeamMember>, id?: string) => Promise<string>
   saveInventoryItem: (value: New<InventoryItem>, id?: string) => Promise<string>
-  adjustStock: (id: string, amount: number) => Promise<void>
+  materialSessionKey: string; canReadMaterialHistory: boolean; canMoveMaterials: boolean; canAdjustMaterials: boolean
+  materialAttempt: (id: string) => MaterialAttempt | undefined
+  acknowledgeMaterialMovement: (id: string) => void
+  moveMaterial: (id: string, input: MaterialMovementInput, snapshot: MaterialSnapshot) => Promise<void>
+  refreshMaterial: (id: string) => Promise<InventoryItem>
+  materialHistory: (id: string, page: number) => Promise<MaterialHistory>
   saveProject: (value: New<ArenaProject>, id?: string) => Promise<string>
   saveCourt: (value: New<Court>, id?: string) => Promise<string>
   saveReservation: (value: New<Reservation>, id?: string) => Promise<string>
@@ -85,7 +91,7 @@ function readDemoRecurring(): DemoRecurringOperations {
 export function DemoDataProvider({ enabled, demoMode = false, children }: { enabled: boolean; demoMode?: boolean; children: ReactNode }) {
   const { user } = useAuth()
   const remote = enabled && (!demoMode || (import.meta.env.VITE_OPERATIONAL_STORAGE === 'postgres' && Boolean(import.meta.env.VITE_API_URL)))
-  const owner = demoMode ? 'demo' : user ? `${user.id}:${[...user.roles].sort().join(',')}:${[...user.permissions].sort().join(',')}` : 'signed-out'
+  const owner = demoMode && !remote ? 'demo' : user ? `${user.id}:${[...user.roles].sort().join(',')}:${[...user.permissions].sort().join(',')}` : 'signed-out'
   const ownerRef = useRef(owner)
   const sessionEpoch = useRef(0)
   if (ownerRef.current !== owner) { ownerRef.current = owner; sessionEpoch.current += 1 }
@@ -96,7 +102,11 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
   const pending = useRef(new Set<string>())
   const retryIds = useRef(new Map<string, string>())
   const demoRecurring = useRef<DemoRecurringOperations>(demoMode && !remote ? readDemoRecurring() : {})
+  const demoMaterials = useRef<DemoMaterialOperations>(demoMode && !remote ? readDemoMaterialOperations() : {})
+  const materialAttempts = useRef(new Map<string, MaterialAttempt & { owner: string; session: number }>())
+  const [materialRevision, setMaterialRevision] = useState(0)
   const [data, setData] = useState<OperationalData>(() => enabled && demoMode && !remote ? readDemo() : empty())
+  const dataEpoch = useRef(sessionEpoch.current)
   const dataRef = useRef(data); dataRef.current = data
   const [saving, setSaving] = useState(false)
   const [scheduleRevision, setScheduleRevision] = useState(0)
@@ -108,10 +118,13 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
   const can = useCallback((kind: OperationalKind, operation: 'read' | 'write') => demoMode || hasPermission(user, operationalPermissions[kind][operation]), [demoMode, user])
   const canRead = useCallback((kind: OperationalKind) => can(kind, 'read'), [can])
   const canWrite = useCallback((kind: OperationalKind) => can(kind, 'write'), [can])
+  const canReadMaterialHistory = enabled && (demoMode && !remote || Boolean(user) && hasPermission(user, 'inventory:read'))
+  const canMoveMaterials = canReadMaterialHistory && (demoMode && !remote || hasPermission(user, 'inventory:write'))
+  const canAdjustMaterials = canMoveMaterials && (demoMode && !remote || hasPermission(user, 'inventory:adjust'))
   const load = useCallback(async (background = false) => {
     if (!enabled) return
     if (pending.current.size > 0) { if (!background) setPersistenceMessage('Aguarde a confirmação do cadastro antes de atualizar.'); return }
-    if (!remote) { demoRecurring.current = readDemoRecurring(); setData(readDemo()); setPersistenceStatus('local'); setDataUpdatedAt(new Date().toISOString()); setRefreshFailed(false); return }
+    if (!remote) { demoRecurring.current = readDemoRecurring(); demoMaterials.current = readDemoMaterialOperations(); setData(readDemo()); setPersistenceStatus('local'); setDataUpdatedAt(new Date().toISOString()); setRefreshFailed(false); return }
     if (!demoMode && !user) { setData(empty()); setDataUpdatedAt(null); return }
     if (activeLoad.current?.owner === owner && activeLoad.current.session === sessionEpoch.current && activeLoad.current.load === loadEpoch.current) return
     const requestOwner = owner, requestEpoch = sessionEpoch.current, requestLoad = ++loadEpoch.current, requestMutation = mutationEpoch.current
@@ -141,9 +154,9 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
   const reload = useCallback(() => load(), [load])
   useEffect(() => {
     const next = remote ? empty() : enabled && demoMode ? readDemo() : empty()
-    dataRef.current = next; setData(next); setDataUpdatedAt(null); setRefreshFailed(false)
+    dataEpoch.current = sessionEpoch.current; dataRef.current = next; setData(next); setDataUpdatedAt(null); setRefreshFailed(false)
     hasRemoteSnapshot.current = false; loadEpoch.current += 1; activeLoad.current = null
-    pending.current.clear(); retryIds.current.clear(); setSaving(false)
+    pending.current.clear(); retryIds.current.clear(); materialAttempts.current.clear(); setMaterialRevision(current => current + 1); setSaving(false)
     void reload()
     return () => { loadEpoch.current += 1 }
   }, [reload, remote, enabled, demoMode])
@@ -165,7 +178,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
   }, [enabled, remote, demoMode, user, load])
   useEffect(() => {
     if (!enabled || !demoMode || remote) return
-    try { localStorage.setItem(storageKey, JSON.stringify({ ...data, __recurringOperations: demoRecurring.current })) } catch { setPersistenceMessage('O navegador não conseguiu guardar os dados de teste.'); setPersistenceStatus('error') }
+    try { localStorage.setItem(storageKey, JSON.stringify({ ...data, __recurringOperations: demoRecurring.current, __materialOperations: demoMaterials.current })) } catch { setPersistenceMessage('O navegador não conseguiu guardar os dados de teste.'); setPersistenceStatus('error') }
   }, [data, enabled, demoMode, remote])
   const save = useCallback(async <K extends OperationalKind>(kind: K, input: Omit<OperationalData[K][number], 'id'>, existingId?: string) => {
     if (!enabled || (!demoMode && !user) || !canWrite(kind)) throw new Error('Você não tem permissão para alterar este cadastro.')
@@ -176,7 +189,20 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
     if (pending.current.has(key)) throw new Error('Este cadastro já está sendo salvo. Aguarde a confirmação.')
     pending.current.add(key); mutationEpoch.current += 1; activeLoad.current = null; setSaving(true)
     const record = { ...input, id }
+    if (kind === 'inventory') {
+      const material = record as InventoryItem
+      if (!canRead('financeEntries') || !canWrite('financeEntries') || material.costsVisible === false) {
+        delete (material as Partial<InventoryItem>).unitCost; delete (material as Partial<InventoryItem>).paymentMethod
+      }
+    }
     if (!remote) {
+      if (kind === 'inventory') {
+        const material = record as InventoryItem, previous = dataRef.current.inventory.find(row => row.id === id)
+        if (!(material.unit ?? '').trim() || !(material.location ?? '').trim() || !validMaterialQuantity(material.quantity) || !validMaterialQuantity(material.minimum) || (previous ? material.quantity !== previous.quantity || (material.unit ?? '').trim() !== (previous.unit ?? '').trim() && !canCompleteMaterialUnit(previous) || JSON.stringify(material.movements ?? []) !== JSON.stringify(previous.movements ?? []) : material.quantity !== 0 || (material.movements ?? []).length > 0)) {
+          pending.current.delete(key); setSaving(pending.current.size > 0); throw new Error('Registre alterações de saldo em Movimentar. Preserve a unidade e os registros anteriores.')
+        }
+        material.version = (previous?.version ?? 0) + 1
+      }
       const error = validateArenaRecord(kind, record, dataRef.current)
       if (error) { pending.current.delete(key); setSaving(pending.current.size > 0); throw new Error(error) }
     }
@@ -194,7 +220,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
       if (ownerRef.current === requestOwner && sessionEpoch.current === requestEpoch) setPersistenceMessage(error instanceof Error ? error.message : 'Não foi possível salvar. Seu formulário permanece aberto.')
       throw error
     } finally { if (ownerRef.current === requestOwner && sessionEpoch.current === requestEpoch) { pending.current.delete(key); setSaving(pending.current.size > 0) } }
-  }, [enabled, demoMode, user, canWrite, remote, persistenceStatus, owner])
+  }, [enabled, demoMode, user, canRead, canWrite, remote, persistenceStatus, owner])
   const saveRecurringReservations = useCallback(async (input: RecurringReservationInput): Promise<RecurringReservationResponse> => {
     if (!enabled || (!demoMode && !user) || !canWrite('reservations')) throw new ApiError(403, 'Você não tem permissão para criar reservas recorrentes.')
     if (remote && persistenceRef.current !== 'connected') throw new ApiError(503, 'Atualize os dados antes de salvar. O formulário permanece aberto.')
@@ -227,7 +253,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
           }
           const operations = { ...demoRecurring.current, [normalized.operationId]: { fingerprint, ids: rows.map(row => row.id) } }
           // One browser write preserves the complete group; no partial local batch is acknowledged.
-          localStorage.setItem(storageKey, JSON.stringify({ ...snapshot, __recurringOperations: operations }))
+          localStorage.setItem(storageKey, JSON.stringify({ ...snapshot, __recurringOperations: operations, __materialOperations: demoMaterials.current }))
           demoRecurring.current = operations
           saved = { groupId: normalized.operationId, groupTitle: normalized.groupTitle, reservations: rows }
         }
@@ -243,21 +269,109 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
       throw error
     } finally { if (ownerRef.current === requestOwner && sessionEpoch.current === requestEpoch) { pending.current.delete(key); setSaving(pending.current.size > 0) } }
   }, [enabled, demoMode, user, canWrite, remote, owner])
+  const materialAttempt = useCallback((id: string) => {
+    const attempt = materialAttempts.current.get(id)
+    return attempt?.owner === owner && attempt.session === sessionEpoch.current ? attempt : undefined
+  }, [owner])
+  const acknowledgeMaterialMovement = useCallback((id: string) => {
+    if (materialAttempt(id)?.status !== 'confirmed') return
+    materialAttempts.current.delete(id); setMaterialRevision(current => current + 1)
+  }, [materialAttempt])
+  const moveMaterial = useCallback(async (id: string, input: MaterialMovementInput, snapshot: MaterialSnapshot) => {
+    if (!canMoveMaterials || input.kind === 'Count' && !canAdjustMaterials) throw new ApiError(403, 'Você não tem permissão para esta movimentação.')
+    const previous = materialAttempt(id), key = `inventory:${id}`, requestOwner = owner, requestEpoch = sessionEpoch.current
+    if (previous?.status === 'conflict') throw new ApiError(409, 'Atualize e confira o saldo antes de iniciar outra solicitação.')
+    if (previous && !sameMaterialOperation(previous.input, input)) throw new ApiError(425, 'Confira a solicitação pendente antes de iniciar outra movimentação.')
+    if (previous?.status === 'confirmed') return
+    if (pending.current.has(key)) throw new ApiError(425, 'Aguarde a confirmação desta movimentação.')
+    if (remote && persistenceRef.current !== 'connected') throw new ApiError(503, 'Atualize os dados antes de movimentar.')
+    const current = () => ownerRef.current === requestOwner && sessionEpoch.current === requestEpoch
+    const checkpoint = (status: MaterialAttempt['status']) => {
+      materialAttempts.current.set(id, { input: { ...input }, snapshot: { ...snapshot }, status, owner: requestOwner, session: requestEpoch })
+      setMaterialRevision(revision => revision + 1)
+    }
+    pending.current.add(key); mutationEpoch.current += 1; activeLoad.current = null; setSaving(true); checkpoint('sending')
+    try {
+      let material: InventoryItem
+      if (remote) {
+        if (navigator.onLine === false) throw new ApiError(0, 'Sem conexão. Confira a mesma solicitação quando estiver online.')
+        const saved = await apiFetch<{ material: InventoryItem; movement: MaterialMovementRow }>(`/api/v1/materials/${id}/movements`, { method: 'POST', body: JSON.stringify(input) })
+        material = saved.material
+      } else {
+        // The local demonstration has its own ledger; production never reads these browser receipts.
+        if (!demoMode) throw new ApiError(403, 'Movimentação local disponível apenas na demonstração.')
+        const existing = dataRef.current.inventory.find(row => row.id === id)
+        if (!existing) throw new ApiError(404, 'Material não encontrado.')
+        const receipt = demoMaterials.current[input.operationId]
+        if (receipt) {
+          if (receipt.materialId !== id || receipt.actorId !== 'demo' || !sameMaterialOperation(receipt.input, input)) throw new ApiError(409, 'Solicitação já utilizada. Confira o histórico.')
+          material = existing
+        } else {
+          if (input.expectedVersion !== (existing.version ?? 0)) throw new ApiError(409, 'O saldo mudou. Atualize e confira a quantidade.')
+          if (!validMaterialQuantity(input.quantity) || input.kind !== 'Count' && input.quantity <= 0 || !input.reason.trim() || input.reason.trim().length > 500 || !input.destination.trim() || input.destination.trim().length > 160 || !(existing.location ?? '').trim() || !(existing.unit ?? '').trim()) throw new ApiError(400, 'Confira quantidade, motivo, destino, unidade e local do material.')
+          if (input.kind === 'Consumption' && existing.nature !== 'Consumable') throw new ApiError(400, 'Consumo exige um material classificado como material de consumo.')
+          const after = Math.round((input.kind === 'Count' ? input.quantity : existing.quantity + (input.kind === 'Receipt' ? input.quantity : -input.quantity)) * 1000) / 1000
+          if (!validMaterialQuantity(after) || after === existing.quantity) throw new ApiError(400, 'O saldo deve mudar e não pode ficar negativo.')
+          material = { ...existing, quantity: after, version: (existing.version ?? 0) + 1 }
+          const movement: MaterialMovementRow = { id: makeId(), materialId: id, kind: input.kind, before: existing.quantity, quantity: Math.round((after - existing.quantity) * 1000) / 1000, after, unit: existing.unit, location: existing.location, reason: input.reason, destination: input.destination, actorId: 'demo', actorName: 'Demonstração local', occurredAt: new Date().toISOString() }
+          const receipts = { ...demoMaterials.current, [input.operationId]: { input: { ...input }, materialId: id, actorId: 'demo', movement } }
+          const next = { ...dataRef.current, inventory: dataRef.current.inventory.map(row => row.id === id ? material : row) }
+          localStorage.setItem(storageKey, JSON.stringify({ ...next, __recurringOperations: demoRecurring.current, __materialOperations: receipts }))
+          demoMaterials.current = receipts
+        }
+      }
+      if (!current()) throw new Error('A sessão mudou. Atualize os dados antes de continuar.')
+      const next = { ...dataRef.current, inventory: dataRef.current.inventory.map(row => row.id === id ? material : row) }
+      dataRef.current = next; setData(next); checkpoint('confirmed')
+      if (!remote) setDataUpdatedAt(new Date().toISOString())
+      setPersistenceMessage('Movimentação confirmada. O saldo do material foi atualizado.')
+    } catch (error) {
+      if (current()) {
+        if (error instanceof ApiError && error.status === 409) checkpoint('conflict')
+        else if (!(error instanceof ApiError) || error.status === 0 || error.status >= 500 || [408, 425, 429].includes(error.status)) checkpoint('uncertain')
+        else { materialAttempts.current.delete(id); setMaterialRevision(revision => revision + 1) }
+      }
+      throw error
+    } finally { if (current()) { pending.current.delete(key); setSaving(pending.current.size > 0) } }
+  }, [canMoveMaterials, canAdjustMaterials, materialAttempt, owner, remote, demoMode])
+  const refreshMaterial = useCallback(async (id: string): Promise<InventoryItem> => {
+    if (!enabled || !canRead('inventory') || remote && !user) throw new ApiError(403, 'Você não tem permissão para consultar o estoque.')
+    const attempt = materialAttempt(id), key = `inventory:${id}`, requestOwner = owner, requestEpoch = sessionEpoch.current
+    if (attempt?.status === 'sending' || attempt?.status === 'uncertain') throw new ApiError(425, 'Confira a mesma solicitação antes de atualizar o saldo.')
+    if (pending.current.has(key)) throw new ApiError(425, 'Aguarde a confirmação desta movimentação.')
+    pending.current.add(key); mutationEpoch.current += 1; activeLoad.current = null; setSaving(true)
+    try {
+      const rows = remote ? await apiFetch<InventoryItem[]>('/api/v1/operations/inventory') : dataRef.current.inventory
+      if (ownerRef.current !== requestOwner || sessionEpoch.current !== requestEpoch) throw new Error('A sessão mudou. Atualize os dados antes de continuar.')
+      const fresh = rows.find(row => row.id === id)
+      if (!fresh) throw new ApiError(404, 'Material não encontrado na leitura atual.')
+      const next = { ...dataRef.current, inventory: dataRef.current.inventory.map(row => row.id === id ? fresh : row) }
+      dataRef.current = next; setData(next)
+      materialAttempts.current.delete(id); setMaterialRevision(revision => revision + 1)
+      return fresh
+    } finally { if (ownerRef.current === requestOwner && sessionEpoch.current === requestEpoch) { pending.current.delete(key); setSaving(pending.current.size > 0) } }
+  }, [enabled, canRead, remote, user, materialAttempt, owner])
+  const materialHistory = useCallback(async (id: string, page: number): Promise<MaterialHistory> => {
+    if (!enabled || !canRead('inventory') || remote && !user) throw new ApiError(403, 'Entre com uma sessão individual para consultar as movimentações.')
+    const requestOwner = owner, requestEpoch = sessionEpoch.current
+    const history = remote ? await apiFetch<MaterialHistory>(`/api/v1/materials/${id}/movements?page=${page}`) : (() => {
+      const items = Object.values(demoMaterials.current).filter(row => row.materialId === id).map(row => row.movement).sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+      return { items: items.slice((page - 1) * 50, page * 50), page, total: items.length }
+    })()
+    if (ownerRef.current !== requestOwner || sessionEpoch.current !== requestEpoch) throw new Error('A sessão mudou. Consulte o histórico novamente.')
+    return history
+  }, [enabled, canRead, remote, user, owner])
   const value = useMemo<Operations>(() => ({
-    ...data, persistenceStatus, persistenceMessage, saving, scheduleRevision, dataUpdatedAt, refreshFailed, canRead, canWrite, reload,
+    ...(dataEpoch.current === sessionEpoch.current ? data : empty()), persistenceStatus, persistenceMessage, saving, scheduleRevision, dataUpdatedAt, refreshFailed, canRead, canWrite, reload,
     saveRentalGroup: (v,id) => save('rentalGroups',v,id), saveRentalAttendance: (v,id) => save('rentalAttendances',v,id),
     saveStudent: (v,id) => save('students',v,id), saveTeamMember: (v,id) => save('team',v,id),
     saveInventoryItem: (v,id) => save('inventory',v,id), saveProject: (v,id) => save('projects',v,id),
     saveCourt: (v,id) => save('courts',v,id), saveReservation: (v,id) => save('reservations',v,id),
     saveRecurringReservations,
+    materialSessionKey: `${owner}:${sessionEpoch.current}`, canReadMaterialHistory, canMoveMaterials, canAdjustMaterials, materialAttempt, acknowledgeMaterialMovement, moveMaterial, refreshMaterial, materialHistory,
     saveClass: (v,id) => save('classes',v,id), saveEnrollment: (v,id) => save('enrollments',v,id),
     savePresence: (v,id) => save('presences',v,id), saveFinanceEntry: (v,id) => save('financeEntries',v,id), saveMaintenance: (v,id) => save('maintenance',v,id),
-    adjustStock: async (id, amount) => {
-      const item = dataRef.current.inventory.find(row => row.id === id)
-      if (!item || !Number.isFinite(amount) || amount === 0 || item.quantity + amount < 0) throw new Error('Confira a quantidade do material antes de ajustar.')
-      await save('inventory', { ...item, quantity: item.quantity + amount, movements: [...(item.movements ?? []), { id: makeId(), kind: amount > 0 ? 'Entrada' : 'Baixa', quantity: Math.abs(amount), occurredAt: new Date().toISOString() }] }, id)
-    },
-  }), [data, persistenceStatus, persistenceMessage, saving, scheduleRevision, dataUpdatedAt, refreshFailed, canRead, canWrite, reload, save, saveRecurringReservations])
+  }), [data, persistenceStatus, persistenceMessage, saving, scheduleRevision, dataUpdatedAt, refreshFailed, canRead, canWrite, reload, save, saveRecurringReservations, owner, canReadMaterialHistory, canMoveMaterials, canAdjustMaterials, materialAttempt, acknowledgeMaterialMovement, moveMaterial, refreshMaterial, materialHistory, materialRevision])
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
 export function useOptionalOperations() { return useContext(Context) }

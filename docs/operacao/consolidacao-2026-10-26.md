@@ -16,6 +16,8 @@ Bundles verificados, patches binários, arquivos novos e inventários privados e
 - Perfis contém trabalho local em materiais/estoque, migrations e testes. Inventário e patches ficam preservados; integração funcional exige revisão separada.
 - Google Cloud estava ativo. Conferir seu trabalho posterior à base copiada antes de arquivar os caminhos que utiliza.
 
+A [reavaliação de 27/10](auditoria-atualidade-e-pendencias-2026-10-27.md) confirmou a atualidade do código consolidado e refinou as pendências: proteção de unidade/controle de estoque no Bar e evolução das movimentações de materiais. A integração das branches no GitHub continua pendente; não copiar arquivos compartilhados ou migrations antigas automaticamente.
+
 ## Estrutura
 
 `app/` virou `frontend/`. `src/`, `tests/`, solução e arquivos .NET foram movidos juntos para `backend/`. CI, Dockerfiles, exclusões, branding, cópia da auditoria SQL nos testes e compilação Google foram ajustados. O build Google continua reconhecendo os commits históricos com `app/`.
@@ -36,7 +38,7 @@ O responsável autorizou separadamente atualizar também a prévia local com bac
 
 A coordenação confirmou ausência de gravadores e liberou arquivar work preservando seu alias. As nove áreas e os quatro utilitários originais foram movidos integralmente para arquivo/ambientes-anteriores; o alias work mantém os caminhos anteriores. O recibo ambientes-execucao-20261026T190140Z-c644bd3025.json comprova 74.671 arquivos preservados e os nove HEAD/status Git idênticos após o movimento.
 
-**Exceção operacional: outputs permanece como diretório real.** O helper source-freeze.py e referências de planos com hashes fixados exigem caminhos canônicos (p.resolve() == p). Converter outputs em symlink impediria a retomada e a conferência de retorno. Não houve movimento ou edição de seus checkpoints. O índice evidencias/operacoes-em-andamento apenas aponta para outputs; sua origem continua real. Essa pendência foi explicitamente coordenada com o chat Google Cloud.
+**Exceção durante a migração, encerrada em 27/10/2026:** outputs foi mantido como diretório real em 26/10, pois o helper source-freeze.py e referências de planos com hashes fixados exigem caminhos canônicos (p.resolve() == p). Após encerramento formal, liberação coordenada e revisão do retorno, a árvore inteira foi movida para evidencias/outputs, com alias histórico outputs. Os originais e checkpoints não foram editados. O índice evidencias/operacoes-em-andamento permanece como referência histórica. O [guia dos comprovantes e do retorno local](comprovantes-e-retorno-local.md) registra a conferência integral e o ensaio que restaurou o caminho real antes do movimento final.
 
 A referência final dessa frente, 298bf244a62049ea22bcb56b50cdd4fb9bee3c9d, foi preservada em refs arquivo-notas/* e em um bundle final verificado. Após 0ba01b9 ela altera somente ADR-015 e o runbook google-vm.md; ambos foram incorporados à aplicação principal. A coordenação foi informada do novo caminho e da liberação das gravações operacionais.
 
@@ -52,3 +54,9 @@ A branch local é codex/consolidacao-estrutura-20261026, com HEAD na referência
 ## Publicação posterior autorizada
 
 Em 26/10/2026, o responsável autorizou enviar e publicar a aplicação consolidada. O commit `7179c9fad657327d2bd9cc4dfa2e750180dedebf` foi enviado na branch `codex/consolidacao-estrutura-20261026`, com revisão no [PR 47](https://github.com/gustavodrager/longbeach/pull/47). A API foi promovida por digest à VM econômica e o frontend publicado no Firebase, preservando dados, configurações e backups. As 27 migrations continuam idênticas e nenhuma foi executada em produção. O [registro da release](release-google-vm.json) identifica os artefatos e as verificações; o commit posterior que salva esses registros não altera o código dos artefatos publicados.
+
+## Incorporação seletiva posterior — 27/10/2026
+
+Após a [auditoria de atualidade e pendências](auditoria-atualidade-e-pendencias-2026-10-27.md), a branch `codex/estoque-materiais-20261027` incorporou seletivamente a proteção do catálogo Bar e as movimentações auditáveis de materiais. Os originais arquivados permanecem preservados. O [registro dessa integração](integracao-estoque-materiais-2026-10-27.md) identifica a implementação adaptada, os testes e as condições do schema local.
+
+Esta etapa é posterior à consolidação e à publicação descritas acima. Seus resultados locais não alteram por inferência o estado histórico do GitHub, da prévia ou da produção registrado neste documento.

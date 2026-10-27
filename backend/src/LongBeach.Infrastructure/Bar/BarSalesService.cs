@@ -6,17 +6,24 @@ using LongBeach.Domain.Payments;
 using LongBeach.Domain.Inventory;
 using LongBeach.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 namespace LongBeach.Infrastructure.Bar;
 public sealed class BarSalesService(LongBeachDbContext db, IPaymentGateway? gateway = null) : IBarSales
 {
     public async Task<object> Create(SaleInput input, Guid actor, CancellationToken ct)
     {
         if (input.Items is null || input.Items.Count is 0 or > 100) throw new BarRuleException("Informe de 1 a 100 itens.");
+        await using var transaction = db.Database.CurrentTransaction is null
+            ? await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct) : null;
+        if (db.Database.CurrentTransaction!.GetDbTransaction().IsolationLevel != System.Data.IsolationLevel.Serializable)
+            throw new InvalidOperationException("A criação da venda exige uma transação serializável.");
         var session = await Session(input.SessionId, ct); if (session.OpenedBy != actor) throw new BarRuleException("Você só pode vender no próprio caixa."); session.EnsureOpen();
         var sale = new BarSale(session.Id, session.LocationId, actor);
         foreach (var item in input.Items)
-        { var product = await db.Set<BarProduct>().SingleOrDefaultAsync(x => x.Id == item.ProductId, ct) ?? throw new BarRuleException("Produto inexistente."); if(product.SalePrice<=0)throw new BarRuleException("Produto sem preço de venda. Use ajuste supervisionado para cortesia."); if(product.Prepared&&await db.Set<BarRecipeVersion>().AnyAsync(x=>x.ProductId==product.Id,ct))throw new BarRuleException("Este produto tem ficha técnica. Use o novo atendimento para reservar e entregar os ingredientes."); sale.Add(product, item.Quantity); }
-        db.Add(sale); await db.SaveChangesAsync(ct); return Public(sale, false);
+        { var product = await db.Set<BarProduct>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == item.ProductId, ct) ?? throw new BarRuleException("Produto inexistente."); if(product.SalePrice<=0)throw new BarRuleException("Produto sem preço de venda. Use ajuste supervisionado para cortesia."); if(product.Prepared&&await db.Set<BarRecipeVersion>().AnyAsync(x=>x.ProductId==product.Id,ct))throw new BarRuleException("Este produto tem ficha técnica. Use o novo atendimento para reservar e entregar os ingredientes."); sale.Add(product, item.Quantity); }
+        db.Add(sale); await db.SaveChangesAsync(ct);
+        if (transaction is not null) await transaction.CommitAsync(ct);
+        return Public(sale, false);
     }
     public async Task<object> List(Guid actor, bool all, bool costs, CancellationToken ct) =>
         (await db.Set<BarSale>().AsNoTracking().Include(x => x.Items).Where(x => all || x.ActorId == actor).OrderByDescending(x => x.CreatedAtUtc).Take(200).ToListAsync(ct)).Select(x => Public(x,costs)).ToArray();

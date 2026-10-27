@@ -62,7 +62,7 @@ public sealed partial class BarStockService(LongBeachDbContext db, IConfiguratio
     {
         BarRules.Quantity(input.Quantity); BarRules.Text(input.Reason, 500, "Motivo");
         if (input.OperationId == Guid.Empty || input.FromLocationId == input.ToLocationId) throw new BarRuleException("Origem, destino e operação inválidos.");
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
         if (await db.Set<StockMovement>().AnyAsync(x => x.OriginId == input.OperationId, ct)) throw new BarRuleException("Operação já registrada; consulte as movimentações.");
         var product = await Product(input.ProductId, ct);
         var from = await Balance(input.ProductId, input.FromLocationId, ct); var to = await Balance(input.ProductId, input.ToLocationId, ct);
@@ -73,7 +73,7 @@ public sealed partial class BarStockService(LongBeachDbContext db, IConfiguratio
     public async Task Output(StockOutputInput input, string kind, Guid actor, bool supervisor, CancellationToken ct)
     {
         BarRules.Quantity(input.Quantity); if (input.OperationId == Guid.Empty) throw new BarRuleException("Identificador da operação obrigatório.");
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
         if (await db.Set<StockMovement>().AnyAsync(x => x.OriginId == input.OperationId, ct)) throw new BarRuleException("Operação já registrada.");
         var product = await Product(input.ProductId, ct); var balance = await Balance(input.ProductId, input.LocationId, ct);
         var approvalLimit = config?.GetValue<decimal>("Bar:StockOutputApprovalLimit") ?? 100m;
@@ -88,7 +88,7 @@ public sealed partial class BarStockService(LongBeachDbContext db, IConfiguratio
         if (!await db.Set<StockLocation>().AnyAsync(x => x.Id == input.LocationId, ct)) throw new BarRuleException("Local inexistente.");
         if (input.Initial && (await db.Set<StockMovement>().AnyAsync(x => x.LocationId == input.LocationId, ct) || await db.Set<InventoryCount>().AnyAsync(x => x.LocationId == input.LocationId && x.Initial && x.State == "Approved", ct))) throw new BarRuleException("Local já possui movimentos; use inventário regular.");
         var count = new InventoryCount(input.LocationId, input.Initial, actor);
-        foreach (var product in await db.Set<BarProduct>().Where(x => x.Active && x.ControlsStock).ToListAsync(ct))
+        foreach (var product in await db.Set<BarProduct>().AsNoTracking().Where(x => x.Active && x.ControlsStock).ToListAsync(ct))
         {
             var balance = await Balance(product.Id, input.LocationId, ct);
             count.Items.Add(new InventoryCountItem(count.Id, product.Id, balance.Quantity, balance.Version, product.AverageCost));
@@ -123,7 +123,7 @@ public sealed partial class BarStockService(LongBeachDbContext db, IConfiguratio
     }
     private async Task<BarProduct> Product(Guid id, CancellationToken ct)
     {
-        var product = await db.Set<BarProduct>().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new BarRuleException("Produto inexistente.");
+        var product = await db.Set<BarProduct>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw new BarRuleException("Produto inexistente.");
         if (!product.ControlsStock) throw new BarRuleException("Produto não controla estoque."); return product;
     }
 }

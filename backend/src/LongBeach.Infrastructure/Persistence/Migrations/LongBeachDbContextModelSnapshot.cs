@@ -1936,6 +1936,80 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.ToTable("inventory_count_items", (string)null);
                 });
 
+            modelBuilder.Entity("LongBeach.Domain.Inventory.MaterialMovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("After")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)");
+
+                    b.Property<decimal>("Before")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Destination")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int>("ExpectedVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("MaterialId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal>("RequestedQuantity")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("numeric(12,3)");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MaterialId", "CreatedAtUtc");
+
+                    b.HasIndex("MaterialId", "ExpectedVersion")
+                        .IsUnique();
+
+                    b.ToTable("material_movements", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_material_movement", "\"Before\" >= 0 AND \"After\" >= 0 AND \"After\" = \"Before\" + \"Quantity\" AND \"Quantity\" <> 0");
+                        });
+                });
+
             modelBuilder.Entity("LongBeach.Domain.Inventory.StockBalance", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2892,6 +2966,15 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.HasOne("LongBeach.Domain.Bar.BarProduct", null)
                         .WithMany()
                         .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Inventory.MaterialMovement", b =>
+                {
+                    b.HasOne("LongBeach.Domain.Operations.OperationalRecord", null)
+                        .WithMany()
+                        .HasForeignKey("MaterialId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

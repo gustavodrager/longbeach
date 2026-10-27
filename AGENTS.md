@@ -6,7 +6,7 @@ Estas regras se aplicam a todo o repositório.
 
 - Este checkout é a aplicação principal. Use `frontend/` para React/PWA/Capacitor e `backend/` para solução .NET, código e testes.
 - Execute comandos .NET dentro de `backend/`, respeitando `global.json`. CI e Docker usam contexto da raiz deste repositório.
-- Arquivos em `../arquivo/`, `../work/` e `../outputs/` são históricos ou operacionais; não crie outra aplicação nessas pastas.
+- Arquivos em `../arquivo/`, `../work/` e `../evidencias/outputs/` são históricos ou operacionais; `../outputs/` é apenas um alias de consulta. Não crie outra aplicação nessas pastas. Preserve os originais e siga `docs/operacao/comprovantes-e-retorno-local.md` antes de usar ferramentas que exigem o caminho real antigo.
 - Mantenha compatibilidade com o layout dos commits históricos nos scripts de release.
 - Não integre automaticamente o trabalho antigo preservado; consulte o registro de consolidação e revise em mudança própria.
 
