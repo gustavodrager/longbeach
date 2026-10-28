@@ -118,7 +118,7 @@ export function DashboardPage() {
           {data.canRead('reservations') && <Metric label="Reservas no período" value={count('reservations', data.reservations.filter(item => inPeriod(item.date) && !['Cancelada', 'Bloqueio'].includes(item.status)).length)} to={link('/agenda', { view: 'list', activity: 'reservations' })} action="Abrir reservas do período" />}
         </div>
         {hasPermission(user, 'bar:finance:read') && <BarArenaMetrics from={from} to={to} compact />}
-        <p className="arena-hint">Financeiro e bar têm fontes separadas. Consulte a composição antes de comparar ou somar valores.</p>
+        <p className="arena-hint">Financeiro e Bar usam as mesmas fontes da Arena. Os indicadores mostram recortes que podem se sobrepor; consulte a composição para evitar contar o mesmo valor duas vezes.</p>
       </>}
     </section>
 

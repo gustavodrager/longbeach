@@ -50,6 +50,12 @@ O foco informado pelo usuário foi entender quais horários estão livres ou ocu
 
 Não houve alteração de contrato, regra de ocupação no servidor, navegação principal, autorização ou dados.
 
+### Complemento solicitado antes da publicação
+
+O proprietário esclareceu que Financeiro e Bar usam as mesmas fontes da Arena. Foram corrigidos cinco avisos que apresentavam fontes separadas, na Visão geral, composição das contas, lançamentos e indicadores do Bar. A redação agora descreve o mesmo financeiro, com recortes que podem se sobrepor e exigem conferência da composição para evitar duplicidade. Valores, consultas, cálculos, pagamentos, saldos bancários e permissões permanecem iguais. A correção de linguagem não afirma consolidação ou deduplicação automática universal dos registros.
+
+A publicação preparada inicialmente para a fonte `5b3de377e2ff3fad7951812f4bca3409c3d50ab9` foi interrompida antes de aprovação ou promoção. O gate `40755657388` e o artefato dessa preparação não autorizam a versão com este complemento; a publicação final exige novo SHA e novo gate.
+
 ### Navegação e uso no celular
 
 - Sem escolha explícita na URL, a agenda usa o dia no celular e a semana no desktop. Uma escolha explícita de visualização deve prevalecer.

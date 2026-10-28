@@ -25,6 +25,6 @@ export function BarArenaMetrics({ from, to, compact = false }: { from: string; t
       return <Link className="arena-metric" key={metric} to={`/bar/indicadores/${metric}?${params}`}><span className="arena-metric-label">{title}</span><strong>{query.isError ? 'Falha ao carregar' : report && report.available !== false ? report.unit === 'money' ? money(report.value) : report.value : query.isPending ? 'Carregando…' : 'Ainda não disponível'}</strong><small>{report?.current ? 'Agora · independente do período' : `${displayDate(from)} a ${displayDate(to)}`}</small>{report && !compact && <small>Atualizado: {dateTime(report.updatedAtUtc)}</small>}<span className="arena-link-label">{action} →</span></Link>
     })}</div>
     {queries.some(query => query.isError) && <p role="alert">Não foi possível atualizar os indicadores do bar. <button type="button" className="secondary-link" onClick={() => void Promise.allSettled(queries.map(query => query.refetch()))}>Tentar novamente</button></p>}
-    {!compact && <p className="arena-hint">Estes indicadores incluem as comandas dos novos fluxos. <Link to="/bar/vendas">Consultar vendas históricas →</Link> Recebimentos das comandas e lançamentos manuais do Financeiro são fontes diferentes.</p>}
+    {!compact && <p className="arena-hint">Os recebimentos das comandas fazem parte do financeiro da Arena e podem aparecer também nos lançamentos e extratos. Confira a composição para evitar contar o mesmo recebimento duas vezes. <Link to="/bar/vendas">Consultar vendas históricas →</Link></p>}
   </section>
 }
