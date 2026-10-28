@@ -8,6 +8,7 @@ import { ExpenseComposition } from './ExpenseComposition'
 import type { ExpenseBreakdown } from './monthlyExpenses'
 import { Disclosure } from '../../components/managementUi'
 import { CurrentFinancialMetrics } from './CurrentFinancialMetrics'
+import { pagBankBalanceSource } from './pagBankBalanceSource'
 
 type Balances = {
   pagBankWallet?: { amountCents: number | null; date: string | null; collectedAtUtc: string | null; sourceHashes: string[]; issue: string | null }
@@ -21,6 +22,7 @@ export function FinancialBalanceOverview({ compact = false }: { compact?: boolea
   if (!isManagement(user)) return null
   const data = query.isError ? undefined : query.data
   const bank = data?.pagBank, general = data?.general, wallet = data?.pagBankWallet
+  const bankSource = pagBankBalanceSource(bank)
   const bankHref = `/financeiro/historico?${new URLSearchParams({ series: 'saldos', ...(bank?.date ? { month: bank.date.slice(0, 7) } : {}), ...(bank?.metric ? { metric: bank.metric } : {}) })}`
   const reviewed = general?.basis === 'revisado'
   const generalHref = reviewed ? `/financeiro/controle-mensal?${new URLSearchParams({ ...(general?.month ? { month: general.month } : {}) })}` : `/financeiro/historico?${new URLSearchParams({ series: 'consolidado', ...(general?.month ? { month: general.month } : {}) })}`
@@ -29,11 +31,11 @@ export function FinancialBalanceOverview({ compact = false }: { compact?: boolea
     <div className="arena-section-heading"><div><p className="arena-section-eyebrow">{compact ? '02 · Financeiro' : 'Saldos importados e fontes disponíveis'}</p><h2 id="financial-balances-title">{compact ? 'Resumo financeiro' : 'Visão financeira'}</h2></div><Link className="secondary-link" to="/importacoes">Importar extratos</Link></div>
     <CurrentFinancialMetrics compact={compact} />
     {query.isError && <p role="alert">Não foi possível carregar os saldos e as fontes importadas. <button type="button" onClick={() => void query.refetch()}>Tentar novamente</button></p>}
-    <div className="arena-metric-grid arena-financial-grid" aria-label="Saldo importado PagBank">
+    <div className="arena-metric-grid arena-financial-grid" aria-label="Saldo da conta PagBank">
       <Link className={`arena-metric ${bank?.amountCents == null ? 'arena-metric-unavailable' : ''}`} to={bankHref}>
-        <span className="arena-metric-label">Saldo da conta PagBank · extrato importado</span><strong>{value(bank?.amountCents)}</strong>
-        <small>{bank?.date ? `Saldo informado em ${bank.date.split('-').reverse().join('/')}` : 'Data do saldo a confirmar'}</small>
-        <small>Último extrato importado. Este valor não acompanha o saldo atual da conta.</small>
+        <span className="arena-metric-label">{bankSource.label}</span><strong>{value(bank?.amountCents)}</strong>
+        <small>{bankSource.reference}</small>
+        <small>{bankSource.explanation}</small>
         {bank?.sourceName && <small>Fonte: {bank.sourceName}{bank.sourceCell ? ` · ${bank.sourceCell}` : ''}</small>}
         {bank?.issue && <small>{bank.issue}</small>}
         <span className="arena-link-label">Conferir saldo e origem →</span>

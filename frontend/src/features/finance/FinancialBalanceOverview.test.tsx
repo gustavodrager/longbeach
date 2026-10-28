@@ -41,6 +41,17 @@ it('identifica a origem PDF e explica receitas conforme o consolidado', async ()
   expect(screen.getByText(/Receitas informadas no consolidado:/)).toHaveTextContent('R$ 500,00')
   expect(screen.queryByText(/Receitas da arena e vendas brutas/)).not.toBeInTheDocument()
 })
+it('mostra data e horário da consulta manual ao portal sem apresentar um extrato', async () => {
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ ...response, pagBank: {
+    ...response.pagBank, date: '2026-08-30', sourceName: 'PagBank-portal-autenticado-saldo-20260830231542.json', sourceCell: `pagbank-portal-manual-v1:${'a'.repeat(64)}:saldo`,
+  } })))
+  wrap()
+  expect(await screen.findByText('Consultado no portal em 30/08/2026 às 23:15 · horário de São Paulo')).toBeVisible()
+  expect(screen.getByText('Saldo da conta PagBank · consultado no portal')).toBeVisible()
+  expect(screen.getByText('Consulta manual. O saldo não é atualizado automaticamente.')).toBeVisible()
+  expect(screen.queryByText(/Último extrato importado/)).not.toBeInTheDocument()
+  expect(screen.getByRole('link', {name: /Saldo da conta PagBank/})).toHaveAttribute('href', '/financeiro/historico?series=saldos&month=2026-08&metric=Saldo+Pagbank')
+})
 it('abre cada grupo do mês revisado sem misturar parcelas ou acertos nas despesas fixas', async () => {
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ ...response, general: { ...response.general, basis: 'revisado', expensesByType: { fixedCents: 30000, variableCents: 20000, installmentCents: 10000, adjustmentCents: 0, otherCents: 0 } } })))
   wrap()
