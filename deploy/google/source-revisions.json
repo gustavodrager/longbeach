@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "verified_at": "2026-10-28",
+  "verified_at": "2026-10-27",
   "api_source_commit": "b71dbf22127a6475b91770ba8f643df7933330b9",
-  "web_source_commit": "6a905cf027463e7688baae560fc824e0e5a591d7",
+  "web_source_commit": "d9229afc19c89657754918e7b40bed13ad0d1698",
   "production_api_origin": "https://api.longbeach.quebranunca.com.br",
   "production_web_origin": "https://longbeach.quebranunca.com.br",
-  "purpose": "Publicação somente web da correção do cancelamento da edição de produtos do Bar e composição de filtros rápidos nessa tela. Artefato público e QA autenticada de quatro casos do Bar aprovados, com PWA atualizado, sem edição de produto/estoque ou salvamento. Materiais cobertos pelos testes afetados e pela rota SPA pública nesta release. API b71dbf2/schema28, dados, integrações, infraestrutura e policy Production preservados, sem promover API ou executar backup/migration/restauração. Retorno somente da web à versão c6b5e6266e9cab5f sob nova autorização.",
+  "purpose": "Publicação somente web da indicação de origem do saldo PagBank: consulta manual no portal com data/horário de São Paulo quando válidos e apresentação de extrato preservada. QA autenticada conferiu a origem/horário, referência C6, pagamentos inalterados e PWA do artefato. API b71/schema28, dados, integrações, infraestrutura e policy Production preservados. Sem publicação de API, backup, migration ou restauração. Retorno somente web à versão fdb00c03f6047ff8 sob nova autorização.",
   "web_source_path": "frontend"
 }

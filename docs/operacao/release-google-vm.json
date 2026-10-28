@@ -2,11 +2,11 @@
   "schema_version": 1,
   "status": "published_and_verified",
   "environment": "Production",
-  "verified_at_utc": "2026-10-28T00:28:04.667Z",
+  "verified_at_utc": "2026-10-28T01:24:36.332Z",
   "release_date_brasilia": "2026-10-27",
   "source_branch": "codex/estoque-materiais-20261027",
-  "review_url": "https://github.com/gustavodrager/longbeach/commit/6a905cf027463e7688baae560fc824e0e5a591d7",
-  "approval": "A API preserva a aprovação histórica do run40542381209 e a fonte b71. A correção somente web 6a905cf foi autorizada nesta conversa e aprovada pelo proprietário no environment Production no run40607340020, com os quatro jobs bem-sucedidos na tentativa1. A branch já era permitida; não houve alteração da policy nem promoção de imagem API desse run.",
+  "review_url": "https://github.com/gustavodrager/longbeach/commit/d9229afc19c89657754918e7b40bed13ad0d1698",
+  "approval": "A API preserva a aprovação histórica do run40542381209 e a fonte b71. O ajuste somente web d9229af foi autorizado nesta conversa e aprovado pelo proprietário no environment Production no run40612008716, com os quatro jobs bem-sucedidos na primeira tentativa. A policy Production permaneceu igual; nenhuma imagem API desse run foi promovida.",
   "project_id": "parsero-prod-20261022",
   "region": "southamerica-east1",
   "api": {
@@ -28,22 +28,23 @@
     "source_path": "frontend",
     "hosting": "Firebase Hosting",
     "site": "parsero-prod-20261022",
-    "version": "sites/parsero-prod-20261022/versions/fdb00c03f6047ff8",
-    "release": "sites/parsero-prod-20261022/channels/live/releases/1793147052366000",
-    "published_at_utc": "2026-10-28T00:24:12.366Z",
-    "dist_tree_sha256": "12f19bb86b80c290a1db0945251cc8eb8ef32cd3452a1305154dcceb7eb6aff8",
+    "version": "sites/parsero-prod-20261022/versions/befa2e2c9b07704e",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793150588622000",
+    "published_at_utc": "2026-10-28T01:23:08.622Z",
+    "dist_tree_sha256": "7a603ea3094d654b93c7f53997fdef257b94fe5e31dee90b85a65f3e74d69f28",
     "application_files_verified": 73,
     "status": "published_and_verified",
-    "source_commit": "6a905cf027463e7688baae560fc824e0e5a591d7",
-    "verified_at_utc": "2026-10-28T00:24:55.914280+00:00",
-    "previous_version": "sites/parsero-prod-20261022/versions/c6b5e6266e9cab5f",
+    "source_commit": "d9229afc19c89657754918e7b40bed13ad0d1698",
+    "verified_at_utc": "2026-10-28T01:23:31.701951+00:00",
+    "previous_version": "sites/parsero-prod-20261022/versions/fdb00c03f6047ff8",
     "spa_routes_verified": 6,
     "firebase_configuration_preserved": true,
     "build_metadata_not_exposed": true,
-    "previous_source_commit": "dc59e81a0ea7e6423752976196781a62bed9bfaa",
+    "previous_source_commit": "6a905cf027463e7688baae560fc824e0e5a591d7",
     "browser_verification_status": "passed",
-    "browser_verified_at_utc": "2026-10-28T00:28:04.667Z",
-    "browser_active_bundle": "/assets/index-D4mZS_gB.js"
+    "browser_verified_at_utc": "2026-10-28T01:24:36.332Z",
+    "browser_active_bundle": "/assets/index-CvMEiqup.js",
+    "build_metadata_outside_dist": true
   },
   "database": {
     "migration_count": 28,
@@ -59,52 +60,54 @@
     "postgres_container_unchanged": true
   },
   "verification": {
-    "backend_build": "Release build without errors or warnings",
-    "backend_tests_per_postgresql_version": {
-      "unit": 493,
-      "integration": 388,
-      "failed": 0,
-      "skipped": 0
+    "api_artifact_historical_verification": {
+      "backend_build": "Release build without errors or warnings",
+      "backend_tests_per_postgresql_version": {
+        "unit": 493,
+        "integration": 388,
+        "failed": 0,
+        "skipped": 0
+      },
+      "postgresql_test_versions": [
+        17,
+        18
+      ],
+      "local_launcher_tests_passed": 4,
+      "local_oci_smoke": "Pinned linux/amd64 artifact passed against isolated PostgreSQL 18: 28 migrations, no seed, readiness/authentication, material history and cleanup verified.",
+      "source_ci_run": "https://github.com/gustavodrager/longbeach/actions/runs/40523354599",
+      "production_environment_run": "https://github.com/gustavodrager/longbeach/actions/runs/40542381209",
+      "production_environment_workflow": "release-images.yml",
+      "source_commit": "b71dbf22127a6475b91770ba8f643df7933330b9",
+      "scope": "Referência histórica da implantação da API b71; não representa execução local, inspeção de infraestrutura ou publicação de API nesta alteração da web."
     },
-    "postgresql_test_versions": [
-      17,
-      18
-    ],
-    "frontend_tests_passed": 595,
-    "frontend_build": "TypeScript e build PWA de produção aprovados no artefato congelado da fonte 6a905cf.",
-    "local_launcher_tests_passed": 4,
-    "local_oci_smoke": "Pinned linux/amd64 artifact passed against isolated PostgreSQL 18: 28 migrations, no seed, readiness/authentication, material history and cleanup verified.",
-    "source_ci_run": "https://github.com/gustavodrager/longbeach/actions/runs/40523354599",
-    "production_environment_run": "https://github.com/gustavodrager/longbeach/actions/runs/40542381209",
-    "production_environment_workflow": "release-images.yml",
-    "source_ci_checks": "Os campos source_ci_run e production_environment_run preservam a prova histórica da API b71. Nesta correção somente web, os quatro jobs do run40607340020 concluíram com sucesso na tentativa1, no SHA6a905cf, incluindo PostgreSQL17/18, frontend e publicação OCI; nenhuma imagem API desse run foi promovida.",
-    "production_health": "A referência da API b71/schema28 e os recibos históricos permanecem preservados. Esta publicação somente web fez apenas GET público /health/ready 200 antes e durante a verificação; não reinspecionou VM, contêineres, dados ou schema do banco.",
-    "public_web": "Os 73 arquivos públicos da web 6a905cf correspondem ao artefato congelado; seis rotas SPA, headers/TLS, configuração Firebase e identidade live passaram, sem exposição dos metadados privados.",
-    "browser": "Conferência autenticada do Bar aprovada em sessão já existente: quatro casos de Cancelar com busca limpa/paginação, Cancelar com Repor/Esgotados/Todos, voltar/avançar do navegador e reabertura explícita seguida de Cancelar. O PWA foi atualizado pela interface, o bundle carregado corresponde ao artefato, os editores terminaram fechados e o console teve zero erros e warnings. Não houve edição de produto/estoque, submissão de salvamento ou escrita de negócio; a observação de saldo permaneceu igual.",
-    "backups": "Os backups, WAL e ensaios históricos pertencem à implantação da API b71 e permanecem preservados. Esta publicação somente web não executou novo backup, migration, restauração ou comparação de dados do banco.",
-    "frontend_test_files_passed": 63,
-    "frontend_affected_tests_passed": 40,
-    "frontend_regression": "Cancelamento da edição de produtos do Bar e composição de filtros rápidos nessa tela, com contexto de navegação preservado: 40 testes afetados em seis arquivos, incluindo dez casos novos.",
     "backend_verification_source_commit": "b71dbf22127a6475b91770ba8f643df7933330b9",
-    "frontend_verification_source_commit": "6a905cf027463e7688baae560fc824e0e5a591d7",
-    "web_production_environment_run": "https://github.com/gustavodrager/longbeach/actions/runs/40607340020",
+    "backend_ci_source_commit": "d9229afc19c89657754918e7b40bed13ad0d1698",
+    "backend_ci_scope": "Os jobs backend PostgreSQL17/18 do novo gate passaram no SHA d9229af; nenhuma imagem API produzida por esse gate foi promovida.",
+    "backend_local_build_source_commit": null,
+    "backend_local_build_status": "interrupted_after_remote_equivalent_passed",
+    "backend_local_build": "Build local não apresentado como aprovado: foi encerrado após a validação remota equivalente. A fonte da API implantada permanece b71.",
+    "frontend_verification_source_commit": "d9229afc19c89657754918e7b40bed13ad0d1698",
+    "frontend_tests_passed": 607,
+    "frontend_test_files_passed": 64,
+    "frontend_affected_tests_passed": 37,
+    "frontend_affected_test_files_passed": 3,
+    "frontend_build": "TypeScript e build PWA de produção aprovados no artefato congelado da fonte d9229af; os bytes publicados não foram reconstruídos durante a promoção.",
+    "frontend_regression": "Proveniência do portal, validade e compatibilidade da data/horário, formatos de origem, fuso de São Paulo e apresentação de extratos; teste do diálogo aguarda a condição acessível de abertura. Contagens do teste afetado e da suíte completa pertencem à fonte final.",
+    "web_production_environment_run": "https://github.com/gustavodrager/longbeach/actions/runs/40612008716",
     "web_production_environment_workflow": "release-images.yml",
-    "frontend_affected_test_files_passed": 6,
     "web_production_environment_run_attempt": 1,
     "web_quality_jobs_run_attempt": 1,
-    "backend_ci_source_commit": "6a905cf027463e7688baae560fc824e0e5a591d7",
-    "backend_local_build_status": "passed_debug",
+    "source_ci_checks": "Novo gate Production no SHA d9229af: quatro jobs bem-sucedidos na primeira tentativa, com aprovação oficial do proprietário. Os gates anteriores não autorizam esta publicação e nenhuma API do novo run foi promovida.",
+    "production_health": "A referência histórica da API b71/schema28 foi preservada. Nesta publicação somente web a prova atual da API foi GET público /health/ready200; não houve reinspeção da VM, contêineres, schema ou dados do banco.",
+    "public_web": "Os 73 arquivos públicos correspondem ao artefato congelado d9229af; seis rotas SPA, headers/TLS, configuração Firebase e identidade live passaram. Metadados e recibos permaneceram fora da dist e não foram expostos.",
     "browser_status": "passed",
-    "temporary_branch_permission_cleanup": "Nenhuma alteração da policy Production nesta publicação; a branch codex/estoque-materiais-20261027 já era permitida. O histórico da remoção da permissão temporária usada na publicação dc59 foi preservado separadamente.",
-    "frontend_new_tests_passed": 10,
-    "backend_local_build_source_commit": "6a905cf027463e7688baae560fc824e0e5a591d7",
-    "backend_local_build": "Build local da API em Debug na fonte 6a905cf concluído com zero warnings e zero errors; nenhuma imagem API foi promovida.",
-    "browser_scope": "Bar: cancelamento, filtros rápidos, paginação, histórico do navegador e reabertura explícita, com PWA atualizado em sessão já existente.",
-    "browser_cases_passed": 4,
-    "browser_console_errors": 0,
-    "browser_console_warnings": 0,
+    "browser": "QA autenticada em produção aprovou a indicação de consulta pelo portal e horário de São Paulo, preservação da referência de extrato C6, pagamentos inalterados e ativação do PWA correspondente ao artefato. Sem escrita de negócio.",
+    "browser_scope": "Origem/data/horário do saldo na Visão geral, C6 preservado, Recebimentos sem alteração de pagamentos e PWA atualizado.",
+    "browser_checks_passed": 5,
     "browser_business_writes": 0,
-    "material_validation_scope": "Materiais: testes frontend afetados e verificação pública da rota SPA nesta release. Não houve nova QA autenticada de materiais nem revalidação do login antigo nessa rota."
+    "backups": "Backups, WAL e ensaios históricos pertencem à implantação API b71 e foram preservados. Esta publicação somente web não criou backup, migration, restauração ou comparação de dados do banco.",
+    "temporary_branch_permission_cleanup": "Nenhuma mudança da policy Production: a branch já estava permitida e o reviewer foi preservado.",
+    "material_validation_scope": "Nesta alteração de origem do saldo, materiais tiveram o teste acessível de abertura do diálogo estabilizado e a rota SPA pública verificada. Não houve nova QA autenticada de materiais ou de cancelamento do Bar."
   },
   "private_evidence_sha256": {
     "api_release": "67a196849660c598e14beedb53989e28852ab982b8ae1aa8be51be3b654cef7a",
@@ -163,7 +166,24 @@
     "web_bar_cancel_public_verification": "1cf53d60fcaf264be30b646a23b6a0081c46cca29f206a869df5cbc57da8dcc4",
     "web_bar_cancel_browser": "03dec8c9fbbd432ea3b2eaa8a18e2a66a996aea1e4273fe04bff4d45e3999bea",
     "web_bar_cancel_browser_screenshot": "f69db8bd7e25f74c8d9ff4d2f49c4f847a3bb20bcafb650085ab630eedad5c84",
-    "web_bar_cancel_production_policy_unchanged": "372830b6394f730615e4af2267b0198fd8da1aed4c9fc732791d7d04f9e8aa7a"
+    "web_bar_cancel_production_policy_unchanged": "372830b6394f730615e4af2267b0198fd8da1aed4c9fc732791d7d04f9e8aa7a",
+    "web_pagbank_portal_balance_authorization": "432a13806cf58cc96f44a14e2a2eb9f34b1e39499c2b7216306b87b10dbab37e",
+    "web_pagbank_portal_balance_plan": "c37795ca6b17013563fbe464b4e2a5f979a4ecf940492330bed18cec5459ae8a",
+    "web_pagbank_portal_balance_gate": "f11b620690e62ce5bbaedec83971ed67960e51a8588664a22bb5b1a1d9193d6b",
+    "web_pagbank_portal_balance_production_run": "f5076a66b94c8801c444a626dff3cea01791ade95d1336f6c798716dc1546065",
+    "web_pagbank_portal_balance_production_jobs": "a2401ef793b686d18fd5c7333b899d76b4ceab71c92204e3ef3ed1973017353a",
+    "web_pagbank_portal_balance_production_approvals": "99933c1252755104011559944b2ba28d4cf8e8b916b8a784b2a856eef08ce12e",
+    "web_pagbank_portal_balance_capture_before": "0ae38a700d45a14b9c5cc16dd245e9072a857e855abd04c3278ba3983aa80893",
+    "web_pagbank_portal_balance_publish": "552e2bb66b366638698f640476609ef539a29b328c5f5c40b0dd0c0b652699e6",
+    "web_pagbank_portal_balance_verify": "7ff5e3aac66c319e4f1de0bb3e7a64cc640cae54614288193f06ac22158f8281",
+    "web_pagbank_portal_balance_artifact": "372605ac0c5ee1465371aff2690267de54b84e17e2a93630a5d3bc5cced95ebe",
+    "web_pagbank_portal_balance_artifact_inventory": "4fc3b395cafe07e0732e713746fcdc9f6ce0e889b5f6d7ae0449bb56051e1a35",
+    "web_pagbank_portal_balance_validation": "8f448fb9cf133e435fc1ecdca4c4860e926fe55884666afa5126cbb8a25a877e",
+    "web_pagbank_portal_balance_browser": "b752797b54fae8170ff3932fcecba3ad7723da0c07e640967e361cbbdd01f10f",
+    "web_pagbank_portal_balance_helpers_preparation": "9a0631dbcd9f30acedd8213df18d041df6ad1ad1960f9d1301c44dd62b21b034",
+    "web_pagbank_portal_balance_helpers_provenance": "c55203e127155c1d7c4e61d27e62873a5f72e092c90915baa52b907190db1c85",
+    "web_pagbank_portal_balance_offline_guards": "c94fb635c892b9c4d45dd83b2a2300032f490f3f7d5db50343345db0e6fb1583",
+    "web_pagbank_portal_balance_public_verification": "69737b69b3b7f099e9be2016ca422f0fa86f514c17278a7c0a4e5f97d42d06b3"
   },
   "recovery": {
     "runbook": "docs/operacao/google-vm.md",
@@ -173,18 +193,19 @@
     "rollback": "A WEB-only return retains the protected new API and schema 28. Never restart the old API with incompatible material writers enabled. API failure requires maintenance and a reviewed compatible correction; preserve all history, never run Down or restore over the active database.",
     "publication_runbook": "docs/operacao/publicacao-estoque-materiais-2026-10-27.md",
     "web_correction_runbook": "docs/operacao/correcao-dialogo-materiais-2026-10-27.md",
-    "web_previous_version": "sites/parsero-prod-20261022/versions/c6b5e6266e9cab5f",
+    "web_previous_version": "sites/parsero-prod-20261022/versions/fdb00c03f6047ff8",
     "web_correction_rollback": "Retorno somente da web à versão anterior 001ec4e450b73ac6, mediante revisão; essa versão contém a falha de duplicação conhecida. Manter a API b71dbf2 e schema 28, sem Down, writers antigos ou restauração sobre o banco ativo.",
     "web_imported_movements_runbook": "docs/operacao/publicacao-movimentos-importados-2026-10-27.md",
     "web_imported_movements_rollback": "Retorno somente da web à versão ae06ef2686f65734 mediante nova autorização e revisão; preservar API b71 e schema28. Não executar Down, reabrir escritores incompatíveis nem restaurar sobre o banco ativo. Esta publicação não executou retorno.",
     "web_bar_cancel_runbook": "docs/operacao/correcao-cancelamento-bar-2026-10-27.md",
-    "web_bar_cancel_rollback": "Retorno somente da web à versão c6b5e6266e9cab5f/fonte dc59 mediante nova autorização e revisão; preservar a API b71 e schema28, sem Down, writers antigos ou restauração sobre o banco ativo. O helper preparado não executou retorno nesta publicação."
+    "web_bar_cancel_rollback": "Retorno somente da web à versão c6b5e6266e9cab5f/fonte dc59 mediante nova autorização e revisão; preservar a API b71 e schema28, sem Down, writers antigos ou restauração sobre o banco ativo. O helper preparado não executou retorno nesta publicação.",
+    "web_pagbank_portal_balance_rollback": "Retorno somente da web à versão fdb00c03f6047ff8/fonte6a mediante nova autorização e revisão. Preservar API b71/schema28 e todos os dados. Não executar Down, writers antigos, restauração sobre banco ativo ou promoção de API. Não houve retorno nesta publicação."
   },
   "source_commits": {
     "api": "b71dbf22127a6475b91770ba8f643df7933330b9",
-    "web": "6a905cf027463e7688baae560fc824e0e5a591d7"
+    "web": "d9229afc19c89657754918e7b40bed13ad0d1698"
   },
-  "latest_publication_scope": "Somente frontend: correção do cancelamento da edição de produtos do Bar e da composição de filtros rápidos nessa tela. API b71, banco/schema28, dados de negócio, integrações automáticas, infraestrutura e policy Production preservados; sem backup, migration, restauração ou publicação de API nesta operação.",
+  "latest_publication_scope": "Somente frontend: a origem do saldo PagBank distingue consulta manual pelo portal de extrato importado e apresenta data/horário de São Paulo quando comprovados pela proveniência; origem ou horário inválidos têm apresentação própria. A identificação de saldos de extrato foi preservada. A mudança também estabiliza a espera acessível de um teste de diálogo de materiais, sem alterar seu comportamento de produção. Não altera saldos, movimentos, pagamentos ou integrações.",
   "component_approvals": {
     "api": {
       "source_commit": "b71dbf22127a6475b91770ba8f643df7933330b9",
@@ -194,10 +215,10 @@
       "owner_review_approved": true
     },
     "web": {
-      "source_commit": "6a905cf027463e7688baae560fc824e0e5a591d7",
+      "source_commit": "d9229afc19c89657754918e7b40bed13ad0d1698",
       "workflow": "release-images.yml",
       "environment": "Production",
-      "run_url": "https://github.com/gustavodrager/longbeach/actions/runs/40607340020",
+      "run_url": "https://github.com/gustavodrager/longbeach/actions/runs/40612008716",
       "run_attempt": 1,
       "quality_jobs_run_attempt": 1,
       "owner_review_approved": true,
@@ -221,12 +242,24 @@
       "owner_review_approved": true,
       "specific_human_authorization_recorded": true,
       "temporary_branch_permission_removed": true
+    },
+    "web_previous_bar_cancel": {
+      "source_commit": "6a905cf027463e7688baae560fc824e0e5a591d7",
+      "workflow": "release-images.yml",
+      "environment": "Production",
+      "run_url": "https://github.com/gustavodrager/longbeach/actions/runs/40607340020",
+      "run_attempt": 1,
+      "quality_jobs_run_attempt": 1,
+      "owner_review_approved": true,
+      "specific_human_authorization_recorded": true,
+      "production_policy_changed": false
     }
   },
-  "private_evidence_scope": "Todos os hashes anteriores permanecem históricos e intactos, incluindo API b71, correção de diálogo 90dc e movimentos importados dc59/c6b5. Os novos web_bar_cancel_* comprovam gate Production, artefato, captura, publicação/verificação web 6a905cf e quatro casos autenticados do Bar. Valores, nomes e conteúdos reais observados permanecem exclusivamente nas evidências privadas; o registro público contém somente hashes e resultados genéricos. A validação atual de materiais limita-se aos testes afetados e à rota SPA pública.",
+  "private_evidence_scope": "Hashes anteriores preservados, inclusive API b71 e web Bar6a. Os novos hashes web_pagbank_portal_balance_* comprovam o gate final, artefato, publicação/verificação e QA de origem/horário do saldo, preservação da referência C6 e pagamentos inalterados. Valores bancários, nomes, conteúdo de capturas e nomes/caminhos de arquivos privados ficam exclusivamente nas evidências privadas. A validação atual não repete a QA histórica do Bar ou de materiais.",
   "historical_review_urls": {
     "api_and_material_dialog": "https://github.com/gustavodrager/longbeach/pull/48",
-    "web_imported_movements": "https://github.com/gustavodrager/longbeach/commit/dc59e81a0ea7e6423752976196781a62bed9bfaa"
+    "web_imported_movements": "https://github.com/gustavodrager/longbeach/commit/dc59e81a0ea7e6423752976196781a62bed9bfaa",
+    "web_bar_cancel": "https://github.com/gustavodrager/longbeach/commit/6a905cf027463e7688baae560fc824e0e5a591d7"
   },
   "historical_web_releases": {
     "imported_movements_2026_10_27": {
@@ -303,6 +336,93 @@
         "temporary_branch_permission_cleanup": "Permissão temporária removida; políticas originais e reviewer preservados, conforme recibo específico."
       },
       "private_evidence_scope": "Todos os hashes anteriores permanecem históricos e intactos, inclusive API b71 e correção web90dc. Os campos web_imported_movements_* comprovam a publicação web dc59e81, gate Production com qualidade1/Publish2, remoção da permissão temporária e conferência autenticada final. Valores, nomes, documentos e demais conteúdos reais observados permanecem exclusivamente no recibo e nas evidências privadas; o registro público contém somente seus hashes e resultados genéricos."
+    },
+    "bar_cancel_2026_10_27": {
+      "web": {
+        "origin": "https://longbeach.quebranunca.com.br",
+        "source_path": "frontend",
+        "hosting": "Firebase Hosting",
+        "site": "parsero-prod-20261022",
+        "version": "sites/parsero-prod-20261022/versions/fdb00c03f6047ff8",
+        "release": "sites/parsero-prod-20261022/channels/live/releases/1793147052366000",
+        "published_at_utc": "2026-10-28T00:24:12.366Z",
+        "dist_tree_sha256": "12f19bb86b80c290a1db0945251cc8eb8ef32cd3452a1305154dcceb7eb6aff8",
+        "application_files_verified": 73,
+        "status": "published_and_verified",
+        "source_commit": "6a905cf027463e7688baae560fc824e0e5a591d7",
+        "verified_at_utc": "2026-10-28T00:24:55.914280+00:00",
+        "previous_version": "sites/parsero-prod-20261022/versions/c6b5e6266e9cab5f",
+        "spa_routes_verified": 6,
+        "firebase_configuration_preserved": true,
+        "build_metadata_not_exposed": true,
+        "previous_source_commit": "dc59e81a0ea7e6423752976196781a62bed9bfaa",
+        "browser_verification_status": "passed",
+        "browser_verified_at_utc": "2026-10-28T00:28:04.667Z",
+        "browser_active_bundle": "/assets/index-D4mZS_gB.js"
+      },
+      "component_approval": {
+        "source_commit": "6a905cf027463e7688baae560fc824e0e5a591d7",
+        "workflow": "release-images.yml",
+        "environment": "Production",
+        "run_url": "https://github.com/gustavodrager/longbeach/actions/runs/40607340020",
+        "run_attempt": 1,
+        "quality_jobs_run_attempt": 1,
+        "owner_review_approved": true,
+        "specific_human_authorization_recorded": true,
+        "production_policy_changed": false
+      },
+      "approval_summary": "A API preserva a aprovação histórica do run40542381209 e a fonte b71. A correção somente web 6a905cf foi autorizada nesta conversa e aprovada pelo proprietário no environment Production no run40607340020, com os quatro jobs bem-sucedidos na tentativa1. A branch já era permitida; não houve alteração da policy nem promoção de imagem API desse run.",
+      "verification": {
+        "backend_build": "Release build without errors or warnings",
+        "backend_tests_per_postgresql_version": {
+          "unit": 493,
+          "integration": 388,
+          "failed": 0,
+          "skipped": 0
+        },
+        "postgresql_test_versions": [
+          17,
+          18
+        ],
+        "frontend_tests_passed": 595,
+        "frontend_build": "TypeScript e build PWA de produção aprovados no artefato congelado da fonte 6a905cf.",
+        "local_launcher_tests_passed": 4,
+        "local_oci_smoke": "Pinned linux/amd64 artifact passed against isolated PostgreSQL 18: 28 migrations, no seed, readiness/authentication, material history and cleanup verified.",
+        "source_ci_run": "https://github.com/gustavodrager/longbeach/actions/runs/40523354599",
+        "production_environment_run": "https://github.com/gustavodrager/longbeach/actions/runs/40542381209",
+        "production_environment_workflow": "release-images.yml",
+        "source_ci_checks": "Os campos source_ci_run e production_environment_run preservam a prova histórica da API b71. Nesta correção somente web, os quatro jobs do run40607340020 concluíram com sucesso na tentativa1, no SHA6a905cf, incluindo PostgreSQL17/18, frontend e publicação OCI; nenhuma imagem API desse run foi promovida.",
+        "production_health": "A referência da API b71/schema28 e os recibos históricos permanecem preservados. Esta publicação somente web fez apenas GET público /health/ready 200 antes e durante a verificação; não reinspecionou VM, contêineres, dados ou schema do banco.",
+        "public_web": "Os 73 arquivos públicos da web 6a905cf correspondem ao artefato congelado; seis rotas SPA, headers/TLS, configuração Firebase e identidade live passaram, sem exposição dos metadados privados.",
+        "browser": "Conferência autenticada do Bar aprovada em sessão já existente: quatro casos de Cancelar com busca limpa/paginação, Cancelar com Repor/Esgotados/Todos, voltar/avançar do navegador e reabertura explícita seguida de Cancelar. O PWA foi atualizado pela interface, o bundle carregado corresponde ao artefato, os editores terminaram fechados e o console teve zero erros e warnings. Não houve edição de produto/estoque, submissão de salvamento ou escrita de negócio; a observação de saldo permaneceu igual.",
+        "backups": "Os backups, WAL e ensaios históricos pertencem à implantação da API b71 e permanecem preservados. Esta publicação somente web não executou novo backup, migration, restauração ou comparação de dados do banco.",
+        "frontend_test_files_passed": 63,
+        "frontend_affected_tests_passed": 40,
+        "frontend_regression": "Cancelamento da edição de produtos do Bar e composição de filtros rápidos nessa tela, com contexto de navegação preservado: 40 testes afetados em seis arquivos, incluindo dez casos novos.",
+        "backend_verification_source_commit": "b71dbf22127a6475b91770ba8f643df7933330b9",
+        "frontend_verification_source_commit": "6a905cf027463e7688baae560fc824e0e5a591d7",
+        "web_production_environment_run": "https://github.com/gustavodrager/longbeach/actions/runs/40607340020",
+        "web_production_environment_workflow": "release-images.yml",
+        "frontend_affected_test_files_passed": 6,
+        "web_production_environment_run_attempt": 1,
+        "web_quality_jobs_run_attempt": 1,
+        "backend_ci_source_commit": "6a905cf027463e7688baae560fc824e0e5a591d7",
+        "backend_local_build_status": "passed_debug",
+        "browser_status": "passed",
+        "temporary_branch_permission_cleanup": "Nenhuma alteração da policy Production nesta publicação; a branch codex/estoque-materiais-20261027 já era permitida. O histórico da remoção da permissão temporária usada na publicação dc59 foi preservado separadamente.",
+        "frontend_new_tests_passed": 10,
+        "backend_local_build_source_commit": "6a905cf027463e7688baae560fc824e0e5a591d7",
+        "backend_local_build": "Build local da API em Debug na fonte 6a905cf concluído com zero warnings e zero errors; nenhuma imagem API foi promovida.",
+        "browser_scope": "Bar: cancelamento, filtros rápidos, paginação, histórico do navegador e reabertura explícita, com PWA atualizado em sessão já existente.",
+        "browser_cases_passed": 4,
+        "browser_console_errors": 0,
+        "browser_console_warnings": 0,
+        "browser_business_writes": 0,
+        "material_validation_scope": "Materiais: testes frontend afetados e verificação pública da rota SPA nesta release. Não houve nova QA autenticada de materiais nem revalidação do login antigo nessa rota."
+      },
+      "private_evidence_scope": "Todos os hashes anteriores permanecem históricos e intactos, incluindo API b71, correção de diálogo 90dc e movimentos importados dc59/c6b5. Os novos web_bar_cancel_* comprovam gate Production, artefato, captura, publicação/verificação web 6a905cf e quatro casos autenticados do Bar. Valores, nomes e conteúdos reais observados permanecem exclusivamente nas evidências privadas; o registro público contém somente hashes e resultados genéricos. A validação atual de materiais limita-se aos testes afetados e à rota SPA pública.",
+      "latest_publication_scope": "Somente frontend: correção do cancelamento da edição de produtos do Bar e da composição de filtros rápidos nessa tela. API b71, banco/schema28, dados de negócio, integrações automáticas, infraestrutura e policy Production preservados; sem backup, migration, restauração ou publicação de API nesta operação.",
+      "review_url": "https://github.com/gustavodrager/longbeach/commit/6a905cf027463e7688baae560fc824e0e5a591d7"
     }
   }
 }
