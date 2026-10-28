@@ -19,7 +19,11 @@ A configuração padrão é `../dados-locais/configuracao/longbeach-local.env`, 
 
 O contêiner existente é `longbeach-perfis-test`. O nome é histórico; o volume é preservado. A organização de diretórios não executa migrations. O launcher mantém migrations, seeds e bootstrap desabilitados. Uma atualização de schema local exige execução explícita e conferida.
 
-O launcher confere somente os IDs de migrations antes de abrir a aplicação. Na consolidação de 26/10, seis migrations pendentes foram aplicadas com autorização específica, após backup, restauração e ensaio em clone. A prévia está com 27 migrations. Em futuras divergências, o launcher encerra com orientação e preserva o banco; atualizações que alterem registros exigem revisão e um caminho concreto de restauração.
+O launcher confere somente os IDs de migrations antes de abrir a aplicação. Na consolidação de 26/10, seis migrations pendentes foram aplicadas com autorização específica, após backup, restauração e ensaio em clone. A conferência daquela etapa registrou 27 migrations na prévia. Em futuras divergências, o launcher encerra com orientação e preserva o banco; atualizações que alterem registros exigem revisão e um caminho concreto de restauração.
+
+A branch `codex/estoque-materiais-20261027` acrescenta o controle de movimentações de materiais e a migration aditiva `20261027135728_MaterialStockLedger`. Em 27/10, a prévia foi atualizada explicitamente de 27 para 28 migrations, após backup privado com permissão 0600, restauração e ensaio aprovados. As 59 tabelas anteriores e uma sequência permaneceram idênticas; o novo histórico de materiais ficou vazio. O [registro da integração](integracao-estoque-materiais-2026-10-27.md) reúne as validações e as evidências dessa atualização local.
+
+Executar o código do checkout na prévia continua dependendo da correspondência entre o schema conferido e as migrations do backend. O launcher verifica essa condição e mantém a aplicação automática de migrations desabilitada. Esta atualização local não executou migrations em produção.
 
 ## Testes e configuração
 

@@ -126,7 +126,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             var items = input.Items.GroupBy(x => new { x.ProductId, Notes = BarTab.NormalizeNotes(x.Notes) }).Select(g => new TabItemInput(g.Key.ProductId, g.Sum(x => BarRules.Quantity(x.Quantity)), g.Key.Notes)).ToArray();
             foreach (var request in items)
             {
-                var product = await db.Set<BarProduct>().SingleOrDefaultAsync(x => x.Id == request.ProductId, ct) ?? throw new BarRuleException("Produto inexistente.");
+                var product = await db.Set<BarProduct>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == request.ProductId, ct) ?? throw new BarRuleException("Produto inexistente.");
                 var item = new BarTabItem(tab.Id, product, request.Quantity, actor, actor is null, request.Notes);
                 await EnsureAvailable(item, tab.LocationId, ct);
                 db.Add(item); db.Add(new BarTabHistory(tab.Id, "Requested", actor, item.Total, itemId: item.Id));

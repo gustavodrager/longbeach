@@ -6,7 +6,8 @@ import { BarArenaMetrics } from '../features/attendance/BarArenaMetrics'
 import { FinancialBalanceOverview } from '../features/finance/FinancialBalanceOverview'
 import { ExpensePaidMetric } from '../features/finance/ExpensePaidMetric'
 import { StockValuation } from '../features/bar/StockValuation'
-import { BankStatementOverview, FinancialHistoryOverview } from '../features/finance/FinancialHistory'
+import { FinancialHistoryOverview } from '../features/finance/FinancialHistory'
+import { ImportedBankMovements } from '../features/finance/ImportedBankMovements'
 import { ArenaHistoryOverview } from '../features/finance/ArenaHistoryOverview'
 import { useCourtSchedule } from '../features/arena/queries'
 import { useOperations, type OperationalKind } from '../features/operations/DemoDataProvider'
@@ -102,6 +103,7 @@ export function DashboardPage() {
     </section>}
 
     <FinancialBalanceOverview compact />
+    <ImportedBankMovements />
     <section className="arena-dashboard-section" aria-labelledby="arena-results">
       <div className="arena-section-heading"><div><p className="arena-section-eyebrow">03 · Desempenho</p><h2 id="arena-results">Resultados no período</h2></div><p>Registros do sistema</p></div>
       <div className="dashboard-period-presets" role="group" aria-label="Períodos rápidos">{periods.map(item => <button key={item.label} type="button" aria-pressed={periods.find(candidate => candidate.from === from && to === day)?.label === item.label} onClick={() => selectPeriod(item.from)}>{item.label}</button>)}</div>
@@ -129,7 +131,7 @@ export function DashboardPage() {
         </div></section>}
       </Disclosure>}
       {hasPermission(user, 'bar:finance:read') && <Disclosure title="Estoque do bar e potencial de venda" lazy><StockValuation compact /></Disclosure>}
-      {isManagement(user) && <Disclosure title="Histórico das planilhas e movimentos de origem" lazy><p className="dashboard-history-notice">Referências históricas. As datas pertencem às fontes importadas e podem ser diferentes entre os indicadores.</p><ArenaHistoryOverview /><Disclosure title="Histórico financeiro e extratos" lazy><FinancialHistoryOverview /><BankStatementOverview /></Disclosure></Disclosure>}
+      {isManagement(user) && <Disclosure title="Histórico das planilhas e movimentos de origem" lazy><p className="dashboard-history-notice">Referências históricas. As datas pertencem às fontes importadas e podem ser diferentes entre os indicadores.</p><ArenaHistoryOverview /><Disclosure title="Histórico financeiro e extratos" lazy><FinancialHistoryOverview /><Link to="/financeiro/historico?series=despesas-fora-pagbank">Consultar despesas pagas fora do PagBank e suas origens →</Link></Disclosure></Disclosure>}
       <nav className="dashboard-shortcuts" aria-label="Áreas da arena">{data.canRead('reservations') && <Link to="/agenda">Agenda →</Link>}{data.canRead('rentalGroups') && <Link to="/mensalistas">Mensalistas →</Link>}{data.canRead('classes') && <Link to="/escola">Aulas →</Link>}{data.canRead('financeEntries') && <Link to="/financeiro/despesas">Financeiro →</Link>}{barHref && <Link to={barHref}>Bar e caixa →</Link>}</nav>
     </section>
   </main>

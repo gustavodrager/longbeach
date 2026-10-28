@@ -40,6 +40,7 @@ public static class SystemPermissions
     public const string EmployeesWrite = "employees:write";
     public const string InventoryRead = "inventory:read";
     public const string InventoryWrite = "inventory:write";
+    public const string InventoryAdjust = "inventory:adjust";
     public const string ProjectsRead = "projects:read";
     public const string ProjectsWrite = "projects:write";
     public const string FinanceRead = "finance:read";
@@ -53,7 +54,7 @@ public static class SystemPermissions
         BarRefundApprove, BarSalesRead, BarSalesOperate, BarFinanceRead, BarPurchasesManage,
         StudentsRead, StudentsWrite,
         EmployeesRead, EmployeesWrite,
-        InventoryRead, InventoryWrite,
+        InventoryRead, InventoryWrite, InventoryAdjust,
         ProjectsRead, ProjectsWrite,
         FinanceRead, FinanceWrite, ReceivedInvoicesManage,
         UsersManage, AuditRead

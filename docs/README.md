@@ -4,6 +4,14 @@ Entrada atual: [estrutura local](operacao/estrutura-local.md), [consolidação d
 
 O [guia dos comprovantes e do retorno local](operacao/comprovantes-e-retorno-local.md) registra o arquivamento final de `outputs`, as conferências de integridade e o procedimento ensaiado para restaurar o caminho real.
 
+A [auditoria de atualidade e pendências de 27/10](operacao/auditoria-atualidade-e-pendencias-2026-10-27.md) registra a análise anterior à integração de estoque e materiais e o trabalho útil preservado nas pastas antigas.
+
+A [integração de estoque e materiais](operacao/integracao-estoque-materiais-2026-10-27.md) registra a recuperação local das duas contribuições autorizadas, com decisões no [ADR-017](adr/ADR-017-integridade-estoque-e-materiais.md) e [operação dos materiais](operacao/materiais-consumo.md).
+
+O [registro de publicação de estoque e materiais](operacao/publicacao-estoque-materiais-2026-10-27.md) descreve os gates, o backup, a publicação comprovada da API/frontend e o retorno que preserva os comprovantes.
+
+A [correção do cancelamento no catálogo do Bar](operacao/correcao-cancelamento-bar-2026-10-27.md) registra a reprodução das navegações rápidas, a validação local e o estado da preparação para publicação somente web.
+
 
 ## Decisão e arquitetura
 

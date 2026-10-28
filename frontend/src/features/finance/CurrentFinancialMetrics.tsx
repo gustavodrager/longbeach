@@ -1,29 +1,18 @@
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { useQueries } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../../lib/http'
 import { useAuth } from '../auth/authContext'
 import { isManagement } from '../auth/access'
 import { dateTime, money, type TabReport } from '../attendance/api'
-import { centsMoney } from './FinancialHistory'
+import { centsMoney } from './financialHistoryApi'
 import { Disclosure, ModalPanel } from '../../components/managementUi'
+import { useFinancialPosition } from './financialBalancesApi'
 
-type Outstanding = { amountCents: number; records: number; overdueCents: number; overdueRecords: number; confirmedPaymentsCents: number }
-type Position = {
-  date: string; readAtUtc: string; lastRecordChangeAtUtc: string | null; registeredEntries: number
-  receivable: Outstanding; payable: Outstanding
-  currentBank: { amountCents: number | null; asOfUtc: string | null; status: string; issue: string; source?: string | null; environment?: string | null; sourceDate?: string | null }
-  entries: { id: string; name: string; direction: 'Receber' | 'Pagar'; dueDate: string; originalCents: number; confirmedPaymentsCents: number; outstandingCents: number; hasDueDate?: boolean; managedExpense?: boolean }[]
-}
 const barMetrics = [
   { metric: 'receivable', title: 'Comandas · falta receber', empty: 'Nenhuma comanda com saldo a receber registrada.', note: 'Comandas abertas registradas no Long Beach OS. Inclui Pix ainda sem confirmação.' },
   { metric: 'cash', title: 'Dinheiro nos caixas abertos', empty: 'Nenhum caixa aberto registrado.', note: 'Dinheiro físico esperado, com fundo e movimentos. Pix e cartão ficam fora deste valor.' },
 ]
-async function loadPosition() {
-  const result = await apiFetch<Position>('/api/v1/financial-history/current-position')
-  if (!result?.currentBank || !result.receivable || !result.payable || !Array.isArray(result.entries) || !result.readAtUtc) throw new Error('Posição financeira incompleta.')
-  return result
-}
 async function loadBarPosition(metric: string) {
   const result = await apiFetch<TabReport>(`/api/v1/bar/tabs/reports/${metric}?pageSize=1`)
   if (!result?.rows || !Number.isFinite(result.value) || !result.updatedAtUtc) throw new Error('Posição do bar incompleta.')
@@ -34,13 +23,10 @@ export function CurrentFinancialMetrics({ compact = false }: { compact?: boolean
   const { user } = useAuth()
   const [details, setDetails] = useState<'Receber' | 'Pagar' | null>(null)
   const allowed = isManagement(user)
-  const position = useQuery({ queryKey: ['current-financial-position', user?.id], queryFn: loadPosition, enabled: allowed })
+  const position = useFinancialPosition()
   const bar = useQueries({ queries: barMetrics.map(({ metric }) => ({ queryKey: ['bar-runtime', user?.id, `/tabs/reports/${metric}`], queryFn: () => loadBarPosition(metric), enabled: allowed })) })
   if (!allowed) return null
   const current = position.isError ? undefined : position.data
-  const bank = current?.currentBank
-  const bankValue = position.isError ? 'Saldo indisponível' : position.isPending ? 'Carregando…' : bank?.amountCents != null ? centsMoney(bank.amountCents) : 'Ainda não disponível'
-  const bankState = bank?.status === 'Imported' ? 'Extrato importado' : bank?.status === 'Stale' ? 'Referência histórica' : bank?.status === 'Error' ? 'Última leitura preservada' : bank?.amountCents != null ? 'Referência registrada' : null
   const amount = (value?: number) => position.isError ? 'Falha na atualização' : position.isPending ? 'Carregando…' : value == null ? 'Ainda não disponível' : centsMoney(value)
   const refreshing = position.isFetching || bar.some(query => query.isFetching)
   const update = () => { void Promise.allSettled([position.refetch(), ...bar.map(query => query.refetch())]) }
@@ -48,18 +34,6 @@ export function CurrentFinancialMetrics({ compact = false }: { compact?: boolean
     {!compact && <div className="arena-section-heading"><div><h3>Registrado no Long Beach OS</h3><p>Contas e caixas mostram os registros do Long Beach. A atualização é manual. Extratos, movimentos e saldos bancários são atualizados por importação de arquivos.</p></div><button type="button" className="secondary-link" onClick={update} disabled={refreshing}>{refreshing ? 'Atualizando…' : 'Atualizar agora'}</button></div>}
     {position.isError && <p role="alert">Não foi possível atualizar as contas internas. Consulte novamente antes de usar os valores.</p>}
     <div className="arena-metric-grid arena-financial-grid">
-      <div className={`arena-metric ${bank?.amountCents == null ? 'arena-metric-unavailable' : ''}`}>
-        <span className="arena-metric-label">Saldo da conta C6 · referência importada</span>
-        <strong>{bankValue}</strong>
-        {bankState && <small>{bankState}</small>}
-        {bank?.environment === 'Sandbox' && <small>Ambiente de testes — não representa dinheiro real.</small>}
-        <small>{bank?.issue ?? 'Importe um extrato com saldo e data para disponibilizar esta referência.'}</small>
-        {bank?.source && <small>Fonte: {bank.source}</small>}
-        {bank?.sourceDate && <small>Saldo informado em {bank.sourceDate.split('-').reverse().join('/')}</small>}
-        {bank?.asOfUtc && <small>{bank.status === 'Imported' ? 'Importado em' : 'Registrado em'}: {dateTime(bank.asOfUtc)}</small>}
-        <small>Valor da data da fonte. A importação não acompanha o saldo da conta em tempo real.</small>
-        <Link to="/financeiro/historico?series=c6-conta">Conferir extrato C6 →</Link>
-      </div>
       {(['receivable', 'payable'] as const).map(key => {
         const entry = current?.[key]
         const receivable = key === 'receivable'

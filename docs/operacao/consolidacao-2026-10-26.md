@@ -16,6 +16,8 @@ Bundles verificados, patches binários, arquivos novos e inventários privados e
 - Perfis contém trabalho local em materiais/estoque, migrations e testes. Inventário e patches ficam preservados; integração funcional exige revisão separada.
 - Google Cloud estava ativo. Conferir seu trabalho posterior à base copiada antes de arquivar os caminhos que utiliza.
 
+A [reavaliação de 27/10](auditoria-atualidade-e-pendencias-2026-10-27.md) confirmou a atualidade do código consolidado e refinou as pendências: proteção de unidade/controle de estoque no Bar e evolução das movimentações de materiais. A integração das branches no GitHub continua pendente; não copiar arquivos compartilhados ou migrations antigas automaticamente.
+
 ## Estrutura
 
 `app/` virou `frontend/`. `src/`, `tests/`, solução e arquivos .NET foram movidos juntos para `backend/`. CI, Dockerfiles, exclusões, branding, cópia da auditoria SQL nos testes e compilação Google foram ajustados. O build Google continua reconhecendo os commits históricos com `app/`.
@@ -52,3 +54,9 @@ A branch local é codex/consolidacao-estrutura-20261026, com HEAD na referência
 ## Publicação posterior autorizada
 
 Em 26/10/2026, o responsável autorizou enviar e publicar a aplicação consolidada. O commit `7179c9fad657327d2bd9cc4dfa2e750180dedebf` foi enviado na branch `codex/consolidacao-estrutura-20261026`, com revisão no [PR 47](https://github.com/gustavodrager/longbeach/pull/47). A API foi promovida por digest à VM econômica e o frontend publicado no Firebase, preservando dados, configurações e backups. As 27 migrations continuam idênticas e nenhuma foi executada em produção. O [registro da release](release-google-vm.json) identifica os artefatos e as verificações; o commit posterior que salva esses registros não altera o código dos artefatos publicados.
+
+## Incorporação seletiva posterior — 27/10/2026
+
+Após a [auditoria de atualidade e pendências](auditoria-atualidade-e-pendencias-2026-10-27.md), a branch `codex/estoque-materiais-20261027` incorporou seletivamente a proteção do catálogo Bar e as movimentações auditáveis de materiais. Os originais arquivados permanecem preservados. O [registro dessa integração](integracao-estoque-materiais-2026-10-27.md) identifica a implementação adaptada, os testes e as condições do schema local.
+
+Esta etapa é posterior à consolidação e à publicação descritas acima. Seus resultados locais não alteram por inferência o estado histórico do GitHub, da prévia ou da produção registrado neste documento.

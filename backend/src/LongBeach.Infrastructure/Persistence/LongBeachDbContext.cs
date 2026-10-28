@@ -26,6 +26,7 @@ public sealed class LongBeachDbContext(
         BillingModel.Configure(modelBuilder);
         BarModel.Configure(modelBuilder);
         StockModel.Configure(modelBuilder);
+        MaterialStockModel.Configure(modelBuilder);
         CashModel.Configure(modelBuilder);
         SalesModel.Configure(modelBuilder);
         PurchaseModel.Configure(modelBuilder);
@@ -44,6 +45,7 @@ public sealed class LongBeachDbContext(
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        ProtectMaterialLedger();
         ProtectBarLedger();
         ApplyTimestamps();
         return base.SaveChanges(acceptAllChangesOnSuccess);
@@ -53,11 +55,18 @@ public sealed class LongBeachDbContext(
         bool acceptAllChangesOnSuccess,
         CancellationToken cancellationToken = default)
     {
+        ProtectMaterialLedger();
         ProtectBarLedger();
         ApplyTimestamps();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
+    private void ProtectMaterialLedger()
+    {
+        ChangeTracker.DetectChanges();
+        if (ChangeTracker.Entries<LongBeach.Domain.Inventory.MaterialMovement>().Any(entry => entry.State is EntityState.Modified or EntityState.Deleted))
+            throw new LongBeach.Domain.Inventory.InventoryRuleException("Registro histórico imutável. Registre uma nova movimentação de correção.");
+    }
     private void ProtectBarLedger()
     {
         ChangeTracker.DetectChanges();

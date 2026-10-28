@@ -104,7 +104,7 @@ public sealed class ReceivedInvoicesService(LongBeachDbContext db, IConfiguratio
         var purchaseItems = new List<PurchaseItemInput>();
         foreach (var mapping in input.Items)
         {
-            var product = await db.Set<BarProduct>().SingleOrDefaultAsync(x => x.Id == mapping.ProductId, ct)
+            var product = await db.Set<BarProduct>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == mapping.ProductId, ct)
                 ?? throw new InvoiceRuleException("Produto não encontrado.");
             if (!product.Active || !product.ControlsStock || product.Version != mapping.ProductVersion)
                 throw new InvoiceRuleException("O produto foi alterado, está inativo ou não controla estoque. Atualize a conferência.");

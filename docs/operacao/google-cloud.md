@@ -1,6 +1,6 @@
 # Migração do LongBeach para Google Cloud
 
-A migração foi concluída em 25/10/2026 e o Financeiro foi publicado depois, no mesmo dia. O estado da release atual, com 27 migrations, está em [Financeiro no Google Cloud](financeiro-google-cloud-2026-10-25.md); a [entrega da migração](google-cloud-entrega-2026-10-25.md) preserva o corte com 26 migrations. Os registros datados abaixo descrevem a preparação e os ensaios anteriores. Suas referências antigas não substituem o manifesto atual nem devem ser reaplicadas como configuração da release vigente.
+A migração foi concluída em 25/10/2026 e o Financeiro foi publicado depois, no mesmo dia. O estado atual está no [registro da release na VM](release-google-vm.json) e no [runbook da VM](google-vm.md). O [Financeiro no Google Cloud](financeiro-google-cloud-2026-10-25.md) preserva sua publicação com 27 migrations; a [entrega da migração](google-cloud-entrega-2026-10-25.md) preserva o corte com 26 migrations. Os registros datados abaixo descrevem a preparação e os ensaios anteriores. Suas referências antigas não substituem o manifesto atual nem devem ser reaplicadas como configuração da release vigente.
 
 ## Economia de staging
 

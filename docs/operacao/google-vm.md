@@ -4,9 +4,23 @@ Corte de infraestrutura aplicado em 26/10/2026, com aceite explícito e retirada
 
 Em 27/10/2026, após liberação coordenada e revisão do retorno, os comprovantes locais foram arquivados integralmente em `LongBeach/evidencias/outputs/`, mantendo `LongBeach/outputs` como alias de consulta. Antes de qualquer ferramenta histórica que exija caminho canônico, seguir o [procedimento de retorno local ensaiado](comprovantes-e-retorno-local.md). Os recibos originais não foram alterados; esse arquivamento não executou ações em produção.
 
-## Publicação da estrutura consolidada — 26/10/2026, 22h58 de Brasília
+## Estoque e materiais — publicação concluída em 27/10/2026, 14h33 de Brasília
 
-A autorização direta para enviar e publicar a aplicação resultou na promoção do commit `7179c9fad657327d2bd9cc4dfa2e750180dedebf`. O [registro atual da release](release-google-vm.json) é a referência para o digest da API e a versão do Firebase. A API foi substituída isoladamente; os contêineres PostgreSQL e Caddy mantiveram identidade e início de execução. As 27 migrations são idênticas às anteriores: **nenhuma migration foi executada**. Configurações, segredos, permissões, flags de integração, timers e backups foram preservados. Não houve alteração de DNS ou infraestrutura.
+A API do commit `b71dbf22127a6475b91770ba8f643df7933330b9` foi promovida às 17h20m59s UTC, após autorização direta e aprovação do environment Production no workflow `release-images.yml`, [run40542381209](https://github.com/gustavodrager/longbeach/actions/runs/40542381209). A qualidade e a revisão do proprietário passaram para essa fonte. O workflow publica imagens no GHCR; a implantação controlada usou o OCI por digest registrado na [release atual](release-google-vm.json). O workflow `production-approval.yml` planejado inicialmente não foi executado.
+
+Somente a API foi pausada, incluindo seus workers. O dump lógico privado do banco congelado foi restaurado em PostgreSQL 18 local isolado; as 59 tabelas anteriores, a sequência e os 27 IDs de migrations conferiram. O ensaio comprovou o job SQL exato 27→28, rollback total em falha injetada após o DDL, permissões runtime e rejeição de UPDATE/DELETE do histórico. A execução real aplicou uma única migration, `20261027135728_MaterialStockLedger`, e conferiu os mesmos dados e sequência, 28 IDs, ledger vazio, owner migrator, grants e trigger antes de reabrir a API. Nenhum saldo inicial fictício, usuário ou lançamento foi criado.
+
+Somente o contêiner API foi recriado. PostgreSQL, Caddy, identidade do banco, arquivos de configuração restantes, flags de integração e timers foram preservados; `runtime.env` recebeu somente a nova `API_IMAGE`. A conferência externa às 17h21m46s UTC aprovou readiness 200 e acesso sem sessão 401 com TLS válido. O pós-check às 17h22m14s UTC confirmou a API saudável, schema 28, invariantes do ledger, full e WAL correntes, sem WAL pendente. A comparação integral dos dados ocorreu antes da retomada; operações legítimas posteriores podem alterar esses hashes.
+
+O frontend da mesma fonte b71 foi publicado às 17h33m35.012s UTC (14h33m35 de Brasília), na versão Firebase `001ec4e450b73ac6`, release `1793122415012000`. Às 17h34m12s UTC, o verificador público confirmou os 73 arquivos iguais ao artefato, seis rotas SPA, headers/TLS, configuração Firebase preservada e metadados privados não expostos. O SHA-256 da árvore pública é `425b0e4ebcea73884ccdc4283b6eef89f41723718874f6d71a6f4c0fc2ec5937`. A confiança TLS do preflight local foi corrigida com raízes públicas, mantendo a validação e os mesmos bytes, sem reconstruir o artefato; a publicação ocorreu uma vez.
+
+Às 17h34m55s UTC, uma aba própria de teste ativou a atualização PWA, exibiu a tela de login e o botão Google, e voltou ao login ao abrir a rota protegida de materiais, sem erro inesperado. Não houve novo login Google, conferência de telas de negócio autenticadas ou escrita de negócio nessa validação.
+
+O [procedimento desta publicação](publicacao-estoque-materiais-2026-10-27.md) preserva o retorno. Retornar apenas a interface mantém a API protegida e o schema 28. A imagem anterior está retida, mas não pode reabrir a edição direta de saldo com escrita habilitada. Em falha da API, manter a candidata parada e revisar correção compatível; não executar Down, restaurar sobre o banco ativo ou apagar comprovantes. Recibos privados e seus hashes estão referenciados no registro da release; dumps e dados não são versionados.
+
+## Histórico — publicação da estrutura consolidada em 26/10/2026, 22h58 de Brasília
+
+A autorização direta para enviar e publicar a aplicação resultou na promoção do commit `7179c9fad657327d2bd9cc4dfa2e750180dedebf`. Essa é a publicação histórica de 26/10; o [registro atual da release](release-google-vm.json) acompanha as promoções posteriores. Naquela etapa, a API foi substituída isoladamente; os contêineres PostgreSQL e Caddy mantiveram identidade e início de execução. As 27 migrations eram idênticas às anteriores: **nenhuma migration foi executada naquela publicação**. Configurações, segredos, permissões, flags de integração, timers e backups foram preservados. Não houve alteração de DNS ou infraestrutura.
 
 A publicação web preservou os mesmos bytes públicos da versão anterior, agora construídos do layout consolidado `frontend/`. A leitura posterior conferiu os 73 arquivos, seus hashes, TLS, headers, quatro rotas SPA e a identidade da release antes/depois. Os metadados privados de build continuam excluídos da hospedagem. No Chrome normal, a sessão existente abriu o Financeiro e permaneceu autenticada após recarga completa; esta conferência não criou lançamentos nem refez o login Google.
 
@@ -84,7 +98,7 @@ Com isso, login/sessão, consultas usuais, disponibilidade nas três localizaç�
 
 ## O que muda
 
-Uma VM de4 GiB em São Paulo hospeda a API, proxy HTTPS e PostgreSQL18 sem reserva automática. O frontend permanece no Firebase. Os endereços públicos, login, permissões, bancos/usuários da aplicação e as flags atuais dos provedores bancários são preservados. Não habilitar conciliação ou outro worker desativado apenas porque o host mudou. A decisão e os limites estão no [ADR-015](../adr/ADR-015-google-vm-economia.md).
+Uma VM de4 GiB em São Paulo hospeda a API, proxy HTTPS e PostgreSQL 18 sem reserva automática. O frontend permanece no Firebase. Os endereços públicos, login, permissões, bancos/usuários da aplicação e as flags atuais dos provedores bancários são preservados. Não habilitar conciliação ou outro worker desativado apenas porque o host mudou. A decisão e os limites estão no [ADR-015](../adr/ADR-015-google-vm-economia.md).
 
 O PostgreSQL escuta somente na rede Docker interna e não publica porta no host. O disco de dados é montado em `/var/lib/longbeach`; o bootstrap deve recusar inicialização se esse disco estiver ausente, em vez de gravar dados no boot. Configuração e segredos ficam em `/etc/longbeach` e `/run/longbeach`, fora do Git. Administrar pelo acesso individual autorizado do Google; não distribuir conta administrativa como credencial da API.
 
@@ -110,7 +124,7 @@ Procedimento de transferência e de conferência. O corte, as validações de na
 
 ## Backup e recuperação
 
-O [runbook de backup](../../deploy/google/vm/backup/README.md) contém os arquivos e contratos de instalação. pgBackRest2.59.3 roda no mesmo container PostgreSQL18, como UID999. Usa IAM da VM para GCS privado em `southamerica-east1`, sem chave JSON. Há full diário, WAL contínuo e retenção por tempo de oito dias; não há lifecycle independente que apague WAL necessário. A janela de sete dias começa a existir depois de acumulado esse histórico.
+O [runbook de backup](../../deploy/google/vm/backup/README.md) contém os arquivos e contratos de instalação. pgBackRest2.59.3 roda no mesmo container PostgreSQL 18, como UID999. Usa IAM da VM para GCS privado em `southamerica-east1`, sem chave JSON. Há full diário, WAL contínuo e retenção por tempo de oito dias; não há lifecycle independente que apague WAL necessário. A janela de sete dias começa a existir depois de acumulado esse histórico.
 
 O operador confere os timers `longbeach-backup.timer` e `longbeach-backup-check.timer`, os eventos `LONGBEACH_BACKUP_FAILURE` e `/var/lib/longbeach/backup-state`. A verificação executa um switch de WAL, valida envio ao repositório e idade do full. Se o GCS ficar inacessível, o WAL se acumula no disco local: reparar a causa; não apagar WAL para ocultar o problema. Alertar antes de85% do disco.
 

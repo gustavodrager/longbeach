@@ -6,6 +6,7 @@ using LongBeach.Domain.Payments;
 using LongBeach.Domain.Purchases;
 using LongBeach.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 namespace LongBeach.Infrastructure.Bar;
 public sealed class BarPurchasesService(LongBeachDbContext db):IBarPurchases
 {
@@ -42,17 +43,23 @@ public sealed class BarPurchasesService(LongBeachDbContext db):IBarPurchases
     public async Task<Purchase> Create(PurchaseInput input,Guid actor,CancellationToken ct)
     {
         if(input.Items is null || input.Items.Count is 0 or >100 || input.Items.Select(x=>x.ProductId).Distinct().Count()!=input.Items.Count) throw new BarRuleException("Informe de 1 a 100 produtos sem repetir itens.");
+        await using var transaction = db.Database.CurrentTransaction is null
+            ? await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct) : null;
+        if (db.Database.CurrentTransaction!.GetDbTransaction().IsolationLevel != System.Data.IsolationLevel.Serializable)
+            throw new InvalidOperationException("A criação da compra exige uma transação serializável.");
         if(!await db.Set<Supplier>().AnyAsync(x=>x.Id==input.SupplierId,ct)) throw new BarRuleException("Fornecedor inexistente.");
         var purchase=new Purchase(input.SupplierId,input.Document,actor);
         foreach(var i in input.Items)
         {
-            var product=await db.Set<BarProduct>().SingleOrDefaultAsync(x=>x.Id==i.ProductId,ct) ?? throw new BarRuleException("Produto inexistente.");
+            var product=await db.Set<BarProduct>().AsNoTracking().SingleOrDefaultAsync(x=>x.Id==i.ProductId,ct) ?? throw new BarRuleException("Produto inexistente.");
             if(!product.ControlsStock) throw new BarRuleException("Compra de estoque exige produto estocável.");
             purchase.Items.Add(new PurchaseItem(purchase.Id,product,i.Quantity,i.PurchaseCost));
         }
         purchase.Terms(input.Freight,input.Discount,input.PaymentMethod,input.AccountReference,input.PurchasedAtUtc,
             input.Items.Where(x=>x.Total.HasValue).ToDictionary(x=>x.ProductId,x=>x.Total!.Value));
-        db.Add(purchase);await db.SaveChangesAsync(ct);return purchase;
+        db.Add(purchase);await db.SaveChangesAsync(ct);
+        if (transaction is not null) await transaction.CommitAsync(ct);
+        return purchase;
     }
     public async Task<Purchase> CorrectPaymentReference(Guid id,PurchasePaymentReferenceInput input,CancellationToken ct)
     {

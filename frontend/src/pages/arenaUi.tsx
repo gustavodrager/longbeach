@@ -41,7 +41,7 @@ export function DetailList({ items }: { items: [string, ReactNode][] }) { return
 export function Status({ children, warning = false }: { children: ReactNode; warning?: boolean }) { return <span className={`status-pill ${warning ? 'arena-warning' : ''}`}>{warning && <span aria-hidden="true">! </span>}{children}</span> }
 export function useFilters() {
   const [params, setParams] = useContextSearchParams()
-  const set = (key: string, value: string) => { const next = new URLSearchParams(params); value ? next.set(key, value) : next.delete(key); if (key !== 'page') next.delete('page'); setParams(next, { replace: key === 'q', preventScrollReset: true }) }
+  const set = (key: string, value: string) => setParams(current => { const next = new URLSearchParams(current); value ? next.set(key, value) : next.delete(key); if (key !== 'page') next.delete('page'); return next }, { replace: key === 'q', preventScrollReset: true })
   const href = (path: string, changes?: Record<string, string>) => { const next = new URLSearchParams(params); for (const key of ['acao','registro','secao']) next.delete(key); if (changes) for (const [key, value] of Object.entries(changes)) value ? next.set(key, value) : next.delete(key); return `${path}${next.size ? `?${next}` : ''}` }
   return { params, set, href, query: params.get('q') ?? '', status: params.get('status') ?? '' }
 }

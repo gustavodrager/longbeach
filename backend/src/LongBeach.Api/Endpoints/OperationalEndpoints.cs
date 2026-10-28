@@ -82,6 +82,19 @@ public static class OperationalEndpoints
                 CanFinance(http, false, publicDemo, kind), CanFinance(http, true, publicDemo, kind));
             if (!prepared.Allowed) return Results.Forbid();
             var incoming = prepared.Body;
+            if (kind == "inventory")
+            {
+                // A movement may have advanced the material while its metadata form was open.
+                // Report the stale version before treating the old balance as a forbidden stock edit.
+                if (record is not null && OperationalValidation.Version(body) != OperationalValidation.Version(ParsePayload(record.Payload))
+                    && LongBeach.Application.Inventory.MaterialRecordRules.Number(incoming, "quantity") != LongBeach.Application.Inventory.MaterialRecordRules.Number(JsonNode.Parse(record.Payload)!.AsObject(), "quantity"))
+                    return Results.Conflict(new { message = "Este material mudou depois que você o abriu. Atualize os dados e confira a quantidade antes de salvar." });
+                var completesMissingUnit = record is not null
+                    && LongBeach.Application.Inventory.MaterialRecordRules.Text(JsonNode.Parse(record.Payload)!.AsObject(), "unit").Trim().Length == 0
+                    && LongBeach.Application.Inventory.MaterialRecordRules.Text(incoming, "unit").Trim().Length > 0;
+                var hasLedgerHistory = completesMissingUnit && await db.Set<LongBeach.Domain.Inventory.MaterialMovement>().AnyAsync(x => x.MaterialId == id, ct);
+                LongBeach.Application.Inventory.MaterialRecordRules.GuardMetadata(incoming, record?.Payload, hasLedgerHistory);
+            }
             if (kind == "financeEntries") LongBeach.Application.Finance.FinancialReceiptRules.PrepareWrite(incoming, record?.Payload);
             if (kind == "financeEntries") LongBeach.Application.Finance.BusinessAllocationRules.PreserveOmitted(incoming, record?.Payload);
             if (kind == "financeEntries") await LongBeach.Infrastructure.Billing.BillingWriteGuard.Check(db, id, incoming, record?.Payload, ct);

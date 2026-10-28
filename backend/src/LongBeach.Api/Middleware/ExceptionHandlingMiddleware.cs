@@ -47,6 +47,10 @@ public sealed class ExceptionHandlingMiddleware(
         {
             await WriteProblemAsync(context, 400, "Conferência financeira rejeitada", exception.Message);
         }
+        catch (LongBeach.Domain.Inventory.InventoryRuleException exception)
+        {
+            await WriteProblemAsync(context, 400, "Movimentação de material rejeitada", exception.Message);
+        }
         catch (LongBeach.Domain.Bar.BarRuleException exception)
         {
             await WriteProblemAsync(context, 400, "Operação do Bar rejeitada", exception.Message);
