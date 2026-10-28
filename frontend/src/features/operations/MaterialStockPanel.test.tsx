@@ -224,7 +224,7 @@ it('clears the previous metadata form before another writer opens the same mater
   current = { ...material, name: 'Cadastro da sessão atual', costsVisible: false, unitCost: 0, paymentMethod: '' }
   view.rerender(tree({ identity: { ...owner, id: 'operator-two', roles: ['Operations'], permissions: ['inventory:read', 'inventory:write'] } }))
   await waitFor(() => expect(screen.getByLabelText('Material ou equipamento')).toHaveValue('Cadastro da sessão atual'))
-  const editor = within(await screen.findByRole('dialog', { name: 'Material', exact: true }))
+  const editor = within(await screen.findByRole('dialog', { name: 'Material' }))
   expect(editor.getByLabelText('Material ou equipamento')).toHaveValue('Cadastro da sessão atual')
   expect(editor.queryByLabelText('Custo unitário estimado (R$)')).not.toBeInTheDocument()
   await userEvent.click(editor.getByRole('button', { name: 'Salvar cadastro' }))
