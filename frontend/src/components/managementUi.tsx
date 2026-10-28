@@ -25,7 +25,19 @@ export const useUnsavedChanges = () => useContext(UnsavedContext)
 export function useContextSearchParams() {
   const [params, setParams] = useSearchParams()
   const location = useLocation()
-  const update: typeof setParams = (next, options) => setParams(next, { state: location.state, ...options })
+  const router = useContext(UNSAFE_DataRouterContext)?.router
+  const update: typeof setParams = (next, options) => {
+    // Router callbacks use the render's search snapshot, not a queued value.
+    // Read the accepted navigation instead so rapid actions from separate hooks
+    // compose without reviving a closed editor. Blocked/reset navigations never
+    // become this base, and POP navigation remains authoritative.
+    const pending = router?.state.navigation.state !== 'idle' ? router?.state.navigation.location : undefined
+    const committed = router?.state.location
+    const current = pending?.pathname === location.pathname ? pending
+      : committed?.pathname === location.pathname ? committed : location
+    const value = typeof next === 'function' ? next(new URLSearchParams(current.search)) : next
+    setParams(value, { state: current.state, ...options })
+  }
   return [params, update] as const
 }
 
