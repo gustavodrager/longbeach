@@ -136,6 +136,6 @@ As abas de inspeção e os dois servidores temporários foram encerrados após a
 ## Limites e pendências de aceite
 
 - Este documento não autoriza nem registra deploy, migrations, importação ou alteração de dados reais.
-- A revisão e os ajustes estão locais, na branch `codex/agenda-disponibilidade-20261028`; a produção ainda não recebeu estas alterações.
+- Ao concluir a revisão local, os ajustes estavam na branch `codex/agenda-disponibilidade-20261028`, ainda sem publicação. A publicação posterior da agenda e do complemento Financeiro/Bar, autorizada separadamente e verificada sem escrita de negócio, está registrada em [publicação da agenda](publicacao-agenda-2026-10-28.md).
 - A prévia sintética ajuda a avaliar hierarquia, linguagem, filtros, datas e contexto; não comprova autorização real, concorrência, persistência ou cobrança.
 - Estado de produção e comprovantes de publicações anteriores continuam nos registros próprios; seus hashes, fontes e aprovações não são reinterpretados por esta revisão local.

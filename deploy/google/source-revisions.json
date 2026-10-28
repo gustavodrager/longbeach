@@ -2,9 +2,9 @@
   "schema_version": 1,
   "verified_at": "2026-10-28",
   "api_source_commit": "b71dbf22127a6475b91770ba8f643df7933330b9",
-  "web_source_commit": "213e988453fbb793e051ea91fcb6324bbd8760d8",
+  "web_source_commit": "0d2b6b2ce5a73df1937ca5e76b5626f47543abb4",
   "production_api_origin": "https://api.longbeach.quebranunca.com.br",
   "production_web_origin": "https://longbeach.quebranunca.com.br",
-  "purpose": "Publicação somente web do nome opcional na criação e edição de turma, com identificação automática por esporte, dia e horário quando vazio. Demais campos obrigatórios preservados. QA autenticada conferiu formulário e PWA do artefato sem salvar dados de negócio. API b71/schema28, dados existentes, integrações, infraestrutura e policy Production preservados. Sem publicação de API, backup, migration ou restauração. Retorno somente web à versão 7972887e013db74d sob nova autorização.",
+  "purpose": "Somente frontend: disponibilidade por quadra e período nas agendas, estados livres/ocupados/fechados/a confirmar e filtros coerentes. A redação financeira esclarece que Financeiro e Bar são recortes do mesmo financeiro e podem se sobrepor; valores, cálculos e consultas permanecem iguais. Nenhuma escrita de negócio na QA. API b71/schema 28 e infraestrutura preservados. Sem publicação de API, backup, migration ou restauração; retorno somente web 97cf18f08432f742 sob nova autorização.",
   "web_source_path": "frontend"
 }
