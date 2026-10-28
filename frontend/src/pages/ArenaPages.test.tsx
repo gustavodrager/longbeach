@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthContext, type AuthContextValue } from '../features/auth/authContext'
 import { DemoDataProvider } from '../features/operations/DemoDataProvider'
 import type { AuthUser } from '../features/auth/types'
-import { CourtsPage, AgendaPage, FinanceDetailsPage, FinancePage, MaintenanceDetailsPage, ReservationDetailsPage } from './ArenaPages'
+import { ClassDetailsPage, CourtsPage, AgendaPage, FinanceDetailsPage, FinancePage, MaintenanceDetailsPage, ReservationDetailsPage } from './ArenaPages'
 import { DashboardPage } from './DashboardPage'
 import { ProjectDetailsPage, TeamDetailsPage } from './OperationsPages'
 import { today } from './arenaUi'
@@ -16,7 +16,7 @@ function RouteState(){const location=useLocation();return <output data-testid="r
 function start(path:string,demoMode=true,user:AuthUser=owner,staleTime=0){
   const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{}, completeFirstAccessWithGoogle: async () => {}}
   const query=new QueryClient({defaultOptions:{queries:{retry:false,staleTime}}})
-  return render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><DemoDataProvider enabled demoMode={demoMode}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<DashboardPage />} /><Route path="/quadras" element={<CourtsPage />} /><Route path="/agenda" element={<AgendaPage />} /><Route path="/agenda/:reservationId" element={<ReservationDetailsPage />} /><Route path="/financeiro" element={<FinancePage />} /><Route path="/financeiro/:entryId" element={<FinanceDetailsPage />} /><Route path="/equipe/:memberId" element={<TeamDetailsPage />} /><Route path="/projetos/:projectId" element={<ProjectDetailsPage />} /><Route path="/manutencao/:maintenanceId" element={<MaintenanceDetailsPage />} /></Routes></MemoryRouter></DemoDataProvider></AuthContext.Provider></QueryClientProvider>)
+  return render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><DemoDataProvider enabled demoMode={demoMode}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<DashboardPage />} /><Route path="/quadras" element={<CourtsPage />} /><Route path="/agenda" element={<AgendaPage />} /><Route path="/agenda/:reservationId" element={<ReservationDetailsPage />} /><Route path="/escola/:classId" element={<ClassDetailsPage />} /><Route path="/escola/turmas/:classId" element={<ClassDetailsPage />} /><Route path="/financeiro" element={<FinancePage />} /><Route path="/financeiro/:entryId" element={<FinanceDetailsPage />} /><Route path="/equipe/:memberId" element={<TeamDetailsPage />} /><Route path="/projetos/:projectId" element={<ProjectDetailsPage />} /><Route path="/manutencao/:maintenanceId" element={<MaintenanceDetailsPage />} /></Routes></MemoryRouter></DemoDataProvider></AuthContext.Provider></QueryClientProvider>)
 }
 const court={id:'22222222-2222-2222-2222-222222222222',name:'Quadra 1',sport:'Futevôlei',status:'Disponível',openingTime:'07:00',closingTime:'23:00'}
 beforeEach(()=>{localStorage.clear();sessionStorage.clear();vi.stubEnv('VITE_DEMO_MODE','true');vi.stubEnv('VITE_OPERATIONAL_STORAGE','local')})
@@ -610,4 +610,54 @@ it('reserva a partir do dia retorna ao mesmo dia ao cancelar', async () => {
   await user.click(screen.getByRole('button', {name:'Cancelar'}))
   expect(screen.getByLabelText('Visualização')).toHaveValue('day')
   expect(screen.getByTestId('route')).toHaveTextContent('date=2026-10-09')
+})
+
+
+it.each([
+  { typedName: '', expectedName: 'Futevôlei · Segunda-feira · 18:00–19:00' },
+  { typedName: '   ', expectedName: 'Futevôlei · Segunda-feira · 18:00–19:00' },
+  { typedName: 'Iniciantes', expectedName: 'Iniciantes' },
+])('cadastra turma com nome opcional: "$typedName"', async ({ typedName, expectedName }) => {
+  vi.stubEnv('VITE_DEMO_MODE', 'false')
+  const teacher = { id: '12345678-1234-1234-1234-123456789abc', name: 'Professor Teste', status: 'Ativo' }
+  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+    if (init?.method === 'PUT') {
+      const body = JSON.parse(String(init.body))
+      return body.name.trim() ? json({ ...body, version: 1 }, 201) : json({ message: 'O nome deve ter entre 1 e 240 caracteres.' }, 400)
+    }
+    return json(String(input).endsWith('/courts') ? [court] : String(input).endsWith('/team') ? [teacher] : [])
+  })
+  start('/escola/novo', false)
+  const user = userEvent.setup()
+  await screen.findByRole('option', { name: teacher.name })
+  const name = screen.getByLabelText('Nome da turma (opcional)')
+  expect(name).not.toBeRequired()
+  if (typedName) await user.type(name, typedName)
+  await user.selectOptions(screen.getByLabelText('Professor'), teacher.id)
+  await user.selectOptions(screen.getByLabelText('Quadra'), court.id)
+  await user.click(screen.getByRole('button', { name: 'Salvar turma' }))
+  expect(await screen.findByRole('heading', { name: expectedName })).toBeInTheDocument()
+  const writes = fetchMock.mock.calls.filter(([, init]) => init?.method === 'PUT')
+  expect(writes).toHaveLength(1)
+  expect(writes[0][0]).toMatch(/\/operations\/classes\//)
+  expect(JSON.parse(String(writes[0][1]?.body))).toMatchObject({ name: expectedName, sport: 'Futevôlei', teacherId: teacher.id, courtId: court.id, weekDay: 1, startTime: '18:00', endTime: '19:00', capacity: 8 })
+})
+
+it('permite limpar o nome na edição mantendo a turma e usando o horário atual', async () => {
+  const teacher = { id: 'professor', name: 'Professor Teste', status: 'Ativo' }
+  const lesson = { id: 'turma', name: 'Nome anterior', sport: 'Beach tennis', courtId: court.id, teacherId: teacher.id, weekDay: 3, startTime: '19:00', endTime: '20:00', capacity: 8, studentIds: [], status: 'Ativa', notes: '' }
+  localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({ courts: [court], team: [teacher], classes: [lesson] }))
+  start('/escola/turmas/turma')
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Editar turma' }))
+  const name = screen.getByLabelText('Nome da turma (opcional)')
+  expect(name).not.toBeRequired()
+  await user.clear(name)
+  fireEvent.change(screen.getByLabelText('Começa às'), { target: { value: '20:00' } })
+  fireEvent.change(screen.getByLabelText('Termina às'), { target: { value: '21:00' } })
+  await user.click(screen.getByRole('button', { name: 'Salvar turma' }))
+  expect(await screen.findByRole('heading', { name: 'Beach tennis · Quarta-feira · 20:00–21:00' })).toBeInTheDocument()
+  const saved = JSON.parse(localStorage.getItem('longbeach-os-demo-v1') ?? '{}').classes
+  expect(saved).toHaveLength(1)
+  expect(saved[0]).toMatchObject({ ...lesson, name: 'Beach tennis · Quarta-feira · 20:00–21:00', startTime: '20:00', endTime: '21:00' })
 })
