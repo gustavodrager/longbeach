@@ -1,5 +1,5 @@
 import type { MockInstance } from 'vitest'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthContext } from '../auth/authContext'
@@ -224,8 +224,10 @@ it('clears the previous metadata form before another writer opens the same mater
   current = { ...material, name: 'Cadastro da sessão atual', costsVisible: false, unitCost: 0, paymentMethod: '' }
   view.rerender(tree({ identity: { ...owner, id: 'operator-two', roles: ['Operations'], permissions: ['inventory:read', 'inventory:write'] } }))
   await waitFor(() => expect(screen.getByLabelText('Material ou equipamento')).toHaveValue('Cadastro da sessão atual'))
-  expect(screen.queryByLabelText('Custo unitário estimado (R$)')).not.toBeInTheDocument()
-  await userEvent.click(screen.getByRole('button', { name: 'Salvar cadastro' }))
+  const editor = within(await screen.findByRole('dialog', { name: 'Material', exact: true }))
+  expect(editor.getByLabelText('Material ou equipamento')).toHaveValue('Cadastro da sessão atual')
+  expect(editor.queryByLabelText('Custo unitário estimado (R$)')).not.toBeInTheDocument()
+  await userEvent.click(editor.getByRole('button', { name: 'Salvar cadastro' }))
   await waitFor(() => expect(fetch.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true))
   const sent = JSON.parse(String(fetch.mock.calls.find(([, init]) => init?.method === 'PUT')?.[1]?.body))
   expect(sent.name).toBe('Cadastro da sessão atual'); expect(sent).not.toHaveProperty('unitCost')
