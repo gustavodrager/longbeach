@@ -11,6 +11,7 @@ export function pagBankBalanceSource(bank: BalanceSource | undefined) {
   const date = bank?.date ?? null
   const displayDate = validDate(date) ? date.split('-').reverse().join('/') : null
   if (!portal) return {
+    kind: 'statement' as const,
     label: 'Saldo da conta PagBank · extrato importado',
     reference: displayDate ? `Saldo informado em ${displayDate}` : 'Data do saldo a confirmar',
     explanation: 'Último extrato importado. Este valor não acompanha o saldo atual da conta.',
@@ -23,6 +24,7 @@ export function pagBankBalanceSource(bank: BalanceSource | undefined) {
     Number(stamp[4]) < 24 && Number(stamp[5]) < 60 && Number(stamp[6]) < 60
     ? `${stamp[4]}:${stamp[5]}` : null
   return {
+    kind: 'portal' as const,
     label: 'Saldo da conta PagBank · consultado no portal',
     reference: displayDate
       ? `Consultado no portal em ${displayDate}${time ? ` às ${time} · horário de São Paulo` : ' · horário não informado'}`

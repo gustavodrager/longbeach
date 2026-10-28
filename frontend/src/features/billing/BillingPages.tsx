@@ -15,6 +15,7 @@ import './billing.css'
 import { downloadReceipt } from './receipt'
 import { accountSituation, isOverdue, matchesPaymentSelection, paymentInSource, paymentOverview, sortPaymentAccounts, type PaymentSituation, type PaymentUnit } from './paymentOverview'
 import { ImportedBankMovements } from '../finance/ImportedBankMovements'
+import { BankBalancesOverview } from '../finance/BankBalancesOverview'
 
 const manualPayment = (payment: Payment) => ['Cash', 'CardManual', 'TerminalManual'].includes(payment.method)
 
@@ -85,7 +86,7 @@ export function BillingPage({ admin = false }: { admin?: boolean }) {
     {config.error && <p role="alert">Os meios de pagamento estão indisponíveis. <button onClick={() => void config.refetch()}>Consultar novamente</button></p>}
     {error && <p role="alert">{error}</p>}
     {importOnly && <p role="status">Pagamentos online e consultas às operadoras estão suspensos no modo por arquivos. Histórico e comprovantes continuam disponíveis.{admin && hasPermission(user, 'users:manage') && <> <Link to="/importacoes">Importar extratos</Link></>}</p>}
-    {admin && <ImportedBankMovements />}
+    {admin && <><BankBalancesOverview /><ImportedBankMovements /></>}
     {!admin && accessible && totals && <section className="billing-summary" aria-label="Resumo das minhas contas"><div><span>Disponível para pagar</span><strong>{money(totals.payable)}</strong></div><div><span>Em confirmação</span><strong>{money(totals.pending)}</strong></div><div><span>Já pago nas contas vinculadas</span><strong>{money(totals.paid)}</strong></div></section>}
     {admin && accessible && accounts.isSuccess && <>
       <h2>Pagamentos registrados nas contas</h2>

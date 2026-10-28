@@ -18,16 +18,16 @@ function wrap(compact = false) {
 }
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); auth.roles = ['Owner'] })
 
-it('mostra pendências internas, caixa separado e saldo bancário desconhecido com horas distintas de leitura e alteração', async () => {
+it('mostra somente as quatro métricas operacionais com horas distintas de leitura e alteração', async () => {
   mockSources(); wrap()
-  await screen.findByText('Ainda não disponível')
-  const receivable = screen.getByRole('button', { name: /A receber · financeiro/ })
+  const receivable = await screen.findByRole('button', { name: /A receber · financeiro.*40,00/ })
   expect(receivable).toHaveTextContent('R$ 40,00')
   expect(receivable).toHaveTextContent('Descontados: R$ 60,00')
   expect(receivable).toHaveAttribute('aria-expanded', 'false')
   expect(screen.getByRole('button', { name: /A pagar/ })).toHaveTextContent('R$ 20,00')
   expect(screen.getByRole('link', { name: /Dinheiro nos caixas/ })).toHaveTextContent('R$ 12,34')
-  expect(screen.getByText('Ainda não disponível')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: /Comandas · falta receber/ })).toHaveTextContent('R$ 12,34')
+  expect(screen.queryByText(/Saldo da conta C6|Saldo da conta PagBank/)).not.toBeInTheDocument()
   expect(screen.getByText(/Consulta das contas:/)).toHaveTextContent('13/10/2026')
   expect(screen.getByText(/Última alteração registrada:/)).toHaveTextContent('12/10/2026')
   expect(screen.getByText(/A atualização é manual/)).toBeInTheDocument()
@@ -40,20 +40,18 @@ it('mostra pendências internas, caixa separado e saldo bancário desconhecido c
   expect(within(table).getAllByText('R$ 40,00')).toHaveLength(2)
 })
 
-it('identifica ausência de registros sem afirmar saldo zero na conta C6', async () => {
+it('identifica ausência de registros nas contas, comandas e caixas', async () => {
   const empty = { amountCents: 0, records: 0, overdueCents: 0, overdueRecords: 0, confirmedPaymentsCents: 0 }
   mockSources({ ...position, registeredEntries: 0, lastRecordChangeAtUtc: null, receivable: empty, payable: empty }, { ...report, value: 0, rows: { total: 0, items: [] } })
   wrap()
-  const bank = (await screen.findByText('Ainda não disponível')).closest('.arena-metric')!
-  expect(within(bank as HTMLElement).queryByText('R$ 0,00')).not.toBeInTheDocument()
-  expect(screen.getAllByText('Nenhuma conta com saldo pendente registrada.')).toHaveLength(2)
+  expect(await screen.findAllByText('Nenhuma conta com saldo pendente registrada.')).toHaveLength(2)
   expect(screen.getByText('Nenhuma comanda com saldo a receber registrada.')).toBeInTheDocument()
   expect(screen.getByText('Nenhum caixa aberto registrado.')).toBeInTheDocument()
 })
 
 it('atualiza as três fontes e oculta valores anteriores quando a nova leitura falha', async () => {
   const fetch = mockSources(); wrap()
-  await screen.findByText('Ainda não disponível')
+  await screen.findByRole('button', { name: /A receber · financeiro.*40,00/ })
   await userEvent.click(screen.getByRole('button', { name: /A receber · financeiro/ }))
   await userEvent.click(screen.getByRole('button', { name: /Fechar Contas a receber/ }))
   fetch.mockRejectedValue(new Error('offline'))
@@ -78,12 +76,11 @@ it('não reconsulta por intervalo e não permite consulta pela equipe sem gestã
   expect(fetch).not.toHaveBeenCalled()
 })
 
-it('resumo compacto mantém os saldos líquidos e concentra a atualização no cabeçalho global', async () => {
+it('resumo compacto mantém os saldos líquidos sem repetir cartões bancários', async () => {
   mockSources(); wrap(true)
   const receivable = await screen.findByRole('button', { name: /A receber · financeiro.*40,00/ })
   expect(screen.queryByRole('button', { name: 'Atualizar agora' })).not.toBeInTheDocument()
-  expect(screen.getByText('Saldo da conta C6 · referência importada')).toBeVisible()
-  expect(screen.getByText('Ainda não disponível')).toBeVisible()
+  expect(screen.queryByText(/Saldo da conta C6|Saldo da conta PagBank/)).not.toBeInTheDocument()
   await userEvent.click(receivable)
   expect(screen.getByRole('table', { name: 'Composição do saldo pendente' })).toHaveTextContent('R$ 40,00')
   expect(receivable).toHaveAttribute('aria-expanded', 'true')
@@ -91,38 +88,21 @@ it('resumo compacto mantém os saldos líquidos e concentra a atualização no c
   expect(screen.queryByRole('table')).not.toBeInTheDocument()
 })
 
-it('mostra saldo C6 negativo com fonte, data, atraso e ambiente de testes sem somar ao caixa', async () => {
+it('não repete o saldo bancário recebido junto da posição operacional nem o soma ao caixa', async () => {
   mockSources({ ...position, currentBank: { amountCents: -4205, asOfUtc: '2026-10-13T14:00:00Z', status: 'Stale', issue: 'Leitura anterior preservada.', source: 'C6 · teste', environment: 'Sandbox', sourceDate: '2026-10-13' } })
   wrap()
-  expect(await screen.findByText('-R$ 42,05')).toBeInTheDocument()
-  expect(screen.getByText('Referência histórica')).toBeInTheDocument()
-  expect(screen.getByText(/não representa dinheiro real/)).toBeInTheDocument()
-  expect(screen.getByText('Fonte: C6 · teste')).toBeInTheDocument()
-  expect(screen.getByText('Saldo informado em 13/10/2026')).toBeInTheDocument()
-  expect(screen.getByText(/Registrado em:/)).toHaveTextContent('13/10/2026')
-  expect(screen.getByRole('link', { name: /Conferir extrato C6/ })).toHaveAttribute('href', '/financeiro/historico?series=c6-conta')
-  expect(screen.getByRole('link', { name: /Dinheiro nos caixas/ })).toHaveTextContent('R$ 12,34')
+  expect(await screen.findByRole('link', { name: /Dinheiro nos caixas.*12,34/ })).toBeVisible()
+  expect(screen.queryByText('-R$ 42,05')).not.toBeInTheDocument()
+  expect(screen.queryByText(/Fonte: C6|Saldo da conta C6/)).not.toBeInTheDocument()
 })
 
 it('abre despesas gerenciadas na tela nova e preserva reembolso sem prazo como não vencido', async () => {
   mockSources({ ...position, entries: [{ ...position.entries[0], direction: 'Pagar', name: 'Reembolso fictício', hasDueDate: false, managedExpense: true }] })
   const { client } = wrap()
-  await screen.findByText('Ainda não disponível')
+  await screen.findByRole('button', { name: /A pagar · financeiro.*20,00/ })
   await userEvent.click(screen.getByRole('button', { name: /A pagar · financeiro/ }))
   const table = screen.getByRole('table', { name: 'Composição do saldo pendente' })
   expect(within(table).getByRole('link', { name: 'Reembolso fictício' })).toHaveAttribute('href', '/financeiro/despesas?acao=ver&registro=entry-one')
   expect(within(table).getByText('Sem prazo')).not.toHaveTextContent('vencido')
   client.clear()
-})
-
-
-it('saldo C6 importado distingue data do saldo, importação e arquivo sem prometer leitura do banco', async () => {
-  mockSources({ ...position, currentBank: { amountCents: 54321, asOfUtc: '2026-10-25T12:00:00Z', status: 'Imported', issue: 'Saldo do arquivo importado.', source: 'extrato-c6.csv', environment: 'Production', sourceDate: '2026-10-24' } })
-  wrap(true)
-  expect(await screen.findByText('R$ 543,21')).toBeVisible()
-  expect(screen.getByText('Extrato importado')).toBeVisible()
-  expect(screen.getByText('Saldo informado em 24/10/2026')).toBeVisible()
-  expect(screen.getByText('Fonte: extrato-c6.csv')).toBeVisible()
-  expect(screen.getByText(/Importado em:/)).toHaveTextContent('25/10/2026')
-  expect(screen.queryByText(/Consulta ao banco|Última leitura confirmada|cada 30 segundos/)).not.toBeInTheDocument()
 })

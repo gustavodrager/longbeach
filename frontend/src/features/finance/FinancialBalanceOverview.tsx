@@ -1,46 +1,28 @@
 import { isManagement } from '../auth/access'
-import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/authContext'
-import { apiFetch } from '../../lib/http'
-import { centsMoney } from './FinancialHistory'
+import { centsMoney } from './financialHistoryApi'
 import { ExpenseComposition } from './ExpenseComposition'
-import type { ExpenseBreakdown } from './monthlyExpenses'
 import { Disclosure } from '../../components/managementUi'
 import { CurrentFinancialMetrics } from './CurrentFinancialMetrics'
-import { pagBankBalanceSource } from './pagBankBalanceSource'
+import { BankBalancesOverview } from './BankBalancesOverview'
+import { useDashboardBalances } from './financialBalancesApi'
 
-type Balances = {
-  pagBankWallet?: { amountCents: number | null; date: string | null; collectedAtUtc: string | null; sourceHashes: string[]; issue: string | null }
-  pagBank: { amountCents: number | null; date: string | null; sourceName: string | null; sourceCell: string | null; metric: string | null; issue: string | null }
-  general: { month: string | null; amountCents: number | null; incomeCents: number | null; expenseCents: number | null; records: number; sources: string[]; issue: string | null; basis?: string; estimated?: boolean; estimatedExpenseCents?: number; expensesByType?: ExpenseBreakdown | null }
-}
 const monthLabel = (month: string) => new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${month}-01T12:00:00Z`))
 export function FinancialBalanceOverview({ compact = false }: { compact?: boolean }) {
   const { user } = useAuth()
-  const query = useQuery({ queryKey: ['dashboard-balances', user?.id], queryFn: () => apiFetch<Balances>('/api/v1/financial-history/dashboard-balances'), enabled: Boolean(isManagement(user)) })
+  const query = useDashboardBalances()
   if (!isManagement(user)) return null
   const data = query.isError ? undefined : query.data
-  const bank = data?.pagBank, general = data?.general, wallet = data?.pagBankWallet
-  const bankSource = pagBankBalanceSource(bank)
-  const bankHref = `/financeiro/historico?${new URLSearchParams({ series: 'saldos', ...(bank?.date ? { month: bank.date.slice(0, 7) } : {}), ...(bank?.metric ? { metric: bank.metric } : {}) })}`
+  const general = data?.general, wallet = data?.pagBankWallet
   const reviewed = general?.basis === 'revisado'
   const generalHref = reviewed ? `/financeiro/controle-mensal?${new URLSearchParams({ ...(general?.month ? { month: general.month } : {}) })}` : `/financeiro/historico?${new URLSearchParams({ series: 'consolidado', ...(general?.month ? { month: general.month } : {}) })}`
   const value = (amount: number | null | undefined) => query.isError ? 'Falha na atualização' : query.isPending ? 'Carregando…' : amount == null ? 'Ainda não disponível' : centsMoney(amount)
   return <section className="arena-dashboard-section" aria-labelledby="financial-balances-title">
     <div className="arena-section-heading"><div><p className="arena-section-eyebrow">{compact ? '02 · Financeiro' : 'Saldos importados e fontes disponíveis'}</p><h2 id="financial-balances-title">{compact ? 'Resumo financeiro' : 'Visão financeira'}</h2></div><Link className="secondary-link" to="/importacoes">Importar extratos</Link></div>
+    <BankBalancesOverview headingLevel={3} />
     <CurrentFinancialMetrics compact={compact} />
     {query.isError && <p role="alert">Não foi possível carregar os saldos e as fontes importadas. <button type="button" onClick={() => void query.refetch()}>Tentar novamente</button></p>}
-    <div className="arena-metric-grid arena-financial-grid" aria-label="Saldo da conta PagBank">
-      <Link className={`arena-metric ${bank?.amountCents == null ? 'arena-metric-unavailable' : ''}`} to={bankHref}>
-        <span className="arena-metric-label">{bankSource.label}</span><strong>{value(bank?.amountCents)}</strong>
-        <small>{bankSource.reference}</small>
-        <small>{bankSource.explanation}</small>
-        {bank?.sourceName && <small>Fonte: {bank.sourceName}{bank.sourceCell ? ` · ${bank.sourceCell}` : ''}</small>}
-        {bank?.issue && <small>{bank.issue}</small>}
-        <span className="arena-link-label">Conferir saldo e origem →</span>
-      </Link>
-    </div>
     <Disclosure title="Carteira PagBank · histórico EDI">
     {wallet && <div className="arena-metric-grid arena-financial-grid"><Link className={`arena-metric ${wallet.amountCents == null ? 'arena-metric-unavailable' : ''}`} to={`/financeiro/historico?ediDate=${wallet.date ?? ''}#pagbank-edi`}>
       <span className="arena-metric-label">Carteira de vendas PagBank · histórico EDI</span><strong>{value(wallet.amountCents)}</strong>

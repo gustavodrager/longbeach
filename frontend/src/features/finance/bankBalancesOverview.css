@@ -1,0 +1,7 @@
+.bank-balances-overview { margin:20px 0 28px; }
+.bank-balances-overview>h2,.bank-balances-overview>h3 { margin:0 0 8px; }
+.bank-balances-overview>.arena-hint { margin:0 0 14px; color:var(--muted,#696354); font-size:14px; line-height:1.5; }
+.bank-balances-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.bank-balances-grid .arena-metric { min-width:0; overflow-wrap:anywhere; }
+.bank-balances-grid .arena-metric strong { font-variant-numeric:tabular-nums; }
+@media(max-width:600px) { .bank-balances-grid { grid-template-columns:minmax(0,1fr); gap:12px; } }
