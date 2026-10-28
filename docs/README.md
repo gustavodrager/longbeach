@@ -10,6 +10,8 @@ A [integração de estoque e materiais](operacao/integracao-estoque-materiais-20
 
 O [registro de publicação de estoque e materiais](operacao/publicacao-estoque-materiais-2026-10-27.md) descreve os gates, o backup, a publicação comprovada da API/frontend e o retorno que preserva os comprovantes.
 
+A [correção do cancelamento no catálogo do Bar](operacao/correcao-cancelamento-bar-2026-10-27.md) registra a reprodução das navegações rápidas, a validação local e o estado da preparação para publicação somente web.
+
 
 ## Decisão e arquitetura
 

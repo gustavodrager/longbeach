@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "verified_at": "2026-10-27",
+  "verified_at": "2026-10-28",
   "api_source_commit": "b71dbf22127a6475b91770ba8f643df7933330b9",
-  "web_source_commit": "dc59e81a0ea7e6423752976196781a62bed9bfaa",
+  "web_source_commit": "6a905cf027463e7688baae560fc824e0e5a591d7",
   "production_api_origin": "https://api.longbeach.quebranunca.com.br",
   "production_web_origin": "https://longbeach.quebranunca.com.br",
-  "purpose": "Publicação somente web do destaque dos movimentos bancários importados na Visão geral e em Recebimentos, com competência e origem e sem duplicar pagamentos. API b71dbf2 e schema 28 preservados; não promover a imagem API do gate da web nem reativar consultas bancárias automáticas. Artefato público e conferência autenticada de produção aprovados, conforme registro operacional.",
+  "purpose": "Publicação somente web da correção do cancelamento da edição de produtos do Bar e composição de filtros rápidos nessa tela. Artefato público e QA autenticada de quatro casos do Bar aprovados, com PWA atualizado, sem edição de produto/estoque ou salvamento. Materiais cobertos pelos testes afetados e pela rota SPA pública nesta release. API b71dbf2/schema28, dados, integrações, infraestrutura e policy Production preservados, sem promover API ou executar backup/migration/restauração. Retorno somente da web à versão c6b5e6266e9cab5f sob nova autorização.",
   "web_source_path": "frontend"
 }
