@@ -116,6 +116,45 @@
 .agenda-days .is-today { border-color:#a7822d; }
 .agenda-days [aria-current=date] { background:#f6dfa0; border-color:#967328; color:#302a18; }
 .agenda-days a:focus-visible,.agenda-time-shortcuts button:focus-visible,.agenda-week-grid:focus-visible { outline:3px solid #756024; outline-offset:2px; }
+.agenda-availability { padding:16px; margin:14px 0; border:1px solid #d9d3c6; border-radius:12px; background:#fffdf8; }
+.agenda-availability-heading { display:flex; align-items:start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.agenda-availability h2 { margin:0; font-size:17px; }
+.agenda-availability-heading p { margin:6px 0 0; font-size:13px; color:#625e54; }
+.agenda-availability-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.agenda-availability-actions a { display:inline-flex; align-items:center; min-height:44px; padding:8px 12px; border:1px solid #d9d3c6; border-radius:8px; font-size:13px; font-weight:700; text-decoration:none; }
+.agenda-availability-actions .availability-free-link { background:#e5f2e2; border-color:#8fb58e; color:#244d29; }
+.agenda-availability-courts { display:grid; gap:12px; margin-top:12px; }
+.agenda-availability-court h3 { margin:0 0 8px; font-size:15px; }
+.availability-intervals { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:0; }
+.availability-intervals>div { padding:12px; border-radius:9px; border:1px solid #d9d3c6; background:#f3f0e9; }
+.availability-intervals>.availability-free { background:#edf6e9; border-color:#a4c39e; }
+.availability-intervals dt { font-size:12px; font-weight:800; margin-bottom:6px; }
+.availability-intervals dd { margin:0; display:flex; gap:6px 12px; flex-wrap:wrap; font-size:15px; font-weight:700; }
+.availability-intervals dd span { white-space:nowrap; }
+.availability-unverified { margin:0; padding:10px 12px; background:#f4efe4; border-left:3px solid #a89668; font-size:14px; }
+.availability-legend { display:flex; gap:8px 16px; flex-wrap:wrap; font-size:12px; margin:12px 0; }
+.availability-legend>span { display:inline-flex; align-items:center; gap:6px; }
+.availability-legend>span::before { content:''; width:10px; height:10px; border:1px solid #aaa18d; border-radius:3px; background:#f4efe4; }
+.availability-legend>.availability-free::before { background:#d7ebd1; border-color:#779971; }
+.availability-legend>.availability-occupied::before { background:#b9c8dd; border-color:#7a8ba4; }
+.availability-legend>.availability-closed::before { background:#e5dddd; border-color:#ac9191; }
+.availability-legend>.availability-pending::before { background:repeating-linear-gradient(135deg,#eee7d7 0 3px,#fffdf8 3px 6px); }
+.week-item-availability { font-size:10px; font-weight:800; }
+.week-item-court { font-weight:700; }
+.week-day-body.is-unverified { background:repeating-linear-gradient(135deg,#f9f6ee 0 8px,#eee8da 8px 9px); }
+.week-availability-state { position:sticky; top:0; margin:0; padding:9px 6px; background:#f4efe4; color:#605949; font-size:12px; font-weight:700; z-index:1; }
+.agenda-occupied-heading { margin:20px 0 10px; font-size:16px; }
+.agenda-page .arena-slot-class,.agenda-page .arena-slot-occupied { border-left:4px solid #7b8da8; }
+.agenda-page .arena-slot-blocked { border-left:4px solid #ab8585; }
+.agenda-period-note { margin:10px 0 0; color:#625e54; font-size:13px; }
+@media(max-width:700px) {
+  .agenda-availability { padding:12px; }
+  .agenda-availability h2 { font-size:15px; }
+  .availability-intervals { grid-template-columns:minmax(0,1fr); }
+  .agenda-availability-actions { width:100%; }
+  .agenda-availability-actions a { flex:1; justify-content:center; text-align:center; }
+  .agenda-controls>.operation-field { min-width:0; width:100%; }
+}
 .agenda-time-shortcuts { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 6px; }
 .agenda-time-shortcuts button { min-height:44px; padding:8px 14px; border:1px solid #d9d3c6; border-radius:9px; background:#fffdf8; color:#454337; font:inherit; font-size:13px; cursor:pointer; }
 .agenda-time-shortcuts button:disabled { opacity:.55; cursor:default; }
