@@ -17,6 +17,8 @@ import { LoginPage } from './pages/LoginPage'
 import { FirstAccessPage } from './pages/FirstAccessPage'
 const BarLayout = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarLayout })))
 const BarProductsPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarProductsPage })))
+const MenuEditorPage = lazy(() => import('./features/menu/MenuEditorPage').then(module => ({ default: module.MenuEditorPage })))
+const MenuPresentationPage = lazy(() => import('./features/menu/MenuPresentationPage'))
 const BarStockPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarStockPage })))
 const BarCountsPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarCountsPage })))
 const BarCashPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarCashPage })))
@@ -100,6 +102,7 @@ export function App() {
 }
 function ApplicationRoutes() {
   return <OptionalUnsavedProvider><Routes>
+    <Route path="/cardapio/apresentacao" element={<Suspense fallback={<main className="session-loading" role="status">Abrindo cardápio…</main>}><MenuPresentationPage /></Suspense>} />
     <Route path="/prototipo/*" element={<Suspense fallback={<main className="session-loading" role="status">Abrindo protótipo…</main>}><PrototypeApp /></Suspense>} />
     <Route path="/cliente" element={<Suspense fallback={<main className="session-loading" role="status">Abrindo sua comanda…</main>}><ClientPage /></Suspense>} />
     <Route path="*" element={<OperationalRoutes />} />
@@ -173,6 +176,7 @@ function OperationalRoutes() {
       <Route path="bar" element={<BarLayout />}>
         <Route index element={<BarDestination />} />
         <Route path="produtos" element={bar(['bar:catalog:write','bar:stock:read'], <BarProductsPage />)} />
+        <Route path="cardapio" element={bar('bar:catalog:write', <MenuEditorPage />)} />
         <Route path="receitas" element={bar('bar:catalog:write', <BarRecipesPage />)} />
         <Route path="receitas/:productId" element={bar('bar:catalog:write', <BarRecipesPage />)} />
         <Route path="estoque" element={bar('bar:stock:read', <BarStockPage />)} />

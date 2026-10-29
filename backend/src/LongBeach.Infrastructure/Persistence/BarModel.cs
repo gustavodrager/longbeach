@@ -5,6 +5,12 @@ public static class BarModel
 {
     public static void Configure(ModelBuilder model)
     {
+        var menu = model.Entity<BarMenu>();
+        menu.ToTable("bar_menu"); menu.HasKey(x => x.Id);
+        menu.Property(x => x.Id).ValueGeneratedNever();
+        menu.Property(x => x.Version).IsConcurrencyToken();
+        menu.Property(x => x.DraftJson).HasColumnType("jsonb");
+        menu.Property(x => x.PublishedJson).HasColumnType("jsonb");
         var category = model.Entity<BarProductCategory>();
         category.ToTable("bar_categories"); category.HasKey(x => x.Id);
         category.Property(x => x.Id).ValueGeneratedNever();

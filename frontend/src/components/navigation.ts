@@ -9,6 +9,7 @@ export const barNavigation: NavigationGroup[] = [
   { label: 'Pedidos', icon: 'check', href: '/atendimento/pedidos', permission: 'bar:sales:operate' },
   { label: 'Caixa', icon: 'wallet', href: '/bar/caixa', anyPermission: ['bar:cash:operate', 'bar:supervise'] },
   { label: 'Produtos e estoque', icon: 'bar', href: '/bar/produtos', anyPermission: ['bar:catalog:write', 'bar:stock:read'] },
+  { label: 'Cardápio', icon: 'bar', href: '/bar/cardapio', permission: 'bar:catalog:write' },
   { label: 'Compras', icon: 'wallet', href: '/bar/compras', permission: 'bar:purchases:manage' },
   { label: 'Resumo', icon: 'home', href: '/bar/indicadores', permission: 'bar:finance:read' },
 ]

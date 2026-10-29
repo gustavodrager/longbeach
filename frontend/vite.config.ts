@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['icons/icon.svg', 'icons/icon-maskable.svg', 'prototype-assets/logo-horizontal.svg', 'prototype-assets/logo-symbol.svg', 'prototype-assets/manrope.ttf'],
+      includeAssets: ['icons/icon.svg', 'icons/icon-maskable.svg', 'prototype-assets/logo-horizontal.svg', 'prototype-assets/logo-symbol.svg', 'prototype-assets/manrope.ttf', 'brand/menu-longbeach.png', 'brand/menu-quebranunca.png'],
       manifest: {
         name: 'Long Beach OS',
         short_name: 'Long Beach',

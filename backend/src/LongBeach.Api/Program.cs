@@ -194,6 +194,7 @@ app.MapTeachingEndpoints();
 app.MapBillingEndpoints();
 app.MapC6PixEndpoints();
 app.MapBarEndpoints();
+app.MapBarMenuEndpoints();
 app.MapReceivedInvoiceEndpoints();
 app.MapBarTabsEndpoints();
 app.MapImportEndpoints();
