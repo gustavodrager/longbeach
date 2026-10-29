@@ -7,6 +7,11 @@ namespace LongBeach.Infrastructure.Persistence;
 
 public sealed class UserRepository(LongBeachDbContext dbContext) : IUserRepository
 {
+    public Task<User?> FindForAuthorizationAsync(Guid id, CancellationToken cancellationToken = default) =>
+        dbContext.Users.AsNoTracking()
+            .Include(user => user.UserRoles).ThenInclude(link => link.Role)
+            .SingleOrDefaultAsync(user => user.Id == id, cancellationToken);
+
     public Task<User?> FindByUsernameAsync(string normalizedUsername, CancellationToken cancellationToken = default) =>
         IdentityGraph().SingleOrDefaultAsync(user => user.NormalizedUsername == normalizedUsername, cancellationToken);
 

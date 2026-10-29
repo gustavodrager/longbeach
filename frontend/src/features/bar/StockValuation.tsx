@@ -1,3 +1,4 @@
+import { hasPermission } from '../auth/access'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Disclosure, RecordTable } from '../../components/managementUi'
@@ -50,7 +51,7 @@ function StockComposition({ data }: { data: StockValue }) {
 
 export function StockValuation({ compact = false }: { compact?: boolean }) {
   const { user } = useAuth(); const [params] = useSearchParams()
-  const allowed = Boolean(user?.permissions.includes('bar:finance:read'))
+  const allowed = Boolean(hasPermission(user, 'bar:finance:read'))
   const query = useQuery({ queryKey: ['bar-runtime', user?.id, '/stock/valuation'], queryFn: () => apiFetch<StockValue>('/api/v1/bar/stock/valuation'), enabled: allowed, refetchInterval: 30_000 })
   const accessLost = query.error instanceof ApiError && [401, 403].includes(query.error.status)
   const data = accessLost ? undefined : query.data

@@ -3,8 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { StockValuation, type StockValue, type StockValueRow } from './StockValuation'
 
-const auth = vi.hoisted(() => ({ permissions: ['bar:finance:read'] }))
-vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'owner-test', permissions: auth.permissions } }) }))
+const auth = vi.hoisted(() => ({ roles: ['Manager'], permissions: ['bar:finance:read'] }))
+vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'owner-test', roles: auth.roles, permissions: auth.permissions } }) }))
 const row: StockValueRow = { productId: 'drink', name: 'Bebida teste', unit: 'un', quantity: 10, reserved: 2, available: 8, unitCost: 6, costStatus: 'registered', salePrice: 15, saleStatus: 'direct', stockCost: 60, salePotential: 120, grossProfit: 72 }
 const response: StockValue = { locationId: 'bar', locationName: 'Bar', updatedAtUtc: '2026-10-06T18:00:00Z', stockCost: 60, salePotential: 140, comparableSalePotential: 120, comparableCost: 48, grossProfit: 72, grossMarginPercent: 60, missingCostProducts: 1, incompleteCostProducts: 0, saleProducts: 2, excludedSaleProducts: 0, rows: [row, { ...row, productId: 'missing', name: 'Sem custo', quantity: 4, reserved: 0, available: 4, unitCost: null, costStatus: 'missing', salePrice: 5, stockCost: null, salePotential: 20, grossProfit: null }] }
 const clients: QueryClient[] = []
@@ -14,7 +14,7 @@ function mount(compact = false) {
   render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/bar/indicadores?estoque=detalhes&de=2026-09-01']}><StockValuation compact={compact} /></MemoryRouter></QueryClientProvider>)
   return client
 }
-afterEach(() => { clients.splice(0).forEach(client => client.clear()); vi.restoreAllMocks(); auth.permissions = ['bar:finance:read'] })
+afterEach(() => { clients.splice(0).forEach(client => client.clear()); vi.restoreAllMocks(); auth.roles = ['Manager']; auth.permissions = ['bar:finance:read'] })
 
 it('separa custo físico, venda disponível e lucro parcial com composição e filtro de lacunas', async () => {
   const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(response)); mount()
@@ -38,7 +38,7 @@ it('não apresenta falta de custo como lucro zero nem consulta custos sem permis
 })
 
 it('equipe sem permissão não carrega os valores de estoque', () => {
-  auth.permissions = ['bar:stock:read']; const fetch = vi.spyOn(globalThis, 'fetch'); mount()
+  auth.roles = ['Operations']; auth.permissions = ['bar:stock:read', 'bar:finance:read']; const fetch = vi.spyOn(globalThis, 'fetch'); mount()
   expect(fetch).not.toHaveBeenCalled(); expect(screen.queryByText('Valor do estoque')).not.toBeInTheDocument()
 })
 

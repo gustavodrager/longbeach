@@ -6,6 +6,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using LongBeach.Application.Abstractions;
 using LongBeach.Domain.Auditing;
 using LongBeach.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -22,7 +23,7 @@ public sealed class OperationalPostgresTests
     public async Task Weekday_court_persists_midnight_and_does_not_report_unknown_agenda_as_free()
     {
         await using var factory = Factory(); using var client = factory.CreateClient();
-        await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Owner");
+        await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Manager");
         var id = Guid.NewGuid(); var path = $"/api/v1/operations/courts/{id}";
         var input = new { id, name = "Quadra dias úteis", status = "Disponível", openingTime = "06:00", closingTime = "24:00", operatingDays = new[] { 1, 2, 3, 4, 5 }, scheduleConfirmed = false };
         var created = await client.PutAsJsonAsync(path, input);
@@ -58,7 +59,7 @@ public sealed class OperationalPostgresTests
     public async Task Acknowledged_edits_replay_once_reject_stale_versions_and_preserve_restricted_salary()
     {
         await using var factory = Factory(); using var client = factory.CreateClient();
-        await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Owner");
+        await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Manager");
         var id = Guid.NewGuid(); var path = $"/api/v1/operations/team/{id}";
         var original = new { id, name = "Professora de teste", payAmount = 180, payBasis = "Hora", paymentFrequency = "Mensal", paymentDay = "10", notes = "Acordo privado de R$ 180 por hora" };
         var created = await client.PutAsJsonAsync(path, original);
@@ -74,29 +75,30 @@ public sealed class OperationalPostgresTests
             Assert.DoesNotContain("180", audit.MetadataJson);
         }
 
-        client.DefaultRequestHeaders.Authorization = Header(null, "employees:read", "employees:write");
+        client.DefaultRequestHeaders.Authorization = Header("Operations", "employees:read", "employees:write");
         var staff = (await client.GetFromJsonAsync<JsonElement>("/api/v1/operations/team")).EnumerateArray().Single(row => row.GetProperty("id").GetGuid() == id);
         Assert.False(staff.GetProperty("costsVisible").GetBoolean());
         Assert.Equal(0, staff.GetProperty("payAmount").GetInt32());
         Assert.Equal("", staff.GetProperty("notes").GetString());
         var edit = JsonNode.Parse(staff.GetRawText())!.AsObject(); edit["name"] = "Nome corrigido";
         var updated = await client.PutAsJsonAsync(path, edit);
-        Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
-        Assert.Equal(2, (await Read(updated)).GetProperty("version").GetInt32());
+        Assert.Equal(HttpStatusCode.Forbidden, updated.StatusCode);
 
-        client.DefaultRequestHeaders.Authorization = Header("Owner");
+        client.DefaultRequestHeaders.Authorization = Header("Manager");
         var confirmed = (await client.GetFromJsonAsync<JsonElement>("/api/v1/operations/team")).EnumerateArray().Single(row => row.GetProperty("id").GetGuid() == id);
         Assert.Equal(180, confirmed.GetProperty("payAmount").GetInt32());
         Assert.Equal(original.notes, confirmed.GetProperty("notes").GetString());
+        var managementEdit = JsonNode.Parse(confirmed.GetRawText())!.AsObject(); managementEdit["name"] = "Nome corrigido pela gestão";
+        Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync(path, managementEdit)).StatusCode);
         var stale = JsonNode.Parse(confirmed.GetRawText())!.AsObject(); stale["version"] = 1; stale["name"] = "Edição desatualizada";
         Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync(path, stale)).StatusCode);
     }
 
     [PostgresFact]
-    public async Task Shared_court_capacity_rejects_concurrent_bookings_and_exposes_no_school_identity_to_reception()
+    public async Task Shared_court_capacity_rejects_concurrent_bookings_and_remains_restricted_to_staff()
     {
         await using var factory = Factory(); using var client = factory.CreateClient();
-        await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Owner");
+        await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Manager");
         var courtId = Guid.NewGuid(); var teacherId = Guid.NewGuid(); var classId = Guid.NewGuid();
         var date = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-3)).AddDays(1);
         Assert.Equal(HttpStatusCode.Created, (await client.PutAsJsonAsync($"/api/v1/operations/courts/{courtId}", new { id = courtId, name = "Quadra de teste", status = "Disponível", openingTime = "06:00", closingTime = "23:00" })).StatusCode);
@@ -112,21 +114,26 @@ public sealed class OperationalPostgresTests
         Assert.Single(parallel, response => response.StatusCode == HttpStatusCode.Created);
         Assert.Single(parallel, response => response.StatusCode == HttpStatusCode.BadRequest);
 
-        client.DefaultRequestHeaders.Authorization = Header(null, "projects:read");
+        client.DefaultRequestHeaders.Authorization = Header("Operations", "projects:read");
         var schedule = await client.GetFromJsonAsync<JsonElement>($"/api/v1/operations/courts/schedule?date={date:yyyy-MM-dd}");
         var court = schedule.GetProperty("courts").EnumerateArray().Single(row => row.GetProperty("courtId").GetGuid() == courtId);
         Assert.Equal(60, court.GetProperty("classMinutes").GetInt32());
         Assert.Equal(60, court.GetProperty("reservedMinutes").GetInt32());
         Assert.Equal(900, court.GetProperty("availableMinutes").GetInt32());
         var classBlock = court.GetProperty("blocks").EnumerateArray().Single(row => row.GetProperty("source").GetString() == "Aula");
-        Assert.Equal(JsonValueKind.Null, classBlock.GetProperty("sourceId").ValueKind);
-        Assert.DoesNotContain("privad", court.GetRawText());
+        Assert.Equal(classId, classBlock.GetProperty("sourceId").GetGuid());
+        client.DefaultRequestHeaders.Authorization = Header("Teacher");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/operations/classes")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync($"/api/v1/operations/courts/schedule?date={date:yyyy-MM-dd}")).StatusCode);
     }
 
     internal static WebApplicationFactory<Program> Factory() => new LongBeachWebApplicationFactory().WithWebHostBuilder(builder => builder
         .ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?> { ["ConnectionStrings:LongBeach"] = Environment.GetEnvironmentVariable("LONG_BEACH_TEST_DATABASE_URL") }))
-        .ConfigureServices(services => services.AddDbContext<LongBeachDbContext>(options => options.UseNpgsql(Environment.GetEnvironmentVariable("LONG_BEACH_TEST_DATABASE_URL")))));
+        .ConfigureServices(services =>
+        {
+            services.AddDbContext<LongBeachDbContext>(options => options.UseNpgsql(Environment.GetEnvironmentVariable("LONG_BEACH_TEST_DATABASE_URL")));
+            services.AddScoped<IUserRepository>(provider => new TestSessionUserRepository(new UserRepository(provider.GetRequiredService<LongBeachDbContext>())));
+        }));
     internal static async Task Migrate(WebApplicationFactory<Program> factory)
     {
         await using var scope = factory.Services.CreateAsyncScope();
@@ -137,13 +144,6 @@ public sealed class OperationalPostgresTests
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         return document.RootElement.Clone();
     }
-    internal static AuthenticationHeaderValue Header(string? role, params string[] permissions)
-    {
-        var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes("integration-tests-only-signing-key-with-more-than-32-characters")), SecurityAlgorithms.HmacSha256);
-        var claims = new List<Claim> { new("sub", Guid.NewGuid().ToString()) };
-        claims.AddRange(permissions.Select(permission => new Claim("permission", permission)));
-        if (role is not null) claims.Add(new Claim(ClaimTypes.Role, role));
-        var token = new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken("LongBeach.Tests", "LongBeach.Tests.Client", claims, DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.AddMinutes(5), credentials));
-        return new("Bearer", token);
-    }
+    internal static AuthenticationHeaderValue Header(string role, params string[] permissions) =>
+        new("Bearer", ProfileAuthorizationTests.Token(Guid.NewGuid(), [role], permissions));
 }

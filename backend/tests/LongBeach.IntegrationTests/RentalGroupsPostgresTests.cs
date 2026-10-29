@@ -27,7 +27,7 @@ public sealed class RentalGroupsPostgresTests
     [PostgresFact]
     public async Task Five_Fridays_midnight_month_generates_once_and_replay_preserves_changes_and_single_charge()
     {
-        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Owner"); var group = await Setup(client, "Extra"); var path = GroupPath(group);
+        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Manager"); var group = await Setup(client, "Extra"); var path = GroupPath(group);
         var preview = await Read(await client.GetAsync(path + "/months/2026-10/preview")); Assert.Equal(5, preview.GetProperty("dates").GetArrayLength()); Assert.Equal(500, preview.GetProperty("amount").GetDecimal()); Assert.Empty(preview.GetProperty("errors").EnumerateArray());
         var request = new { month = "2026-10", groupVersion = 1, createCharge = true };
         var attempts = await Task.WhenAll(client.PostAsJsonAsync(path + "/months", request), client.PostAsJsonAsync(path + "/months", request)); Assert.All(attempts, r => Assert.Equal(HttpStatusCode.OK, r.StatusCode));
@@ -46,7 +46,7 @@ public sealed class RentalGroupsPostgresTests
     [PostgresFact]
     public async Task Later_conflict_blocks_entire_month_and_fifth_policy_requires_confirmation()
     {
-        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Owner"); var group = await Setup(client, "A confirmar"); var path = GroupPath(group);
+        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Manager"); var group = await Setup(client, "A confirmar"); var path = GroupPath(group);
         var id = Guid.NewGuid(); Assert.Equal(HttpStatusCode.Created, (await client.PutAsJsonAsync($"/api/v1/operations/reservations/{id}", new { id, name = "Horário já ocupado", courtId = group["courtId"]!.ToString(), date = "2026-10-30", startTime = "23:00", endTime = "24:00", amount = 0, status = "Confirmada" })).StatusCode);
         var preview = await Read(await client.GetAsync(path + "/months/2026-10/preview")); Assert.Contains(preview.GetProperty("warnings").EnumerateArray(), e => e.GetString()!.Contains("Quinto")); Assert.Contains(preview.GetProperty("errors").EnumerateArray(), e => e.GetString()!.Contains("2026-10-30"));
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync(path + "/months", new { month = "2026-10", groupVersion = 1, createCharge = true })).StatusCode);
@@ -55,21 +55,21 @@ public sealed class RentalGroupsPostgresTests
     [PostgresFact]
     public async Task Permissions_hide_price_preserve_unknown_and_forbid_student_or_staff_billing_and_forged_cycles()
     {
-        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Owner"); var group = await Setup(client, amount: null); var path = GroupPath(group);
-        client.DefaultRequestHeaders.Authorization = Header(null, "projects:read", "projects:write");
+        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Manager"); var group = await Setup(client, amount: null); var path = GroupPath(group);
+        client.DefaultRequestHeaders.Authorization = Header("Operations", "projects:read", "projects:write");
         var hidden = (await Read(await client.GetAsync("/api/v1/operations/rentalGroups"))).EnumerateArray().Single(r => RentalGroupRules.Id(r) == Guid.Parse(group["id"]!.ToString())); Assert.Equal(JsonValueKind.Null, hidden.GetProperty("monthlyAmount").ValueKind);
         var edit = JsonNode.Parse(hidden.GetRawText())!.AsObject(); edit["name"] = "Nome corrigido"; Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync($"/api/v1/operations/rentalGroups/{group["id"]}", edit)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(path + "/months", new { month = "2026-11", groupVersion = 2, createCharge = true })).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync(path + "/months", new { month = "2026-11", groupVersion = 2, createCharge = false })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path + "/bar?month=2026-11")).StatusCode);
         var cycleId = Guid.NewGuid(); Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync($"/api/v1/operations/rentalMonths/{cycleId}", new { id = cycleId, name = "Ciclo forjado" })).StatusCode);
-        client.DefaultRequestHeaders.Authorization = Header("Owner"); var saved = (await Read(await client.GetAsync("/api/v1/operations/rentalGroups"))).EnumerateArray().Single(r => RentalGroupRules.Id(r) == Guid.Parse(group["id"]!.ToString())); Assert.Equal(JsonValueKind.Null, saved.GetProperty("monthlyAmount").ValueKind);
+        client.DefaultRequestHeaders.Authorization = Header("Manager"); var saved = (await Read(await client.GetAsync("/api/v1/operations/rentalGroups"))).EnumerateArray().Single(r => RentalGroupRules.Id(r) == Guid.Parse(group["id"]!.ToString())); Assert.Equal(JsonValueKind.Null, saved.GetProperty("monthlyAmount").ValueKind);
         client.DefaultRequestHeaders.Authorization = Header("Student"); Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path + "/months/2026-11/preview")).StatusCode);
     }
     [PostgresFact]
     public async Task Roster_history_stale_edits_and_attendance_are_validated()
     {
-        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Owner"); var group = await Setup(client); var id = group["id"]!.ToString();
+        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Manager"); var group = await Setup(client); var id = group["id"]!.ToString();
         var edit = group.DeepClone().AsObject(); edit["members"] = new JsonArray(); Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync($"/api/v1/operations/rentalGroups/{id}", edit)).StatusCode);
         edit = group.DeepClone().AsObject(); edit["version"] = 0; edit["name"] = "Alterado sem versão"; Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync($"/api/v1/operations/rentalGroups/{id}", edit)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync(GroupPath(group) + "/months", new { month = "2026-11", groupVersion = 0 })).StatusCode);
@@ -87,7 +87,7 @@ public sealed class RentalGroupsPostgresTests
     [PostgresFact]
     public async Task Bar_links_are_unique_and_totals_follow_real_consumption_payments_and_refunds()
     {
-        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Owner"); var group = await Setup(client); var path = GroupPath(group); await client.PostAsJsonAsync(path + "/months", new { month = "2026-10", groupVersion = 1 });
+        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Manager"); var group = await Setup(client); var path = GroupPath(group); await client.PostAsJsonAsync(path + "/months", new { month = "2026-10", groupVersion = 1 });
         var tabId = Guid.Empty;
         await using (var scope = factory.Services.CreateAsyncScope())
         {

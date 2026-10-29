@@ -35,7 +35,7 @@ const scopePermissions: Record<CustomerScope, { read: string; write: string }> =
   bar: { read: 'bar:sales:operate', write: 'bar:sales:operate' },
 }
 export const canUseCustomerScope = (user: AuthUser | null | undefined, scope: CustomerScope, write = false) => hasPermission(user, scopePermissions[scope][write ? 'write' : 'read'])
-export const canManageCustomerUsers = (user: AuthUser | null | undefined) => Boolean(user && !user.requiresFirstAccess && isManagement(user) && user.permissions.includes('users:manage') && user.permissions.includes('customers:write'))
+export const canManageCustomerUsers = (user: AuthUser | null | undefined) => Boolean(user && !user.requiresFirstAccess && isManagement(user) && hasPermission(user, 'users:manage') && hasPermission(user, 'customers:write'))
 export const customerError = (error: unknown) => error instanceof Error ? error.message : 'Não foi possível confirmar. Confira a conexão e tente novamente.'
 export const customerPhone = (value: string) => value.replace(/\D/g, '')
 export const customerReference = (id: string) => `Ref. ${id.replaceAll('-', '').slice(-8).toUpperCase()}`

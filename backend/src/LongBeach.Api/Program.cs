@@ -25,6 +25,7 @@ using Microsoft.IdentityModel.Tokens;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+var profileCommand = ProfileCommandParser.Parse(args);
 PagBankHomologation.Validate(builder.Configuration, builder.Environment);
 var prepareHomologation = args.Contains("--prepare-pagbank-homologation", StringComparer.OrdinalIgnoreCase);
 if (prepareHomologation && args.Length != 1) throw new InvalidOperationException("Run homologation preparation as its own command after migrations.");
@@ -35,7 +36,7 @@ var verifyGoogleOwners = args.Contains("--verify-google-owners", StringComparer.
 var authorizeGoogleAccess = args.Contains("--authorize-google-access", StringComparer.OrdinalIgnoreCase);
 var provisionFirstAccess = args.Contains("--provision-first-access", StringComparer.OrdinalIgnoreCase);
 var provisionFromStdin = args.Contains("--provision-from-stdin", StringComparer.OrdinalIgnoreCase);
-if (provisionFromStdin && !provisionFirstAccess && !authorizeGoogleAccess)
+if (provisionFromStdin && !provisionFirstAccess && !authorizeGoogleAccess && profileCommand == ProfileCommand.None)
     throw new InvalidOperationException("--provision-from-stdin requires a provisioning command.");
 if (authorizeGoogleAccess && (provisionFirstAccess || verifyGoogleOwners || startupCommand == StartupCommand.MigrateOnly))
     throw new InvalidOperationException("Run Google access authorization as its own command after migrations.");
@@ -57,6 +58,8 @@ builder.Services.AddApplication();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuditContext, HttpAuditContext>();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddScoped<LongBeach.Api.CurrentSessionValidator>();
+builder.Services.AddScoped<ProfileConsolidationService>();
 
 ConfigureAuthentication(builder.Services, builder.Configuration);
 ConfigureAuthorization(builder.Services, builder.Configuration);
@@ -66,6 +69,22 @@ ConfigureHealthChecks(builder.Services, builder.Configuration);
 ConfigureRateLimiting(builder.Services);
 
 var app = builder.Build();
+
+if (profileCommand != ProfileCommand.None)
+{
+    var request = provisionFromStdin
+        ? await System.Text.Json.JsonSerializer.DeserializeAsync<ProfileConsolidationRequest>(Console.OpenStandardInput(),
+            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            ?? throw new InvalidOperationException("A profile consolidation request is required.")
+        : new ProfileConsolidationRequest();
+    await using var scope = app.Services.CreateAsyncScope();
+    var service = scope.ServiceProvider.GetRequiredService<ProfileConsolidationService>();
+    object result = profileCommand == ProfileCommand.Preview
+        ? await service.PreviewAsync(request)
+        : await service.ApplyAsync(request);
+    Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(result));
+    return;
+}
 
 if (prepareHomologation)
 {
@@ -130,13 +149,13 @@ if (verifyGoogleOwners)
         var verification = new GoogleOwnerVerifier(verificationDbContext, app.Configuration, app.Environment);
         var result = await verification.VerifyAsync(CancellationToken.None);
         app.Logger.LogInformation(
-            "Google Owner verification: target count {TargetCount}; active Owner count {ActiveOwnerCount}; grants outside targets {OutsideTargetGrantCount}; succeeded {Succeeded}.",
+            "Google Manager verification: target count {TargetCount}; active Manager count {ActiveOwnerCount}; grants outside targets {OutsideTargetGrantCount}; succeeded {Succeeded}.",
             result.TargetCount, result.ActiveOwnerCount, result.OutsideTargetGrantCount, result.Succeeded);
         Environment.ExitCode = result.Succeeded ? 0 : 1;
     }
     catch (Exception)
     {
-        app.Logger.LogError("Google Owner verification completed: succeeded false.");
+        app.Logger.LogError("Google Manager verification completed: succeeded false.");
         Environment.ExitCode = 1;
     }
     return;
@@ -279,14 +298,10 @@ static void ConfigureAuthentication(IServiceCollection services, IConfiguration 
             {
                 OnTokenValidated = async context =>
                 {
-                    if (context.Principal?.FindFirstValue("requires_first_access") != "true") return;
-                    if (!Guid.TryParse(context.Principal.FindFirstValue(ClaimTypes.NameIdentifier), out var id))
-                    { context.Fail("Invalid first-access session."); return; }
-                    var repository = context.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
-                    var user = await repository.FindByIdAsync(id, context.HttpContext.RequestAborted);
-                    var clock = context.HttpContext.RequestServices.GetRequiredService<TimeProvider>();
-                    if (user is null || !user.IsActive || !user.RequiresFirstAccess || !user.InitialAccessIsValidAt(clock.GetUtcNow()))
-                        context.Fail("First-access session is no longer valid.");
+                    var validator = context.HttpContext.RequestServices.GetRequiredService<LongBeach.Api.CurrentSessionValidator>();
+                    var current = context.Principal is null ? null : await validator.ValidateAsync(context.Principal, context.HttpContext.RequestAborted);
+                    if (current is null) context.Fail("Session is no longer valid.");
+                    else context.Principal = current;
                 }
             };
         });
@@ -303,12 +318,7 @@ static void ConfigureAuthorization(IServiceCollection services, IConfiguration c
             .Build();
         options.DefaultPolicy = options.FallbackPolicy;
         options.AddPolicy("Session", policy => policy.RequireAuthenticatedUser());
-        options.AddPolicy(AuthorizationPolicyCatalog.Owner, policy =>
-            policy.RequireRole(AuthorizationPolicyCatalog.Owner));
-        options.AddPolicy("Management", policy => policy.RequireAuthenticatedUser().RequireAssertion(c => !c.User.HasClaim("requires_first_access", "true")).RequireRole("Owner", "Administrator", "Manager"));
-        options.AddPolicy("Administrator", policy => policy.RequireRole(
-            AuthorizationPolicyCatalog.Owner,
-            AuthorizationPolicyCatalog.Administrator, "Manager"));
+        options.AddPolicy(AuthorizationPolicyCatalog.Management, policy => policy.RequireAuthenticatedUser().RequireAssertion(c => !c.User.HasClaim("requires_first_access", "true")).RequireRole("Manager"));
         foreach (var permission in AuthorizationPolicyCatalog.Permissions)
         {
             options.AddPolicy(permission, policy => policy.RequireClaim("permission", permission));

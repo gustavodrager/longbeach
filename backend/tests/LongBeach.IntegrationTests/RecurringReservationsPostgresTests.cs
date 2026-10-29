@@ -28,7 +28,7 @@ public sealed class RecurringReservationsPostgresTests
     [PostgresFact]
     public async Task Conflict_in_a_later_week_leaves_no_occurrence_operation_or_audit()
     {
-        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Owner");
+        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Manager");
         var court = await Court(client); var input = Request(court); var blockerId = Guid.NewGuid();
         var blockedDate = DateOnly.ParseExact(input.StartDate, "yyyy-MM-dd").AddDays(7).ToString("yyyy-MM-dd");
         Assert.Equal(HttpStatusCode.Created, (await client.PutAsJsonAsync($"/api/v1/operations/reservations/{blockerId}", new { id = blockerId, name = "Reserva anterior", courtId = court, date = blockedDate, startTime = "18:00", endTime = "19:00", status = "Confirmada", amount = 10 })).StatusCode);
@@ -42,7 +42,7 @@ public sealed class RecurringReservationsPostgresTests
     [PostgresFact]
     public async Task Replay_preserves_individual_versions_and_financial_access_with_original_billing_sources()
     {
-        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Owner");
+        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Manager");
         var input = Request(await Court(client)); var created = await client.PostAsJsonAsync(Path, input); Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var group = JsonSerializer.Deserialize<RecurringReservationResponse>((await Read(created)).GetRawText(), JsonOptions)!;
         Assert.Equal(3, group.Reservations.Count); Assert.All(group.Reservations, row => Assert.Equal(80, row.Amount));
@@ -55,7 +55,7 @@ public sealed class RecurringReservationsPostgresTests
         var financeId = Guid.NewGuid();
         Assert.Equal(HttpStatusCode.Created, (await client.PutAsJsonAsync($"/api/v1/operations/financeEntries/{financeId}", new { id = financeId, name = "Locação da segunda semana", direction = "Receber", origin = "Locações", amount = 80, dueDate = group.Reservations[1].Date, status = "Pendente", sourceId = group.Reservations[1].Id, sourceKind = "reservations" })).StatusCode);
 
-        client.DefaultRequestHeaders.Authorization = Header(null, "projects:read", "projects:write");
+        client.DefaultRequestHeaders.Authorization = Header("Operations", "projects:read", "projects:write");
         var redacted = await client.PostAsJsonAsync(Path, input); Assert.Equal(HttpStatusCode.OK, redacted.StatusCode);
         var hiddenRows = (await Read(redacted)).GetProperty("reservations");
         Assert.All(hiddenRows.EnumerateArray(), row => { Assert.False(row.GetProperty("costsVisible").GetBoolean()); Assert.Equal(0, row.GetProperty("amount").GetDecimal()); });
@@ -63,7 +63,7 @@ public sealed class RecurringReservationsPostgresTests
         Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync($"/api/v1/operations/reservations/{group.Reservations[0].Id}", staffEdit)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(Path, input with { OperationId = Guid.NewGuid() })).StatusCode);
 
-        client.DefaultRequestHeaders.Authorization = Header("Owner");
+        client.DefaultRequestHeaders.Authorization = Header("Manager");
         var visible = (await Read(await client.PostAsJsonAsync(Path, input))).GetProperty("reservations");
         Assert.Equal(80, visible[0].GetProperty("amount").GetDecimal()); Assert.Equal(3, visible[0].GetProperty("version").GetInt32());
         await using var scope = factory.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
@@ -75,7 +75,7 @@ public sealed class RecurringReservationsPostgresTests
     [PostgresFact]
     public async Task Competing_groups_commit_only_one_complete_schedule_and_identical_retries_do_not_duplicate()
     {
-        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Owner");
+        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Manager");
         var input = Request(await Court(client), 0); var other = input with { OperationId = Guid.NewGuid(), GroupTitle = "Outro grupo" };
         var attempts = await Task.WhenAll(client.PostAsJsonAsync(Path, input), client.PostAsJsonAsync(Path, other));
         Assert.Single(attempts, response => response.StatusCode == HttpStatusCode.Created); Assert.Single(attempts, response => response.StatusCode == HttpStatusCode.BadRequest);

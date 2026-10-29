@@ -4,14 +4,14 @@ import { MemoryRouter } from 'react-router-dom'
 import { FinancialBalanceOverview } from './FinancialBalanceOverview'
 import userEvent from '@testing-library/user-event'
 vi.mock('./CurrentFinancialMetrics', () => ({ CurrentFinancialMetrics: () => <div>Posição operacional atual</div> }))
-const auth = vi.hoisted(() => ({ roles: ['Owner'] }))
+const auth = vi.hoisted(() => ({ roles: ['Manager'] }))
 vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'owner-test', roles: auth.roles } }) }))
 const response = { pagBank: { amountCents: 12345, date: '2026-08-30', sourceName: 'test.xlsx', sourceCell: 'Test!A2', metric: 'Saldo Pagbank', issue: null }, general: { month: '2026-08', amountCents: -10000, incomeCents: 50000, expenseCents: 60000, records: 3, sources: ['test.xlsx'], issue: null } }
 const emptyPosition = { readAtUtc: '2026-08-31T12:00:00Z', currentBank: { amountCents: null, status: 'AwaitingImport' }, receivable: {}, payable: {}, entries: [] }
 function mockBalances(value: unknown) { return vi.spyOn(globalThis, 'fetch').mockImplementation(async input => new Response(JSON.stringify(String(input).endsWith('/current-position') ? emptyPosition : value))) }
 function wrap() { const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }); return {client, ...render(<QueryClientProvider client={client}><MemoryRouter><FinancialBalanceOverview /></MemoryRouter></QueryClientProvider>)} }
 const openHistory = () => userEvent.click(screen.getByText('Histórico: última referência disponível'))
-afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); auth.roles = ['Owner'] })
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); auth.roles = ['Manager'] })
 it('mostra saldo datado e déficit mensal sem remover seu sinal', async () => {
   mockBalances(response)
   wrap()

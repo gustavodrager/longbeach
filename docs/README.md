@@ -12,6 +12,8 @@ O [registro de publicação de estoque e materiais](operacao/publicacao-estoque-
 
 A [correção do cancelamento no catálogo do Bar](operacao/correcao-cancelamento-bar-2026-10-27.md) registra a reprodução das navegações rápidas, a validação local e o estado da preparação para publicação somente web.
 
+A organização em Gestor, Professor, Atendente e Cliente está no [ADR-019](adr/ADR-019-quatro-perfis-exclusivos.md), com procedimento de preview e conversão no [guia dos quatro perfis](operacao/quatro-perfis.md). A implementação é local; não representa conversão de contas hospedadas.
+
 
 ## Decisão e arquitetura
 

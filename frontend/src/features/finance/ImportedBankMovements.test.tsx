@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { ImportedBankMovements } from './ImportedBankMovements'
 
-const actor = vi.hoisted(() => ({ id: 'bank-owner', roles: ['Owner'] }))
+const actor = vi.hoisted(() => ({ id: 'bank-owner', roles: ['Manager'] }))
 vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { ...actor, permissions: [] } }) }))
 const clients: QueryClient[] = []
 const json = (value: unknown) => new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } })
@@ -37,7 +37,7 @@ function mount() {
 
 afterEach(() => {
   cleanup(); clients.splice(0).forEach(client => client.clear()); vi.restoreAllMocks()
-  actor.id = 'bank-owner'; actor.roles = ['Owner']
+  actor.id = 'bank-owner'; actor.roles = ['Manager']
 })
 
 it('destaca totais de todos os movimentos sem recalcular pela pequena prévia da fonte', async () => {
@@ -132,7 +132,7 @@ it('atualiza os totais ao invalidar o histórico depois de uma importação apli
   expect(fetch).toHaveBeenCalledTimes(2)
 })
 
-it.each(['Student', 'Operations', 'Viewer'])('não expõe movimentos nem consulta o histórico para %s', role => {
+it.each(['Student', 'Operations', 'Teacher'])('não expõe movimentos nem consulta o histórico para %s', role => {
   actor.roles = [role]
   const fetch = vi.spyOn(globalThis, 'fetch')
   mount()

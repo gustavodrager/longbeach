@@ -13,15 +13,15 @@ public sealed class RentalGroupImportPostgresTests
     public async Task Import_reconciles_pending_roster_and_replays_without_duplicate_bookings_or_money()
     {
         await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory);
-        client.DefaultRequestHeaders.Authorization = Header("Owner"); var court = Guid.NewGuid(); var id = Guid.NewGuid();
+        client.DefaultRequestHeaders.Authorization = Header("Manager"); var court = Guid.NewGuid(); var id = Guid.NewGuid();
         Assert.Equal(HttpStatusCode.Created, (await client.PutAsJsonAsync($"/api/v1/operations/courts/{court}", new { id = court, name = "Quadra importação mensalistas", status = "Disponível", openingTime = "06:00", closingTime = "24:00" })).StatusCode);
         var body = new { id, name = $"Mensalista importado {id}", courtId = court, weekDay = 5, startTime = "20:00", endTime = "22:00", startDate = "2026-10-01", endDate = "", status = "Ativo", capacity = (int?)null, dueDay = (int?)null, members = Array.Empty<object>(), organizerId = "", backupId = "", sport = "", monthlyAmount = 500, extraAmount = (decimal?)null, fifthPolicy = "A confirmar", notes = "" };
         async Task<Guid> Stage(object payload) => (await Read(await client.PostAsJsonAsync("/api/v1/imports", new { sourceName = $"mensalistas-{Guid.NewGuid()}.json", sourceSha256 = new string('b', 64), records = new[] { new { sheetName = "Confirmação", rowNumber = 1, recordType = "reference-data", externalId = "grupo-1", data = new { schema = "longbeach.rental-groups.v1", kind = "rentalGroups", body = payload } } } }))).GetProperty("id").GetGuid();
         var batch = await Stage(body); var path = $"/api/v1/imports/{batch}/rental-groups";
-        client.DefaultRequestHeaders.Authorization = Header(null, "projects:read", "projects:write");
+        client.DefaultRequestHeaders.Authorization = Header("Operations", "projects:read", "projects:write");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(path + "/apply", new { confirmationToken = "x" })).StatusCode);
-        client.DefaultRequestHeaders.Authorization = Header("Owner");
+        client.DefaultRequestHeaders.Authorization = Header("Manager");
         Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync($"/api/v1/imports/{batch}/class-grade")).StatusCode);
         var preview = await Read(await client.GetAsync(path)); Assert.True(preview.GetProperty("canApply").GetBoolean());
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync(path + "/apply", new { confirmationToken = "stale" })).StatusCode);

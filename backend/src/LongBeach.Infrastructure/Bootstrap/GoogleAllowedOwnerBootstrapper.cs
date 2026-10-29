@@ -51,17 +51,17 @@ public sealed class GoogleAllowedOwnerBootstrapper(
         var dbContext = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
         var ownerRole = await dbContext.Roles
-            .SingleOrDefaultAsync(role => role.Name == SystemRoles.Owner, cancellationToken)
-            ?? throw new InvalidOperationException("The Owner role is missing; seed the authorization catalog before provisioning Google owners.");
+            .SingleOrDefaultAsync(role => role.Name == SystemRoles.Manager, cancellationToken)
+            ?? throw new InvalidOperationException("The Manager profile is missing; provision the authorization catalog first.");
 
         var normalizedEmails = emails.Select(User.NormalizeEmail).ToArray();
         var existingUsers = await dbContext.Users
             .Include(item => item.UserRoles)
             .Where(item => normalizedEmails.Contains(item.NormalizedEmail))
             .ToDictionaryAsync(item => item.NormalizedEmail, cancellationToken);
-        if (existingUsers.Values.Any(user => !user.IsActive))
+        if (existingUsers.Values.Any(user => !user.IsActive || user.UserRoles.Count != 1 || user.UserRoles.Single().RoleId != ownerRole.Id))
         {
-            throw new InvalidOperationException("A configured Google owner already exists but is inactive.");
+            throw new InvalidOperationException("An existing target is inactive or has a different profile. Use explicit profile consolidation; no account was changed.");
         }
 
         var provisionedUsers = new List<(User User, bool Created)>();
@@ -85,7 +85,7 @@ public sealed class GoogleAllowedOwnerBootstrapper(
         await dbContext.SaveChangesAsync(cancellationToken);
         foreach (var (user, created) in provisionedUsers)
         {
-            logger.LogInformation("Google owner account provisioned (user {UserId}; created: {Created}).", user.Id, created);
+            logger.LogInformation("Google Manager account provisioned (user {UserId}; created: {Created}).", user.Id, created);
         }
     }
 

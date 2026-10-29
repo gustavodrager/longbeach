@@ -32,7 +32,7 @@ public sealed class CustomerOperationsPostgresTests
         var before = (await db.OperationalRecords.AsNoTracking().Select(row => row.Payload).ToListAsync()).Order().ToArray();
         await using var factory = Factory(db);
         using var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Owner");
+        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
 
         var response = await client.GetAsync("/api/v1/operations/rentalGroups");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -60,7 +60,7 @@ public sealed class CustomerOperationsPostgresTests
         await using var isolated = await IsolatedBarDatabase.Create();
         var db = isolated.Context;
         await using var factory = Factory(db);
-        using var client = factory.CreateClient(); client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Owner");
+        using var client = factory.CreateClient(); client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
         var registry = new CustomerService(db, TimeProvider.System);
         var customer = await registry.Create(new(Guid.NewGuid(), "Pessoa sintética compartilhada", "11987654321"), Guid.NewGuid(), "staff", default);
         var courtId = Guid.NewGuid();
@@ -117,7 +117,7 @@ public sealed class CustomerOperationsPostgresTests
     {
         await using var isolated = await IsolatedBarDatabase.Create(); var db = isolated.Context;
         await using var factory = Factory(db); using var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Owner");
+        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
         var id = Guid.NewGuid();
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync($"/api/v1/operations/students/{id}", new { id, name = "Aluno sem telefone", phone = "", monthlyAmount = 0 })).StatusCode);
         Assert.Empty(await db.OperationalRecords.Where(x => x.Kind == "students").ToListAsync());
@@ -140,7 +140,7 @@ public sealed class CustomerOperationsPostgresTests
     {
         await using var isolated = await IsolatedBarDatabase.Create(); var db = isolated.Context;
         await using var factory = Factory(db); using var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Owner");
+        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
         var courtId = Guid.NewGuid();
         await client.PutAsJsonAsync($"/api/v1/operations/courts/{courtId}", new { id = courtId, name = "Quadra recorrente", status = "Disponível", openingTime = "06:00", closingTime = "24:00" });
         var request = new LongBeach.Contracts.Operations.RecurringReservationInput(Guid.NewGuid(), "Grupo semanal", courtId, "2026-11-02", "10:00", "11:00", 3, "Contato sintético", "11987654321");

@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { ExpensePaidMetric } from './ExpensePaidMetric'
 
-const actor = vi.hoisted(() => ({ id: 'finance-test', roles: ['Owner'], permissions: ['finance:read'] }))
+const actor = vi.hoisted(() => ({ id: 'finance-test', roles: ['Manager'], permissions: ['finance:read'] }))
 vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: actor }) }))
 const clients: QueryClient[] = []
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
@@ -14,7 +14,7 @@ function mount(from = '2026-10-01', to = '2026-10-21') {
   const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}><MemoryRouter>{children}</MemoryRouter></QueryClientProvider>
   return { ...render(<ExpensePaidMetric from={from} to={to} />, { wrapper }), client }
 }
-afterEach(() => { clients.splice(0).forEach(client => client.clear()); actor.id = 'finance-test'; actor.roles = ['Owner']; actor.permissions = ['finance:read']; vi.restoreAllMocks() })
+afterEach(() => { clients.splice(0).forEach(client => client.clear()); actor.id = 'finance-test'; actor.roles = ['Manager']; actor.permissions = ['finance:read']; vi.restoreAllMocks() })
 
 it('consulta pagamentos efetivos do período e não infere o valor original da despesa', async () => {
   const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(response({ amount: 200, records: 1 }))
@@ -50,7 +50,7 @@ it('não consulta sem permissão ou com período inválido e reconsulta ao troca
   const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(response({ amount: 10, records: 1 }))
   actor.roles = ['Operations']; actor.permissions = []; const view = mount()
   expect(fetch).not.toHaveBeenCalled(); expect(screen.queryByText('Despesas pagas')).not.toBeInTheDocument()
-  actor.permissions = ['finance:read']; view.rerender(<ExpensePaidMetric from="2026-10-21" to="2026-10-01" />)
+  actor.roles = ['Manager']; actor.permissions = ['finance:read']; view.rerender(<ExpensePaidMetric from="2026-10-21" to="2026-10-01" />)
   expect(fetch).not.toHaveBeenCalled()
   view.rerender(<ExpensePaidMetric from="2026-10-01" to="2026-10-21" />)
   await screen.findByText('R$ 10,00'); actor.id = 'second-finance-test'; fetch.mockResolvedValue(response({ amount: 20, records: 1 }))

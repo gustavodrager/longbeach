@@ -10,9 +10,9 @@ import type { AuthUser } from '../features/auth/types'
 const clients: QueryClient[] = []
 const signInWithGoogle = vi.fn()
 const signIn = vi.fn()
-function mount(page = <LoginPage />, user: AuthUser | null = null) {
+function mount(page = <LoginPage />, user: AuthUser | null = null, path = '/login') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }); clients.push(client)
-  return render(<QueryClientProvider client={client}><AuthContext.Provider value={{ user, isBootstrapping: false, signIn, signOut: vi.fn(), signInWithGoogle, changePassword: vi.fn(), completeFirstAccessWithGoogle: vi.fn() }}><MemoryRouter>{page}</MemoryRouter></AuthContext.Provider></QueryClientProvider>)
+  return render(<QueryClientProvider client={client}><AuthContext.Provider value={{ user, isBootstrapping: false, signIn, signOut: vi.fn(), signInWithGoogle, changePassword: vi.fn(), completeFirstAccessWithGoogle: vi.fn() }}><MemoryRouter initialEntries={[path]}>{page}</MemoryRouter></AuthContext.Provider></QueryClientProvider>)
 }
 function options(enabled = true) { return new Response(JSON.stringify({ googleClientId: 'test-client', clientRegistrationEnabled: enabled }), { status: 200 }) }
 function google() {
@@ -30,11 +30,14 @@ it('explica cadastro de cliente e transmite apenas a credencial Google', async (
   expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   expect(screen.queryByLabelText('Usuário ou e-mail')).not.toBeInTheDocument()
   expect(screen.queryByLabelText('Senha')).not.toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Cadastrar como cliente' })).toHaveAttribute('href', '/login?cadastro=cliente')
+  expect(screen.getByRole('link', { name: 'Continuar como visitante' })).toHaveAttribute('href', '/visitante')
 })
 it('não anuncia cadastro quando desligado e oferece somente Google', async () => {
   google(); vi.spyOn(globalThis, 'fetch').mockResolvedValue(options(false)); mount()
   await screen.findByRole('button', { name: 'Continuar com Google' })
   expect(screen.queryByText(/Criaremos sua conta/)).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Cadastrar como cliente' })).not.toBeInTheDocument()
   expect(screen.queryByLabelText('Usuário ou e-mail')).not.toBeInTheDocument()
   expect(screen.queryByLabelText('Senha')).not.toBeInTheDocument()
 })
@@ -82,4 +85,24 @@ it('acesso de homologação usa autenticação existente somente quando autoriza
   fireEvent.click(screen.getByRole('button', { name: 'Entrar na homologação' }))
   await waitFor(() => expect(signIn).toHaveBeenCalledWith({ email: 'reviewer@example.invalid', password: 'synthetic-password-for-unit-test' }))
   expect(screen.queryByText(/Google está indisponível/)).not.toBeInTheDocument()
+})
+
+it('cadastro explícito usa somente Google e explica os limites da área pessoal', async () => {
+  google(); vi.spyOn(globalThis, 'fetch').mockResolvedValue(options()); signInWithGoogle.mockResolvedValue(undefined)
+  mount(<LoginPage />, null, '/login?cadastro=cliente')
+  await screen.findByRole('heading', { name: 'Cadastre-se como cliente' })
+  fireEvent.click(screen.getByRole('button', { name: 'Continuar com Google' }))
+  await waitFor(() => expect(signInWithGoogle).toHaveBeenCalledExactlyOnceWith('test-credential'))
+  expect(screen.getByText(/Seu cadastro dá acesso à área pessoal de cliente/)).toBeInTheDocument()
+  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+})
+
+it('URL de cadastro não contorna a opção desligada nem conta bloqueada', async () => {
+  google(); vi.spyOn(globalThis, 'fetch').mockResolvedValue(options(false)); signInWithGoogle.mockRejectedValue(new Error('Acesso indisponível para esta conta. Procure a equipe.'))
+  mount(<LoginPage />, null, '/login?cadastro=cliente')
+  fireEvent.click(await screen.findByRole('button', { name: 'Continuar com Google' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Acesso indisponível para esta conta')
+  expect(screen.queryByRole('heading', { name: 'Cadastre-se como cliente' })).not.toBeInTheDocument()
+  expect(screen.queryByText(/Criaremos sua conta/)).not.toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Continuar como visitante' })).toBeInTheDocument()
 })

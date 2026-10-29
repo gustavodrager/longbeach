@@ -8,7 +8,7 @@ import { BarProductsPage } from './BarPages'
 
 const owner: AuthUser = {
   id: 'synthetic-owner', name: 'Operador sintético', email: 'operator@example.invalid',
-  roles: ['Owner'], permissions: [],
+  roles: ['Manager'], permissions: [],
 }
 const locationId = 'b0000000-0000-0000-0000-000000000002'
 

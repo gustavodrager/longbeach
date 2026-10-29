@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { ReceivedInvoicesPage, type InvoiceData } from './ReceivedInvoicesPage'
 const auth = vi.hoisted(() => ({ canBar: true }))
-vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { roles: [], permissions: auth.canBar ? ['fiscal:invoices:manage', 'bar:purchases:manage'] : ['fiscal:invoices:manage'], requiresFirstAccess: false } }) }))
+vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { roles: auth.canBar ? ['Manager'] : ['Operations'], permissions: auth.canBar ? ['fiscal:invoices:manage', 'bar:purchases:manage'] : ['fiscal:invoices:manage'], requiresFirstAccess: false } }) }))
 const data: InvoiceData = { accessKey: '1'.repeat(44), number: '123', series: '1', supplierTaxId: '12345678000195', supplierName: 'Fornecedor teste', recipientTaxId: '52247131000171', issuedAt: '2026-10-13T15:00:00Z', environment: 1, productsTotal: 48, freight: 4, discount: 2, total: 50, warnings: [], canCreatePurchase: true,
   items: [{ number: 1, code: '001', description: 'Água caixa', unit: 'CX', quantity: 2, unitPrice: 24, total: 48, discount: 2, freight: 4 }] }
 const detail = { id: 'invoice', fileName: 'nota.xml', data, purchaseId: null, purpose: 'Unclassified', reviewVersion: 1 }
@@ -84,8 +84,8 @@ it('shows server validation errors and does not save the rejected file', async (
 it.each([
   ['Materials', 'Materiais de consumo'], ['Equipment', 'Equipamentos e patrimônio'],
   ['Maintenance', 'Manutenção e melhorias'], ['Other', 'Outras compras e despesas'], ['Mixed', 'Compra mista — várias finalidades'],
-])('classifies %s without bar catalog or purchases', async (purpose, label) => {
-  const { fetch, client } = setup({ canBar: false }); await preview()
+])('classifies %s without creating bar purchases', async (purpose, label) => {
+  const { fetch, client } = setup(); await preview()
   fireEvent.click(screen.getByRole('button', { name: 'Salvar nota para conferência' }))
   await screen.findByLabelText('Finalidade da nota')
   fireEvent.change(screen.getByLabelText('Finalidade da nota'), { target: { value: purpose } })
@@ -99,14 +99,9 @@ it.each([
   await waitFor(() => expect(fetch.mock.calls.some(([url]) => String(url).includes('page=1&purpose=' + purpose))).toBe(true))
   client.clear()
 })
-it('requires bar permission even after selecting bar as the destination', async () => {
-  const { fetch, client } = setup({ canBar: false }); await preview()
-  fireEvent.click(screen.getByRole('button', { name: 'Salvar nota para conferência' }))
-  await screen.findByLabelText('Finalidade da nota')
-  fireEvent.change(screen.getByLabelText('Finalidade da nota'), { target: { value: 'Bar' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Salvar classificação' }))
-  await screen.findByText('Classificação salva: Mercadorias do bar')
-  expect(screen.queryByRole('button', { name: 'Criar compra conferida' })).not.toBeInTheDocument()
-  expect(fetch.mock.calls.some(([url]) => String(url).endsWith('/choices'))).toBe(false)
-  client.clear()
+it('bloqueia notas ao atendente mesmo com claims fiscais antigas', () => {
+  const { fetch, client } = setup({ canBar: false })
+  expect(screen.getByRole('heading', { name: 'Acesso restrito' })).toBeInTheDocument()
+  expect(screen.queryByLabelText('Arquivo XML da nota')).not.toBeInTheDocument()
+  expect(fetch).not.toHaveBeenCalled(); client.clear()
 })

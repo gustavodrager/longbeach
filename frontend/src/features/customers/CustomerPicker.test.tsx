@@ -6,7 +6,7 @@ import type { AuthUser } from '../auth/types'
 import { CustomerPicker } from './CustomerPicker'
 import type { Customer, CustomerLookup, CustomerScope } from './api'
 
-const operator: AuthUser = { id: 'operator-fixture', name: 'Atendimento teste', email: 'operator@example.invalid', roles: ['BarOperator'], permissions: ['bar:sales:operate'] }
+const operator: AuthUser = { id: 'operator-fixture', name: 'Atendimento teste', email: 'operator@example.invalid', roles: ['Operations'], permissions: ['bar:sales:operate'] }
 const customer: Customer = { id: 'customer-fixture', name: 'Pessoa Teste', phone: '11988887777', email: null, status: 'Ativo', version: 1, origin: 'Manual', incomplete: false, userId: null, profiles: [], mergedIntoId: null }
 const clients: QueryClient[] = []
 function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }) }

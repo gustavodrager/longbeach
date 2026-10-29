@@ -113,9 +113,7 @@ public sealed class C6BankingPostgresTests
     {
         await using var factory = new LongBeachWebApplicationFactory(); using var client = factory.CreateClient();
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/financial-history/c6")).StatusCode);
-        var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes("integration-tests-only-signing-key-with-more-than-32-characters")), SecurityAlgorithms.HmacSha256);
-        var token = new JwtSecurityToken("LongBeach.Tests", "LongBeach.Tests.Client", [new("sub", Guid.NewGuid().ToString()), new(ClaimTypes.Role, "Operations"), new("permission", "finance:read")], DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.AddMinutes(5), credentials);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", new JwtSecurityTokenHandler().WriteToken(token));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ProfileAuthorizationTests.Token(Guid.NewGuid(), ["Operations"], ["finance:read"]));
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/financial-history/c6")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsync("/api/v1/financial-history/c6/reprocess", new StringContent("{}", Encoding.UTF8, "application/json"))).StatusCode);
     }

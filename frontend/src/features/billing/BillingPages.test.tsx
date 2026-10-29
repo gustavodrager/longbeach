@@ -207,7 +207,7 @@ it('suspender novos Pix preserva a retomada da mesma operação já persistida',
  expect(screen.getByRole('button',{name:'Consultar confirmação'})).toBeEnabled()
 })
 
-const manager:AuthUser={...user,id:'manager',roles:['Owner'],permissions:['finance:write']}
+const manager:AuthUser={...user,id:'manager',roles:['Manager'],permissions:['finance:write']}
 const received={id:'received',operationId:'received-operation',method:'Pix',amount:80,state:'Approved',refunded:10,refundPending:0,canResume:false}
 const emptyBankHistory={month:'2026-10',months:['2026-10'],total:0,page:1,updatedAtUtc:'2026-10-27T15:00:00Z',totals:[],items:[]}
 const emptyFinancialPosition={date:'2026-10-27',readAtUtc:'2026-10-27T15:00:00Z',lastRecordChangeAtUtc:null,registeredEntries:0,receivable:{amountCents:0,records:0,overdueCents:0,overdueRecords:0,confirmedPaymentsCents:0},payable:{amountCents:0,records:0,overdueCents:0,overdueRecords:0,confirmedPaymentsCents:0},currentBank:{amountCents:null,asOfUtc:null,status:'Imported',issue:'Sem saldo C6 importado.',source:null,sourceDate:null},entries:[]}
@@ -287,19 +287,12 @@ it('estorno pendente mantém recebido confirmado e impede outra solicitação de
  expect(screen.getByRole('region',{name:'Resumo dos recebimentos da seleção'})).toHaveTextContent('Recebido registradoR$ 70,00')
 })
 
-it('gestão somente leitura mantém comprovante e não oferece cobrança, vínculo ou estorno',async()=>{
- adminData([{...account,paid:70,payable:0,pending:30,payments:[received,{...received,id:'resume-readonly',state:'Pending',amount:30,refunded:0,canResume:true}]}])
+it('cliente não consulta recebimentos gerais mesmo com claim financeira antiga',()=>{
+ adminData([account])
  mount(<BillingPage admin/>,'/recebimentos',{...manager,roles:['Student'],permissions:['finance:read']})
- const row=await screen.findByRole('article',{name:account.title})
- fireEvent.click(within(row).getByText(account.title,{selector:'summary strong'}))
- fireEvent.click(within(row).getByText('Histórico de pagamentos (2)'))
- expect(within(row).getByRole('button',{name:'Consultar confirmação'})).toBeVisible()
- expect(within(row).queryByRole('button',{name:'Retomar pagamento pendente'})).not.toBeInTheDocument()
- expect(within(row).queryByLabelText('CPF ou CNPJ')).not.toBeInTheDocument()
- expect(within(row).getByRole('button',{name:'Baixar comprovante'})).toBeInTheDocument()
- expect(within(row).queryByRole('button',{name:'Estornar'})).not.toBeInTheDocument()
- expect(within(row).queryByRole('button',{name:'Pagar esta conta'})).not.toBeInTheDocument()
- expect(screen.queryByText('Vincular conta ao responsável')).not.toBeInTheDocument()
+ expect(screen.getByRole('heading',{name:'Acesso restrito'})).toBeInTheDocument()
+ expect(screen.queryByRole('article',{name:account.title})).not.toBeInTheDocument()
+ expect(globalThis.fetch).not.toHaveBeenCalled()
 })
 
 it('gestão indica carregamento e oculta resumo e ações quando a atualização falha',async()=>{
@@ -384,16 +377,12 @@ it('Quadra marcada como paga mantém a origem manual quando só há tentativas c
  expect(screen.getByRole('region',{name:'Resumo dos recebimentos da seleção'})).toHaveTextContent('Recebido registradoR$ 100,00')
 })
 
-it.each(['Viewer','Auditor'] as const)('leitor %s consulta comanda sem receber link para área sem permissão',async role=>{
- const original={...account,kind:'Bar' as const,isLinked:false,paid:70,payable:30,payments:[received]}
- adminData([original])
+it.each(['Operations','Teacher'] as const)('perfil %s não consulta recebimentos gerais com claim financeira antiga',role=>{
+ adminData([account])
  mount(<BillingPage admin/>,'/recebimentos',{...manager,roles:[role],permissions:['finance:read']})
- const row=await screen.findByRole('article',{name:account.title})
- fireEvent.click(within(row).getByText(account.title,{selector:'summary strong'}))
- expect(within(row).queryByRole('link',{name:'Abrir comanda original'})).not.toBeInTheDocument()
- fireEvent.click(within(row).getByText('Histórico de pagamentos (1)'))
- expect(within(row).getByRole('button',{name:'Baixar comprovante'})).toBeVisible()
- expect(within(row).getByText('Estornado parcialmente · R$ 80,00')).toBeVisible()
+ expect(screen.getByRole('heading',{name:'Acesso restrito'})).toBeInTheDocument()
+ expect(screen.queryByRole('article',{name:account.title})).not.toBeInTheDocument()
+ expect(globalThis.fetch).not.toHaveBeenCalled()
 })
 
 it('histórico de comanda identifica estorno total mesmo quando o pagamento permanece Approved',async()=>{
@@ -647,7 +636,8 @@ it.each([
   return json([account])
  })
  mount(<BillingPage admin={admin}/>,path,{...user,roles:[role],permissions:role==='Operations'?['finance:read']:[]})
- expect(await screen.findByRole('article',{name:account.title})).toBeInTheDocument()
+ if(admin) { expect(screen.getByRole('heading',{name:'Acesso restrito'})).toBeInTheDocument(); expect(requests).not.toHaveBeenCalled() }
+ else expect(await screen.findByRole('article',{name:account.title})).toBeInTheDocument()
  expect(screen.queryByRole('region',{name:'Saldos dos bancos'})).not.toBeInTheDocument()
  expect(screen.queryByRole('heading',{name:'Movimentos importados dos bancos'})).not.toBeInTheDocument()
  expect(requests.mock.calls.every(([input])=>!String(input).startsWith('/api/v1/financial-history'))).toBe(true)

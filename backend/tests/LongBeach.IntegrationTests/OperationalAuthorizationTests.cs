@@ -66,7 +66,7 @@ public sealed class OperationalAuthorizationTests
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(path)).StatusCode);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token("students:read"));
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token("projects:read"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token("projects:read", "Operations"));
         Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/v1/operations/courts/schedule?date=invalid")).StatusCode);
     }
     [Fact]
@@ -78,11 +78,6 @@ public sealed class OperationalAuthorizationTests
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token("projects:read"));
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsync(path, new StringContent("{}", Encoding.UTF8, "application/json"))).StatusCode);
     }
-    private static string Token(string permission, string? role = null)
-    {
-        var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes("integration-tests-only-signing-key-with-more-than-32-characters")), SecurityAlgorithms.HmacSha256);
-        var claims = new List<Claim> { new("sub", Guid.NewGuid().ToString()), new("permission", permission) };
-        if (role is not null) claims.Add(new Claim(ClaimTypes.Role, role));
-        return new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken("LongBeach.Tests", "LongBeach.Tests.Client", claims, DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.AddMinutes(5), credentials));
-    }
+    private static string Token(string permission, string? role = null) =>
+        ProfileAuthorizationTests.Token(Guid.NewGuid(), [role ?? "Student"], [permission]);
 }

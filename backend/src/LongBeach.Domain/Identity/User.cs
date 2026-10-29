@@ -100,10 +100,23 @@ public sealed class User : Entity
     public void AssignRole(Role role)
     {
         ArgumentNullException.ThrowIfNull(role);
+        if (!SystemRoles.IsValid(role.Name))
+            throw new InvalidOperationException("Choose one of the four supported profiles.");
+        if (_userRoles.Any(item => item.RoleId != role.Id))
+            throw new InvalidOperationException("An account can have only one profile. Use an explicit profile change.");
         if (_userRoles.All(item => item.RoleId != role.Id))
         {
             _userRoles.Add(new UserRole(this, role));
         }
+    }
+
+    public void SetRole(Role role)
+    {
+        ArgumentNullException.ThrowIfNull(role);
+        if (!SystemRoles.IsValid(role.Name))
+            throw new InvalidOperationException("Choose one of the four supported profiles.");
+        _userRoles.RemoveWhere(item => item.RoleId != role.Id);
+        if (_userRoles.All(item => item.RoleId != role.Id)) _userRoles.Add(new UserRole(this, role));
     }
 
     public void AddRefreshToken(RefreshToken token)

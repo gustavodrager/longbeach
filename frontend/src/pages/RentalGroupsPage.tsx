@@ -1,3 +1,5 @@
+import { isManagement } from '../features/auth/access'
+import { hasPermission } from '../features/auth/access'
 import { CustomerPicker } from '../features/customers/CustomerPicker'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
@@ -117,7 +119,7 @@ function RentalGroupContent() {
 }
 function GroupDetails({ group, onEdit }: { group: RentalGroup; onEdit: () => void }) {
   const data = useOperations(); const { user } = useAuth(); const queryClient = useQueryClient(); const filters=useFilters(); const month=monthValue(filters.params.get('month')); const setMonth=(value:string)=>filters.set('month',value); const [charge, setCharge] = useState(false); const [selectedMeeting, setSelectedMeeting] = useState(''); const action = useSave()
-  const owner = user?.roles.includes('Owner'); const canBar = Boolean(owner || user?.permissions.includes('bar:finance:read'))
+  const owner = isManagement(user); const canBar = Boolean(owner || hasPermission(user, 'bar:finance:read'))
   const tabs=[{value:'resumo',label:'Resumo'},{value:'integrantes',label:'Integrantes'},{value:'encontros',label:'Encontros e presença'},...(data.canRead('financeEntries')?[{value:'financeiro',label:'Financeiro'}]:[]),...(canBar?[{value:'bar',label:'Bar'}]:[])]
   const [section,setSection]=useSection(tabs.map(t=>t.value))
   const [editSection, setSectionEditor] = useState<'group' | 'members' | 'money' | undefined>()

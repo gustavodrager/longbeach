@@ -12,7 +12,7 @@ public sealed class AuthServiceTests
     [Fact]
     public async Task Google_login_issues_a_Long_Beach_session_for_an_existing_active_account()
     {
-        var user = User.Create("Arena Owner", "owner@example.test", "valid-hash");
+        var user = ActiveUser("Arena Owner", "owner@example.test", "valid-hash");
         var repository = new FakeUserRepository(user);
         var service = new AuthService(
             repository,
@@ -35,7 +35,7 @@ public sealed class AuthServiceTests
     [Fact]
     public async Task Google_email_fallback_is_disabled_unless_explicitly_authorized()
     {
-        var user = User.Create("Owner", "owner@example.test", "valid-hash");
+        var user = ActiveUser("Owner", "owner@example.test", "valid-hash");
         var repository = new FakeUserRepository(user);
         var service = new AuthService(repository, new FakePasswordHasher(), new FakeTokenService(), new FixedTimeProvider(Now));
         await Assert.ThrowsAsync<AuthenticationFailedException>(() =>
@@ -51,7 +51,7 @@ public sealed class AuthServiceTests
     [InlineData(" ")]
     public async Task Google_email_fallback_requires_a_subject(string? subject)
     {
-        var user = User.Create("Owner", "owner@example.test", "valid-hash");
+        var user = ActiveUser("Owner", "owner@example.test", "valid-hash");
         var repository = new FakeUserRepository(user);
         var service = new AuthService(repository, new FakePasswordHasher(), new FakeTokenService(), new FixedTimeProvider(Now));
         await Assert.ThrowsAsync<AuthenticationFailedException>(() =>
@@ -64,7 +64,7 @@ public sealed class AuthServiceTests
     [Fact]
     public async Task Refresh_rotates_token_inside_the_same_family()
     {
-        var user = User.Create("Arena Owner", "owner@longbeach.local", "valid-hash");
+        var user = ActiveUser("Arena Owner", "owner@longbeach.local", "valid-hash");
         var familyId = Guid.NewGuid();
         var oldToken = RefreshToken.Create(
             Guid.NewGuid(), user.Id, familyId, "hash:old", "csrf:old", Now.AddDays(30), "old-ip");
@@ -90,7 +90,7 @@ public sealed class AuthServiceTests
     [Fact]
     public async Task Reusing_a_rotated_token_revokes_the_entire_family()
     {
-        var user = User.Create("Arena Owner", "owner@longbeach.local", "valid-hash");
+        var user = ActiveUser("Arena Owner", "owner@longbeach.local", "valid-hash");
         var familyId = Guid.NewGuid();
         var oldToken = RefreshToken.Create(
             Guid.NewGuid(), user.Id, familyId, "hash:old", "csrf:old", Now.AddDays(30), "old-ip");
@@ -117,7 +117,7 @@ public sealed class AuthServiceTests
     [Fact]
     public async Task Web_refresh_rejects_an_invalid_csrf_token()
     {
-        var user = User.Create("Arena Owner", "owner@longbeach.local", "valid-hash");
+        var user = ActiveUser("Arena Owner", "owner@longbeach.local", "valid-hash");
         user.AddRefreshToken(RefreshToken.Create(
             Guid.NewGuid(), user.Id, Guid.NewGuid(), "hash:old", "csrf:expected", Now.AddDays(30), null));
         var repository = new FakeUserRepository(user);
@@ -136,7 +136,7 @@ public sealed class AuthServiceTests
     [Fact]
     public async Task Change_password_replaces_the_hash_and_revokes_every_session()
     {
-        var user = User.Create("Arena Owner", "owner@longbeach.local", "hash:Current1!");
+        var user = ActiveUser("Arena Owner", "owner@longbeach.local", "hash:Current1!");
         var firstToken = RefreshToken.Create(
             Guid.NewGuid(), user.Id, Guid.NewGuid(), "hash:first", "csrf:first", Now.AddDays(30), "first-ip");
         var secondToken = RefreshToken.Create(
@@ -169,7 +169,7 @@ public sealed class AuthServiceTests
     [Fact]
     public async Task Change_password_rejects_an_incorrect_current_password_without_mutating_sessions()
     {
-        var user = User.Create("Arena Owner", "owner@longbeach.local", "hash:Current1!");
+        var user = ActiveUser("Arena Owner", "owner@longbeach.local", "hash:Current1!");
         var token = RefreshToken.Create(
             Guid.NewGuid(), user.Id, Guid.NewGuid(), "hash:session", "csrf:session", Now.AddDays(30), null);
         user.AddRefreshToken(token);
@@ -196,7 +196,7 @@ public sealed class AuthServiceTests
     [InlineData("NoSymbolButLong2026")]
     public async Task Change_password_rejects_a_weak_new_password(string newPassword)
     {
-        var user = User.Create("Arena Owner", "owner@longbeach.local", "hash:Current1!");
+        var user = ActiveUser("Arena Owner", "owner@longbeach.local", "hash:Current1!");
         var repository = new FakeUserRepository(user);
         var service = new AuthService(
             repository,
@@ -214,7 +214,7 @@ public sealed class AuthServiceTests
     [Fact]
     public async Task Change_password_rejects_reusing_the_current_password()
     {
-        var user = User.Create("Arena Owner", "owner@longbeach.local", "hash:CurrentPassword1!");
+        var user = ActiveUser("Arena Owner", "owner@longbeach.local", "hash:CurrentPassword1!");
         var repository = new FakeUserRepository(user);
         var service = new AuthService(
             repository,
@@ -226,6 +226,25 @@ public sealed class AuthServiceTests
             service.ChangePasswordAsync(user.Id, "CurrentPassword1!", "CurrentPassword1!", null));
 
         Assert.Equal(0, repository.SaveCount);
+    }
+
+    private static User ActiveUser(string name, string email, string passwordHash)
+    {
+        var user = User.Create(name, email, passwordHash);
+        user.AssignRole(new Role(SystemRoles.Manager));
+        return user;
+    }
+
+    [Fact]
+    public async Task Accounts_without_a_supported_profile_cannot_login_or_refresh()
+    {
+        var user = User.Create("Unclassified", "unclassified@example.test", "valid-hash");
+        user.AddRefreshToken(RefreshToken.Create(Guid.NewGuid(), user.Id, Guid.NewGuid(), "hash:old", "csrf:old", Now.AddDays(1), null));
+        var service = new AuthService(new FakeUserRepository(user), new FakePasswordHasher(), new FakeTokenService(), new FixedTimeProvider(Now));
+        await Assert.ThrowsAsync<AuthenticationFailedException>(() => service.LoginAsync(user.Email, "password", null));
+        await Assert.ThrowsAsync<AuthenticationFailedException>(() => service.LoginWithGoogleAsync(user.Email, null, subject: "subject", allowEmailMatch: true));
+        await Assert.ThrowsAsync<InvalidRefreshTokenException>(() => service.RefreshAsync("old", null, false, null));
+        Assert.Null(user.GoogleSubject);
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider

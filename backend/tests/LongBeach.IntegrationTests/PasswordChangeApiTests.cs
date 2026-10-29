@@ -41,6 +41,7 @@ public sealed class PasswordChangeApiTests(LongBeachWebApplicationFactory factor
 
     private static string IssueAccessToken()
     {
+        TestSessionUsers.Register(Guid.Parse("11111111-1111-1111-1111-111111111111"), "Manager");
         var tokenService = new JwtTokenService(Options.Create(new JwtOptions
         {
             Issuer = "LongBeach.Tests",
@@ -54,7 +55,7 @@ public sealed class PasswordChangeApiTests(LongBeachWebApplicationFactory factor
                 Guid.Parse("11111111-1111-1111-1111-111111111111"),
                 "Arena Owner",
                 "owner@longbeach.test",
-                ["Owner"],
+                ["Manager"],
                 ["users:manage"]),
             DateTimeOffset.UtcNow);
 

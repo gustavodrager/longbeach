@@ -1,0 +1,19 @@
+.visitor-page { min-height: 100vh; min-height: 100dvh; background: var(--deep); color: var(--ink); padding: 0 max(1.25rem, env(safe-area-inset-left)); }
+.visitor-header,.visitor-welcome,.visitor-cards,.visitor-footer { max-width: 1080px; margin-inline: auto; }
+.visitor-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: 1.5rem; border-bottom: 1px solid var(--line); }
+.visitor-header .brand-logo { width: min(48vw, 240px); }
+.visitor-header nav a { display: inline-flex; align-items: center; min-height: 48px; padding: .6rem .9rem; border: 1px solid var(--ink); border-radius: 10px; color: var(--ink); text-decoration: none; font-size: .9rem; font-weight: 800; }
+.visitor-welcome { padding-block: clamp(3rem, 8vw, 6rem); }
+.visitor-page .eyebrow { color: var(--teal-soft); }
+.visitor-welcome h1 { max-width: 850px; margin-bottom: 1.5rem; font-size: clamp(2.5rem, 7vw, 5rem); line-height: 1.08; letter-spacing: -.045em; }
+.visitor-welcome > p:not(.eyebrow) { max-width: 620px; margin-bottom: 1.75rem; color: var(--muted); font-size: 1.1rem; }
+.visitor-primary { display: inline-flex; justify-content: center; align-items: center; min-height: 52px; padding: .8rem 1.25rem; border-radius: 10px; background: var(--gold); color: var(--ink); font-weight: 800; text-decoration: none; }
+.visitor-primary:hover,.visitor-header nav a:hover { background: var(--sand); }
+.visitor-cards { display: grid; grid-template-columns: 1.1fr 1fr; gap: 1.25rem; }
+.visitor-cards section { min-width: 0; padding: clamp(1.25rem, 4vw, 2rem); border: 1px solid var(--line); border-radius: 18px; background: white; }
+.visitor-cards h2 { font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.2; }
+.visitor-cards p { color: var(--muted); }
+.visitor-detail { margin-top: 1.25rem; font-size: .9rem; }
+.visitor-footer { padding-block: 2.5rem; color: var(--muted); font-size: .85rem; }
+.login-visitor-link,.login-registration-link { display: block; margin-block: 1rem; text-align: center; color: var(--ink); font-weight: 700; }
+@media (max-width: 640px) { .visitor-header .brand-system { max-width: 175px; font-size: .75rem; } .visitor-cards { grid-template-columns: 1fr; } .visitor-header nav a { padding-inline: .7rem; } }

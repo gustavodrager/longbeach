@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/authContext'
-import { hasPermission, isManagement } from '../auth/access'
+import { hasPermission, isManagement, profileRole } from '../auth/access'
 import { apiFetch } from '../../lib/http'
 import { Logo } from '../../components/Logo'
 import { today, dayLabel, messageOf } from '../portal/api'
@@ -15,7 +15,7 @@ type Student = { id: string; name: string; presence: string | null; version: num
 type Roster = { class: Class; date: string; students: Student[] }
 type Access = { users: { id: string; name: string }[]; team: { id: string; name: string }[]; links: { userId: string; teamId: string | null }[] }
 const days = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado']
-const allowed = (user: ReturnType<typeof useAuth>['user']) => isManagement(user) || Boolean(user?.roles.includes('Teacher'))
+const allowed = (user: ReturnType<typeof useAuth>['user']) => isManagement(user) || Boolean(profileRole(user) === 'Teacher')
 function useTeaching<T>(path = '') { const { user } = useAuth(); return useQuery({ queryKey: ['teaching',user?.id,path], queryFn: () => apiFetch<T>('/api/v1/me/teaching'+path), enabled: allowed(user), retry: false, refetchInterval: 30000, refetchOnWindowFocus: true }) }
 function Notice({ pending, error }: { pending: boolean; error: Error | null }) { return pending ? <p role="status">Carregando suas aulas…</p> : error ? <p role="alert">Não foi possível consultar as aulas. {error.message}</p> : null }
 function ClassCard({ cls, date }: { cls: Class; date?: string }) { return <Link className="teaching-card" to={`/professor/turmas/${cls.id}${date ? '?date='+date : ''}`}><span className="teaching-time">{days[cls.weekDay]} · {cls.startTime}–{cls.endTime}</span><h2>{cls.name}</h2><p>{cls.enrolled}/{cls.capacity} matrículas ativas · {cls.status}</p><span className="teaching-action">Ver alunos e presença →</span></Link> }

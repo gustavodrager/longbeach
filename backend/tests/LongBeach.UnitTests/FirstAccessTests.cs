@@ -12,7 +12,7 @@ public sealed class FirstAccessTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 6, 0, 0, 0, TimeSpan.Zero);
     private const string Initial = "test-initial";
-    private static User Pending() { var u = User.CreateForFirstAccess("Test owner", "test.owner", "hash:" + Initial, Now.AddDays(1)); u.AssignRole(new Role("Owner")); return u; }
+    private static User Pending() { var u = User.CreateForFirstAccess("Test owner", "test.owner", "hash:" + Initial, Now.AddDays(1)); u.AssignRole(new Role("Manager")); return u; }
 
     [Fact] public async Task Username_login_is_case_insensitive_and_temporary_session_has_no_privileges()
     {
@@ -41,14 +41,14 @@ public sealed class FirstAccessTests
         await Assert.ThrowsAsync<AuthenticationFailedException>(() => service.LoginAsync("test.owner", Initial, null));
         await Assert.ThrowsAsync<InvalidRefreshTokenException>(() => service.RefreshAsync(old.RefreshToken, null, false, null));
         var completed = await service.LoginAsync("test.owner", "PermanentPassword2!", null);
-        Assert.Contains("Owner", completed.Response.User.Roles);
+        Assert.Contains("Manager", completed.Response.User.Roles);
     }
 
     [Fact] public async Task Google_self_link_uses_verified_subject_and_no_allowlist_entry_is_needed_later()
     {
         var user = Pending(); var service = Service(user);
         var session = await service.CompleteFirstAccessWithGoogleAsync(user.Id, "google-subject", "person@example.test", null);
-        Assert.False(session.Response.User.RequiresFirstAccess); Assert.Contains("Owner", session.Response.User.Roles);
+        Assert.False(session.Response.User.RequiresFirstAccess); Assert.Contains("Manager", session.Response.User.Roles);
         await Assert.ThrowsAsync<AuthenticationFailedException>(() => service.LoginAsync("test.owner", Initial, null));
         var next = await service.LoginWithGoogleAsync("changed@example.test", null, subject: "google-subject", allowEmailMatch: false);
         Assert.Equal(user.Id, next.Response.User.Id);

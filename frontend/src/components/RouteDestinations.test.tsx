@@ -25,10 +25,10 @@ it.each([
   await router.navigate(-1);await screen.findByRole('heading',{name:'Origem'});router.dispose()
 })
 it('entrada do bar respeita perfil e permissões efetivas', () => {
-  const user:AuthUser={id:'test',name:'Teste',email:'test@example.invalid',roles:['BarOperator'],permissions:['bar:catalog:read','bar:sales:operate','bar:finance:read']}
+  const user:AuthUser={id:'test',name:'Teste',email:'test@example.invalid',roles:['Operations'],permissions:['bar:catalog:read','bar:sales:operate','bar:finance:read']}
   expect(barHome(user)).toBe('/atendimento/vender');expect(barHome({...user,roles:['Manager'],permissions:[]})).toBe('/atendimento/vender')
-  expect(barHome({...user,roles:['BarFinance'],permissions:['bar:finance:read']})).toBe('/bar/indicadores')
-  expect(barHome({...user,roles:['StockManager'],permissions:['bar:stock:read']})).toBe('/bar/produtos')
+  expect(barHome({...user,roles:['Operations'],permissions:['bar:finance:read']})).toBeNull()
+  expect(barHome({...user,roles:['Operations'],permissions:['bar:stock:read']})).toBe('/bar/produtos')
   expect(barHome({...user,roles:['Student']})).toBeNull();expect(barHome({...user,roles:['Teacher']})).toBeNull()
 })
 it('menus apontam para destinos canônicos e mantêm seções profundas identificadas',()=>{

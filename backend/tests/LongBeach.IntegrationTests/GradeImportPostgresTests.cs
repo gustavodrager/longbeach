@@ -15,7 +15,7 @@ public sealed class GradeImportPostgresTests
     {
         await using var factory = OperationalPostgresTests.Factory(); using var client = factory.CreateClient();
         await OperationalPostgresTests.Migrate(factory);
-        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Owner");
+        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
         var court = Guid.NewGuid(); var student = Guid.NewGuid(); var teacher = Guid.NewGuid(); var lesson = Guid.NewGuid(); var enrollment = Guid.NewGuid();
         Assert.Equal(HttpStatusCode.Created, (await client.PutAsJsonAsync($"/api/v1/operations/courts/{court}", new { id = court, name = "Quadra de conferência", status = "Disponível", openingTime = "06:00", closingTime = "24:00" })).StatusCode);
         Assert.Equal(HttpStatusCode.Created, (await client.PutAsJsonAsync($"/api/v1/operations/students/{student}", new { id = student, name = "Aluno existente", phone = "11987654321", monthlyAmount = 170 })).StatusCode);
@@ -37,10 +37,10 @@ public sealed class GradeImportPostgresTests
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"/api/v1/imports/{invalid}/class-grade/apply", new { confirmationToken = bad.GetProperty("confirmationToken").GetString() })).StatusCode);
         Assert.DoesNotContain((await client.GetFromJsonAsync<JsonElement>("/api/v1/operations/team")).EnumerateArray(), row => row.GetProperty("id").GetGuid() == teacher);
         var batch = await Stage(Rows(student)); var path = $"/api/v1/imports/{batch}/class-grade";
-        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header(null, "students:write", "students:read");
+        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Operations", "students:write", "students:read");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(path + "/apply", new { confirmationToken = "anything" })).StatusCode);
-        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Owner");
+        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
         var preview = await client.GetFromJsonAsync<JsonElement>(path);
         Assert.True(preview.GetProperty("canApply").GetBoolean());
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync(path + "/apply", new { confirmationToken = "stale" })).StatusCode);
@@ -56,11 +56,11 @@ public sealed class GradeImportPostgresTests
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync(path + "/apply", input)).StatusCode);
         var replayed = (await client.GetFromJsonAsync<JsonElement>("/api/v1/operations/enrollments")).EnumerateArray().Single(row => row.GetProperty("id").GetGuid() == enrollment);
         Assert.Equal(190, replayed.GetProperty("monthlyAmount").GetInt32());
-        // An academic editor must preserve an unknown salary rather than replacing it with zero.
-        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header(null, "employees:read", "employees:write");
+        // Operations can consult the team but cannot edit an employment agreement.
+        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Operations", "employees:read", "employees:write");
         var staff = (await client.GetFromJsonAsync<JsonElement>("/api/v1/operations/team")).EnumerateArray().Single(row => row.GetProperty("id").GetGuid() == teacher);
         var edit = JsonNode.Parse(staff.GetRawText())!.AsObject(); edit["name"] = "Professor corrigido";
-        Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync($"/api/v1/operations/team/{teacher}", edit)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PutAsJsonAsync($"/api/v1/operations/team/{teacher}", edit)).StatusCode);
         await using var scope = factory.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
         Assert.Equal(1, await db.AuditLogs.CountAsync(row => row.Action == "ClassGradeApplied" && row.ResourceId == batch.ToString()));
         var person = await db.OperationalRecords.SingleAsync(row => row.Id == teacher);

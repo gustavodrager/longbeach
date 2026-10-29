@@ -22,7 +22,7 @@ public sealed class DevelopmentAdminBootstrapper(
 
         var email = Environment.GetEnvironmentVariable("LONG_BEACH_BOOTSTRAP_ADMIN_EMAIL");
         var password = Environment.GetEnvironmentVariable("LONG_BEACH_BOOTSTRAP_ADMIN_PASSWORD");
-        var name = Environment.GetEnvironmentVariable("LONG_BEACH_BOOTSTRAP_ADMIN_NAME") ?? "Administrador";
+        var name = Environment.GetEnvironmentVariable("LONG_BEACH_BOOTSTRAP_ADMIN_NAME") ?? "Gestor";
 
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
         {
@@ -37,7 +37,7 @@ public sealed class DevelopmentAdminBootstrapper(
 
         var adminRole = await dbContext.Roles
             .Include(role => role.RolePermissions)
-            .SingleAsync(role => role.Name == SystemRoles.Administrator, cancellationToken);
+            .SingleAsync(role => role.Name == SystemRoles.Manager, cancellationToken);
 
         var normalizedEmail = User.NormalizeEmail(email);
         var user = await dbContext.Users
@@ -49,10 +49,12 @@ public sealed class DevelopmentAdminBootstrapper(
             user = User.Create(name, email, passwordHasher.Hash(password));
             user.AssignRole(adminRole);
             dbContext.Users.Add(user);
-            logger.LogInformation("Development administrator {AdminEmail} created.", email);
+            logger.LogInformation("Development Manager account {UserId} created.", user.Id);
         }
         else
         {
+            if (!user.IsActive || user.UserRoles.Count != 1 || user.UserRoles.Single().RoleId != adminRole.Id)
+                throw new InvalidOperationException("The existing account is inactive or does not have exactly one Manager profile. Use explicit profile consolidation; no account was changed.");
             user.AssignRole(adminRole);
         }
 

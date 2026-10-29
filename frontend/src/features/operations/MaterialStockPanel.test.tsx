@@ -10,7 +10,7 @@ import { MaterialStockPanel } from './MaterialStockPanel'
 import { useState } from 'react'
 import type { MaterialMovementInput, MaterialMovementRow } from './materialStock'
 
-const owner: AuthUser = { id: 'operator-one', name: 'Operador de teste', email: 'operator@example.test', roles: ['Owner'], permissions: [] }
+const owner: AuthUser = { id: 'operator-one', name: 'Operador de teste', email: 'operator@example.test', roles: ['Manager'], permissions: [] }
 const material: InventoryItem = { id: '00000000-0000-4000-8000-000000000001', version: 3, name: 'Material de teste', category: 'Limpeza', unit: 'litro', quantity: 2.125, minimum: 1, unitCost: 17, location: 'Depósito', notes: '', paymentMethod: 'Pix', movements: [], nature: 'Consumable' }
 const movement: MaterialMovementRow = { id: 'movement-test', materialId: material.id, kind: 'Consumption', before: 2.125, quantity: -0.125, after: 2, unit: 'litro', location: 'Depósito', reason: 'Limpeza das quadras', destination: 'Área esportiva', actorId: owner.id, actorName: 'Operador de teste', occurredAt: '2026-10-27T15:00:00Z' }
 function response(data: unknown, status = 200) { return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } }) }
@@ -145,7 +145,7 @@ it('omits protected costs and count permission for inventory operators', async (
 it('shows the ledger to read-only operators, with attribution and pagination, while hiding writes and redacted costs', async () => {
   const fetch = api()
   fetch.mockImplementation(async input => String(input).includes('/movements') ? response({ items: [movement], page: String(input).includes('page=2') ? 2 : 1, total: 51 }) : response(String(input).endsWith('/inventory') ? [{ ...material, costsVisible: false, unitCost: 0 }] : []))
-  render(tree({ details: true, identity: { ...owner, roles: ['Viewer'], permissions: ['inventory:read', 'finance:read'] } }))
+  render(tree({ details: true, identity: { ...owner, roles: ['Operations'], permissions: ['inventory:read', 'finance:read'] } }))
   await screen.findByText('Limpeza das quadras · Destino: Área esportiva')
   expect(screen.getByText('Consumo · -0,125 litro')).toBeInTheDocument()
   expect(screen.getByText(/Operador de teste/)).toBeInTheDocument()
@@ -199,7 +199,7 @@ it('discards late movement responses and private forms after the session changes
   const fetch = api()
   fetch.mockImplementation(async (input, init) => init?.method === 'POST' ? new Promise<Response>(resolve => { finish = resolve }) : response(String(input).endsWith('/inventory') ? [material] : []))
   const view = render(tree()); await open(); await fill(); await userEvent.click(screen.getByRole('button', { name: 'Confirmar movimentação' }))
-  view.rerender(tree({ identity: { ...owner, id: 'operator-two', roles: ['Viewer'], permissions: ['inventory:read'] } }))
+  view.rerender(tree({ identity: { ...owner, id: 'operator-two', roles: ['Operations'], permissions: ['inventory:read'] } }))
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   await act(async () => { finish?.(response({ material: { ...material, name: 'Resposta antiga privada', quantity: 9, version: 4 }, movement })) })
   expect(screen.queryByText('Resposta antiga privada')).not.toBeInTheDocument()

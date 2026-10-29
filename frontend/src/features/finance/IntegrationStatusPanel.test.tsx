@@ -2,12 +2,12 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { IntegrationStatusPanel } from './IntegrationStatusPanel'
 
-const auth = vi.hoisted(() => ({ roles: ['Owner'] }))
+const auth = vi.hoisted(() => ({ roles: ['Manager'] }))
 const request = vi.hoisted(() => vi.fn())
 vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'test', roles: auth.roles } }) }))
 vi.mock('../../lib/http', () => ({ apiFetch: request }))
 function show() { return render(<MemoryRouter><IntegrationStatusPanel /></MemoryRouter>) }
-beforeEach(() => { auth.roles = ['Owner']; request.mockReset() })
+beforeEach(() => { auth.roles = ['Manager']; request.mockReset() })
 it('explica modo por arquivos e oferece importação sem consultar ou configurar APIs', () => {
   show()
   expect(screen.getByRole('heading', { name: 'Extratos e saldos por importação' })).toBeInTheDocument()

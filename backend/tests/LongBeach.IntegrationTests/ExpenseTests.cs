@@ -28,11 +28,11 @@ public sealed class ExpenseTests
     {
         await using var factory = new LongBeachWebApplicationFactory(); using var client = factory.CreateClient();
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/expenses")).StatusCode);
-        client.DefaultRequestHeaders.Authorization = Header(null, "employees:read", "employees:write");
+        client.DefaultRequestHeaders.Authorization = Header("Operations", "employees:read", "employees:write");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/expenses/options")).StatusCode);
-        client.DefaultRequestHeaders.Authorization = Header(null, "finance:read");
+        client.DefaultRequestHeaders.Authorization = Header("Operations", "finance:read");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PutAsJsonAsync($"/api/v1/expenses/{Guid.NewGuid()}", Input())).StatusCode);
-        client.DefaultRequestHeaders.Authorization = Header(null, "finance:write");
+        client.DefaultRequestHeaders.Authorization = Header("Operations", "finance:write");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PutAsJsonAsync($"/api/v1/expenses/{Guid.NewGuid()}", Input())).StatusCode);
     }
     [PostgresFact]
@@ -132,7 +132,7 @@ public sealed class ExpenseTests
     [PostgresFact]
     public async Task Generic_endpoint_cannot_create_managed_metadata_overwrite_expense_or_detach_adopted_legacy()
     {
-        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Owner");
+        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Manager");
         var id = Guid.NewGuid(); var created = await client.PutAsJsonAsync($"/api/v1/expenses/{id}", Input()); Assert.Equal(HttpStatusCode.OK, created.StatusCode);
         var generic = new { id, name = "Forjado", direction = "Receber", amount = 1, dueDate = "2026-10-20", status = "Pendente", origin = "Arena", version = 1 };
         Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync($"/api/v1/operations/financeEntries/{id}", generic)).StatusCode);

@@ -4,12 +4,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { ArenaHistoryOverview } from './ArenaHistoryOverview'
 
-const auth = vi.hoisted(() => ({ roles: ['Owner'] }))
+const auth = vi.hoisted(() => ({ roles: ['Manager'] }))
 vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'owner-test', roles: auth.roles } }) }))
 const payments = { month: '2026-09', records: 3, paidRecords: 2, paidNames: 2, paidAmountCents: 26000, unpaidRecords: 1, otherRecords: 0 }
 const result = { months: ['2026-09', '2026-03'], students: payments, rentals: { payments: { ...payments, paidAmountCents: 72000 }, scheduleRecords: 3, weeklyMinutes: 360, invalidSchedules: 0, schedule: [{ day: 'Terça-feira', hours: '20:00 até 22:00', records: 1, paidRecords: 0, unpaidRecords: 1 }] }, lessons: { month: '2026-03', records: 5, lessons: 4, cancelledRecords: 1, otherRecords: 0, minutes: 240, invalidHours: 0, attendances: 15, missingAttendance: 0, averageAttendance: 3.8, lastDate: '2026-03-28' } }
 function wrap() { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><ArenaHistoryOverview /></MemoryRouter></QueryClientProvider>) }
-afterEach(() => { vi.restoreAllMocks(); auth.roles = ['Owner'] })
+afterEach(() => { vi.restoreAllMocks(); auth.roles = ['Manager'] })
 
 it('mostra referências diferentes, valores pagos, horas semanais e origem de cada controle', async () => {
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(result), { headers: { 'Content-Type': 'application/json' } }))

@@ -21,9 +21,7 @@ public sealed class CatalogImportAuthorizationTests
         await using var factory = new LongBeachWebApplicationFactory(); using var client = factory.CreateClient();
         var path = "/api/v1/financial-history" + suffix;
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(path)).StatusCode);
-        var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes("integration-tests-only-signing-key-with-more-than-32-characters")), SecurityAlgorithms.HmacSha256);
-        var token = new JwtSecurityToken("LongBeach.Tests", "LongBeach.Tests.Client", [new Claim("sub", Guid.NewGuid().ToString()), new Claim(ClaimTypes.Role, "Operations")], DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.AddMinutes(5), credentials);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", new JwtSecurityTokenHandler().WriteToken(token));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ProfileAuthorizationTests.Token(Guid.NewGuid(), ["Operations"], ["finance:read"]));
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,(await client.PostAsync("/api/v1/financial-history/pagbank-edi/reprocess",new StringContent("{\"from\":\"2026-10-01\",\"through\":\"2026-10-02\",\"reason\":\"Conferência\"}",Encoding.UTF8,"application/json"))).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,(await client.PutAsync("/api/v1/financial-history/monthly-controls/2026-09", new StringContent("{\"version\":0,\"lines\":[],\"notes\":\"\"}",Encoding.UTF8,"application/json"))).StatusCode);
@@ -41,9 +39,7 @@ public sealed class CatalogImportAuthorizationTests
             ? await client.PostAsync(path, new StringContent("{\"confirmationToken\":\"test\"}", Encoding.UTF8, "application/json"))
             : await client.GetAsync(path);
         Assert.Equal(HttpStatusCode.Unauthorized, (await Request()).StatusCode);
-        var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes("integration-tests-only-signing-key-with-more-than-32-characters")), SecurityAlgorithms.HmacSha256);
-        var token = new JwtSecurityToken("LongBeach.Tests", "LongBeach.Tests.Client", [new Claim("sub", Guid.NewGuid().ToString()), new Claim(ClaimTypes.Role, "Operations")], DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.AddMinutes(5), credentials);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", new JwtSecurityTokenHandler().WriteToken(token));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ProfileAuthorizationTests.Token(Guid.NewGuid(), ["Operations"], ["finance:read"]));
         Assert.Equal(HttpStatusCode.Forbidden, (await Request()).StatusCode);
     }
 }

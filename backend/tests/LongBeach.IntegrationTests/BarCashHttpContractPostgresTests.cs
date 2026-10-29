@@ -41,7 +41,7 @@ public sealed class BarCashHttpContractPostgresTests
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(path)).StatusCode);
         client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Student");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
-        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Owner");
+        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
 
         using var empty = await client.GetAsync(path);
         Assert.Equal(HttpStatusCode.OK, empty.StatusCode);

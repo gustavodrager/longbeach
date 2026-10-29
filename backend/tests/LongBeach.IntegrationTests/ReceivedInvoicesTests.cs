@@ -167,17 +167,20 @@ public sealed class ReceivedInvoicesTests
     }
 
     [Fact]
-    public async Task Bar_permission_does_not_expose_general_invoices_and_fiscal_permission_does_not_grant_bar_writes()
+    public async Task Operations_cannot_manage_invoices_even_with_old_fiscal_or_purchase_claims()
     {
         await using var factory = new LongBeachWebApplicationFactory(); using var client = factory.CreateClient();
         var id = Guid.NewGuid();
-        client.DefaultRequestHeaders.Authorization = new("Bearer", Token(Guid.NewGuid(), false, onlyPermission: "bar:purchases:manage"));
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/received-invoices/")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/v1/received-invoices/{id}/classification", new InvoiceClassificationInput("Bar", 1))).StatusCode);
-        client.DefaultRequestHeaders.Authorization = new("Bearer", Token(Guid.NewGuid(), false, onlyPermission: "fiscal:invoices:manage"));
+        foreach (var forgedPermission in new[] { "bar:purchases:manage", "fiscal:invoices:manage" })
+        {
+            client.DefaultRequestHeaders.Authorization = new("Bearer", Token(Guid.NewGuid(), false, onlyPermission: forgedPermission));
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/received-invoices/")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/received-invoices/choices")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/v1/received-invoices/{id}/classification", new InvoiceClassificationInput("Bar", 1))).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/v1/received-invoices/{id}/purchase", new InvoicePurchaseInput(Guid.Empty, [], true))).StatusCode);
+        }
+        client.DefaultRequestHeaders.Authorization = new("Bearer", Token(Guid.NewGuid(), true));
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/v1/received-invoices/preview", Upload(1) with { ContentBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(InvoiceFixture.Xml().Replace("<tpAmb>2</tpAmb>", "<tpAmb>1</tpAmb>"))) })).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/received-invoices/choices")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/v1/received-invoices/{id}/purchase", new InvoicePurchaseInput(Guid.Empty, [], true))).StatusCode);
     }
 
     [Fact]
@@ -199,6 +202,7 @@ public sealed class ReceivedInvoicesTests
     }
     private static string Token(Guid actor, bool permission, bool firstAccess = false, string? onlyPermission = null)
     {
+        if (!firstAccess) return ProfileAuthorizationTests.Token(actor, [permission ? "Manager" : "Operations"], onlyPermission is null ? [] : [onlyPermission]);
         var claims = new List<Claim> { new("sub", actor.ToString()) };
         if (permission) { claims.Add(new("permission", "fiscal:invoices:manage")); claims.Add(new("permission", "bar:purchases:manage")); }
         if (onlyPermission is not null) claims.Add(new("permission", onlyPermission));

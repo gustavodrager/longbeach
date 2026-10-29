@@ -178,17 +178,21 @@ describe('autenticação e shell', () => {
     expect(JSON.parse(localStorage.getItem('longbeach-os-demo-v1') ?? '{}').projects[0].estimatedCost).toBe(2500)
   })
 
-  it('protege a área interna quando não há sessão', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse({}, 401))
+  it('abre a experiência de visitante na raiz sem oferecer acesso interno', async () => {
+    const requests = vi.spyOn(globalThis, 'fetch').mockImplementation(async input => String(input).endsWith('/auth/refresh') ? jsonResponse({}, 401) : jsonResponse({ googleClientId: 'test-client', clientRegistrationEnabled: true }))
     window.history.replaceState({}, '', '/')
 
     render(<App />)
 
-    expect(await screen.findByRole('heading', { name: 'Entre no Long Beach OS' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Seu momento na arena começa aqui.' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/visitante')
+    expect(screen.getByRole('link', { name: 'Ver cardápio' })).toHaveAttribute('href', '/cardapio/apresentacao')
     expect(screen.queryByRole('heading', { name: 'Visão geral' })).not.toBeInTheDocument()
+    expect(requests.mock.calls.every(([input]) => ['/api/v1/auth/refresh', '/api/v1/auth/options'].includes(String(input)))).toBe(true)
   })
 
   it('entra com Google pela API e apresenta o shell autenticado', async () => {
+    window.history.replaceState({}, '', '/login')
     const authFetch = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
       .mockResolvedValueOnce(jsonResponse({}, 401))
       .mockResolvedValueOnce(
@@ -200,7 +204,7 @@ describe('autenticação e shell', () => {
             id: 'user-1',
             name: 'Gustavo Drager',
             email: 'gustavo@example.com',
-            roles: ['Owner'],
+            roles: ['Manager'],
             permissions: ['arena.manage'],
           },
         }),
@@ -225,13 +229,35 @@ describe('autenticação e shell', () => {
     expect(getCsrfToken()).toBe('csrf-login-de-teste')
   })
 
+  it('visitante cadastra cliente pelo Google e chega à área pessoal sem privilégios internos', async () => {
+    const client = { id: 'new-client', name: 'Cliente de teste', email: 'client@example.invalid', roles: ['Student'], permissions: [] }
+    const requests = vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+      const path = String(input)
+      if (path.endsWith('/auth/refresh')) return jsonResponse({}, 401)
+      if (path.endsWith('/auth/options')) return jsonResponse({ googleClientId: 'test-client', clientRegistrationEnabled: true })
+      if (path.endsWith('/auth/google')) return jsonResponse({ accessToken: 'client-token', csrfToken: 'client-csrf', user: client })
+      if (path.endsWith('/me/portal/profile')) return jsonResponse({ name: client.name, email: client.email, phone: '', reminders: false, links: [] })
+      return jsonResponse([])
+    })
+    window.history.replaceState({}, '', '/')
+    render(<App />)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('link', { name: 'Cadastrar como cliente' }))
+    expect(await screen.findByRole('heading', { name: 'Cadastre-se como cliente' })).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Entrar com Google' }))
+    expect(await screen.findByRole('heading', { name: 'Olá, Cliente' })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/minha-area')
+    expect(screen.queryByRole('link', { name: 'Área de trabalho →' })).not.toBeInTheDocument()
+    expect(requests.mock.calls.every(([input]) => String(input).startsWith('/api/v1/auth/') || String(input).startsWith('/api/v1/me/'))).toBe(true)
+  })
+
   it('restaura a sessão com CSRF e substitui o token após a rotação', async () => {
     document.cookie = 'lb_csrf=csrf-anterior; Path=/'
     const authenticatedUser = {
       id: 'user-1',
       name: 'Gustavo Drager',
       email: 'gustavo@example.com',
-      roles: ['Owner'],
+      roles: ['Manager'],
       permissions: ['arena.manage'],
     }
     const authFetch = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
@@ -260,7 +286,7 @@ describe('autenticação e shell', () => {
       id: '11111111-1111-1111-1111-111111111111',
       name: 'Gustavo Drager',
       email: 'gustavo@example.com',
-      roles: ['Owner'],
+      roles: ['Manager'],
       permissions: ['arena.manage'],
     }
     const authFetch = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()

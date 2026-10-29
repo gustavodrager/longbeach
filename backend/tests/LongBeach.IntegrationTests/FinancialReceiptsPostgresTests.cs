@@ -17,9 +17,9 @@ public sealed class FinancialReceiptsPostgresTests
         await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory);
         var id = Guid.NewGuid(); var path = $"/api/v1/operations/financeEntries/{id}";
         var input = Entry(id); input["receiptSource"] = "CourtPix"; input["receivingAccount"] = "C6";
-        client.DefaultRequestHeaders.Authorization = Header(null, "finance:read");
+        client.DefaultRequestHeaders.Authorization = Header("Operations", "finance:read");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PutAsJsonAsync(path, input)).StatusCode);
-        client.DefaultRequestHeaders.Authorization = Header("Owner");
+        client.DefaultRequestHeaders.Authorization = Header("Manager");
         var create = await client.PutAsJsonAsync(path, input); Assert.Equal(HttpStatusCode.Created, create.StatusCode);
         var saved = JsonNode.Parse((await Read(create)).GetRawText())!.AsObject();
         Assert.Equal("Unit", saved["allocationScope"]!.GetValue<string>());
@@ -57,7 +57,7 @@ public sealed class FinancialReceiptsPostgresTests
     public async Task Terminal_and_pagvendas_allocate_bar_while_unknown_pix_or_bank_alone_stays_unclassified()
     {
         await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory);
-        client.DefaultRequestHeaders.Authorization = Header("Owner");
+        client.DefaultRequestHeaders.Authorization = Header("Manager");
         foreach (var source in new[] { "PagBankTerminal", "PagVendas" })
         {
             var id = Guid.NewGuid(); var input = Entry(id); input["receiptSource"] = source;

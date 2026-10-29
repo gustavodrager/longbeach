@@ -14,7 +14,7 @@ function setup(pending=false, empty=false){
   if(p.endsWith('/details'))return json({movements:[],closings:[],pendingPayment:pending})
   if(p.endsWith('/cash/current'))return json(empty?null:session);if(p.endsWith('/cash/sessions'))return json([session]);if(p.endsWith('/cash/registers'))return json([{id:'reg',name:'Balcão'}]);if(p.endsWith('/locations'))return json([{id:'bar',name:'Bar'}]);return json([])
  });
- const user:AuthUser={id:'owner',name:'Gestão',email:'test@example.invalid',roles:['Owner'],permissions:['bar:supervise','bar:cash:operate']}
+ const user:AuthUser={id:'owner',name:'Gestão',email:'test@example.invalid',roles:['Manager'],permissions:['bar:supervise','bar:cash:operate']}
  render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter><AuthContext.Provider value={{user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{},completeFirstAccessWithGoogle:async()=>{}}}><BarCashPage/></AuthContext.Provider></MemoryRouter></QueryClientProvider>);return api
 }
 afterEach(()=>vi.restoreAllMocks())

@@ -116,7 +116,7 @@ public static class OperationalEndpoints
             }
             if (!publicDemo)
                 await CustomerOperationalRecords.PrepareWriteAsync(customers, kind, id, incoming, record?.Payload, ct,
-                    allowReassignment: http.User.IsInRole(SystemRoles.Owner) || ProfileAccess.IsManagement(http.User.FindAll(ClaimTypes.Role).Select(x => x.Value)) && http.User.HasClaim("permission", SystemPermissions.CustomersMerge));
+                    allowReassignment: ProfileAccess.IsManagement(http.User.FindAll(ClaimTypes.Role).Select(x => x.Value)) && http.User.HasClaim("permission", SystemPermissions.CustomersMerge));
             body = JsonSerializer.SerializeToElement(incoming);
             var error = OperationalValidation.Validate(kind, id, body, snapshot, DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-3)));
             if (error is not null) return Results.BadRequest(new { message = error });
@@ -205,15 +205,12 @@ public static class OperationalEndpoints
     {
         if (publicDemo && OperationalValidation.LegacyKinds.Contains(kind)) return true;
         if (http.User.Identity?.IsAuthenticated != true) return false;
-        if (http.User.IsInRole(SystemRoles.Owner)) return true;
-        // There is no verified User↔Student relationship in this storage yet.
-        // A student-only role cannot read the entire administrative roster.
-        if (http.User.IsInRole(SystemRoles.Student) && !http.User.FindAll(ClaimTypes.Role).Any(claim => claim.Value != SystemRoles.Student)) return false;
+        if (http.User.HasClaim("requires_first_access", "true")) return false;
         var permission = OperationalValidation.Permissions[kind];
         return http.User.HasClaim("permission", write ? permission.Write : permission.Read);
     }
     private static bool CanFinance(HttpContext http, bool write, bool publicDemo, string kind) =>
-        (publicDemo && OperationalValidation.LegacyKinds.Contains(kind)) || http.User.IsInRole(SystemRoles.Owner) || http.User.HasClaim("permission", SystemPermissions.FinanceRead) && (!write || http.User.HasClaim("permission", SystemPermissions.FinanceWrite));
+        (publicDemo && OperationalValidation.LegacyKinds.Contains(kind)) || http.User.HasClaim("permission", SystemPermissions.FinanceRead) && (!write || http.User.HasClaim("permission", SystemPermissions.FinanceWrite));
     private static string VisiblePayload(string json, string kind, HttpContext http, bool publicDemo) =>
         OperationalRecordAccess.VisiblePayload(json, kind, CanFinance(http, false, publicDemo, kind));
     private static JsonElement ParsePayload(string json)

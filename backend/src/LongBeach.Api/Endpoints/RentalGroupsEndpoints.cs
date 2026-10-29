@@ -27,9 +27,8 @@ public static class RentalGroupsEndpoints
         return endpoints;
     }
     private static AuthorizationPolicy Access(params string[] permissions) => new AuthorizationPolicyBuilder().RequireAuthenticatedUser().RequireAssertion(context =>
-        !(context.User.IsInRole(SystemRoles.Student) && !context.User.FindAll(ClaimTypes.Role).Any(c => c.Value != SystemRoles.Student)) &&
-        (context.User.IsInRole(SystemRoles.Owner) || permissions.All(p => context.User.HasClaim("permission", p)))).Build();
-    private static bool Finance(HttpContext http, bool write) => http.User.IsInRole(SystemRoles.Owner) || http.User.HasClaim("permission", SystemPermissions.FinanceRead) && (!write || http.User.HasClaim("permission", SystemPermissions.FinanceWrite));
+        !context.User.HasClaim("requires_first_access", "true") && permissions.All(p => context.User.HasClaim("permission", p))).Build();
+    private static bool Finance(HttpContext http, bool write) => http.User.HasClaim("permission", SystemPermissions.FinanceRead) && (!write || http.User.HasClaim("permission", SystemPermissions.FinanceWrite));
     private static async Task<IResult> Guard(Func<Task<IResult>> action)
     { try { return await action(); } catch (RentalRuleException error) { return Results.Json(new { message = error.Message }, statusCode: error.Conflict ? 409 : 400); } }
 }

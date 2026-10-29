@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { AuthContext } from '../auth/authContext'
 import { BarStockPage, BarCountsPage, BarLossesPage } from './StockPages'
 import type { StockCount } from './StockCounts'
-const auth={user:{id:'owner',name:'Teste',email:'test@example.invalid',roles:['Owner' as const],permissions:[]},isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{},completeFirstAccessWithGoogle:async()=>{}}
+const auth={user:{id:'owner',name:'Teste',email:'test@example.invalid',roles:['Manager' as const],permissions:[]},isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{},completeFirstAccessWithGoogle:async()=>{}}
 const products=Array.from({length:23},(_,i)=>({id:`p${i}`,name:`Produto ${String(i).padStart(2,'0')}`,saleUnit:'un',active:true,controlsStock:true,minimumStock:2}))
 const balances=products.map((p,i)=>({...p,productId:p.id,locationId:'bar',unit:'un',quantity:i===0?0:5,reserved:1,available:i===0?0:4,low:i===0,alertEligible:true}))
 function response(body:unknown){return new Response(JSON.stringify(body),{headers:{'Content-Type':'application/json'}})}

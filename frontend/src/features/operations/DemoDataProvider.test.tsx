@@ -6,7 +6,7 @@ import type { AuthUser } from '../auth/types'
 import type { RecurringReservationInput, RecurringReservationResponse, Reservation } from '../arena/types'
 import { DemoDataProvider, useOperations, type Student } from './DemoDataProvider'
 
-const user: AuthUser = { id: 'first-user', name: 'Gestora', email: 'test@longbeach.test', roles: ['Owner'], permissions: [] }
+const user: AuthUser = { id: 'first-user', name: 'Gestora', email: 'test@longbeach.test', roles: ['Manager'], permissions: [] }
 const student: Student = { id: '00000000-0000-4000-8000-000000000001', name: 'Registro da API', phone: '', birthDate: '', address: '', shirtSize: '', shortsSize: '', weeklyClasses: '', days: '', class1: '', class2: '', monthlyAmount: 0, paymentStatus: '', paymentDate: '', statementName: '', status: 'Ativo', notes: '' }
 const recurring: RecurringReservationInput = { operationId: '00000000-0000-4000-8000-000000000020', groupTitle: 'Grupo semanal', courtId: '00000000-0000-4000-8000-000000000021', startDate: '2026-10-04', startTime: '18:00', endTime: '19:00', weeks: 2, customerName: '', phone: '', amount: 80, notes: '' }
 const recurringRows: Reservation[] = [0,1].map(index => ({ id: `00000000-0000-4000-8000-00000000003${index}`, version: 1, name: recurring.groupTitle, courtId: recurring.courtId, date: index ? '2026-10-11' : recurring.startDate, startTime: recurring.startTime, endTime: recurring.endTime, customerName: '', phone: '', amount: recurring.amount, status: 'Confirmada', notes: '', groupId: recurring.operationId, groupTitle: recurring.groupTitle, occurrenceIndex: index + 1 }))
@@ -51,7 +51,7 @@ it('publishes an edit only after the server acknowledges it', async () => {
 })
 it('does not load unauthorized kinds or write without the matching permission', async () => {
   const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(response([]))
-  render(tree({ ...user, roles: ['BarOperator'], permissions: ['bar:catalog:read'] }))
+  render(tree({ ...user, roles: ['Operations'], permissions: ['bar:catalog:read'] }))
   await screen.findByText('connected')
   expect(fetch).not.toHaveBeenCalled()
   await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
@@ -114,7 +114,7 @@ it('does not restore private records from a pending write after permissions chan
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => init?.method === 'PUT' ? new Promise<Response>(resolve => { finish = resolve }) : response(String(input).endsWith('/students') ? [student] : []))
   const rendered = render(tree()); await screen.findByText('connected')
   await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
-  rendered.rerender(tree({ ...user, roles: ['BarOperator'], permissions: ['bar:catalog:read'] }))
+  rendered.rerender(tree({ ...user, roles: ['Operations'], permissions: ['bar:catalog:read'] }))
   await waitFor(() => expect(screen.getByTestId('names')).not.toHaveTextContent('Registro da API'))
   await act(async () => { finish?.(response({ ...student, name: 'Alteração confirmada' })); await Promise.resolve() })
   expect(screen.getByTestId('names')).not.toHaveTextContent('Alteração confirmada')

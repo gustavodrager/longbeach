@@ -3,14 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { MonthlyControlPage, controlTotals, type MonthlyControl } from './MonthlyControlPage'
-const auth = vi.hoisted(() => ({ roles: ['Owner'] }))
+const auth = vi.hoisted(() => ({ roles: ['Manager'] }))
 vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'owner-test', roles: auth.roles } }) }))
 const control: MonthlyControl = { month:'2026-09',version:3,notes:'Referência anterior, sem pagamento presumido',lines:[
   { id:'11111111-1111-1111-1111-111111111111',label:'Receita teste',direction:'Receita',category:'Operação',costCenter:'Arena',amountCents:10000,basis:'Informado',source:'Controle de teste',sourceMonth:'2026-09' },
   { id:'22222222-2222-2222-2222-222222222222',label:'Energia teste',direction:'Despesa',category:'Fixa',costCenter:'Arena',amountCents:14000,basis:'Estimado',source:'Mês de referência',sourceMonth:'2026-08' },
 ] }
 function wrap(path = "/"){ return render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter initialEntries={[path]}><MonthlyControlPage /></MemoryRouter></QueryClientProvider>) }
-afterEach(()=>{vi.restoreAllMocks();auth.roles=['Owner']})
+afterEach(()=>{vi.restoreAllMocks();auth.roles=['Manager']})
 it('separa estimativas, conserva déficit e bloqueia consulta de equipe',async()=>{
   expect(controlTotals(control.lines)).toEqual({income:10000,expense:14000,result:-4000,estimated:14000,hasEstimates:true})
   const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(new Response(JSON.stringify({month:'2026-09',months:['2026-09'],control})))

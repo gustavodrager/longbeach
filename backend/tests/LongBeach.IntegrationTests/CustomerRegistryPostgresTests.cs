@@ -261,7 +261,7 @@ public sealed class CustomerRegistryPostgresTests
     public async Task Upgrade_preserves_existing_json_and_seeds_only_catalogue_grants_with_immutable_history()
     {
         await using var isolated = await IsolatedMaterialDatabase.Create(previousVersion: true);
-        var owner = new Role(SystemRoles.Owner); var operations = new Role(SystemRoles.Operations); var viewer = new Role(SystemRoles.Viewer);
+        var owner = new Role(SystemRoles.Manager); var operations = new Role(SystemRoles.Operations); var viewer = new Role(SystemRoles.Student);
         isolated.Context.AddRange(owner, operations, viewer); var id = Guid.NewGuid();
         isolated.Context.Add(new OperationalRecord(id, "students", "Legado", "{\"name\":\"Legado\",\"phone\":\"\",\"monthlyAmount\":123}")); await isolated.Context.SaveChangesAsync();
         var before = (await isolated.Context.OperationalRecords.AsNoTracking().SingleAsync()).Payload;
@@ -289,22 +289,22 @@ public sealed class CustomerRegistryPostgresTests
     }
 
     [PostgresFact]
-    public async Task Http_scoped_lookup_never_exposes_full_directory_or_foreign_contexts_and_audit_omits_contact()
+    public async Task Operations_uses_customer_directory_without_gaining_identity_management_and_audit_omits_contacts()
     {
         await using var isolated = await IsolatedMaterialDatabase.Create(); var customer = await Create(isolated.Context, "Pessoa reservada");
         await using (var tx = await isolated.Context.Database.BeginTransactionAsync())
         { await Service(isolated.Context).EnsureSourceAsync(new("rentalMembers", Guid.NewGuid(), Guid.NewGuid(), "", "", CustomerId: customer.Id), default); await isolated.Context.SaveChangesAsync(); await tx.CommitAsync(); }
         await using var factory = Factory(isolated); using var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new("Bearer", Token("BarOperator", "bar:sales:operate", "bar:sales:read"));
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/customers")).StatusCode);
+        client.DefaultRequestHeaders.Authorization = new("Bearer", Token("Operations", "bar:sales:operate", "bar:sales:read"));
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/v1/customers")).StatusCode);
         var lookup = (await client.GetFromJsonAsync<CustomerLookup[]>("/api/v1/customers/lookup?scope=bar&search=Pessoa"))!;
         Assert.Single(lookup); Assert.DoesNotContain(customer.Phone, JsonSerializer.Serialize(lookup));
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync($"/api/v1/customers/{customer.Id}")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/v1/customers?scope=students", Input())).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/v1/customers/{customer.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/v1/customers?scope=students", Input())).StatusCode);
         var createInput = Input("Contato privado");
         var posted = await client.PostAsJsonAsync("/api/v1/customers?scope=bar", createInput); Assert.Equal(HttpStatusCode.OK, posted.StatusCode);
         var created = (await posted.Content.ReadFromJsonAsync<JsonElement>());
-        Assert.False(created.TryGetProperty("phone", out _)); Assert.False(created.TryGetProperty("email", out _)); Assert.False(created.TryGetProperty("userId", out _));
+        Assert.True(created.TryGetProperty("phone", out _)); Assert.True(created.TryGetProperty("email", out _));
         var createdId = created.GetProperty("id").GetGuid();
         await using (var manager = isolated.NewContext())
         {
@@ -313,10 +313,9 @@ public sealed class CustomerRegistryPostgresTests
         }
         var replay = await client.PostAsJsonAsync("/api/v1/customers?scope=bar", createInput); Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
         var replayJson = await replay.Content.ReadAsStringAsync();
-        Assert.DoesNotContain("21988887777", replayJson); Assert.DoesNotContain("private-contact@example.invalid", replayJson);
-        Assert.DoesNotContain("userId", replayJson); Assert.Contains("phoneHint", replayJson);
+        Assert.Contains("21988887777", replayJson); Assert.Contains("private-contact@example.invalid", replayJson);
         client.DefaultRequestHeaders.Authorization = new("Bearer", Token("Operations", "customers:read", "customers:write"));
-        Assert.Empty((await client.GetFromJsonAsync<CustomerLinkDto[]>($"/api/v1/customers/{customer.Id}/links"))!);
+        Assert.Single((await client.GetFromJsonAsync<CustomerLinkDto[]>($"/api/v1/customers/{customer.Id}/links"))!);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/customers/duplicates")).StatusCode);
         await using var reader = isolated.NewContext(); var audits = await reader.AuditLogs.Where(x => x.Resource.StartsWith("Customer")).Select(x => x.MetadataJson).ToArrayAsync();
         Assert.NotEmpty(audits); Assert.All(audits, json => { Assert.DoesNotContain("Contato privado", json); Assert.DoesNotContain("11999990000", json); Assert.DoesNotContain("ResponseJson", json); });
@@ -347,10 +346,6 @@ public sealed class CustomerRegistryPostgresTests
         public Task<LongBeach.Application.Bar.GatewayPayment> Refund(string orderId, Guid operationId, decimal amount, CancellationToken ct) => throw new InvalidOperationException("External payment calls forbidden in customer test.");
         public bool VerifyWebhook(byte[] body, IEnumerable<string> signatures) => false;
     }
-    private static string Token(string role, params string[] permissions)
-    {
-        var claims = new[] { new Claim("sub", Actor.ToString()), new Claim(ClaimTypes.Role, role) }.Concat(permissions.Select(p => new Claim("permission", p)));
-        var key = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes("integration-tests-only-signing-key-with-more-than-32-characters")), SecurityAlgorithms.HmacSha256);
-        return new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken("LongBeach.Tests", "LongBeach.Tests.Client", claims, DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.AddMinutes(5), key));
-    }
+    private static string Token(string role, params string[] permissions) =>
+        ProfileAuthorizationTests.Token(Guid.NewGuid(), [role], permissions);
 }

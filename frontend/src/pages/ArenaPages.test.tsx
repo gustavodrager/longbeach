@@ -10,7 +10,7 @@ import { DashboardPage } from './DashboardPage'
 import { ProjectDetailsPage, TeamDetailsPage, StudentDetailsPage } from './OperationsPages'
 import { today } from './arenaUi'
 
-const owner: AuthUser={id:'11111111-1111-1111-1111-111111111111',name:'Admin teste',email:'teste@example.com',roles:['Owner'],permissions:[]}
+const owner: AuthUser={id:'11111111-1111-1111-1111-111111111111',name:'Admin teste',email:'teste@example.com',roles:['Manager'],permissions:[]}
 function json(body:unknown,status=200){return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}})}
 function RouteState(){const location=useLocation();return <output data-testid="route">{location.pathname}{location.search}</output>}
 function start(path:string,demoMode=true,user:AuthUser=owner,staleTime=0){

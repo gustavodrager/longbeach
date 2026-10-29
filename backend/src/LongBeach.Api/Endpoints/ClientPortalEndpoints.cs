@@ -30,7 +30,7 @@ public static class ClientPortalEndpoints
         me.MapPost("/requests",(RequestInput i,HttpContext h,IClientPortal s,CancellationToken ct)=>s.Request(Actor(h),i,ct));
         me.MapPost("/requests/{id:guid}/accept",(Guid id,AcceptAlternativeInput i,HttpContext h,IClientPortal s,CancellationToken ct)=>s.Accept(Actor(h),id,i,ct));
         me.MapPost("/ratings",async(RatingInput i,HttpContext h,IClientPortal s,CancellationToken ct)=> { await s.Rate(Actor(h),i,ct);return Results.NoContent(); });
-        var admin=endpoints.MapGroup("/api/v1/portal").RequireAuthorization(policy=>policy.RequireAssertion(c=>c.User.IsInRole(SystemRoles.Owner)||c.User.HasClaim("permission",SystemPermissions.StudentsWrite)&&c.User.HasClaim("permission",SystemPermissions.ProjectsWrite))).WithTags("Solicitações de clientes");
+        var admin=endpoints.MapGroup("/api/v1/portal").RequireAuthorization(policy=>policy.RequireAuthenticatedUser().RequireAssertion(c=>!c.User.HasClaim("requires_first_access","true")&&c.User.HasClaim("permission",SystemPermissions.StudentsWrite)&&c.User.HasClaim("permission",SystemPermissions.ProjectsWrite))).WithTags("Solicitações de clientes");
         admin.MapGet("/options",(IClientPortal s,CancellationToken ct)=>s.Options(ct,staff:true));
         admin.MapGet("/requests",(IClientPortal s,CancellationToken ct)=>s.Requests(null,ct));
         admin.MapPost("/requests/{id:guid}/decision",(Guid id,RequestDecision i,IClientPortal s,CancellationToken ct)=>s.Decide(id,i,ct));

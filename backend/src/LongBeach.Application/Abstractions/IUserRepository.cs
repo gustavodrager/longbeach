@@ -5,6 +5,8 @@ namespace LongBeach.Application.Abstractions;
 public interface IUserRepository
 {
     Task<User?> FindByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<User?> FindForAuthorizationAsync(Guid id, CancellationToken cancellationToken = default) =>
+        FindByIdAsync(id, cancellationToken);
     Task<User?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default);
     Task<User?> FindByUsernameAsync(string normalizedUsername, CancellationToken cancellationToken = default);
     Task<User?> FindByGoogleSubjectAsync(string subject, CancellationToken cancellationToken = default);
