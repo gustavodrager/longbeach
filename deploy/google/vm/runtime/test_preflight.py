@@ -205,6 +205,46 @@ class ApiSchemaGateTests(unittest.TestCase):
             preflight.check_api_schema(environment(), fake)
         self.assertEqual(len(fake.calls), 1)
 
+    def test_classic_docker_26_inspects_without_new_platform_option(self):
+        fake = FakeDocker()
+        def classic(args, **kwargs):
+            if "--platform" in args:
+                raise AssertionError("Docker 26 rejects image inspect --platform")
+            return fake(args, **kwargs)
+        self.assertTrue(preflight.check_api_schema(environment(), classic)["image_digest_verified"])
+        self.assertEqual(fake.calls[0][0], ["image", "inspect", environment()["API_IMAGE"]])
+
+    def test_containerd_index_without_platform_metadata_uses_explicit_child_inspection(self):
+        fake = FakeDocker()
+        def containerd(args, **kwargs):
+            if args == ["image", "inspect", environment()["API_IMAGE"]]:
+                fake.calls.append((args, None))
+                return json.dumps([{"Id": "sha256:" + "e" * 64, "RepoDigests": [environment()["API_IMAGE"]]}])
+            return fake(args, **kwargs)
+        self.assertTrue(preflight.check_api_schema(environment(), containerd)["image_digest_verified"])
+        self.assertEqual(fake.calls[1][0], ["image", "inspect", "--platform", "linux/amd64", environment()["API_IMAGE"]])
+
+    def test_present_wrong_platform_never_triggers_a_fallback_that_could_hide_it(self):
+        for value in ({"Os": "windows", "Architecture": "amd64"}, {"Os": "linux", "Architecture": "arm64"},
+                      {"Os": None, "Architecture": "arm64"}):
+            fake = FakeDocker()
+            fake.image.update(value)
+            with self.subTest(value=value), self.assertRaisesRegex(preflight.Refused, "api_schema_image_platform_invalid"):
+                preflight.check_api_schema(environment(), fake)
+            self.assertEqual(len(fake.calls), 1)
+
+    def test_containerd_fallback_still_rejects_absent_or_wrong_metadata_and_digest(self):
+        for mutation in (lambda x: x.pop("Os"), lambda x: x.update(Architecture="arm64"),
+                         lambda x: x.update(RepoDigests=["wrong@sha256:" + "f" * 64])):
+            fake = FakeDocker()
+            mutation(fake.image)
+            def containerd(args, **kwargs):
+                if args == ["image", "inspect", environment()["API_IMAGE"]]:
+                    return json.dumps([{}])
+                return fake(args, **kwargs)
+            with self.subTest(mutation=mutation), self.assertRaises(preflight.Refused):
+                preflight.check_api_schema(environment(), containerd)
+
     def test_unrecognized_or_self_declared_capability_never_authorizes_an_arbitrary_schema(self):
         for name, value in ((preflight.LABEL_CAPABILITY, "v99"), (preflight.LABEL_SCHEMA_HASH, "f" * 64),
                             (preflight.LABEL_SCHEMA_COUNT, "999"), (preflight.LABEL_SCHEMA_LATEST, "20990101000000_Anything")):

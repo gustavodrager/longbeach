@@ -226,14 +226,27 @@ def migration_hash(migrations: list[str]) -> str:
     return hashlib.sha256(("\n".join(sorted(migrations)) + "\n").encode("utf-8")).hexdigest()
 
 
+def inspect_image(image: str, run) -> dict[str, object]:
+    # Classic stores (including Docker 26) expose a concrete image without this
+    # newer flag. Containerd may initially expose only an index descriptor.
+    rows = json.loads(run(["image", "inspect", image]))
+    require(isinstance(rows, list) and len(rows) == 1 and isinstance(rows[0], dict), "api_schema_image_missing")
+    candidate = rows[0]
+    if not candidate.get("Os") or not candidate.get("Architecture"):
+        require(candidate.get("Os") in (None, "", "linux") and candidate.get("Architecture") in (None, "", "amd64"),
+                "api_schema_image_platform_invalid")
+        rows = json.loads(run(["image", "inspect", "--platform", "linux/amd64", image]))
+        require(isinstance(rows, list) and len(rows) == 1 and isinstance(rows[0], dict), "api_schema_image_missing")
+        candidate = rows[0]
+    return candidate
+
+
 def check_api_schema(settings: dict[str, str], run=None) -> dict[str, object]:
     """No pull/start/migration: bind an immutable local image to the live owned DB schema."""
     run = run or docker_read
     image = settings["API_IMAGE"]
     require(pinned(image), "api_image_not_pinned")
-    image_rows = json.loads(run(["image", "inspect", "--platform", "linux/amd64", image]))
-    require(isinstance(image_rows, list) and len(image_rows) == 1, "api_schema_image_missing")
-    candidate = image_rows[0]
+    candidate = inspect_image(image, run)
     require(isinstance(candidate, dict) and isinstance(candidate.get("RepoDigests"), list), "api_schema_image_metadata_invalid")
     require(image in candidate["RepoDigests"], "api_schema_image_digest_unproven")
     require(candidate.get("Os") == "linux" and candidate.get("Architecture") == "amd64"
