@@ -78,3 +78,9 @@ it('expansão mantém datas semanais e recusa quantidades fora do limite', () =>
   expect(recurringDates('2026-02-30', 3)).toEqual([])
   expect(recurringDates('2026-10-04', 13)).toEqual([])
 })
+
+it('grupo semanal conserva cliente escolhido em todas as repetições da mesma intenção',async()=>{
+ const bodies:RecurringReservationInput[]=[];let fail=true;const rows:Reservation[]=[]
+ vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{const path=String(input);if(init?.method==='POST'){const body=JSON.parse(String(init.body));bodies.push(body);if(fail)return json({message:'Resposta interrompida'},503);const saved=result(body);rows.push(...saved.reservations);return json(saved)}if(path.includes('/customers/lookup?'))return json([{id:'canonical-weekly',name:'Grupo de exemplo',phoneHint:'',incomplete:true}]);if(path.includes('/courts/schedule'))return json({date:today(),updatedAtUtc:new Date().toISOString(),courts:[]});return json(path.endsWith('/courts')?[court]:path.endsWith('/reservations')?rows:[])})
+ start();await fill();fireEvent.change(screen.getByRole('searchbox',{name:'Buscar cliente do grupo de reservas'}),{target:{value:'Grupo'}});fireEvent.click(await screen.findByRole('button',{name:'Grupo de exemplo · Telefone pendente · Cadastro incompleto · Ref. ALWEEKLY'}));fireEvent.click(screen.getByRole('button',{name:'Criar reservas semanais'}));await screen.findByRole('alert');fail=false;fireEvent.click(screen.getByRole('button',{name:'Repetir confirmação do grupo'}));await screen.findByRole('heading',{name:'Agenda'});expect(bodies).toHaveLength(2);expect(bodies[0]).toEqual(bodies[1]);expect(bodies[0].customerId).toBe('canonical-weekly');expect(bodies[0]).not.toHaveProperty('responsibleUserId')
+})

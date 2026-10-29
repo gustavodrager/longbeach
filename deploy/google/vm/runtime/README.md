@@ -84,23 +84,83 @@ canônico antecipadamente apenas por estar em execução. A troca da variante de
 ser explícita e a emissão/renovação precisa ser verificada; não deixar a operação
 dependendo de copiar manualmente certificados sem renovação controlada.
 
-A unit chama o preflight e depois `compose up --wait`, sem builds nem pulls. Para
-inicializar/restaurar o candidato, iniciar **somente PostgreSQL**, com imagens,
-mount e secrets já conferidos pelo guard do host; não iniciar API/Caddy contra um
-banco vazio. O preflight da unit completa exige `PG_VERSION=18` já existente.
-Não usar `docker compose down -v` nem apagar dados para corrigir um start.
+A unit executa os guards do host, inicia **somente PostgreSQL** com `--no-deps`
+e `--wait`, confere a compatibilidade da imagem API com o schema real e só então
+inicia API/Caddy. Não faz build, pull, migration ou criação de banco. O timeout
+de start cobre as duas fases de espera. Uma recusa de compatibilidade mantém a
+API sem novo start e preserva PostgreSQL; ela não autoriza restaurar ou apagar dados.
+Para inicializar/restaurar o candidato, conferir imagens, mount e secrets pelo
+guard do host antes de iniciar somente PostgreSQL. O preflight exige
+`PG_VERSION=18` já existente. Não iniciar API/Caddy contra banco vazio, usar
+`docker compose down -v` ou apagar dados para corrigir um start.
+
+### Compatibilidade da API com o schema 29
+
+Este preflight acompanha a release `20261029121159_UnifiedCustomers`. Instalar
+sua unit/guard no corte dessa release, com escritores pausados e após o job de
+migration conferido. Não trocar preventivamente o guard de um host no schema 28
+e tentar reiniciá-lo: versões sem a prova nova serão recusadas.
+
+A imagem API contém labels constantes versionadas: `com.longbeach.api.customer-registry=v1`,
+`com.longbeach.api.schema.migration-count=29`, `com.longbeach.api.schema.latest=20261029121159_UnifiedCustomers`
+e `com.longbeach.api.schema.migrations-sha256=c9f2d161a72410894b9b9f4af1ad243e305f61e1548f94393deac32aeeb6cf11`.
+O Dockerfile calcula esse hash dos atributos reais de todas as migrations,
+incluindo as manuais sem Designer, e falha no build se houver divergência. A
+publicação de imagens também executa os testes do contrato. Nenhum build arg,
+flag de ambiente ou número de versão livre substitui essa prova.
+
+O preflight inspeciona a imagem local por digest, confere `RepoDigests` e
+`linux/amd64`; depois identifica o PostgreSQL do Compose por ID, labels, imagem
+e mount de dados. Pelo usuário local `postgres`, sem senha em argumentos,
+consulta apenas o histórico de migrations de `longbeach` em transação READ ONLY.
+Exige o conjunto completo de 29 IDs e o mesmo hash da imagem/guard. API antiga
+sem labels, schema parcial, schema futuro, imagem ausente ou banco inacessível
+são recusados; não há pull, migração automática ou fallback para um estado informado
+manualmente. Os digests de índice e de config OCI podem ser diferentes.
+
+`preflight.py --host-only` serve apenas à preparação do host e informa
+`api_start_permitted=false`. A chamada sem essa opção é obrigatória imediatamente
+antes de qualquer promoção/retorno que use `compose up ... api` diretamente,
+sempre sob a janela/lock exclusivo da release. O caminho normal da unit executa
+esse gate completo antes de seu `ExecStart`. Não contornar o gate com um start
+manual nem usar readiness 200 como prova de compatibilidade. O gate verifica
+admissão; escritores já em execução devem ser pausados antes da migration.
+Preflight, Compose da unit e inspeção de saúde usam explicitamente o mesmo
+socket local `/var/run/docker.sock`, sem depender do contexto salvo do Docker CLI.
+
+O retorno da interface mantém a API compatível e seu digest. Não apontar
+`API_IMAGE` para artefato anterior sem essa prova, não executar Down após uso e
+não reescrever contatos históricos para tentar tornar uma API antiga compatível.
 
 `WORKERS_ENABLED` começa false. Para tornar true, os dois gates
 `VM_PRODUCTION_CUTOVER_CONFIRMED` e `SOURCE_WORKERS_STOPPED_CONFIRMED` também
 precisam estar true após a conferência da operação. O modo importação continua
 bloqueando os workers bancários; habilitar BackgroundJobs não autoriza retomá-los.
 
-Todos os contêineres têm restart `unless-stopped`, healthchecks, limites de memória/
-CPU/PIDs, filesystem raiz somente leitura e logs Docker rotacionados. Docker
-reinicia processos encerrados, inclusive por OOM; **unhealthy não provoca restart
-automático**. O timer registra estado em journald e retorna falha se precisa de
-atenção. Não reiniciar PostgreSQL indiscriminadamente por uma falha de saúde.
-Integrar essas falhas e o monitor de backup às notificações operacionais do host.
+PostgreSQL conserva restart `unless-stopped`. API/Caddy usam `on-failure:5`:
+repetem até cinco falhas de processo com saída diferente de zero, mas não são
+iniciados automaticamente pelo restart do daemon. A política é descrita na
+[documentação do Docker](https://docs.docker.com/engine/containers/start-containers-automatically/).
+Essa recuperação limitada repete o mesmo artefato admitido; migrations continuam
+exigindo pausa explícita dos escritores. Todos têm healthchecks, limites de
+memória/CPU/PIDs, filesystem raiz somente leitura e logs Docker rotacionados.
+**Unhealthy não provoca restart automático.**
+
+No boot, a unit habilitada inicia API/Caddy somente após o gate. `PartOf=docker.service`
+propaga um restart controlado do Docker à unit, repetindo a sequência completa.
+Uma parada isolada do daemon, falha que esgote as tentativas ou saída limpa da API
+pode deixar o serviço indisponível: conferir a causa e recuperar por
+`systemctl restart longbeach-runtime.service`, nunca por `docker start/restart api`.
+O timer de saúde só registra estado em journald e retorna falha quando precisa de
+atenção; não reinicia contêineres nem contorna o gate. Integrar essas falhas e o
+monitor de backup às notificações operacionais do host. Não reiniciar PostgreSQL
+indiscriminadamente por uma falha de saúde.
+
+Na instalação da release, conferir que os contêineres existentes foram atualizados
+para essas políticas antes de encerrar a janela: copiar o YAML não altera a política
+de um contêiner já criado. Ensaiar boot/restart controlado do daemon e conferir a
+ordem no journal durante a operação aprovada; os testes locais de configuração
+não substituem esse ensaio de disponibilidade na VM.
 O Caddy roda com UID1000 e somente a capability `NET_BIND_SERVICE`: o binário
 oficial tem essa file capability e precisa dela no bounding set para executar.
 API e PostgreSQL não recebem capabilities adicionais.
@@ -126,12 +186,14 @@ o LibreSSL fornecido pelo macOS falhou no ensaio e não deve ser contornado com
 canônico, com conexão TCP restrita a127.0.0.1. O modo `--https-client curl` usa
 `--cacert`/TLS1.2, quando houver um curl compatível.
 
-O ensaio verifica27 migrations, falta de sessão/permissão, CORS, modo importação,
+O ensaio histórico `smoke-local.py` verifica 27 migrations, falta de sessão/permissão, CORS, modo importação,
 cookies e80 GETs a40 concorrentes. Ele não verifica login Google, refresh de sessão
 real, importações com volume de produção, backup/PITR ou firewall de metadata.
 Remove seus contêineres, redes, volumes e diretório de fixtures ao terminar. Falhas
 guardam somente diagnóstico privado de dados fictícios no diretório temporário
 do operador; não há leitura de dados ou segredos de produção.
+Ele não é a prova de compatibilidade da release 29; essa conferência usa os testes
+do preflight e o ensaio específico documentado no runbook da release.
 
 Imagem Caddy oficial2.11.7, índice observado em26/10/2026:
 `sha256:504a44d7d74bd2bc28a66afc4774912fc21223ca8a67734af1c54ab2f999b489`;

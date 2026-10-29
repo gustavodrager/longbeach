@@ -30,8 +30,13 @@ public static class RentalGroupRules
         if (Text(body, "fifthPolicy") is not ("A confirmar" or "Incluído" or "Extra")) return "Confira o acordo para o quinto encontro.";
         if (Text(body, "notes").Length > 2000 || Text(body, "sport").Length > 80) return "Reduza as observações ou a modalidade.";
         var members = Members(body);
-        if (!body.TryGetProperty("members", out var memberArray) || memberArray.ValueKind != JsonValueKind.Array || members.Length > 50 || members.Any(m => m.ValueKind != JsonValueKind.Object || Id(m) == Guid.Empty || string.IsNullOrWhiteSpace(Text(m, "name")) || Text(m, "name").Trim().Length > 120 || Text(m, "phone").Length > 40 || Text(m, "status") is not ("Ativo" or "Inativo"))) return "Cadastre o nome de cada integrante e confira sua situação.";
-        if (members.Select(m => Id(m)).Distinct().Count() != members.Length || members.Select(m => Text(m, "name").Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count() != members.Length) return "Há integrantes repetidos. Use o nome completo para distinguir homônimos.";
+        if (!body.TryGetProperty("members", out var memberArray) || memberArray.ValueKind != JsonValueKind.Array || members.Length > 50 || members.Any(m => m.ValueKind != JsonValueKind.Object || Id(m) == Guid.Empty || string.IsNullOrWhiteSpace(Text(m, "name")) || Text(m, "name").Trim().Length > 240 || Text(m, "phone").Length > 80 || Text(m, "status") is not ("Ativo" or "Inativo"))) return "Cadastre o nome de cada integrante e confira sua situação.";
+        if (members.Select(m => Id(m)).Distinct().Count() != members.Length) return "Há identificações de integrantes repetidas.";
+        var withoutCustomer = members.Where(m => Id(m, "customerId") == Guid.Empty).ToArray();
+        if (withoutCustomer.Select(m => Text(m, "name").Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count() != withoutCustomer.Length)
+            return "Há integrantes repetidos. Use o nome completo para distinguir homônimos.";
+        var activeCustomers = members.Where(m => Text(m, "status") == "Ativo" && Id(m, "customerId") != Guid.Empty).Select(m => Id(m, "customerId")).ToArray();
+        if (activeCustomers.Distinct().Count() != activeCustomers.Length) return "Este cliente já é integrante ativo do grupo. Preserve o histórico e marque o vínculo duplicado como inativo.";
         if (members.Count(m => Text(m, "status") == "Ativo") > (Money(body, "capacity") ?? 50)) return "A quantidade prevista não pode ser menor que a de integrantes ativos.";
         bool Active(Guid id) => members.Any(m => Id(m) == id && Text(m, "status") == "Ativo");
         if (Text(body, "organizerId") != "" && !Active(Id(body, "organizerId")) || Text(body, "backupId") != "" && (!Active(Id(body, "backupId")) || Id(body, "backupId") == Id(body, "organizerId"))) return "Escolha um responsável ativo e, se desejar, outro integrante como suplente.";
@@ -62,7 +67,8 @@ public static class RentalGroupRules
         var organizer = Members(group).FirstOrDefault(m => Id(m) == Id(group, "organizerId"));
         return new JsonObject { ["id"] = StableId("reservation", Id(group), date).ToString(), ["name"] = Text(group, "name"), ["version"] = 1,
             ["courtId"] = Text(group, "courtId"), ["date"] = date, ["startTime"] = Text(group, "startTime"), ["endTime"] = Text(group, "endTime"),
-            ["customerName"] = organizer.ValueKind == JsonValueKind.Undefined ? Text(group, "name") : Text(organizer, "name"), ["phone"] = organizer.ValueKind == JsonValueKind.Undefined ? "" : Text(organizer, "phone"), ["amount"] = 0, ["status"] = "Confirmada",
+            ["customerName"] = organizer.ValueKind == JsonValueKind.Undefined ? Text(group, "name") : Text(organizer, "name"), ["phone"] = organizer.ValueKind == JsonValueKind.Undefined ? "" : Text(organizer, "phone"),
+            ["customerId"] = organizer.ValueKind == JsonValueKind.Undefined || Id(organizer, "customerId") == Guid.Empty ? null : Id(organizer, "customerId").ToString(), ["amount"] = 0, ["status"] = "Confirmada",
             ["notes"] = "Aluguel mensal: cobrança única na competência do grupo. Alterações deste encontro não alteram o acordo mensal.",
             ["rentalGroupId"] = Id(group).ToString(), ["rentalMonth"] = month };
     }

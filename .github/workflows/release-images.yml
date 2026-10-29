@@ -50,6 +50,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Verify API schema compatibility contract
+        run: python3 -m unittest discover -s deploy/google/vm/runtime -p 'test_preflight.py'
+
       - name: Resolve image names and immutable tag
         id: names
         env:

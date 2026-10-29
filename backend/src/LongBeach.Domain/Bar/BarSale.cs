@@ -3,10 +3,16 @@ namespace LongBeach.Domain.Bar;
 public sealed class BarSale : Entity
 {
     private BarSale() { }
-    public BarSale(Guid sessionId, Guid locationId, Guid actor) : base(Guid.NewGuid()) { SessionId = sessionId; LocationId = locationId; ActorId = actor; }
+    public BarSale(Guid sessionId, Guid locationId, Guid actor, Guid? customerId = null) : base(Guid.NewGuid()) { SessionId = sessionId; LocationId = locationId; ActorId = actor; CustomerId = customerId; }
     public Guid SessionId { get; private set; }
     public Guid LocationId { get; private set; }
     public Guid ActorId { get; private set; }
+    public Guid? CustomerId { get; private set; }
+    public void IdentifyCustomer(Guid customerId)
+    {
+        if (State != "Draft" || customerId == Guid.Empty) throw new BarRuleException("Identifique o cliente antes de concluir a venda.");
+        CustomerId = customerId;
+    }
     public string State { get; private set; } = "Draft";
     public string? Reason { get; private set; }
     public decimal Total { get; private set; }

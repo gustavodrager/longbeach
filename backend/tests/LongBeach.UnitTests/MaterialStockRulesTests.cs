@@ -85,13 +85,13 @@ public sealed class MaterialStockRulesTests
         using var db = new LongBeachDbContext(new DbContextOptionsBuilder<LongBeachDbContext>()
             .UseNpgsql("Host=localhost;Port=1;Database=longbeach_migrations_test;Username=test;Password=test").Options, TimeProvider.System);
         Assert.False(db.Database.HasPendingModelChanges());
-        var sql = db.GetService<IMigrator>().GenerateScript("20261021154910_ExpenseAttachments");
+        var sql = db.GetService<IMigrator>().GenerateScript("20261021154910_ExpenseAttachments", "20261027135728_MaterialStockLedger");
         Assert.Contains("CREATE TABLE material_movements", sql);
         Assert.Contains("BEFORE UPDATE OR DELETE ON material_movements", sql);
         Assert.DoesNotContain("UPDATE operational_records", sql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("DELETE FROM operational_records", sql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("INSERT INTO material_movements", sql, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(28, db.Database.GetMigrations().Count());
+        Assert.Contains("20261027135728_MaterialStockLedger", db.Database.GetMigrations());
     }
 
     [Theory]

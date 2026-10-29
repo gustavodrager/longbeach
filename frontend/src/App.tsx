@@ -90,6 +90,8 @@ const queryClient = new QueryClient({
 const PrototypeApp = lazy(() => import('./features/prototype/PrototypeApp').then(module => ({ default: module.PrototypeApp })))
 
 const ClientPage = lazy(() => import('./features/attendance/ClientPage').then(module => ({ default: module.ClientPage })))
+const CustomersPage = lazy(() => import('./features/customers/CustomerPages').then(module => ({ default: module.CustomersPage })))
+const CustomerDetailsPage = lazy(() => import('./features/customers/CustomerPages').then(module => ({ default: module.CustomerDetailsPage })))
 
 export function App() {
   const [router, setRouter] = useState<ReturnType<typeof createBrowserRouter> | null>(null)
@@ -131,6 +133,8 @@ function OperationalRoutes() {
     <Route path="financeiro/historico" element={<FinancialHistoryPage />} />
     <Route path="financeiro/controle-mensal" element={<MonthlyControlPage />} />
     <Route path="financeiro/despesas" element={arena('financeEntries', <ExpensesPage />)} />
+    {!demoMode && <Route path="clientes" element={<Permission permission="customers:read"><CustomersPage /></Permission>} />}
+    {!demoMode && <Route path="clientes/:customerId" element={<Permission permission="customers:read"><CustomerDetailsPage /></Permission>} />}
     <Route path="alunos" element={arena('students', <StudentsPage />)} />
     <Route path="alunos/:studentId" element={arena('students', <StudentDetailsPage />)} />
     <Route path="equipe" element={arena('team', <TeamPage />)} />

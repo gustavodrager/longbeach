@@ -114,7 +114,7 @@ export function useEditorQuery(defaultOpen = false, record?: string) {
 }
 
 export function safeReturn(value: unknown): value is string {
-  return typeof value === 'string' && /^\/(agenda|mensalistas|escola|alunos|financeiro|equipe|estoque|projetos|manutencao|bar|atendimento)(?:[/?]|$)/.test(value) && !value.includes('\\')
+  return typeof value === 'string' && /^\/(agenda|mensalistas|escola|alunos|clientes|financeiro|equipe|estoque|projetos|manutencao|bar|atendimento)(?:[/?]|$)/.test(value) && !value.includes('\\')
 }
 export function ContextLink({ children, state, ...props }: LinkProps) {
   const location = useLocation()
@@ -142,7 +142,7 @@ export function useRecordForm<T extends { id: string }>(records: T[], blank: () 
   const close = () => { const next = new URLSearchParams(params); next.delete('acao'); next.delete('registro'); setForm(null); setParams(next, { replace: true, preventScrollReset: true }) }
   return { form, setForm, editId, open, close }
 }
-const listPaths = new Set(['/', '/agenda', '/mensalistas', '/escola', '/alunos', '/financeiro', '/financeiro/historico', '/financeiro/controle-mensal', '/equipe', '/administracao/materiais', '/projetos', '/manutencao', '/agenda/funcionamento', '/escola/matriculas', '/escola/presencas', '/bar/produtos', '/bar/estoque', '/bar/compras', '/bar/vendas', '/bar/caixa', '/bar/inventario', '/bar/receitas', '/bar/indicadores', '/atendimento/comandas'])
+const listPaths = new Set(['/', '/agenda', '/mensalistas', '/escola', '/alunos', '/clientes', '/financeiro', '/financeiro/historico', '/financeiro/controle-mensal', '/equipe', '/administracao/materiais', '/projetos', '/manutencao', '/agenda/funcionamento', '/escola/matriculas', '/escola/presencas', '/bar/produtos', '/bar/estoque', '/bar/compras', '/bar/vendas', '/bar/caixa', '/bar/inventario', '/bar/receitas', '/bar/indicadores', '/atendimento/comandas'])
 export function NavigationMemory() {
   const location = useLocation(); const type = useNavigationType(); const positions = useRef(new Map<string, number>())
   const previous = useRef('')

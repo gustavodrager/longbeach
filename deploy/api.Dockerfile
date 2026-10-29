@@ -12,6 +12,11 @@ COPY backend/src/LongBeach.Infrastructure/LongBeach.Infrastructure.csproj src/Lo
 RUN dotnet restore src/LongBeach.Api/LongBeach.Api.csproj
 
 COPY backend/src/ src/
+# Hash the real migration attributes, including handwritten migrations without Designer files.
+# A new schema requires a reviewed compatibility label update; build args cannot override it.
+RUN migrations="$(sed -n 's/^[[:space:]]*\[Migration("\([^"]*\)")\].*/\1/p' src/LongBeach.Infrastructure/Persistence/Migrations/*.cs | LC_ALL=C sort)" \
+    && migration_sha256="$(printf '%s\n' "$migrations" | sha256sum | cut -d ' ' -f 1)" \
+    && test "$migration_sha256" = "c9f2d161a72410894b9b9f4af1ad243e305f61e1548f94393deac32aeeb6cf11"
 RUN dotnet publish src/LongBeach.Api/LongBeach.Api.csproj \
     --configuration Release \
     --no-restore \
@@ -19,6 +24,10 @@ RUN dotnet publish src/LongBeach.Api/LongBeach.Api.csproj \
     /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+LABEL com.longbeach.api.customer-registry="v1" \
+    com.longbeach.api.schema.migration-count="29" \
+    com.longbeach.api.schema.latest="20261029121159_UnifiedCustomers" \
+    com.longbeach.api.schema.migrations-sha256="c9f2d161a72410894b9b9f4af1ad243e305f61e1548f94393deac32aeeb6cf11"
 WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:8080 \
     DOTNET_EnableDiagnostics=0

@@ -19,7 +19,7 @@ public sealed class RentalGroupsPostgresTests
         var court = Guid.NewGuid(); var group = Guid.NewGuid(); var member = Guid.NewGuid();
         var savedCourt = await client.PutAsJsonAsync($"/api/v1/operations/courts/{court}", new { id = court, name = "Quadra mensalistas teste", status = "Disponível", openingTime = "06:00", closingTime = "24:00", operatingDays = new[] { 1, 2, 3, 4, 5 } });
         Assert.Equal(HttpStatusCode.Created, savedCourt.StatusCode);
-        var body = JsonSerializer.SerializeToNode(new { id = group, name = "Turma mensalista teste", courtId = court, weekDay = 5, startTime = "22:00", endTime = "24:00", startDate = "2026-10-01", endDate = "", status = "Ativo", capacity = 12, organizerId = member, backupId = "", members = new[] { new { id = member, name = "Integrante de teste", phone = "", status = "Ativo" } }, monthlyAmount = amount, extraAmount = (decimal?)100, fifthPolicy = policy, dueDay = 31, sport = "Futevôlei", notes = "" })!.AsObject();
+        var body = JsonSerializer.SerializeToNode(new { id = group, name = "Turma mensalista teste", courtId = court, weekDay = 5, startTime = "22:00", endTime = "24:00", startDate = "2026-10-01", endDate = "", status = "Ativo", capacity = 12, organizerId = member, backupId = "", members = new[] { new { id = member, name = "Integrante de teste", phone = "11987654321", status = "Ativo" } }, monthlyAmount = amount, extraAmount = (decimal?)100, fifthPolicy = policy, dueDay = 31, sport = "Futevôlei", notes = "" })!.AsObject();
         var response = await client.PutAsJsonAsync($"/api/v1/operations/rentalGroups/{group}", body); Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return JsonNode.Parse(await response.Content.ReadAsStringAsync())!.AsObject();
     }
@@ -101,6 +101,9 @@ public sealed class RentalGroupsPostgresTests
         }
         var reservation = RentalGroupRules.StableId("reservation", Guid.Parse(group["id"]!.ToString()), "2026-10-02"); var body = new { reservationId = reservation, memberId = group["organizerId"]!.ToString() };
         Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync(path + $"/bar/{tabId}", body)).StatusCode); Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync(path + $"/bar/{tabId}", body)).StatusCode);
+        var identified = await Read(await client.GetAsync($"/api/v1/bar/tabs/{tabId}"));
+        Assert.Equal(group["members"]![0]!["customerId"]!.ToString(), identified.GetProperty("customer").GetProperty("id").GetString());
+        Assert.Equal(JsonValueKind.Null, identified.GetProperty("responsible").ValueKind);
         var report = await Read(await client.GetAsync(path + "/bar?month=2026-10")); var tabRow = Assert.Single(report.EnumerateArray()); Assert.Equal(30, tabRow.GetProperty("paid").GetDecimal()); Assert.Equal(45, tabRow.GetProperty("total").GetDecimal()); Assert.Equal(15, tabRow.GetProperty("due").GetDecimal()); Assert.Equal(tabId, tabRow.GetProperty("tabId").GetGuid());
         var other = await Setup(client); await client.PostAsJsonAsync(GroupPath(other) + "/months", new { month = "2026-10", groupVersion = 1 }); var otherReservation = RentalGroupRules.StableId("reservation", Guid.Parse(other["id"]!.ToString()), "2026-10-02");
         Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync(GroupPath(other) + $"/bar/{tabId}", new { reservationId = otherReservation })).StatusCode);

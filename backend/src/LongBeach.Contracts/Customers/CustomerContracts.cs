@@ -1,0 +1,22 @@
+namespace LongBeach.Contracts.Customers;
+
+public sealed record CustomerDto(Guid Id, string Name, string Phone, string? Email, string Status, int Version, string Origin, bool Incomplete, Guid? UserId, IReadOnlyList<string> Profiles, Guid? MergedIntoId);
+public sealed record CustomerPage(IReadOnlyList<CustomerDto> Items, int Total, int Page, int PageSize);
+public sealed record CustomerLookup(Guid Id, string Name, string PhoneHint, bool Incomplete);
+public sealed record CustomerLinkDto(string Kind, Guid SourceId, Guid? ParentId, string Name);
+public sealed record CreateCustomerInput(Guid OperationId, string Name, string Phone, string? Email = null);
+public sealed record UpdateCustomerInput(int ExpectedVersion, string Name, string Phone, string? Email, string Status);
+public sealed record SelfCustomerInput(Guid OperationId, string Name, string Phone, string? Email = null, int? ExpectedVersion = null);
+public sealed record CustomerUserCandidate(Guid Id, string Name, string EmailHint);
+public sealed record CustomerUserInput(Guid? UserId, int ExpectedVersion);
+public sealed record CustomerDuplicate(CustomerDto First, CustomerDto Second, IReadOnlyList<string> Reasons);
+public sealed record CustomerMergeInput(Guid OperationId, Guid SourceId, Guid TargetId, int SourceVersion, int TargetVersion, string PreviewToken, string Reason);
+public sealed record CustomerMergePreviewInput(Guid SourceId, Guid TargetId);
+public sealed record CustomerMergePreview(Guid SourceId, Guid TargetId, int SourceVersion, int TargetVersion, string PreviewToken, bool CanMerge, IReadOnlyList<string> Warnings, int SourceLinks, int TargetLinks);
+public sealed record CustomerMergeResult(Guid MergeId, Guid CustomerId, Guid AliasId, int SourceVersion, int TargetVersion, bool Undone);
+public sealed record CustomerMergeHistory(Guid MergeId, Guid CustomerId, Guid AliasId, int SourceVersion, int TargetVersion, bool Undone, string SourceName, string TargetName);
+public sealed record CustomerUndoInput(Guid OperationId, int SourceVersion, int TargetVersion);
+public sealed record CustomerBackfillConflict(string Kind, Guid SourceId, Guid? ParentId, string Reason);
+public sealed record CustomerBackfillPreview(string PreviewToken, int Sources, int Create, int Existing, int Incomplete, IReadOnlyDictionary<string, int> ByKind, IReadOnlyList<CustomerBackfillConflict> Conflicts);
+public sealed record CustomerBackfillInput(Guid OperationId, string PreviewToken);
+public sealed record CustomerBackfillResult(int Sources, int Created, int Linked);

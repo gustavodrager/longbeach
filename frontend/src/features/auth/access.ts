@@ -7,6 +7,7 @@ export function hasPermission(user: AuthUser | null | undefined, permission: str
   if (isManagement(user)) return true
   if (!user.permissions.includes(permission)) return false
   if (user.roles.some(r => otherStaff.includes(r))) return true
+  if (permission.startsWith('customers:') && user.roles.some(r => barRoles.includes(r))) return ['customers:read', 'customers:write'].includes(permission)
   if (permission.startsWith('bar:') && user.roles.some(r => barRoles.includes(r))) {
     if (user.roles.every(r => ['Student','Teacher','BarOperator'].includes(r))) return ['bar:catalog:read','bar:cash:operate','bar:sales:read','bar:sales:operate'].includes(permission)
     return true

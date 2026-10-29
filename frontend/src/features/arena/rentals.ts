@@ -1,4 +1,4 @@
-export type RentalMember = { id: string; name: string; phone: string; status: 'Ativo' | 'Inativo' }
+export type RentalMember = { customerId?: string | null; id: string; name: string; phone: string; status: 'Ativo' | 'Inativo' }
 export type RentalGroup = {
   id: string; version?: number; costsVisible?: boolean; name: string; sport: string; courtId: string; weekDay: number; startTime: string; endTime: string
   startDate: string; endDate: string; status: 'Ativo' | 'Pausado' | 'Encerrado'; capacity: number | null; organizerId: string; backupId: string; members: RentalMember[]

@@ -80,6 +80,16 @@ public sealed class AuditSaveChangesInterceptor(
 
     private static object BuildChanges(EntityEntry entry)
     {
+        if (entry.Entity is LongBeach.Domain.Customers.Customer or LongBeach.Domain.Customers.CustomerSourceLink
+            or LongBeach.Domain.Customers.CustomerSourceChange or LongBeach.Domain.Customers.CustomerOperation or LongBeach.Domain.Customers.CustomerMerge)
+            return entry.Properties.Where(property => property.Metadata.IsPrimaryKey() || property.Metadata.Name is
+                "UserId" or "MergedIntoId" or "Version" or "Status" or "Incomplete" or "Origin" or "Kind" or "SourceId" or "ParentId"
+                or "LinkId" or "BeforeCustomerId" or "AfterCustomerId" or "CustomerId" or "TargetId" or "Undone" or "TransferredUserId")
+                .ToDictionary(property => property.Metadata.Name, property => (object?)new
+                {
+                    Before = entry.State == EntityState.Added ? null : property.OriginalValue,
+                    After = property.CurrentValue
+                });
         if (entry.Entity is LongBeach.Domain.Finance.ExpenseAttachment attachment)
             return new { attachment.Id, attachment.ExpenseId, attachment.OperationId, attachment.ContentHash,
                 attachment.UploadedBy, Data = "[OMITTED: expense attachment]" };

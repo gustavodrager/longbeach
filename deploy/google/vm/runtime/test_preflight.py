@@ -1,6 +1,9 @@
 """Local safety tests; all credentials and images are fictitious."""
+import copy
+import hashlib
 import importlib.util
 import json
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -8,6 +11,7 @@ import stat
 import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location("longbeach_vm_preflight", HERE / "preflight.py")
@@ -134,6 +138,198 @@ class ConfigurationTests(unittest.TestCase):
                     preflight.read_environment(path)
 
 
+
+REPO = HERE.parents[3]
+
+
+def source_migrations():
+    directory = REPO / "backend/src/LongBeach.Infrastructure/Persistence/Migrations"
+    values = []
+    for path in directory.glob("*.cs"):
+        values.extend(re.findall(r'\[Migration\("([^"]+)"\)\]', path.read_text(encoding="utf-8-sig")))
+    return sorted(values)
+
+
+class FakeDocker:
+    def __init__(self):
+        self.calls = []
+        self.container = "c" * 64
+        self.running_id = self.container
+        self.image = {"Id": "sha256:" + "d" * 64, "Os": "linux", "Architecture": "amd64",
+                      "RepoDigests": [environment()["API_IMAGE"]], "Config": {"Labels": {
+                          preflight.LABEL_CAPABILITY: "v1", preflight.LABEL_SCHEMA_HASH: preflight.API_SCHEMA_SHA256,
+                          preflight.LABEL_SCHEMA_COUNT: "29", preflight.LABEL_SCHEMA_LATEST: preflight.API_SCHEMA_LATEST}}}
+        self.postgres = {"Id": self.container, "State": {"Running": True},
+                         "Config": {"Image": environment()["POSTGRES_BACKUP_IMAGE"], "User": "999:999", "Labels": {
+                             "com.docker.compose.project": "longbeach", "com.docker.compose.service": "postgres",
+                             "com.docker.compose.oneoff": "False"}},
+                         "HostConfig": {"ReadonlyRootfs": True, "Privileged": False},
+                         "NetworkSettings": {"Ports": {"5432/tcp": None}},
+                         "Mounts": [{"Type": "bind", "Source": "/var/lib/longbeach/postgres", "Destination": "/var/lib/postgresql", "RW": True}]}
+        self.database = {"database": "longbeach", "server_version_num": 180006, "read_only": "on", "migrations": source_migrations()}
+
+    def __call__(self, args, *, input=None):
+        self.calls.append((list(args), input))
+        if args[:2] == ["image", "inspect"]:
+            return json.dumps([self.image])
+        if args[0] == "compose":
+            assert args[-5:] == ["ps", "--status", "running", "-q", "postgres"]
+            return self.running_id
+        if args == ["inspect", self.container]:
+            return json.dumps([self.postgres])
+        if args[0] == "exec":
+            assert args == ["exec", "--user", "999:999", "-i", self.container, "psql", "--no-psqlrc", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "longbeach"]
+            assert input == preflight.SCHEMA_QUERY
+            return json.dumps(self.database)
+        raise AssertionError("Unexpected Docker command")
+
+
+class ApiSchemaGateTests(unittest.TestCase):
+    def test_current_immutable_image_matches_actual_schema_without_pulls_starts_or_credentials(self):
+        fake = FakeDocker()
+        proof = preflight.check_api_schema(environment(), fake)
+        self.assertEqual(proof["migration_count"], 29)
+        self.assertTrue(proof["image_digest_verified"])
+        # Config ID and index digest are different legitimate OCI objects.
+        self.assertNotEqual(fake.image["Id"], environment()["API_IMAGE"].split('@')[1])
+        self.assertEqual([args[0] for args, _ in fake.calls], ["image", "compose", "inspect", "exec"])
+        for args, _ in fake.calls:
+            self.assertFalse(any(item in args for item in ("pull", "run", "create", "start", "up", "password", "PGPASSWORD")))
+        self.assertIn("BEGIN READ ONLY", preflight.SCHEMA_QUERY)
+        self.assertNotRegex(preflight.SCHEMA_QUERY.upper(), r"\b(INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE)\b")
+
+    def test_old_image_without_capability_is_refused_even_when_runtime_claims_current_digest(self):
+        fake = FakeDocker()
+        fake.image["Config"]["Labels"] = {}
+        with self.assertRaisesRegex(preflight.Refused, "api_schema_image_compatibility_unproven"):
+            preflight.check_api_schema(environment(), fake)
+        self.assertEqual(len(fake.calls), 1)
+
+    def test_unrecognized_or_self_declared_capability_never_authorizes_an_arbitrary_schema(self):
+        for name, value in ((preflight.LABEL_CAPABILITY, "v99"), (preflight.LABEL_SCHEMA_HASH, "f" * 64),
+                            (preflight.LABEL_SCHEMA_COUNT, "999"), (preflight.LABEL_SCHEMA_LATEST, "20990101000000_Anything")):
+            fake = FakeDocker()
+            fake.image["Config"]["Labels"][name] = value
+            with self.assertRaisesRegex(preflight.Refused, "api_schema_image_compatibility_unproven"):
+                preflight.check_api_schema(environment(), fake)
+
+    def test_labels_from_an_unproven_image_digest_or_wrong_platform_do_not_suffice(self):
+        fake = FakeDocker()
+        fake.image["RepoDigests"] = [environment()["API_IMAGE"].replace("a" * 64, "f" * 64)]
+        with self.assertRaisesRegex(preflight.Refused, "api_schema_image_digest_unproven"):
+            preflight.check_api_schema(environment(), fake)
+        fake = FakeDocker()
+        fake.image["Architecture"] = "arm64"
+        with self.assertRaisesRegex(preflight.Refused, "api_schema_image_platform_invalid"):
+            preflight.check_api_schema(environment(), fake)
+
+    def test_real_schema_missing_extra_or_rewritten_migration_is_refused(self):
+        for change in (lambda ids: ids[:-1], lambda ids: ids + ["20261101000000_Future"],
+                       lambda ids: ["20261001000100_Changed" if i == ids[0] else i for i in ids]):
+            fake = FakeDocker()
+            fake.database["migrations"] = change(fake.database["migrations"])
+            with self.assertRaises(preflight.Refused):
+                preflight.check_api_schema(environment(), fake)
+
+    def test_wrong_database_or_non_readonly_response_is_refused(self):
+        for key, value in (("database", "other"), ("server_version_num", 170000), ("read_only", "off")):
+            fake = FakeDocker()
+            fake.database[key] = value
+            with self.assertRaisesRegex(preflight.Refused, "api_schema_database_identity_invalid"):
+                preflight.check_api_schema(environment(), fake)
+
+    def test_schema_cannot_be_read_from_a_foreign_container_mount_or_published_postgres(self):
+        mutations = [lambda pg: pg["Config"]["Labels"].update({"com.docker.compose.project": "other"}),
+                     lambda pg: pg["Config"].update({"Image": "postgres:latest"}),
+                     lambda pg: pg["Config"].update({"User": "root"}),
+                     lambda pg: pg["Mounts"][0].update({"Source": "/tmp/unrelated"}),
+                     lambda pg: pg["NetworkSettings"]["Ports"].update({"5432/tcp": [{"HostIp": "0.0.0.0"}]})]
+        for mutate in mutations:
+            fake = FakeDocker()
+            mutate(fake.postgres)
+            with self.assertRaises(preflight.Refused):
+                preflight.check_api_schema(environment(), fake)
+            self.assertFalse(any(args[0] == "exec" for args, _ in fake.calls))
+
+    def test_unavailable_or_ambiguous_postgres_never_falls_back_to_a_configured_schema_flag(self):
+        for value in ("", "c" * 64 + "\n" + "d" * 64):
+            fake = FakeDocker()
+            fake.running_id = value
+            with self.assertRaisesRegex(preflight.Refused, "api_schema_postgres_not_running_or_ambiguous"):
+                preflight.check_api_schema(environment(), fake)
+
+    def test_docker_error_does_not_expose_stderr_or_secret_like_output(self):
+        response = SimpleNamespace(returncode=1, stdout="fictional-private-data", stderr="fictional-secret")
+        with patch.object(preflight.subprocess, "run", return_value=response):
+            with self.assertRaisesRegex(preflight.Refused, "^api_schema_docker_command_failed$"):
+                preflight.docker_read(["image", "inspect", "unused"])
+
+    def test_host_only_is_not_reported_as_api_ready_and_full_mode_always_checks_schema(self):
+        with patch.object(preflight, "check_host", return_value=environment()), patch.object(preflight, "check_api_schema") as gate:
+            with patch.object(preflight.sys, "argv", ["preflight.py", "--host-only"]), patch("builtins.print") as output:
+                preflight.main()
+                self.assertFalse(json.loads(output.call_args.args[0])["api_start_permitted"])
+                gate.assert_not_called()
+            gate.return_value = {"migration_count": 29}
+            with patch.object(preflight.sys, "argv", ["preflight.py"]), patch("builtins.print") as output:
+                preflight.main()
+                self.assertTrue(json.loads(output.call_args.args[0])["api_start_permitted"])
+                gate.assert_called_once()
+
+    def test_build_labels_and_gate_hash_the_actual_migration_attributes_including_handwritten_files(self):
+        ids = source_migrations()
+        self.assertEqual(len(ids), 29)
+        self.assertEqual(len(set(ids)), 29)
+        self.assertIn("20261001000100_InitialCreate", ids)
+        expected = hashlib.sha256(("\n".join(ids) + "\n").encode()).hexdigest()
+        self.assertEqual(expected, preflight.API_SCHEMA_SHA256)
+        dockerfile = (REPO / "deploy/api.Dockerfile").read_text()
+        self.assertIn('com.longbeach.api.customer-registry="v1"', dockerfile)
+        self.assertIn('com.longbeach.api.schema.migration-count="29"', dockerfile)
+        self.assertIn('com.longbeach.api.schema.latest="' + ids[-1] + '"', dockerfile)
+        self.assertIn('com.longbeach.api.schema.migrations-sha256="' + expected + '"', dockerfile)
+        self.assertIn('test "$migration_sha256" = "' + expected + '"', dockerfile)
+        self.assertIn('Migrations/*.cs | LC_ALL=C sort', dockerfile)
+        self.assertNotIn("ARG API_SCHEMA", dockerfile)
+
+    def test_actual_dockerfile_shell_guard_rejects_unreviewed_migration_without_dotnet_or_docker(self):
+        dockerfile = (REPO / "deploy/api.Dockerfile").read_text()
+        block = re.search(r"^RUN migrations=.*?(?=^RUN dotnet publish)", dockerfile, re.MULTILINE | re.DOTALL)
+        self.assertIsNotNone(block)
+        command = block.group(0)[4:].strip()
+        self.assertNotIn("dotnet", command)
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary) / "src/LongBeach.Infrastructure/Persistence/Migrations"
+            directory.mkdir(parents=True)
+            for index, migration in enumerate(source_migrations()):
+                (directory / (str(index) + ".cs")).write_text('[Migration("' + migration + '")]\n')
+            result = subprocess.run(["/bin/sh", "-c", command], cwd=temporary, capture_output=True, timeout=10)
+            self.assertEqual(result.returncode, 0)
+            (directory / "future.cs").write_text('[Migration("20261101000000_Unreviewed")]\n')
+            refused = subprocess.run(["/bin/sh", "-c", command], cwd=temporary, capture_output=True, timeout=10)
+            self.assertNotEqual(refused.returncode, 0)
+
+    def test_service_orders_host_guard_postgres_only_live_gate_then_api_start(self):
+        lines = (HERE / "longbeach-runtime.service").read_text().splitlines()
+        before = [line for line in lines if line.startswith("ExecStartPre=")]
+        self.assertEqual(len(before), 3)
+        self.assertTrue(before[0].endswith("preflight.py --host-only"))
+        self.assertIn("--no-deps postgres", before[1])
+        self.assertNotIn(" api", before[1])
+        self.assertNotIn(" caddy", before[1])
+        self.assertTrue(before[2].endswith("preflight.py"))
+        start = next(line for line in lines if line.startswith("ExecStart="))
+        self.assertIn("--pull never", start)
+        self.assertGreater(lines.index(start), lines.index(before[2]))
+        self.assertIn("PartOf=docker.service", lines)
+        for line in lines:
+            if line.startswith(("ExecStartPre=", "ExecStart=", "ExecStop=")) and "/usr/bin/docker " in line:
+                self.assertIn("/usr/bin/docker --host unix:///var/run/docker.sock compose", line)
+                self.assertIn("--env-file /etc/longbeach/runtime.env -f /opt/longbeach/runtime/compose.yaml", line)
+        workflow = (REPO / ".github/workflows/release-images.yml").read_text()
+        self.assertIn("Verify API schema compatibility contract", workflow)
+        self.assertLess(workflow.index("Verify API schema compatibility contract"), workflow.index("Build and publish API image"))
+
 @unittest.skipUnless(shutil.which("docker"), "Docker CLI not installed")
 class ComposeTests(unittest.TestCase):
     def test_resolved_compose_has_private_database_and_startup_guards(self):
@@ -151,6 +347,10 @@ class ComposeTests(unittest.TestCase):
         self.assertEqual({str(port["published"]) for port in services["caddy"]["ports"]}, {"80", "443"})
         self.assertEqual(services["api"]["user"], "1654:1654")
         self.assertEqual(services["postgres"]["user"], "999:999")
+        # Docker must not independently boot writers/proxy before the systemd gate.
+        self.assertEqual(services["api"]["restart"], "on-failure:5")
+        self.assertEqual(services["caddy"]["restart"], "on-failure:5")
+        self.assertEqual(services["postgres"]["restart"], "unless-stopped")
         self.assertEqual(services["caddy"]["cap_add"], ["NET_BIND_SERVICE"])
         self.assertFalse(services["api"].get("cap_add"))
         self.assertFalse(services["postgres"].get("cap_add"))

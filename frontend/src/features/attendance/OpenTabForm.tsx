@@ -1,3 +1,5 @@
+import { CustomerPicker } from '../customers/CustomerPicker'
+import type { CustomerSelection } from '../customers/api'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../../lib/http'
@@ -7,11 +9,11 @@ import { Feedback, Icon } from './components'
 import { postBar, useBarCommand, useBarData, type Named, type Tab, type TabCustomer } from './api'
 import { barLocation } from './serviceLocation'
 
-type Opening = { operationId: string; locationId: string; name: string; mode: 'Tab'; notes?: string; responsibleUserId?: string; addProducts?: boolean }
+type Opening = { operationId: string; locationId: string; name: string; mode: 'Tab'; notes?: string; customerId?: string; responsibleUserId?: string; addProducts?: boolean }
 function restore(value: string): Opening | null {
   try {
     const row = JSON.parse(value) as Opening
-    return row && typeof row.operationId === 'string' && typeof row.locationId === 'string' && typeof row.name === 'string' && row.mode === 'Tab' && (row.responsibleUserId === undefined || typeof row.responsibleUserId === 'string') ? row : null
+    return row && typeof row.operationId === 'string' && typeof row.locationId === 'string' && typeof row.name === 'string' && row.mode === 'Tab' && (row.responsibleUserId === undefined || typeof row.responsibleUserId === 'string') && (row.customerId === undefined || typeof row.customerId === 'string') ? row : null
   } catch { return null }
 }
 
@@ -27,6 +29,7 @@ export function OpenTabForm() {
   const [submittedSearch, setSubmittedSearch] = useState('')
   const [customer, setCustomer] = useState<TabCustomer | null>(null)
   const [confirmed, setConfirmed] = useState(false)
+  const [identifiedCustomer, setIdentifiedCustomer] = useState<CustomerSelection | null>(null)
   const locations = useBarData<Named[]>('/tabs/locations', opening && !pending)
   const customers = useBarData<TabCustomer[]>(`/tabs/customers?search=${encodeURIComponent(submittedSearch)}`, opening && kind === 'customer' && submittedSearch.length >= 3 && !pending)
   const location = barLocation(locations.data)?.id
@@ -45,7 +48,7 @@ export function OpenTabForm() {
     if (openingRequest.current) return
     if (!pending && (!location || locations.isError || (kind === 'customer' && (!customer || !confirmed)))) return
     openingRequest.current = true
-    const input: Opening = pending ?? { addProducts, operationId: crypto.randomUUID(), locationId: location!, name: name.trim() || (kind === 'customer' ? customer!.name.slice(0, 80) : ''), mode: 'Tab', ...(notes.trim() ? { notes: notes.trim() } : {}), ...(kind === 'customer' ? { responsibleUserId: customer!.id } : {}) }
+    const input: Opening = pending ?? { addProducts, operationId: crypto.randomUUID(), locationId: location!, name: name.trim() || (kind === 'customer' ? customer!.name.slice(0, 80) : ''), mode: 'Tab', ...(notes.trim() ? { notes: notes.trim() } : {}), ...(identifiedCustomer ? {customerId:identifiedCustomer.id} : {}), ...(kind === 'customer' ? { responsibleUserId: customer!.id } : {}) }
     setSaved(JSON.stringify(input))
     const result = await command.run(() => postBar<Tab>('/tabs', { ...input, addProducts: undefined }))
     openingRequest.current = false
@@ -59,10 +62,12 @@ export function OpenTabForm() {
     {opening && <form className="ux-panel lb-open-tab" onSubmit={event => { event.preventDefault(); void open() }}>
       <h2>Nova comanda</h2>
       {pending ? <p className="ux-notice warning" role="status">{command.busy ? `Abrindo a comanda de ${pending.name || 'Visitante'}… Aguarde a confirmação.` : `Estamos conferindo a abertura de ${pending.name || 'Visitante'}. Repita a confirmação para recuperar a mesma comanda. Os dados ficam preservados até a resposta.`}</p> : <>
+        <CustomerPicker scope="bar" contextKey="bar-tab:new" label="Cliente identificado" value={identifiedCustomer} onChange={setIdentifiedCustomer} disabled={locked} />
+        <p className="ux-note">Identificar o cliente não vincula pagamento nem libera acesso à comanda. Você também pode continuar sem identificar.</p>
         <fieldset disabled={locked}>
-          <legend>Para quem é a comanda?</legend>
-          <label className="ux-check"><input type="radio" name="tab-kind" checked={kind === 'visitor'} onChange={() => { setKind('visitor'); setConfirmed(false) }} />Visitante sem cadastro</label>
-          <label className="ux-check"><input type="radio" name="tab-kind" checked={kind === 'customer'} onChange={() => { setKind('customer'); setConfirmed(false) }} />Cliente cadastrado</label>
+          <legend>Acesso à área do cliente</legend>
+          <label className="ux-check"><input type="radio" name="tab-kind" checked={kind === 'visitor'} onChange={() => { setKind('visitor'); setConfirmed(false) }} />Sem responsável financeiro vinculado</label>
+          <label className="ux-check"><input type="radio" name="tab-kind" checked={kind === 'customer'} onChange={() => { setKind('customer'); setConfirmed(false) }} />Vincular responsável com Google</label>
         </fieldset>
         {kind === 'customer' && <section aria-label="Escolher responsável">
           <label className="ux-field">Buscar responsável<input value={search} maxLength={320} disabled={locked} placeholder="Nome ou e-mail completo" onChange={event => { setSearch(event.target.value); setSubmittedSearch(''); setCustomer(null); setConfirmed(false) }} /></label>
@@ -83,7 +88,7 @@ export function OpenTabForm() {
       </>}
       <div className="ux-actions">
         {!pending && <button type="button" className="ux-button primary" disabled={command.busy || !location || locations.isError || (kind === 'customer' && (!customer || !confirmed))} onClick={() => void open(true)}>Abrir e adicionar produtos</button>}
-        <button className="ux-button secondary" disabled={command.busy || (!pending && (!location || locations.isError || (kind === 'customer' && (!customer || !confirmed))))}>{pending ? 'Conferir abertura' : kind === 'customer' ? 'Abrir comanda vinculada' : 'Abrir sem cadastro'}</button>
+        <button className="ux-button secondary" disabled={command.busy || (!pending && (!location || locations.isError || (kind === 'customer' && (!customer || !confirmed))))}>{pending ? 'Conferir abertura' : kind === 'customer' ? 'Abrir comanda vinculada' : 'Abrir sem vínculo financeiro'}</button>
         {!pending && <button type="button" className="ux-button secondary" disabled={command.busy} onClick={() => setOpening(false)}>Voltar</button>}
       </div>
     </form>}

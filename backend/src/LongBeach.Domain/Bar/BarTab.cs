@@ -25,6 +25,15 @@ public sealed class BarTab : Entity
     public long Number { get; private set; }
     public Guid LocationId { get; private set; }
     public Guid ActorId { get; private set; }
+    public Guid? CustomerId { get; private set; }
+    public void IdentifyCustomer(Guid? customerId)
+    {
+        EnsureOpen();
+        if (customerId == Guid.Empty) throw new BarRuleException("Escolha um cliente válido.");
+        if (CustomerId == customerId) return;
+        CustomerId = customerId;
+        Version++;
+    }
     public string Name { get; private set; } = "";
     public string Mode { get; private set; } = "Tab";
     public string State { get; private set; } = "Open";

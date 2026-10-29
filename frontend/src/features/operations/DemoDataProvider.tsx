@@ -9,6 +9,7 @@ import type { ArenaClass, Court, Enrollment, FinanceEntry, Maintenance, Presence
 import { canCompleteMaterialUnit, readDemoMaterialOperations, sameMaterialOperation, validMaterialQuantity, type DemoMaterialOperations, type MaterialAttempt, type MaterialHistory, type MaterialMovementInput, type MaterialMovementRow, type MaterialNature, type MaterialSnapshot } from './materialStock'
 
 export type Student = {
+  customerId?: string | null
   id: string; version?: number; costsVisible?: boolean; name: string; phone: string; birthDate: string; address: string; shirtSize: string; shortsSize: string
   weeklyClasses: string; days: string; class1: string; class2: string; monthlyAmount: number; paymentStatus: string
   paymentDate: string; statementName: string; status: string; notes: string
@@ -46,6 +47,7 @@ export const operationalPermissions: Record<OperationalKind, { read: string; wri
   maintenance: { read: 'projects:read', write: 'projects:write' },
 }
 type Operations = OperationalData & {
+  customerRegistryEnabled: boolean
   persistenceStatus: 'local' | 'connecting' | 'connected' | 'error'; persistenceMessage: string
   saving: boolean; scheduleRevision: number; dataUpdatedAt: string | null; refreshFailed: boolean
   canRead: (kind: OperationalKind) => boolean; canWrite: (kind: OperationalKind) => boolean
@@ -363,6 +365,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
   }, [enabled, canRead, remote, user, owner])
   const value = useMemo<Operations>(() => ({
     ...(dataEpoch.current === sessionEpoch.current ? data : empty()), persistenceStatus, persistenceMessage, saving, scheduleRevision, dataUpdatedAt, refreshFailed, canRead, canWrite, reload,
+    customerRegistryEnabled: remote && !demoMode,
     saveRentalGroup: (v,id) => save('rentalGroups',v,id), saveRentalAttendance: (v,id) => save('rentalAttendances',v,id),
     saveStudent: (v,id) => save('students',v,id), saveTeamMember: (v,id) => save('team',v,id),
     saveInventoryItem: (v,id) => save('inventory',v,id), saveProject: (v,id) => save('projects',v,id),
@@ -371,7 +374,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
     materialSessionKey: `${owner}:${sessionEpoch.current}`, canReadMaterialHistory, canMoveMaterials, canAdjustMaterials, materialAttempt, acknowledgeMaterialMovement, moveMaterial, refreshMaterial, materialHistory,
     saveClass: (v,id) => save('classes',v,id), saveEnrollment: (v,id) => save('enrollments',v,id),
     savePresence: (v,id) => save('presences',v,id), saveFinanceEntry: (v,id) => save('financeEntries',v,id), saveMaintenance: (v,id) => save('maintenance',v,id),
-  }), [data, persistenceStatus, persistenceMessage, saving, scheduleRevision, dataUpdatedAt, refreshFailed, canRead, canWrite, reload, save, saveRecurringReservations, owner, canReadMaterialHistory, canMoveMaterials, canAdjustMaterials, materialAttempt, acknowledgeMaterialMovement, moveMaterial, refreshMaterial, materialHistory, materialRevision])
+  }), [data, remote, demoMode, persistenceStatus, persistenceMessage, saving, scheduleRevision, dataUpdatedAt, refreshFailed, canRead, canWrite, reload, save, saveRecurringReservations, owner, canReadMaterialHistory, canMoveMaterials, canAdjustMaterials, materialAttempt, acknowledgeMaterialMovement, moveMaterial, refreshMaterial, materialHistory, materialRevision])
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
 export function useOptionalOperations() { return useContext(Context) }

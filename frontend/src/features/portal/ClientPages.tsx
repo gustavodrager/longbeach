@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../auth/authContext'
@@ -9,6 +9,7 @@ import type { Account } from '../billing/api'
 import { moveDate } from '../arena/agenda'
 import { AvailabilityPicker } from './AvailabilityPicker'
 import { HelpContact } from './ClientLayout'
+import type { Customer } from '../customers/api'
 import { dayLabel, label, messageOf, send, today, usePortal, type Appointment, type Options, type PortalRequest, type Profile } from './api'
 
 export function QueryState({query}:{query:{isPending:boolean;isError:boolean;refetch:()=>unknown}}) { return query.isPending?<p role="status">Carregando sua área…</p>:query.isError?<div className="portal-alert" role="alert">Não foi possível atualizar. <button onClick={()=>void query.refetch()}>Tentar novamente</button></div>:null }
@@ -79,9 +80,62 @@ export function PortalBar() {
   async function open(id:string){setBusy(id);setError('');try{const access=await send<{token:string}>(`/api/v1/me/portal/bar/${id}/access`,{operationId:crypto.randomUUID()});window.location.assign(`/cliente#token=${encodeURIComponent(access.token)}`)}catch(e){setError(messageOf(e))}finally{setBusy('')}}
   return <><header className="portal-title"><h1>Bar</h1><p>Peça, acompanhe e aproveite sua visita.</p></header><QueryState query={accounts}/>{(!accounts.isError ? accounts.data : undefined)?.filter(a=>a.kind==='Bar'&&a.state==='Open').map(a=><article className="portal-card" key={a.id}><h2>{a.title}</h2><dl className="billing-totals"><div><dt>Total da comanda</dt><dd>{money(a.total)}</dd></div><div><dt>Já pago</dt><dd>{money(a.paid)}</dd></div><div><dt>Em confirmação</dt><dd>{money(a.pending)}</dd></div><div><dt>Disponível para pagar</dt><dd>{money(a.payable)}</dd></div></dl><AccountItems account={a}/><div className="portal-actions"><Link className="portal-primary" to={`/minha-area/pagamentos?conta=${encodeURIComponent(a.id)}`}>Ver conta e pagar</Link><button disabled={Boolean(busy)} onClick={()=>void open(a.id)}>{busy===a.id?'Abrindo…':'Abrir cardápio e comanda'}</button></div></article>)}{accounts.data&&!accounts.isError&&!accounts.data.some(a=>a.kind==='Bar'&&a.state==='Open')&&<section className="portal-next"><h2>Vai pedir alguma coisa?</h2><p>Peça à equipe o QR da sua comanda. Você pode pedir pelo celular sem fazer um novo cadastro.</p></section>}{error&&<p role="alert">{error}</p>}<section className="portal-card"><h2>Pagamentos e comprovantes</h2><p>As contas vinculadas ao seu perfil continuam disponíveis depois da visita.</p><Link to="/minha-area/pagamentos">Ver pagamentos</Link></section><HelpContact/></>
 }
-function ProfileForm({profile}:{profile:Profile}) {
-  const {signOut}=useAuth();const cache=useQueryClient();const [name,setName]=useState(profile.name);const [phone,setPhone]=useState(profile.phone);const [reminders,setReminders]=useState(profile.reminders);const [message,setMessage]=useState('');const [busy,setBusy]=useState(false)
-  async function save(e:FormEvent){e.preventDefault();setBusy(true);setMessage('');try{await send('/api/v1/me/portal/profile',{name,phone,reminders},'PUT');await cache.invalidateQueries({queryKey:['portal']});setMessage('Perfil atualizado.')}catch(e){setMessage(messageOf(e))}finally{setBusy(false)}}
-  return <><form className="portal-card portal-form" onSubmit={e=>void save(e)}><label>Como você quer ser chamado?<input required maxLength={160} value={name} onChange={e=>setName(e.target.value)}/></label><label>Telefone com DDD<input inputMode="tel" autoComplete="tel-national" maxLength={11} value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,''))}/></label><p>E-mail de acesso: {profile.email||'Ainda não vinculado'}</p><label className="portal-check"><input type="checkbox" checked={reminders} onChange={e=>setReminders(e.target.checked)}/> Mostrar lembretes de atividades na minha área</label><p>Essa opção não ativa mensagens por WhatsApp, SMS ou e-mail.</p><button disabled={busy}>{busy?'Salvando…':'Salvar perfil'}</button>{message&&<p role="status">{message}</p>}</form><section className="portal-card"><h2>Meus vínculos com a arena</h2>{profile.links.map(l=><p key={`${l.kind}:${l.sourceId}`}>{l.kind==='students'?'Aluno':l.kind==='rentalGroups'?'Grupo':'Reserva'} · {l.name}</p>)}{!profile.links.length&&<p>Nenhum vínculo cadastrado. Se você já frequenta a arena, peça à equipe para conferir seu cadastro.</p>}<Link to="/minha-area/ajuda">Solicitar correção de cadastro</Link></section><section className="portal-card"><h2>Acesso e segurança</h2><Link to="/minha-area/seguranca">Segurança da conta</Link><p>Para recuperar seu acesso ou corrigir o e-mail, peça ajuda à equipe para confirmar sua identidade.</p><button onClick={()=>void signOut()}>Sair da minha conta</button></section></>
+type ProfileIntent = { input: { operationId: string; name: string; phone: string; expectedVersion?: number }; reminders: boolean; canonical?: {name: string; phone: string} }
+function readProfileIntent(key: string): ProfileIntent | null {
+  try {
+    const value=JSON.parse(sessionStorage.getItem(key)??'null') as ProfileIntent|null
+    return value&&typeof value.input?.operationId==='string'&&typeof value.input.name==='string'&&typeof value.input.phone==='string'&&typeof value.reminders==='boolean'&&(value.input.expectedVersion===undefined||Number.isInteger(value.input.expectedVersion))&&(!value.canonical||typeof value.canonical.name==='string'&&typeof value.canonical.phone==='string')?value:null
+  } catch { return null }
 }
-export function PortalProfile(){const query=usePortal<Profile>('profile');return <><header className="portal-title"><h1>Meu perfil</h1><p>Seu cadastro para aulas, quadra e bar.</p></header><QueryState query={query}/>{query.data&&<ProfileForm profile={query.data}/>}</>}
+function ProfileForm({profile,customer,refresh,refreshing}:{profile:Profile;customer:Customer|null;refresh:()=>Promise<{data?:Customer|null;isError?:boolean}>;refreshing:boolean}) {
+  const {user,signOut}=useAuth();const cache=useQueryClient();const draftKey=`lb-own-customer-v1:${user?.id}`
+  const [pending,setPending]=useState(()=>readProfileIntent(draftKey))
+  const [expectedVersion,setExpectedVersion]=useState(customer?.version)
+  const [needsReview,setNeedsReview]=useState(false);const [currentContact,setCurrentContact]=useState<Customer|null|undefined>()
+  const [name,setName]=useState(pending?.input.name??customer?.name??profile.name);const [phone,setPhone]=useState(pending?.input.phone??customer?.phone??profile.phone)
+  const [reminders,setReminders]=useState(pending?.reminders??profile.reminders);const [message,setMessage]=useState('');const [error,setError]=useState('');const [busy,setBusy]=useState(false)
+  const lock=useRef(false);const mounted=useRef(true)
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[])
+  async function readCurrent(){
+    try {const latest=await refresh();if(mounted.current&&!latest.isError&&latest.data!==undefined)setCurrentContact(latest.data)}
+    catch {/* Keep the conflict and the original draft until a fresh read succeeds. */}
+  }
+  function confirmCurrent(useCurrent:boolean){
+    if(currentContact===undefined)return
+    if(useCurrent){setName(currentContact?.name??profile.name);setPhone(currentContact?.phone??profile.phone)}
+    setExpectedVersion(currentContact?.version);setNeedsReview(false);setCurrentContact(undefined);setError('')
+  }
+  async function save(e:FormEvent){
+    e.preventDefault();if(lock.current||refreshing||needsReview)return;lock.current=true;setBusy(true);setMessage('');setError('')
+    let intent:ProfileIntent=pending??{input:{operationId:crypto.randomUUID(),name:name.trim(),phone,...(expectedVersion!==undefined?{expectedVersion}:{})},reminders}
+    try {
+      sessionStorage.setItem(draftKey,JSON.stringify(intent));setPending(intent)
+      if(!intent.canonical){
+        const saved=await send<Customer>('/api/v1/me/customer',intent.input,'PUT')
+        intent={...intent,canonical:{name:saved.name,phone:saved.phone}}
+        sessionStorage.setItem(draftKey,JSON.stringify(intent))
+        if(!mounted.current)return
+        setPending(intent);setExpectedVersion(saved.version);cache.setQueryData(['own-customer',user?.id],saved)
+      }
+      await send('/api/v1/me/portal/profile',{...intent.canonical,reminders:intent.reminders},'PUT')
+      sessionStorage.removeItem(draftKey)
+      if(!mounted.current)return
+      setPending(null);setName(intent.canonical!.name);setPhone(intent.canonical!.phone);setMessage('Perfil atualizado.')
+      await Promise.all([cache.invalidateQueries({queryKey:['portal']}),cache.invalidateQueries({queryKey:['own-customer',user?.id]})])
+    } catch(cause) {
+      if(!mounted.current)return
+      if(cause instanceof ApiError&&[400,401,403,404,409,422].includes(cause.status)){
+        sessionStorage.removeItem(draftKey);setPending(null)
+        if(cause.status===409){setNeedsReview(true);setCurrentContact(undefined);await readCurrent()}
+      }
+      setError(cause instanceof ApiError?messageOf(cause):'Não foi possível confirmar o perfil. Confira o armazenamento e a conexão e repita o mesmo envio.')
+    } finally {lock.current=false;if(mounted.current)setBusy(false)}
+  }
+  return <><form className="portal-card portal-form" onSubmit={e=>void save(e)}><p>Este é o seu cadastro pessoal. Ele não substitui o cadastro de um aluno dependente nem cria vínculos de acesso ou cobrança.</p><fieldset disabled={busy||Boolean(pending)}><label>Como você quer ser chamado?<input required maxLength={240} value={name} onChange={e=>setName(e.target.value)}/></label><label>Telefone com DDD<input required={!customer} pattern={customer?.incomplete?undefined:"[0-9]{10,15}"} inputMode="tel" autoComplete="tel-national" maxLength={15} value={phone} onChange={e=>setPhone(e.target.value.replace(/\D/g,''))}/></label>{customer?.incomplete&&<p>Seu cadastro anterior está com telefone pendente. Você pode completá-lo aqui; seus atendimentos continuam disponíveis.</p>}<p>E-mail de acesso: {profile.email||'Ainda não vinculado'}</p><label className="portal-check"><input type="checkbox" checked={reminders} onChange={e=>setReminders(e.target.checked)}/> Mostrar lembretes de atividades na minha área</label></fieldset><p>Essa opção não ativa mensagens por WhatsApp, SMS ou e-mail.</p>{pending&&!busy&&<p role="status">Confira o mesmo envio antes de editar os dados novamente.</p>}<button disabled={busy||refreshing||needsReview}>{busy?'Salvando…':pending?'Conferir perfil':'Salvar perfil'}</button>{needsReview&&<section aria-label="Conferência do cadastro atualizado"><p>O cadastro mudou. Seus dados digitados foram preservados. Confira o contato atual antes de salvar novamente.</p>{currentContact!==undefined?<><p>Cadastro atual: {currentContact?.name??'Ainda não criado'} · {currentContact?.phone||'Telefone pendente'}</p><button type="button" disabled={busy||refreshing} onClick={()=>confirmCurrent(true)}>Usar cadastro atualizado</button><button type="button" disabled={busy||refreshing} onClick={()=>confirmCurrent(false)}>Manter meus dados após conferir</button></>:<button type="button" disabled={busy} onClick={()=>void readCurrent()}>Consultar cadastro atualizado</button>}</section>}{message&&<p role="status">{message}</p>}{error&&<p role="alert">{error}</p>}</form><section className="portal-card"><h2>Meus vínculos com a arena</h2>{profile.links.map(l=><p key={`${l.kind}:${l.sourceId}`}>{l.kind==='students'?'Aluno':l.kind==='rentalGroups'?'Grupo':'Reserva'} · {l.name}</p>)}{!profile.links.length&&<p>Nenhum vínculo cadastrado. Se você já frequenta a arena, peça à equipe para conferir seu cadastro.</p>}<Link to="/minha-area/ajuda">Solicitar correção de cadastro</Link></section><section className="portal-card"><h2>Acesso e segurança</h2><Link to="/minha-area/seguranca">Segurança da conta</Link><p>Para recuperar seu acesso ou corrigir o e-mail, peça ajuda à equipe para confirmar sua identidade.</p><button onClick={()=>void signOut()}>Sair da minha conta</button></section></>
+}
+export function PortalProfile(){
+  const {user}=useAuth();const query=usePortal<Profile>('profile')
+  const own=useQuery({queryKey:['own-customer',user?.id],queryFn:({signal})=>apiFetch<Customer|null>('/api/v1/me/customer',{signal}),enabled:Boolean(user),retry:false,refetchOnWindowFocus:true})
+  const allowed=!(own.error instanceof ApiError&&[401,403,404,410].includes(own.error.status))
+  return <><header className="portal-title"><h1>Meu perfil</h1><p>Seu cadastro para aulas, quadra e bar.</p></header><QueryState query={query}/><QueryState query={own}/>{user&&query.data&&!query.isError&&own.data!==undefined&&allowed&&<ProfileForm key={`${user.id}:${user.roles.join(',')}:${user.permissions.join(',')}`} profile={query.data} customer={own.data} refresh={own.refetch} refreshing={own.isFetching||own.isError}/>}</>
+}

@@ -2,6 +2,8 @@
 """Read-only host gates. Never prints secret values or creates a data directory."""
 from __future__ import annotations
 
+import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -16,6 +18,24 @@ SECRET_ROOT = Path("/run/longbeach")
 RUNTIME_ROOT = Path("/opt/longbeach/runtime")
 API_HOST = "api.longbeach.quebranunca.com.br"
 WEB_ORIGIN = "https://longbeach.quebranunca.com.br"
+# This proof is versioned with the API source; no runtime environment override is accepted.
+API_SCHEMA_LATEST = "20261029121159_UnifiedCustomers"
+API_SCHEMA_COUNT = 29
+API_SCHEMA_SHA256 = "c9f2d161a72410894b9b9f4af1ad243e305f61e1548f94393deac32aeeb6cf11"
+LABEL_CAPABILITY = "com.longbeach.api.customer-registry"
+LABEL_SCHEMA_HASH = "com.longbeach.api.schema.migrations-sha256"
+LABEL_SCHEMA_COUNT = "com.longbeach.api.schema.migration-count"
+LABEL_SCHEMA_LATEST = "com.longbeach.api.schema.latest"
+DOCKER = ["/usr/bin/docker", "--host", "unix:///var/run/docker.sock"]
+SCHEMA_QUERY = """BEGIN READ ONLY;
+SET LOCAL statement_timeout = '5s';
+SELECT json_build_object(
+    'database', current_database(), 'server_version_num', current_setting('server_version_num')::integer,
+    'read_only', current_setting('transaction_read_only'),
+    'migrations', (SELECT COALESCE(json_agg("MigrationId" ORDER BY "MigrationId" COLLATE "C"), '[]'::json)
+        FROM public."__EFMigrationsHistory"));
+COMMIT;
+"""
 ALLOWED_SETTINGS = {
     "API_IMAGE", "POSTGRES_BACKUP_IMAGE", "API_DOMAIN", "WEB_ORIGIN", "DATA_DISK_UUID",
     "CADDY_CONFIG", "WORKERS_ENABLED", "VM_PRODUCTION_CUTOVER_CONFIRMED",
@@ -192,7 +212,72 @@ def boolean(value: object, expected: bool) -> bool:
     return value is expected or (isinstance(value, str) and value.lower() == str(expected).lower())
 
 
-def main() -> None:
+def docker_read(arguments: list[str], *, input: str | None = None) -> str:
+    result = subprocess.run(DOCKER + arguments, input=input, capture_output=True, text=True, timeout=15,
+                            env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "HOME": "/root", "LANG": "C"})
+    require(result.returncode == 0, "api_schema_docker_command_failed")
+    return result.stdout
+
+
+def migration_hash(migrations: list[str]) -> str:
+    require(isinstance(migrations, list) and len(migrations) == API_SCHEMA_COUNT
+            and all(isinstance(item, str) and re.fullmatch(r"[0-9]{14}_[A-Za-z0-9_]+", item) for item in migrations)
+            and len(set(migrations)) == len(migrations), "database_migration_set_invalid")
+    return hashlib.sha256(("\n".join(sorted(migrations)) + "\n").encode("utf-8")).hexdigest()
+
+
+def check_api_schema(settings: dict[str, str], run=None) -> dict[str, object]:
+    """No pull/start/migration: bind an immutable local image to the live owned DB schema."""
+    run = run or docker_read
+    image = settings["API_IMAGE"]
+    require(pinned(image), "api_image_not_pinned")
+    image_rows = json.loads(run(["image", "inspect", "--platform", "linux/amd64", image]))
+    require(isinstance(image_rows, list) and len(image_rows) == 1, "api_schema_image_missing")
+    candidate = image_rows[0]
+    require(isinstance(candidate, dict) and isinstance(candidate.get("RepoDigests"), list), "api_schema_image_metadata_invalid")
+    require(image in candidate["RepoDigests"], "api_schema_image_digest_unproven")
+    require(candidate.get("Os") == "linux" and candidate.get("Architecture") == "amd64"
+            and bool(re.fullmatch(r"sha256:[a-f0-9]{64}", candidate.get("Id", ""))), "api_schema_image_platform_invalid")
+    labels = candidate.get("Config", {}).get("Labels") or {}
+    require(labels.get(LABEL_CAPABILITY) == "v1" and labels.get(LABEL_SCHEMA_HASH) == API_SCHEMA_SHA256
+            and labels.get(LABEL_SCHEMA_COUNT) == str(API_SCHEMA_COUNT)
+            and labels.get(LABEL_SCHEMA_LATEST) == API_SCHEMA_LATEST, "api_schema_image_compatibility_unproven")
+    compose = ["compose", "--project-directory", str(RUNTIME_ROOT), "--env-file", str(ENV_FILE),
+               "-f", str(RUNTIME_ROOT / "compose.yaml")]
+    container = run(compose + ["ps", "--status", "running", "-q", "postgres"]).strip()
+    require(bool(re.fullmatch(r"[a-f0-9]{64}", container)), "api_schema_postgres_not_running_or_ambiguous")
+    rows = json.loads(run(["inspect", container]))
+    require(isinstance(rows, list) and len(rows) == 1, "api_schema_postgres_missing")
+    postgres = rows[0]
+    require(isinstance(postgres, dict), "api_schema_postgres_metadata_invalid")
+    config = postgres.get("Config", {})
+    tags = config.get("Labels") or {}
+    require(postgres.get("Id") == container and postgres.get("State", {}).get("Running") is True
+            and config.get("Image") == settings["POSTGRES_BACKUP_IMAGE"] and config.get("User") == "999:999"
+            and tags.get("com.docker.compose.project") == "longbeach"
+            and tags.get("com.docker.compose.service") == "postgres"
+            and tags.get("com.docker.compose.oneoff", "").lower() == "false", "api_schema_postgres_identity_invalid")
+    mounts = [item for item in postgres.get("Mounts", []) if item.get("Destination") == "/var/lib/postgresql"]
+    require(len(mounts) == 1 and mounts[0].get("Type") == "bind"
+            and mounts[0].get("Source") == str(DATA_ROOT / "postgres") and mounts[0].get("RW") is True,
+            "api_schema_postgres_data_mount_invalid")
+    require(postgres.get("HostConfig", {}).get("ReadonlyRootfs") is True
+            and not postgres.get("HostConfig", {}).get("Privileged", False)
+            and not postgres.get("NetworkSettings", {}).get("Ports", {}).get("5432/tcp"), "api_schema_postgres_isolation_invalid")
+    raw = run(["exec", "--user", "999:999", "-i", container, "psql", "--no-psqlrc", "-qAt",
+               "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "longbeach"], input=SCHEMA_QUERY)
+    database = json.loads(raw)
+    require(isinstance(database, dict) and database.get("database") == "longbeach"
+            and isinstance(database.get("server_version_num"), int)
+            and database["server_version_num"] // 10000 == 18 and database.get("read_only") == "on", "api_schema_database_identity_invalid")
+    applied = database.get("migrations")
+    require(migration_hash(applied) == API_SCHEMA_SHA256 and max(applied) == API_SCHEMA_LATEST,
+            "api_schema_database_mismatch")
+    return {"migration_count": API_SCHEMA_COUNT, "latest_migration": API_SCHEMA_LATEST,
+            "migrations_sha256": API_SCHEMA_SHA256, "image_digest_verified": True}
+
+
+def check_host() -> dict[str, str]:
     require(os.geteuid() == 0, "root_required")
     secure_file(ENV_FILE, 0, 0o600)
     settings = read_environment(ENV_FILE)
@@ -242,7 +327,20 @@ def main() -> None:
         key_public = subprocess.run(["openssl", "pkey", "-in", str(tls / "privkey.pem"), "-pubout"],
                                     check=True, capture_output=True, timeout=10).stdout
         require(cert_key == key_public, "certificate_private_key_mismatch")
-    print(json.dumps({"status": "ready", "mode": "runtime_only", "workers_enabled": settings.get("WORKERS_ENABLED", "false") == "true"}))
+    return settings
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--host-only", action="store_true", help="Validate host before starting PostgreSQL; does not permit API start.")
+    args = parser.parse_args()
+    settings = check_host()
+    if args.host_only:
+        print(json.dumps({"status": "host_ready", "api_start_permitted": False}))
+        return
+    proof = check_api_schema(settings)
+    print(json.dumps({"status": "ready", "mode": "runtime_only", "api_start_permitted": True,
+                      "api_schema": proof, "workers_enabled": settings.get("WORKERS_ENABLED", "false") == "true"}))
 
 
 if __name__ == "__main__":

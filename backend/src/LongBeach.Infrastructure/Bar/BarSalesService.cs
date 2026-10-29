@@ -5,6 +5,7 @@ using LongBeach.Domain.Cash;
 using LongBeach.Domain.Payments;
 using LongBeach.Domain.Inventory;
 using LongBeach.Infrastructure.Persistence;
+using LongBeach.Infrastructure.Customers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 namespace LongBeach.Infrastructure.Bar;
@@ -18,7 +19,12 @@ public sealed class BarSalesService(LongBeachDbContext db, IPaymentGateway? gate
         if (db.Database.CurrentTransaction!.GetDbTransaction().IsolationLevel != System.Data.IsolationLevel.Serializable)
             throw new InvalidOperationException("A criação da venda exige uma transação serializável.");
         var session = await Session(input.SessionId, ct); if (session.OpenedBy != actor) throw new BarRuleException("Você só pode vender no próprio caixa."); session.EnsureOpen();
-        var sale = new BarSale(session.Id, session.LocationId, actor);
+        var sale = new BarSale(session.Id, session.LocationId, actor, input.CustomerId);
+        if (input.CustomerId is Guid customerId)
+        {
+            var customer = await new CustomerService(db, TimeProvider.System).EnsureSourceAsync(new("barSales", sale.Id, null, "", "", CustomerId: customerId), ct);
+            sale.IdentifyCustomer(customer.Id);
+        }
         foreach (var item in input.Items)
         { var product = await db.Set<BarProduct>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == item.ProductId, ct) ?? throw new BarRuleException("Produto inexistente."); if(product.SalePrice<=0)throw new BarRuleException("Produto sem preço de venda. Use ajuste supervisionado para cortesia."); if(product.Prepared&&await db.Set<BarRecipeVersion>().AnyAsync(x=>x.ProductId==product.Id,ct))throw new BarRuleException("Este produto tem ficha técnica. Use o novo atendimento para reservar e entregar os ingredientes."); sale.Add(product, item.Quantity); }
         db.Add(sale); await db.SaveChangesAsync(ct);
@@ -89,6 +95,6 @@ public sealed class BarSalesService(LongBeachDbContext db, IPaymentGateway? gate
     private async Task<BarSale> Sale(Guid id, CancellationToken ct) => await db.Set<BarSale>().Include(x=>x.Items).SingleOrDefaultAsync(x=>x.Id==id,ct) ?? throw new BarRuleException("Venda não encontrada.");
     private async Task<CashSession> Session(Guid id, CancellationToken ct) => await db.Set<CashSession>().SingleOrDefaultAsync(x=>x.Id==id,ct) ?? throw new BarRuleException("Caixa não encontrado.");
     private static void Own(BarSale sale, Guid actor) { if (sale.ActorId != actor) throw new BarRuleException("Esta venda pertence a outro operador."); }
-    private static object Public(BarSale s, bool costs) => new {s.Id,s.SessionId,s.LocationId,s.ActorId,s.State,s.Reason,s.DiscountAmount,s.Total,s.CreatedAtUtc,Cost=costs?(decimal?)s.Cost:null,
+    private static object Public(BarSale s, bool costs) => new {s.Id,s.SessionId,s.LocationId,s.ActorId,s.CustomerId,s.State,s.Reason,s.DiscountAmount,s.Total,s.CreatedAtUtc,Cost=costs?(decimal?)s.Cost:null,
         Items=s.Items.Select(x=>new {x.Id,x.ProductId,x.Name,x.Quantity,x.UnitPrice,x.Total,UnitCost=costs?(decimal?)x.UnitCost:null})};
 }

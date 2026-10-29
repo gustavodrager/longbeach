@@ -25,6 +25,7 @@ it('salva todos os integrantes e permanece no grupo cadastrado', async()=>{
   const rows: RentalGroup[] = []
   vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{
     const path=String(input)
+    if(path.includes('/customers/lookup?')){const name=new URL(path,'https://test.invalid').searchParams.get('search')!;return json([{id:`client-${name}`,name,phoneHint:'•••• 8888',incomplete:false}])}
     if(init?.method==='PUT'){ const saved={...JSON.parse(String(init.body)),version:1};rows.push(saved);return json(saved,201) }
     if(path.includes('/preview'))return json({groupId,groupVersion:1,month,dates:[],amount:null,dueDate:today(),errors:[],warnings:[],existingMonthId:null})
     return json(path.endsWith('/courts')?[court]:path.endsWith('/rentalGroups')?rows:[])
@@ -34,14 +35,17 @@ it('salva todos os integrantes e permanece no grupo cadastrado', async()=>{
   fireEvent.change(screen.getByLabelText('Nome do grupo'),{target:{value:'Turma nova'}})
   fireEvent.change(screen.getByLabelText('Quadra'),{target:{value:courtId}})
   fireEvent.click(screen.getByText('2. Integrantes'))
-  fireEvent.change(screen.getByLabelText('Integrante 1 · nome completo'),{target:{value:'Pessoa Um'}})
+  fireEvent.change(screen.getByRole('searchbox',{name:'Buscar integrante 1 · cliente'}),{target:{value:'Pessoa Um'}})
+  fireEvent.click(await screen.findByRole('button',{name:'Pessoa Um · •••• 8888 · Ref. ESSOA UM'}))
   fireEvent.click(screen.getByRole('button',{name:'+ Adicionar integrante'}))
-  fireEvent.change(screen.getByLabelText('Integrante 2 · nome completo'),{target:{value:'Pessoa Dois'}})
+  fireEvent.change(screen.getByRole('searchbox',{name:'Buscar integrante 2 · cliente'}),{target:{value:'Pessoa Dois'}})
+  fireEvent.click(await screen.findByRole('button',{name:'Pessoa Dois · •••• 8888 · Ref. SOA DOIS'}))
   fireEvent.click(screen.getByRole('button',{name:'Salvar grupo'}))
   fireEvent.click(await screen.findByRole('button',{name:'Integrantes'}))
   await screen.findByRole('heading',{name:'Todos da turma'})
   expect(screen.getByRole('heading',{name:'Turma nova'})).toBeInTheDocument()
   expect(rows[0].members.map(m=>m.name)).toEqual(['Pessoa Um','Pessoa Dois'])
+  expect(rows[0].members.map(m=>m.customerId)).toEqual(['client-Pessoa Um','client-Pessoa Dois'])
   expect(rows[0].monthlyAmount).toBeNull()
 })
 it('conflitos impedem confirmar o mês; mensalidade exige escolha explícita', async()=>{
@@ -154,6 +158,7 @@ function editableFixture() {
   vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{
     const path=String(input)
     const kind = path.split('/operations/')[1]?.split('/')[0]
+    if(path.includes('/customers/lookup?'))return json([{id:'client-b',name:'Pessoa B corrigida',phoneHint:'',incomplete:true}])
     if(init?.method==='PUT'){
       if(failure)return json({message:'Falha de teste; tente novamente.'},503)
       const body=JSON.parse(String(init.body)); saved.push({kind,body})
@@ -185,11 +190,13 @@ it('corrige integrante e função na própria ficha preservando os integrantes d
   start(`/mensalistas/${groupId}`)
   fireEvent.click(await screen.findByRole('button',{name:'Integrantes'}))
   fireEvent.click(screen.getAllByRole('button',{name:'Editar integrante'})[1])
-  fireEvent.change(screen.getByLabelText('Nome do integrante'),{target:{value:'Pessoa B corrigida'}})
+  fireEvent.change(screen.getByRole('searchbox',{name:'Buscar cliente do integrante'}),{target:{value:'Pessoa B'}})
+  fireEvent.click(await screen.findByRole('button',{name:'Pessoa B corrigida · Telefone pendente · Cadastro incompleto · Ref. CLIENTB'}))
   fireEvent.change(screen.getByLabelText('Função no grupo'),{target:{value:'Responsável'}})
   fireEvent.click(screen.getByRole('button',{name:'Salvar integrante'}))
   await screen.findByText('Pessoa B corrigida')
   expect(fixture.saved[0].body).toMatchObject({organizerId:'b',backupId:'',version:1})
+  expect((fixture.saved[0].body.members as {id:string;customerId?:string}[]).find(m=>m.id==='b')).toMatchObject({customerId:'client-b'})
   expect(fixture.tables.rentalMonths[0].members).toEqual(group.members)
 })
 it('mantém a edição após falha e salva encontro sem modificar vínculo ou mensalidade',async()=>{
@@ -264,12 +271,21 @@ it('mantém um único editor aberto e protege cancelamento com alterações',asy
   fireEvent.click(await screen.findByRole('button',{name:'Integrantes'}))
   fireEvent.click(screen.getAllByRole('button',{name:'Editar integrante'})[0])
   expect(screen.getByRole('button',{name:'Editar integrante'})).toBeDisabled()
-  fireEvent.change(screen.getByLabelText('Nome do integrante'),{target:{value:'Nome não salvo'}})
+  fireEvent.change(screen.getByLabelText('Função no grupo'),{target:{value:'Suplente'}})
   fireEvent.click(screen.getByRole('button',{name:'Cancelar'}))
   expect(confirm).toHaveBeenCalled()
-  expect(screen.getByLabelText('Nome do integrante')).toHaveValue('Nome não salvo')
+  expect(screen.getByLabelText('Função no grupo')).toHaveValue('Suplente')
   confirm.mockReturnValue(true)
   fireEvent.click(screen.getByRole('button',{name:'Cancelar'}))
-  expect(screen.queryByLabelText('Nome do integrante')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Função no grupo')).not.toBeInTheDocument()
   expect(screen.getAllByRole('button',{name:'Editar integrante'})[0]).toBeEnabled()
+})
+
+it('limpar seleção temporária do integrante legado no grupo restaura nome e telefone anteriores',async()=>{
+ const fixture=editableFixture();const oldMembers=[{...group.members[0],phone:'5511988887777'},group.members[1]];fixture.tables.rentalGroups[0].members=oldMembers
+ start(`/mensalistas/${groupId}`);fireEvent.click(await screen.findByRole('button',{name:'Editar grupo e integrantes'}));fireEvent.change(screen.getByRole('searchbox',{name:'Buscar integrante 1 · cliente'}),{target:{value:'Pessoa'}});fireEvent.click(await screen.findByRole('button',{name:'Pessoa B corrigida · Telefone pendente · Cadastro incompleto · Ref. CLIENTB'}));fireEvent.click(screen.getByRole('button',{name:'Continuar sem identificar'}));fireEvent.change(screen.getByLabelText('Nome do grupo'),{target:{value:'Turma legada preservada'}});fireEvent.click(screen.getByRole('button',{name:'Salvar grupo'}));await screen.findByRole('heading',{name:'Turma legada preservada'});expect((fixture.saved[0].body.members as typeof group.members)[0]).toMatchObject({id:'a',name:'Pessoa A',phone:'5511988887777'});expect(fixture.tables.rentalMonths[0].members).toEqual(group.members)
+})
+it('limpar seleção temporária no editor individual preserva telefone e identidade legados',async()=>{
+ const fixture=editableFixture();fixture.tables.rentalGroups[0].members=[{...group.members[0],phone:'5511988887777'},group.members[1]]
+ start(`/mensalistas/${groupId}`);fireEvent.click(await screen.findByRole('button',{name:'Integrantes'}));fireEvent.click(screen.getAllByRole('button',{name:'Editar integrante'})[0]);fireEvent.change(screen.getByRole('searchbox',{name:'Buscar cliente do integrante'}),{target:{value:'Pessoa'}});fireEvent.click(await screen.findByRole('button',{name:'Pessoa B corrigida · Telefone pendente · Cadastro incompleto · Ref. CLIENTB'}));fireEvent.click(screen.getByRole('button',{name:'Continuar sem identificar'}));fireEvent.change(screen.getByLabelText('Função no grupo'),{target:{value:'Suplente'}});fireEvent.click(screen.getByRole('button',{name:'Salvar integrante'}));await screen.findByText('Integrante atualizado.');expect((fixture.saved[0].body.members as typeof group.members)[0]).toMatchObject({id:'a',name:'Pessoa A',phone:'5511988887777'});expect(fixture.tables.rentalMonths[0].members).toEqual(group.members)
 })

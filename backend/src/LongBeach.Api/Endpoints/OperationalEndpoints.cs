@@ -3,6 +3,8 @@ using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using LongBeach.Application.Operations;
+using LongBeach.Application.Customers;
+using LongBeach.Infrastructure.Customers;
 using LongBeach.Contracts.Operations;
 using LongBeach.Domain.Identity;
 using LongBeach.Domain.Operations;
@@ -21,13 +23,16 @@ public static class OperationalEndpoints
         if (publicDemo) group.AllowAnonymous();
         else group.RequireAuthorization();
 
-        group.MapGet("/", async (string kind, HttpContext http, LongBeachDbContext db, CancellationToken ct) =>
+        group.MapGet("/", async (string kind, HttpContext http, LongBeachDbContext db, ICustomerRegistry customers, CancellationToken ct) =>
         {
             if (!OperationalValidation.Permissions.ContainsKey(kind)) return Results.NotFound();
             if (!Allowed(http, kind, false, publicDemo)) return Denied(http);
-            var payloads = await db.OperationalRecords.AsNoTracking().Where(item => item.Kind == kind)
-                .OrderBy(item => item.Name).Select(item => item.Payload).ToListAsync(ct);
-            return Results.Content($"[{string.Join(',', payloads.Select(payload => VisiblePayload(payload, kind, http, publicDemo)))}]", "application/json");
+            var rows = await db.OperationalRecords.AsNoTracking().Where(item => item.Kind == kind)
+                .OrderBy(item => item.Name).Select(item => new { item.Id, item.Payload }).ToListAsync(ct);
+            var payloads = new List<string>();
+            foreach (var row in rows)
+                payloads.Add(VisiblePayload(publicDemo ? row.Payload : await CustomerOperationalRecords.ProjectAsync(customers, kind, row.Id, row.Payload, ct), kind, http, publicDemo));
+            return Results.Content($"[{string.Join(',', payloads)}]", "application/json");
         });
 
         group.MapGet("/schedule", async (string kind, string? date, HttpContext http, LongBeachDbContext db, CancellationToken ct) =>
@@ -56,10 +61,10 @@ public static class OperationalEndpoints
             return Results.Ok(CourtScheduleQuery.BuildRange(first, last, DateTimeOffset.UtcNow, snapshot, Allowed(http, "classes", false, publicDemo)));
         });
 
-        group.MapPost("/recurring", (string kind, RecurringReservationInput input, HttpContext http, LongBeachDbContext db, CancellationToken ct) =>
-            SaveRecurring(kind, input, http, db, publicDemo, ct)).RequireRateLimiting("public-demo-write");
+        group.MapPost("/recurring", (string kind, RecurringReservationInput input, HttpContext http, LongBeachDbContext db, ICustomerRegistry customers, CancellationToken ct) =>
+            SaveRecurring(kind, input, http, db, customers, publicDemo, ct)).RequireRateLimiting("public-demo-write");
 
-        group.MapPut("/{id:guid}", async (string kind, Guid id, JsonElement body, HttpContext http, LongBeachDbContext db, CancellationToken ct) =>
+        group.MapPut("/{id:guid}", async (string kind, Guid id, JsonElement body, HttpContext http, LongBeachDbContext db, ICustomerRegistry customers, CancellationToken ct) =>
         {
             if (!OperationalValidation.Permissions.ContainsKey(kind)) return Results.NotFound();
             if (!Allowed(http, kind, true, publicDemo)) return Denied(http);
@@ -109,9 +114,13 @@ public static class OperationalEndpoints
                 if (OperationalValidation.Text(saved, "sourceKind") == "rentalMonths" && new[] { "sourceKind", "sourceId", "month" }.Any(key => incoming[key]?.ToString() != OperationalValidation.Text(saved, key)))
                     return Results.BadRequest(new { message = "Preserve a origem e a competência da mensalidade. Cancele o lançamento para corrigir o acordo." });
             }
+            if (!publicDemo)
+                await CustomerOperationalRecords.PrepareWriteAsync(customers, kind, id, incoming, record?.Payload, ct,
+                    allowReassignment: http.User.IsInRole(SystemRoles.Owner) || ProfileAccess.IsManagement(http.User.FindAll(ClaimTypes.Role).Select(x => x.Value)) && http.User.HasClaim("permission", SystemPermissions.CustomersMerge));
             body = JsonSerializer.SerializeToElement(incoming);
             var error = OperationalValidation.Validate(kind, id, body, snapshot, DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-3)));
             if (error is not null) return Results.BadRequest(new { message = error });
+            if (!publicDemo) await CustomerSchoolIdentityGuard.CheckAsync(db, customers, kind, id, body, records, ct);
             var currentBody = record is null ? default : ParsePayload(record.Payload);
             var currentVersion = record is null ? 0 : OperationalValidation.Version(currentBody);
             incoming["name"] = OperationalValidation.Text(body, "name").Trim();
@@ -138,7 +147,7 @@ public static class OperationalEndpoints
     }
     private sealed record ReservationGroupOperation(Guid Id, string Name, string Fingerprint, int Version, Guid[] ReservationIds);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private static async Task<IResult> SaveRecurring(string kind, RecurringReservationInput request, HttpContext http, LongBeachDbContext db, bool publicDemo, CancellationToken ct)
+    private static async Task<IResult> SaveRecurring(string kind, RecurringReservationInput request, HttpContext http, LongBeachDbContext db, ICustomerRegistry customers, bool publicDemo, CancellationToken ct)
     {
         if (kind != "reservations") return Results.NotFound();
         if (!Allowed(http, kind, true, publicDemo)) return Denied(http);
@@ -166,10 +175,17 @@ public static class OperationalEndpoints
             grouping => grouping.Select(row => ParsePayload(row.Payload)).ToArray());
         var reservations = snapshot.GetValueOrDefault(kind, []).ToList();
         var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-3));
+        Guid? recurringCustomerId = input.CustomerId;
         foreach (var occurrence in expanded)
         {
             var id = Guid.Parse(occurrence["id"]!.GetValue<string>());
             if (records.Any(row => row.Id == id)) return Results.Conflict(new { message = "Uma identificação do grupo já está em uso. Confira os registros antes de continuar." });
+            if (!publicDemo)
+            {
+                if (recurringCustomerId.HasValue) occurrence["customerId"] = recurringCustomerId.ToString();
+                await CustomerOperationalRecords.PrepareWriteAsync(customers, kind, id, occurrence, null, ct);
+                if (Guid.TryParse(occurrence["customerId"]?.ToString(), out var linkedCustomer)) recurringCustomerId = linkedCustomer;
+            }
             var body = JsonSerializer.SerializeToElement(occurrence);
             var validationError = OperationalValidation.Validate(kind, id, body, snapshot, today);
             if (validationError is not null) return Results.BadRequest(new { message = $"Nenhuma reserva foi criada. Semana {occurrence["occurrenceIndex"]}: {validationError}" });

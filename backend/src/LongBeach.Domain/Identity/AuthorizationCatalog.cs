@@ -21,6 +21,9 @@ public static class SystemRoles
 
 public static class SystemPermissions
 {
+    public const string CustomersRead = "customers:read";
+    public const string CustomersWrite = "customers:write";
+    public const string CustomersMerge = "customers:merge";
     public const string ReceivedInvoicesManage = "fiscal:invoices:manage";
     public const string BarStockOutput = "bar:stock:output";
     public const string BarStockRead = "bar:stock:read";
@@ -52,6 +55,7 @@ public static class SystemPermissions
     [
         BarCatalogRead, BarCatalogWrite, BarStockOutput, BarStockRead, BarStockManage, BarCashOperate, BarSupervise,
         BarRefundApprove, BarSalesRead, BarSalesOperate, BarFinanceRead, BarPurchasesManage,
+        CustomersRead, CustomersWrite, CustomersMerge,
         StudentsRead, StudentsWrite,
         EmployeesRead, EmployeesWrite,
         InventoryRead, InventoryWrite, InventoryAdjust,

@@ -27,6 +27,7 @@ public sealed class LongBeachDbContext(
         BarModel.Configure(modelBuilder);
         StockModel.Configure(modelBuilder);
         MaterialStockModel.Configure(modelBuilder);
+        CustomerModel.Configure(modelBuilder);
         CashModel.Configure(modelBuilder);
         SalesModel.Configure(modelBuilder);
         PurchaseModel.Configure(modelBuilder);
@@ -45,6 +46,7 @@ public sealed class LongBeachDbContext(
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        ProtectCustomerHistory();
         ProtectMaterialLedger();
         ProtectBarLedger();
         ApplyTimestamps();
@@ -55,12 +57,23 @@ public sealed class LongBeachDbContext(
         bool acceptAllChangesOnSuccess,
         CancellationToken cancellationToken = default)
     {
+        ProtectCustomerHistory();
         ProtectMaterialLedger();
         ProtectBarLedger();
         ApplyTimestamps();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
+    private void ProtectCustomerHistory()
+    {
+        ChangeTracker.DetectChanges();
+        foreach (var entry in ChangeTracker.Entries())
+            if (entry.Entity is LongBeach.Domain.Customers.CustomerSourceChange or LongBeach.Domain.Customers.CustomerOperation
+                    && entry.State is EntityState.Modified or EntityState.Deleted
+                || entry.Entity is LongBeach.Domain.Customers.Customer or LongBeach.Domain.Customers.CustomerSourceLink or LongBeach.Domain.Customers.CustomerMerge
+                    && entry.State == EntityState.Deleted)
+                throw new LongBeach.Domain.Customers.CustomerRuleException("Histórico de cliente preservado. Use a manutenção cadastral ou o desfazer da unificação.");
+    }
     private void ProtectMaterialLedger()
     {
         ChangeTracker.DetectChanges();

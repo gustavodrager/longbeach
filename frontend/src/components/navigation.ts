@@ -15,6 +15,7 @@ export const barNavigation: NavigationGroup[] = [
 export const attendantNavigation = barNavigation.slice(0, 4)
 export const managementNavigation: NavigationGroup[] = [
   { label: 'Visão geral', icon: 'home', href: '/' },
+  { label: 'Clientes', icon: 'people', href: '/clientes', permission: 'customers:read' },
   { label: 'Agenda', icon: 'calendar', href: '/agenda', kind: 'reservations', children: [
     { label: 'Agenda', href: '/agenda', kind: 'reservations' }, { label: 'Solicitações', href: '/solicitacoes-clientes', permission: 'portal:manage' }, { label: 'Funcionamento e preços', href: '/agenda/funcionamento', kind: 'courts' },
   ] },

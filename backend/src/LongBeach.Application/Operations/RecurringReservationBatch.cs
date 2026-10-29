@@ -21,6 +21,7 @@ public static class RecurringReservationBatch
     {
         if (input.OperationId == Guid.Empty) return "A identificação da solicitação é obrigatória.";
         if (input.CourtId == Guid.Empty) return "Escolha uma quadra cadastrada.";
+        if (input.CustomerId == Guid.Empty) return "Escolha um cliente cadastrado válido.";
         if (input.GroupTitle.Length is < 1 or > 120) return "O nome do grupo deve ter entre 1 e 120 caracteres.";
         if (input.Weeks is < 1 or > 12) return "Escolha de 1 a 12 semanas para o grupo.";
         if (!DateOnly.TryParseExact(input.StartDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var firstDate) || firstDate.DayNumber > DateOnly.MaxValue.DayNumber - 7 * (input.Weeks - 1)) return "Informe uma primeira data válida para todas as semanas.";
@@ -29,11 +30,17 @@ public static class RecurringReservationBatch
         if (input.CustomerName!.Length > 240 || input.Phone!.Length > 80 || input.Notes!.Length > 2000) return "Confira o tamanho do nome, telefone e observações do grupo.";
         return null;
     }
-    public static string Fingerprint(RecurringReservationInput input) => Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new
+    public static string Fingerprint(RecurringReservationInput input)
     {
-        input.OperationId, input.GroupTitle, input.CourtId, input.StartDate, input.StartTime, input.EndTime, input.Weeks,
-        input.CustomerName, input.Phone, AmountCents = checked((long)(input.Amount * 100)), input.Notes
-    }, JsonOptions)));
+        var payload = JsonSerializer.SerializeToNode(new
+        {
+            input.OperationId, input.GroupTitle, input.CourtId, input.StartDate, input.StartTime, input.EndTime, input.Weeks,
+            input.CustomerName, input.Phone, AmountCents = checked((long)(input.Amount * 100)), input.Notes
+        }, JsonOptions)!.AsObject();
+        // Old uncertain requests keep the original fingerprint when no new identity was supplied.
+        if (input.CustomerId is Guid customerId) payload["customerId"] = customerId.ToString();
+        return Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(payload, JsonOptions)));
+    }
     public static Guid OccurrenceId(Guid operationId, int index)
     {
         var hex = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"longbeach-arena-recurring-v1:{operationId:D}:{index}")))[..32].ToCharArray();
@@ -51,7 +58,8 @@ public static class RecurringReservationBatch
             ["startTime"] = input.StartTime, ["endTime"] = input.EndTime,
             ["customerName"] = input.CustomerName, ["phone"] = input.Phone, ["amount"] = input.Amount,
             ["status"] = "Confirmada", ["notes"] = input.Notes,
-            ["groupId"] = input.OperationId.ToString(), ["groupTitle"] = input.GroupTitle, ["occurrenceIndex"] = index
+            ["groupId"] = input.OperationId.ToString(), ["groupTitle"] = input.GroupTitle, ["occurrenceIndex"] = index,
+            ["customerId"] = input.CustomerId?.ToString()
         }).ToArray();
     }
     public static string? ValidateMetadata(JsonObject incoming, string? savedJson)

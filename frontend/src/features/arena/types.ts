@@ -2,12 +2,14 @@ import type { BusinessAllocation } from '../finance/businessUnits'
 import type { FinancialReceipt } from '../finance/receiptSources'
 export type Court = { id: string; version?: number; costsVisible?: boolean; name: string; sport: string; status: 'Disponível' | 'Manutenção'; openingTime: string; closingTime: string; operatingDays?: number[]; scheduleConfirmed?: boolean; hourlyRentalAmount?: number | null; weekendPackageAmount?: number | null; weekendPackageHours?: number | null; weekendPackageLatestEndTime?: string | null }
 export type Reservation = {
+  customerId?: string | null
   id: string; version?: number; costsVisible?: boolean; name: string; courtId: string; date: string; startTime: string; endTime: string
   customerName: string; phone: string; amount: number; status: 'Confirmada' | 'Chegou' | 'Concluída' | 'Cancelada' | 'Bloqueio'; notes: string
   activityKind?: 'Trial'; teacherId?: string;
   rentalGroupId?: string; rentalMonth?: string; groupId?: string; groupTitle?: string; occurrenceIndex?: number
 }
 export type RecurringReservationInput = {
+  customerId?: string | null
   operationId: string; groupTitle: string; courtId: string; startDate: string; startTime: string; endTime: string; weeks: number
   customerName: string; phone: string; amount: number; notes: string
 }

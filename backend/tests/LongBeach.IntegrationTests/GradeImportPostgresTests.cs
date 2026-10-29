@@ -18,7 +18,7 @@ public sealed class GradeImportPostgresTests
         client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Owner");
         var court = Guid.NewGuid(); var student = Guid.NewGuid(); var teacher = Guid.NewGuid(); var lesson = Guid.NewGuid(); var enrollment = Guid.NewGuid();
         Assert.Equal(HttpStatusCode.Created, (await client.PutAsJsonAsync($"/api/v1/operations/courts/{court}", new { id = court, name = "Quadra de conferência", status = "Disponível", openingTime = "06:00", closingTime = "24:00" })).StatusCode);
-        Assert.Equal(HttpStatusCode.Created, (await client.PutAsJsonAsync($"/api/v1/operations/students/{student}", new { id = student, name = "Aluno existente", monthlyAmount = 170 })).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await client.PutAsJsonAsync($"/api/v1/operations/students/{student}", new { id = student, name = "Aluno existente", phone = "11987654321", monthlyAmount = 170 })).StatusCode);
         object Row(string kind, object body, int line) => new { sheetName = "Grade", rowNumber = line, recordType = "reference-data", externalId = $"grade-{kind}-{line}", data = new { schema = "longbeach.class-grade-operations.v1", kind, body } };
         object[] Rows(Guid studentId) => [
             Row("team", new { id = teacher, name = "Professor novo", payAmount = (decimal?)null }, 1),

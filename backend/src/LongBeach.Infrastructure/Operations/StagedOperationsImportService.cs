@@ -10,6 +10,7 @@ using LongBeach.Domain.Auditing;
 using LongBeach.Domain.Bar;
 using LongBeach.Domain.Operations;
 using LongBeach.Infrastructure.Persistence;
+using LongBeach.Infrastructure.Customers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -25,6 +26,7 @@ public abstract class StagedOperationsImportService(LongBeachDbContext db, IAudi
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
         // Same lock as manual arena writes: capacity and overlap validation remain atomic across replicas.
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(724031904)", ct);
+        await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(724031907)", ct);
         var plan = await Read(batchId, ct);
         if (plan.Applied) return plan;
         if (!plan.CanApply || plan.ConfirmationToken != confirmationToken)
@@ -32,6 +34,7 @@ public abstract class StagedOperationsImportService(LongBeachDbContext db, IAudi
         foreach (var item in plan.Items)
         {
             var payload = JsonNode.Parse(item.Body.GetRawText())!.AsObject();
+            await CustomerOperationalRecords.PrepareWriteAsync(new CustomerService(db, time), item.Kind, item.Id, payload, null, ct, imported: true);
             payload["version"] = 1;
             db.OperationalRecords.Add(new OperationalRecord(item.Id, item.Kind, item.Name, payload.ToJsonString()));
         }
@@ -103,6 +106,13 @@ public abstract class StagedOperationsImportService(LongBeachDbContext db, IAudi
             else if (rentals && snapshot.GetValueOrDefault("rentalGroups", []).Any(row => string.Equals(OperationalValidation.Text(row, "name").Trim(), item.Name, StringComparison.OrdinalIgnoreCase)))
                 error = "Grupo já cadastrado. Confira o registro existente para evitar duplicidade.";
             else error = OperationalValidation.Validate(item.Kind, item.Id, item.Body, snapshot, today);
+            if (!applied && error is null && item.Kind == "enrollments")
+            {
+                var priorRows = records.Concat(compared.Where(row => row.Conflict is null)
+                    .Select(row => new OperationalRecord(row.Id, row.Kind, row.Name, row.Body.GetRawText()))).ToArray();
+                try { await CustomerSchoolIdentityGuard.CheckAsync(db, new CustomerService(db, time), item.Kind, item.Id, item.Body, priorRows, ct, lockIdentity: false); }
+                catch (LongBeach.Domain.Customers.CustomerRuleException conflict) { error = conflict.Message; }
+            }
             compared.Add(item with { Conflict = error });
             if (!applied && error is null) snapshot[item.Kind] = [.. snapshot.GetValueOrDefault(item.Kind, []), item.Body];
         }

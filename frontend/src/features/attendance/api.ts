@@ -20,6 +20,9 @@ export type TabPayment = {
 }
 export type TabCustomer = { id: string; name: string; emailHint: string }
 export type Tab = {
+  version?: number
+  customer?: { id: string; name: string; incomplete: boolean } | null
+  customerId?: string | null
   notes?: string | null
   responsible?: { id: string; name: string } | null
   id: string; number: number; name: string; mode: string; state: string; locationId: string; actorId: string

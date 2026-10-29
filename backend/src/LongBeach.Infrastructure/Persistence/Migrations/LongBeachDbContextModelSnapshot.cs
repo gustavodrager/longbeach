@@ -317,6 +317,9 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("DiscountAmount")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)");
@@ -346,6 +349,8 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
 
                     b.HasIndex("SessionId");
 
@@ -449,6 +454,9 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("Discount")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)");
@@ -488,6 +496,8 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
 
                     b.HasIndex("LocationId");
 
@@ -1486,6 +1496,211 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                         .HasFilter("\"State\" IN ('Open','Reopened')");
 
                     b.ToTable("cash_sessions", (string)null);
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Customers.Customer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<bool>("Incomplete")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("MergedIntoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MergedIntoId");
+
+                    b.HasIndex("Name");
+
+                    b.HasIndex("Phone");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("customers", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_customer_status", "\"Status\" IN ('Ativo','Inativo') AND \"Version\" > 0 AND (\"MergedIntoId\" IS NULL OR \"MergedIntoId\" <> \"Id\")");
+                        });
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Customers.CustomerMerge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TransferredUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Undone")
+                        .IsConcurrencyToken()
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceId");
+
+                    b.HasIndex("TargetId");
+
+                    b.HasIndex("TransferredUserId");
+
+                    b.ToTable("customer_merges", (string)null);
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Customers.CustomerOperation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("ResponseJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("customer_operations", (string)null);
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Customers.CustomerSourceChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AfterCustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BeforeCustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("LinkId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AfterCustomerId");
+
+                    b.HasIndex("BeforeCustomerId");
+
+                    b.HasIndex("LinkId");
+
+                    b.ToTable("customer_source_changes", (string)null);
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Customers.CustomerSourceLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<Guid>("ParentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("Kind", "SourceId", "ParentId")
+                        .IsUnique();
+
+                    b.ToTable("customer_source_links", (string)null);
                 });
 
             modelBuilder.Entity("LongBeach.Domain.Finance.ExpenseAttachment", b =>
@@ -2659,6 +2874,11 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("LongBeach.Domain.Bar.BarSale", b =>
                 {
+                    b.HasOne("LongBeach.Domain.Customers.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("LongBeach.Domain.Cash.CashSession", null)
                         .WithMany()
                         .HasForeignKey("SessionId")
@@ -2692,6 +2912,11 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("LongBeach.Domain.Bar.BarTab", b =>
                 {
+                    b.HasOne("LongBeach.Domain.Customers.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("LongBeach.Domain.Inventory.StockLocation", null)
                         .WithMany()
                         .HasForeignKey("LocationId")
@@ -2878,6 +3103,66 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                         .HasForeignKey("RegisterId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Customers.Customer", b =>
+                {
+                    b.HasOne("LongBeach.Domain.Customers.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("MergedIntoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("LongBeach.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Customers.CustomerMerge", b =>
+                {
+                    b.HasOne("LongBeach.Domain.Customers.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("SourceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LongBeach.Domain.Customers.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("TargetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LongBeach.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("TransferredUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Customers.CustomerSourceChange", b =>
+                {
+                    b.HasOne("LongBeach.Domain.Customers.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("AfterCustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("LongBeach.Domain.Customers.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("BeforeCustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("LongBeach.Domain.Customers.CustomerSourceLink", null)
+                        .WithMany()
+                        .HasForeignKey("LinkId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LongBeach.Domain.Customers.CustomerSourceLink", b =>
+                {
+                    b.HasOne("LongBeach.Domain.Customers.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("LongBeach.Domain.Finance.ExpenseAttachment", b =>

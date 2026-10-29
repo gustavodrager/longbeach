@@ -26,6 +26,7 @@ public static class ProfileAccess
             [],
             [SystemRoles.Operations] =
             [
+                SystemPermissions.CustomersRead, SystemPermissions.CustomersWrite,
                 SystemPermissions.BarCatalogRead, SystemPermissions.BarStockOutput, SystemPermissions.BarStockRead, SystemPermissions.BarCashOperate, SystemPermissions.BarSalesRead, SystemPermissions.BarSalesOperate,
                 SystemPermissions.StudentsRead, SystemPermissions.EmployeesRead,
                 SystemPermissions.InventoryRead, SystemPermissions.InventoryWrite,

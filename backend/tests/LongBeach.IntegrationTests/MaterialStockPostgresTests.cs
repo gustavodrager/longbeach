@@ -217,7 +217,7 @@ public sealed class MaterialStockPostgresTests
         var original = await isolated.Context.OperationalRecords.AsNoTracking().OrderBy(x => x.Id).Select(x => x.Payload).ToArrayAsync();
         Assert.Equal(27, (await isolated.Context.Database.GetAppliedMigrationsAsync()).Count());
         await isolated.Context.Database.MigrateAsync();
-        Assert.Equal(28, (await isolated.Context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Contains("20261027135728_MaterialStockLedger", await isolated.Context.Database.GetAppliedMigrationsAsync());
         Assert.Empty(await isolated.Context.Set<MaterialMovement>().ToListAsync());
         Assert.Equal(original, await isolated.Context.OperationalRecords.AsNoTracking().OrderBy(x => x.Id).Select(x => x.Payload).ToArrayAsync());
         Assert.False(isolated.Context.Database.HasPendingModelChanges());

@@ -205,6 +205,7 @@ var publicOperationalDemo = !app.Environment.IsProduction() && app.Configuration
 app.MapRentalGroupsEndpoints();
 app.MapOperationalEndpoints(publicOperationalDemo);
 app.MapMaterialEndpoints();
+app.MapCustomerEndpoints();
 
 if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
 {

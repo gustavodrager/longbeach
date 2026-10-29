@@ -7,6 +7,7 @@ using LongBeach.Domain.Bar;
 using LongBeach.Domain.Operations;
 using LongBeach.Infrastructure.Bar;
 using LongBeach.Infrastructure.Persistence;
+using LongBeach.Infrastructure.Customers;
 using Microsoft.EntityFrameworkCore;
 using static LongBeach.Application.Operations.RentalGroupRules;
 
@@ -19,7 +20,13 @@ public sealed class RentalGroupsService(LongBeachDbContext db, TimeProvider time
     private static JsonElement Parse(string json) => JsonSerializer.Deserialize<JsonElement>(json);
     private static Dictionary<string, JsonElement[]> Snapshot(IEnumerable<OperationalRecord> rows) => rows.GroupBy(r => r.Kind).ToDictionary(g => g.Key, g => g.Select(r => Parse(r.Payload)).ToArray());
     private static JsonElement Group(Guid id, IEnumerable<OperationalRecord> rows) => Parse(rows.SingleOrDefault(r => r.Kind == "rentalGroups" && r.Id == id)?.Payload ?? throw new RentalRuleException("Grupo mensalista não encontrado."));
-    public async Task<RentalMonthPreview> Preview(Guid groupId, string month, CancellationToken ct) { var rows = await db.OperationalRecords.AsNoTracking().ToListAsync(ct); return Build(Group(groupId, rows), month, rows); }
+    public async Task<RentalMonthPreview> Preview(Guid groupId, string month, CancellationToken ct)
+    {
+        var rows = await db.OperationalRecords.AsNoTracking().ToListAsync(ct);
+        var group = Group(groupId, rows);
+        group = Parse(await CustomerOperationalRecords.ProjectAsync(new CustomerService(db, time), "rentalGroups", groupId, group.GetRawText(), ct));
+        return Build(group, month, rows);
+    }
     private RentalMonthPreview Build(JsonElement group, string month, IReadOnlyList<OperationalRecord> records)
     {
         if (!Month(month, out var first)) throw new RentalRuleException("Informe a competência no formato ano-mês.");
@@ -64,6 +71,7 @@ public sealed class RentalGroupsService(LongBeachDbContext db, TimeProvider time
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
         await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(724031904)", ct);
         var rows = await db.OperationalRecords.ToListAsync(ct); var group = Group(groupId, rows);
+        group = Parse(await CustomerOperationalRecords.ProjectAsync(new CustomerService(db, time), "rentalGroups", groupId, group.GetRawText(), ct));
         var preview = Build(group, input.Month, rows);
         if (preview.ExistingMonthId is Guid previous)
         {
@@ -76,7 +84,13 @@ public sealed class RentalGroupsService(LongBeachDbContext db, TimeProvider time
         if (input.CreateCharge && preview.Amount is not > 0) throw new RentalRuleException("Defina um valor maior que zero para gerar a cobrança mensal.");
         if (input.CreateCharge && preview.DueDate == "") throw new RentalRuleException("Confirme o vencimento antes de gerar a cobrança mensal.");
         var monthId = StableId("month", groupId, input.Month);
-        foreach (var date in preview.Dates) { var row = Reservation(group, input.Month, date); db.Add(new OperationalRecord(Id(JsonSerializer.SerializeToElement(row)), "reservations", Text(group, "name"), row.ToJsonString())); }
+        foreach (var date in preview.Dates)
+        {
+            var row = Reservation(group, input.Month, date);
+            var reservationId = Id(JsonSerializer.SerializeToElement(row));
+            await CustomerOperationalRecords.PrepareWriteAsync(new CustomerService(db, time), "reservations", reservationId, row, null, ct);
+            db.Add(new OperationalRecord(reservationId, "reservations", Text(group, "name"), row.ToJsonString()));
+        }
         var monthRow = new JsonObject { ["id"] = monthId.ToString(), ["version"] = 1, ["name"] = $"{Text(group, "name")} · {input.Month}", ["rentalGroupId"] = groupId.ToString(), ["month"] = input.Month,
             ["dates"] = JsonSerializer.SerializeToNode(preview.Dates), ["amount"] = preview.Amount, ["dueDate"] = preview.DueDate, ["createCharge"] = input.CreateCharge,
             ["groupVersion"] = input.GroupVersion, ["fifthPolicy"] = Text(group, "fifthPolicy"), ["createdAtUtc"] = time.GetUtcNow().ToString("O"),
@@ -127,7 +141,8 @@ public sealed class RentalGroupsService(LongBeachDbContext db, TimeProvider time
         var meeting = rows.Where(r => r.Kind == "reservations" && r.Id == input.ReservationId).Select(r => Parse(r.Payload)).SingleOrDefault();
         if (meeting.ValueKind == JsonValueKind.Undefined || Id(meeting, "rentalGroupId") != groupId || Text(meeting, "status") == "Cancelada") throw new RentalRuleException("Escolha um encontro válido deste grupo.");
         if (input.MemberId is Guid member && !Members(group).Any(m => Id(m) == member)) throw new RentalRuleException("O integrante não pertence a este grupo.");
-        if (!await db.Set<BarTab>().AnyAsync(t => t.Id == tabId, ct)) throw new RentalRuleException("Comanda não encontrada.");
+        var tab = await db.Set<BarTab>().FromSqlInterpolated($"SELECT * FROM bar_tabs WHERE \"Id\" = {tabId} FOR UPDATE").SingleOrDefaultAsync(ct)
+            ?? throw new RentalRuleException("Comanda não encontrada.");
         var id = StableId("bar-link", tabId, "unique"); var old = rows.SingleOrDefault(r => r.Id == id);
         if (old is not null)
         {
@@ -136,6 +151,18 @@ public sealed class RentalGroupsService(LongBeachDbContext db, TimeProvider time
             if (Id(previous, "rentalGroupId") != Guid.Empty && Id(previous, "rentalGroupId") != groupId) throw new RentalRuleException("Esta comanda já está vinculada a outro grupo.", true);
             if (Id(previous, "reservationId") == input.ReservationId && Id(previous, "memberId") == (input.MemberId ?? Guid.Empty)) return;
             if (Id(previous, "rentalGroupId") != Guid.Empty && input.Version != OperationalValidation.Version(previous)) throw new RentalRuleException("O vínculo da comanda mudou. Atualize antes de corrigir.", true);
+        }
+        if (input.MemberId is Guid identifiedMember)
+        {
+            var registry = new CustomerService(db, time);
+            var person = await registry.GetSourceAsync("rentalMembers", identifiedMember, groupId, ct);
+            if (person is not null && await registry.GetSourceAsync("barTabs", tabId, null, ct) is null)
+            {
+                if (await db.Set<BarTabPayment>().AnyAsync(payment => payment.TabId == tabId && payment.State == "Pending", ct))
+                    throw new RentalRuleException("Aguarde o pagamento pendente antes de vincular a comanda a um integrante.", true);
+                await registry.EnsureSourceAsync(new("barTabs", tabId, null, "", "", CustomerId: person.Id), ct);
+                if (tab.State == "Open") tab.Touch();
+            }
         }
         var json = JsonSerializer.Serialize(new { id, version = old is null ? 1 : OperationalValidation.Version(Parse(old.Payload)) + 1, name = "Vínculo de comanda", tabId, rentalGroupId = groupId, input.ReservationId, input.MemberId }, Json);
         if (old is null) db.Add(new OperationalRecord(id, "rentalBarLinks", "Vínculo de comanda", json)); else old.Update(old.Name, json);

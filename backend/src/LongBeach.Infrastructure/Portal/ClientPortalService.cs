@@ -9,6 +9,8 @@ using LongBeach.Domain.Bar;
 using LongBeach.Domain.Billing;
 using LongBeach.Domain.Operations;
 using LongBeach.Infrastructure.Persistence;
+using LongBeach.Infrastructure.Customers;
+using LongBeach.Domain.Customers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
@@ -58,13 +60,24 @@ public sealed class ClientPortalService(LongBeachDbContext db, TimeProvider time
         var records=await db.OperationalRecords.AsNoTracking().ToListAsync(ct);var links=await Links(user,records,ct);
         var profile=records.FirstOrDefault(r=>r.Kind=="portalProfiles"&&Id(Data(r),"userId")==user);
         var p=profile is null?new JsonObject():Data(profile);
-        return new(Text(p,"name") is { Length: >0 } name?name:person.Name,person.Email.EndsWith(".invalid")?"":person.Email,Text(p,"phone"),p["reminders"]?.GetValue<bool>()??true,
+        var customer = await new CustomerService(db, time).GetSourceAsync("users", user, null, ct);
+        return new(customer?.Name ?? (Text(p,"name") is { Length: >0 } name?name:person.Name),person.Email.EndsWith(".invalid")?"":person.Email,customer?.Phone ?? Text(p,"phone"),p["reminders"]?.GetValue<bool>()??true,
             records.Where(r=>links.Contains((r.Kind,r.Id))).Select(r=>new PortalLink(r.Kind,r.Id,r.Name)).ToArray());
     }
     public async Task<PortalProfile> SaveProfile(Guid user,ProfileInput input,CancellationToken ct)
     {
-        var name=BarRules.Text(input.Name,160,"Nome");var phone=input.Phone.Trim();Require(phone==""||System.Text.RegularExpressions.Regex.IsMatch(phone,"^[0-9]{10,11}$"),"Informe o telefone com DDD.");
+        var name=Customer.Text(input.Name,240,"Nome");var phone=Customer.NormalizePhone(input.Phone);
         await using var tx=await db.Database.BeginTransactionAsync(ct);await Lock(ct);
+        var registry = new CustomerService(db, time);
+        var customer = await registry.GetSourceAsync("users", user, null, ct);
+        Require(phone == "" || Customer.ValidPhone(phone) || customer?.Incomplete == true && customer.Phone == phone, "Informe o telefone com DDD, de 10 a 15 dígitos.");
+        if (customer is not null && (customer.Name != name || customer.Phone != phone))
+            throw new CustomerRuleException("Atualize nome e telefone pelo cadastro de cliente para preservar os vínculos.", 409);
+        if (customer is null && phone.Length > 0)
+        {
+            var person = await db.Users.SingleAsync(x => x.Id == user && x.IsActive, ct);
+            await registry.EnsureSourceAsync(new("users", user, null, name, phone, person.Email), ct);
+        }
         var records=await db.OperationalRecords.Where(r=>r.Kind=="portalProfiles").ToListAsync(ct);
         var old=records.FirstOrDefault(r=>Id(Data(r),"userId")==user);
         Save(records,old?.Id??Guid.NewGuid(),"portalProfiles","Perfil do cliente",new {userId=user,name,phone,input.Reminders});
@@ -281,6 +294,23 @@ public sealed class ClientPortalService(LongBeachDbContext db, TimeProvider time
                 (Text(other,"date")==request.Date&&Text(other,"status")!="Cancelada"||other["weekDay"] is not null&&other["weekDay"]!.GetValue<int>()==(int)day.DayOfWeek&&Text(other,"status")=="Ativa"&&string.CompareOrdinal(Text(other,"startDate"),request.Date)<=0)),"O professor já tem uma atividade neste horário.");
         }
         var error=OperationalValidation.Validate("reservations",id,JsonSerializer.SerializeToElement(p),snapshot,Today);Require(error is null,error??"");
+        var registry = new CustomerService(db, time);
+        LongBeach.Application.Customers.CustomerContact? customer = null;
+        if (old is not null) customer = await registry.GetSourceAsync("reservations", id, null, ct);
+        else if (original?.Kind == "Aula")
+        {
+            // A guardian can reschedule a child's class. The login is not the student's identity.
+            var parts = original.Key.Split(':');
+            var enrollment = parts.Length > 1 && Guid.TryParse(parts[1], out var enrollmentId)
+                ? rows.SingleOrDefault(r => r.Kind == "enrollments" && r.Id == enrollmentId) : null;
+            if (enrollment is not null) customer = await registry.GetSourceAsync("students", Id(Data(enrollment), "studentId"), null, ct);
+        }
+        else customer = await registry.GetSourceAsync("users", request.UserId, null, ct);
+        if (customer is not null)
+        {
+            p["customerId"] = customer.Id.ToString();
+            await CustomerOperationalRecords.PrepareWriteAsync(registry, "reservations", id, p, old?.Payload, ct);
+        }
         Save(rows,id,"reservations",Text(p,"name"),p);
         if(original?.Kind=="Aula")Save(rows,Guid.NewGuid(),"portalExceptions","Aula remarcada",new {userId=request.UserId,key=original.Key,requestId=request.Id});
         return request with {ReservationId=id};

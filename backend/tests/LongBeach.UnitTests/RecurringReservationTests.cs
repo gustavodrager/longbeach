@@ -30,6 +30,21 @@ public sealed class RecurringReservationTests
         Assert.NotEqual(RecurringReservationBatch.Fingerprint(input), RecurringReservationBatch.Fingerprint(input with { Weeks = 3 }));
     }
     [Fact]
+    public void New_customer_identity_is_part_of_intent_but_legacy_replays_keep_their_fingerprint()
+    {
+        var input = Request(2);
+        var legacy = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            input.OperationId, input.GroupTitle, input.CourtId, input.StartDate, input.StartTime, input.EndTime, input.Weeks,
+            input.CustomerName, input.Phone, AmountCents = checked((long)(input.Amount * 100)), input.Notes
+        }, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        Assert.Equal(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(legacy)), RecurringReservationBatch.Fingerprint(input));
+        var identified = input with { CustomerId = Guid.NewGuid() };
+        Assert.NotEqual(RecurringReservationBatch.Fingerprint(input), RecurringReservationBatch.Fingerprint(identified));
+        Assert.All(RecurringReservationBatch.Expand(identified), row => Assert.Equal(identified.CustomerId.ToString(), row["customerId"]!.GetValue<string>()));
+        Assert.NotNull(RecurringReservationBatch.ValidateInput(input with { CustomerId = Guid.Empty }));
+    }
+    [Fact]
     public void Individual_edit_preserves_its_group_origin()
     {
         var saved = RecurringReservationBatch.Expand(Request(2))[0];

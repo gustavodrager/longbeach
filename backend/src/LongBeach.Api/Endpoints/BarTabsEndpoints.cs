@@ -17,6 +17,7 @@ public static class BarTabsEndpoints
         var tabs = endpoints.MapGroup("/api/v1/bar/tabs").WithTags("Bar · Comandas").RequireAuthorization();
         tabs.MapGet("", (string? state, string? search, string? orderState, int? page, int? pageSize, HttpContext h, IBarTabs s, CancellationToken ct) => s.List(state, search, page ?? 1, pageSize ?? 30, Costs(h), ct, Has(h,SystemPermissions.BarSupervise), orderState)).RequireAuthorization(SystemPermissions.BarSalesRead);
         tabs.MapPost("", (OpenTabInput i, HttpContext h, IBarTabs s, CancellationToken ct) => s.Open(i, Actor(h), ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
+        tabs.MapPut("/{id:guid}/customer", (Guid id, TabCustomerInput i, HttpContext h, IBarTabs s, CancellationToken ct) => s.IdentifyCustomer(id, i, Actor(h), ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
         tabs.MapGet("/customers", (string? search, IBarTabs s, CancellationToken ct) => s.Customers(search, ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
         tabs.MapGet("/locations", (IBarTabs s, CancellationToken ct) => s.Locations(ct)).RequireAuthorization(SystemPermissions.BarSalesRead);
         tabs.MapGet("/catalog", async (Guid? locationId, HttpContext h, IBarTabs s, IBarCash cash, CancellationToken ct) =>

@@ -1,7 +1,9 @@
 namespace LongBeach.Contracts.Bar;
 
 public sealed record PageResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int Total);
-public sealed record OpenTabInput(Guid OperationId, Guid LocationId, string? Name = null, string Mode = "Tab", Guid? ResponsibleUserId = null, string? Notes = null);
+public sealed record OpenTabInput(Guid OperationId, Guid LocationId, string? Name = null, string Mode = "Tab", Guid? ResponsibleUserId = null, string? Notes = null, Guid? CustomerId = null);
+public sealed record TabCustomerInput(Guid OperationId, Guid? CustomerId, int ExpectedVersion);
+public sealed record TabIdentity(Guid Id, string Name, bool Incomplete);
 public sealed record TabCustomer(Guid Id, string Name, string EmailHint);
 public sealed record TabResponsible(Guid Id, string Name);
 public sealed record TabItemInput(Guid ProductId, decimal Quantity, string? Notes = null);
@@ -29,7 +31,7 @@ public sealed record TabResponse(Guid Id, long Number, string Name, string Mode,
     Guid ActorId, decimal Total, decimal Paid, decimal Pending, decimal Due, decimal Payable,
     DateTimeOffset CreatedAtUtc, DateTimeOffset? ClosedAtUtc, IReadOnlyList<TabItemResponse> Items,
     IReadOnlyList<TabPaymentResponse> Payments, IReadOnlyList<TabHistoryResponse> History,
-    IReadOnlyList<string> AllowedActions, decimal Gross = 0, decimal Discount = 0, TabResponsible? Responsible = null, string? Notes = null);
+    IReadOnlyList<string> AllowedActions, decimal Gross = 0, decimal Discount = 0, TabResponsible? Responsible = null, string? Notes = null, TabIdentity? Customer = null, int Version = 0);
 public sealed record TabCatalogProduct(Guid Id, string Name, string ShortName, Guid CategoryId, string CategoryName,
     decimal SalePrice, bool Favorite, int DisplayOrder, string? ImageUrl, decimal? Available, bool Prepared, Guid? RecipeId = null, int? RecipeVersion = null);
 public sealed record TabReportRow(Guid Id, string Label, string Detail, DateTimeOffset Date,

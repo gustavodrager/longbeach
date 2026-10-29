@@ -1,6 +1,7 @@
 [Unit]
 Description=LongBeach PostgreSQL, API and HTTPS proxy
 Requires=docker.service
+PartOf=docker.service
 After=network-online.target docker.service
 Wants=network-online.target
 RequiresMountsFor=/var/lib/longbeach
@@ -13,10 +14,15 @@ RemainAfterExit=yes
 WorkingDirectory=/opt/longbeach/runtime
 UMask=0077
 # The host prepares ephemeral credentials from Secret Manager before this unit.
+# Host permissions/secrets/mounts precede all container starts.
+ExecStartPre=/usr/bin/python3 -B /opt/longbeach/runtime/preflight.py --host-only
+# Bring up only PostgreSQL so the next read-only gate can inspect the real schema.
+ExecStartPre=/usr/bin/env -i PATH=/usr/bin:/bin HOME=/root /usr/bin/docker --host unix:///var/run/docker.sock compose --env-file /etc/longbeach/runtime.env -f /opt/longbeach/runtime/compose.yaml up -d --wait --wait-timeout 180 --no-build --pull never --no-deps postgres
+# Never start API/Caddy unless the pinned image proves compatibility with that schema.
 ExecStartPre=/usr/bin/python3 -B /opt/longbeach/runtime/preflight.py
-ExecStart=/usr/bin/env -i PATH=/usr/bin:/bin HOME=/root /usr/bin/docker compose --env-file /etc/longbeach/runtime.env -f /opt/longbeach/runtime/compose.yaml up -d --wait --wait-timeout 240 --no-build --pull never
-ExecStop=/usr/bin/env -i PATH=/usr/bin:/bin HOME=/root /usr/bin/docker compose --env-file /etc/longbeach/runtime.env -f /opt/longbeach/runtime/compose.yaml stop -t 90
-TimeoutStartSec=300
+ExecStart=/usr/bin/env -i PATH=/usr/bin:/bin HOME=/root /usr/bin/docker --host unix:///var/run/docker.sock compose --env-file /etc/longbeach/runtime.env -f /opt/longbeach/runtime/compose.yaml up -d --wait --wait-timeout 240 --no-build --pull never
+ExecStop=/usr/bin/env -i PATH=/usr/bin:/bin HOME=/root /usr/bin/docker --host unix:///var/run/docker.sock compose --env-file /etc/longbeach/runtime.env -f /opt/longbeach/runtime/compose.yaml stop -t 90
+TimeoutStartSec=600
 TimeoutStopSec=120
 Restart=on-failure
 RestartSec=20

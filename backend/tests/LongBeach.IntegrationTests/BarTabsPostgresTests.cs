@@ -14,6 +14,54 @@ namespace LongBeach.IntegrationTests;
 public sealed class BarTabsPostgresTests
 {
     [PostgresFact]
+    public async Task Cadastral_customer_identifies_immediate_sale_without_assigning_payer_or_exposing_identity_to_qr()
+    {
+        await using var f = await Fixture.Create();
+        var customers = new LongBeach.Infrastructure.Customers.CustomerService(f.Db, TimeProvider.System);
+        var customer = await customers.Create(new(Guid.NewGuid(), "Cliente sintético sem login", "11987654321"), f.Actor, "staff", default);
+        var accountsBefore = await f.Db.Set<LongBeach.Domain.Billing.BillingAccount>().CountAsync();
+        var input = new OpenTabInput(Guid.NewGuid(), f.Location.Id, Mode: "Immediate", CustomerId: customer.Id);
+        var tab = await f.Tabs.Open(input, f.Actor, default);
+        Assert.Equal(customer.Id, tab.Customer!.Id);
+        Assert.Null(tab.Responsible);
+        Assert.Equal(accountsBefore, await f.Db.Set<LongBeach.Domain.Billing.BillingAccount>().CountAsync());
+        Assert.Equal(tab.Id, (await f.Tabs.Open(input, f.Actor, default)).Id);
+        Assert.Equal(customer.Id, (await f.Tabs.Get(tab.Id, false, default)).Customer!.Id);
+        var access = await f.Tabs.IssueAccess(tab.Id, new(Guid.NewGuid()), f.Actor, default);
+        Assert.Null((await f.Tabs.Client(access.Token, default)).Customer);
+        var visitor = await f.Tabs.Open(new(Guid.NewGuid(), f.Location.Id, Mode: "Immediate"), f.Actor, default);
+        Assert.Null(visitor.Customer);
+        Assert.Equal(0, visitor.Total);
+    }
+
+    [PostgresFact]
+    public async Task Customer_identification_is_versioned_replayable_and_cannot_change_during_pending_payment()
+    {
+        await using var f = await Fixture.Create();
+        var customers = new LongBeach.Infrastructure.Customers.CustomerService(f.Db, TimeProvider.System);
+        var customer = await customers.Create(new(Guid.NewGuid(), "Cliente do atendimento", "11987654321"), f.Actor, "staff", default);
+        var tab = await f.Tabs.Open(new(Guid.NewGuid(), f.Location.Id), f.Actor, default);
+        var input = new TabCustomerInput(Guid.NewGuid(), customer.Id, tab.Version);
+        var identified = await f.Tabs.IdentifyCustomer(tab.Id, input, f.Actor, default);
+        Assert.Equal(customer.Id, identified.Customer!.Id);
+        Assert.True(identified.Version > tab.Version);
+        Assert.Equal(identified.Version, (await f.Tabs.IdentifyCustomer(tab.Id, input, f.Actor, default)).Version);
+        Assert.Single(identified.History, row => row.Kind == "CustomerIdentified");
+        var stale = await Assert.ThrowsAsync<LongBeach.Domain.Customers.CustomerRuleException>(() =>
+            f.Tabs.IdentifyCustomer(tab.Id, new(Guid.NewGuid(), null, tab.Version), f.Actor, default));
+        Assert.Equal(409, stale.StatusCode);
+        var anonymous = await f.Tabs.IdentifyCustomer(tab.Id, new(Guid.NewGuid(), null, identified.Version), f.Actor, default);
+        Assert.Null(anonymous.Customer);
+        var pending = new BarTabPayment(tab.Id, Guid.NewGuid(), "synthetic-only", 1, "Pix", f.Actor, null, null, null);
+        f.Db.Add(pending); await f.Db.SaveChangesAsync();
+        var conflict = await Assert.ThrowsAsync<LongBeach.Domain.Customers.CustomerRuleException>(() =>
+            f.Tabs.IdentifyCustomer(tab.Id, new(Guid.NewGuid(), customer.Id, anonymous.Version), f.Actor, default));
+        Assert.Equal(409, conflict.StatusCode);
+        Assert.Null((await f.Tabs.Get(tab.Id, false, default)).Customer);
+        Assert.Empty(await f.Db.Set<LongBeach.Domain.Billing.BillingAccount>().Where(x => x.SourceId == tab.Id).ToListAsync());
+    }
+
+    [PostgresFact]
     public async Task Orders_searches_products_and_filters_item_state_before_paging()
     {
         await using var f = await Fixture.Create();
