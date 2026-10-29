@@ -6,23 +6,18 @@ using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
 var cs = LocalPreview.RequireDatabase(args);
-var administratorEmail = LocalPreview.RequireEmail("LONG_BEACH_LOCAL_ADMIN_EMAIL");
-var ownerEmail = LocalPreview.RequireEmail("LONG_BEACH_LOCAL_OWNER_EMAIL");
-if (administratorEmail == ownerEmail)
+var firstManagerEmail = LocalPreview.RequireEmail("LONG_BEACH_LOCAL_MANAGER_EMAIL");
+var secondManagerEmail = LocalPreview.RequireEmail("LONG_BEACH_LOCAL_SECOND_MANAGER_EMAIL");
+if (firstManagerEmail == secondManagerEmail)
 {
-    throw new InvalidOperationException("Administrador e proprietário precisam ser contas locais distintas.");
+    throw new InvalidOperationException("Informe duas contas locais distintas para o perfil Gestor.");
 }
 
 await using var db = new LongBeachDbContext(
     new DbContextOptionsBuilder<LongBeachDbContext>().UseNpgsql(cs).Options, TimeProvider.System);
-var targets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-{
-    [administratorEmail] = SystemRoles.Administrator,
-    [ownerEmail] = SystemRoles.Owner,
-};
 await using var tx = await db.Database.BeginTransactionAsync();
 await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(724031906)");
-var emails = targets.Keys.Select(User.NormalizeEmail).ToArray();
+var emails = new[] { firstManagerEmail, secondManagerEmail }.Select(User.NormalizeEmail).ToArray();
 var users = await db.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role).Include(x => x.RefreshTokens)
     .Where(x => emails.Contains(x.NormalizedEmail)).ToArrayAsync();
 if (users.Length != 2 || users.Any(x => !x.IsActive || x.GoogleSubject is null || x.RequiresFirstAccess))
@@ -30,34 +25,30 @@ if (users.Length != 2 || users.Any(x => !x.IsActive || x.GoogleSubject is null |
     throw new InvalidOperationException("As duas contas configuradas precisam existir, estar ativas e verificadas por Google na prévia local.");
 }
 
-var roles = await db.Roles.Where(x => x.Name == SystemRoles.Administrator || x.Name == SystemRoles.Owner)
-    .ToDictionaryAsync(x => x.Name);
-if (roles.Count != 2)
-{
-    throw new InvalidOperationException("Catálogo de papéis incompleto na prévia local.");
-}
+var managerRole = await db.Roles.SingleOrDefaultAsync(x => x.Name == SystemRoles.Manager)
+    ?? throw new InvalidOperationException("O perfil Gestor precisa existir no catálogo da prévia local.");
 
+var now = DateTimeOffset.UtcNow;
+var correlation = Guid.NewGuid().ToString("N");
+var changed = 0;
 foreach (var user in users)
 {
-    var target = targets[user.Email];
     var before = user.GetRoleNames().Order().ToArray();
-    if (before.Contains(target) && !before.Contains(SystemRoles.Student)) continue;
-    foreach (var student in user.UserRoles.Where(x => x.Role.Name == SystemRoles.Student).ToArray())
-    {
-        db.UserRoles.Remove(student);
-    }
+    if (user.UserRoles.Count == 1 && before.SequenceEqual([SystemRoles.Manager])) continue;
 
-    user.AssignRole(roles[target]);
-    user.RevokeAllRefreshTokens(DateTimeOffset.UtcNow, null, "Explicit local fixture invocation");
+    user.SetRole(managerRole);
+    user.RevokeAllRefreshTokens(now, null, "Explicit local fixture invocation");
     db.AuditLogs.Add(AuditLog.Create(null, "RoleChangeAuthorized", "User", user.Id.ToString(),
         JsonSerializer.Serialize(new
         {
-            PreviousRoles = before, GrantedRole = target, RemovedRole = SystemRoles.Student,
+            PreviousRoles = before, TargetRole = SystemRoles.Manager,
+            RemovedRoles = before.Where(role => role != SystemRoles.Manager).ToArray(),
             Scope = "local-preview-fixtures", Authorization = "Explicit local invocation with --apply-local-fixtures",
             RefreshSessionsRevoked = true,
-        }), null, "Local operator command", Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow));
+        }), null, "Local operator command", correlation, now));
+    changed++;
 }
 
 await db.SaveChangesAsync();
 await tx.CommitAsync();
-Console.WriteLine("Dois perfis Google configurados na prévia local; alterações auditadas e sessões anteriores revogadas.");
+Console.WriteLine($"Duas contas Google conferidas na prévia local; {changed} alterações para Gestor exclusivo auditadas, com revogação das sessões anteriores das contas alteradas.");
