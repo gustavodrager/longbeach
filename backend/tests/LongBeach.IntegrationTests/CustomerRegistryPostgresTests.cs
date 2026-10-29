@@ -265,7 +265,7 @@ public sealed class CustomerRegistryPostgresTests
         isolated.Context.AddRange(owner, operations, viewer); var id = Guid.NewGuid();
         isolated.Context.Add(new OperationalRecord(id, "students", "Legado", "{\"name\":\"Legado\",\"phone\":\"\",\"monthlyAmount\":123}")); await isolated.Context.SaveChangesAsync();
         var before = (await isolated.Context.OperationalRecords.AsNoTracking().SingleAsync()).Payload;
-        await isolated.Context.Database.MigrateAsync(); Assert.Equal(29, (await isolated.Context.Database.GetAppliedMigrationsAsync()).Count());
+        await isolated.Context.Database.MigrateAsync(); Assert.Equal(30, (await isolated.Context.Database.GetAppliedMigrationsAsync()).Count());
         Assert.Equal(before, (await isolated.Context.OperationalRecords.AsNoTracking().SingleAsync()).Payload); Assert.Empty(await isolated.Context.Set<Customer>().ToArrayAsync());
         Assert.Equal(3, await isolated.Context.RolePermissions.CountAsync(x => x.RoleId == owner.Id)); Assert.Equal(2, await isolated.Context.RolePermissions.CountAsync(x => x.RoleId == operations.Id));
         Assert.Equal(0, await isolated.Context.RolePermissions.CountAsync(x => x.RoleId == viewer.Id));

@@ -6,11 +6,11 @@ type TemplatePage = { id: string; title: string; items: TemplateItem[] }
 export const approvedMenuTemplate: TemplatePage[] = [
   { id: 'sem-alcool', title: 'Sem álcool', items: [
     { id: 'agua', name: 'Água', expectedPrice: 5, aliases: ['Água', 'Água 500 ml', 'Água sem gás 500 ml', 'Água com gás', 'Água com gás 500 ml'] },
-    { id: 'refrigerantes', name: 'Refrigerantes', expectedPrice: 8, aliases: ['Coca-Cola', 'Coca-Cola Zero', 'Coca-Cola 350 ml', 'Coca-Cola Zero 350 ml', 'Guaraná', 'Guaraná Zero', 'Guaraná Antártica', 'Guaraná Antártica Zero', 'Schweppes', 'Schweppes 350 ml', 'Sprite Fresh Limão 510 ml'] },
-    { id: 'sucos', name: 'Sucos', expectedPrice: 8, aliases: ['Del Valle', 'Del Valle Uva', 'Suco Uva lata 290 ml'] },
-    { id: 'guaraviton-isotonico', name: 'Guaraviton e Isotônico', expectedPrice: 8, aliases: ['Guaraviton', 'Guaraviton Açaí', 'Powerade', 'Powerade Uva', 'Powerade Limão', 'Powerade Azul'] },
-    { id: 'proteina', name: 'Proteína pronta', expectedPrice: 15, aliases: ['Proteína pronta', 'Pro Force', 'Pro Force 15 g de proteínas'] },
-    { id: 'energeticos', name: 'Energéticos', expectedPrice: 15, aliases: ['Monster', 'Monster Tradicional', 'Monster Zero', 'Red Bull', 'Red Bull Tradicional', 'Red Bull Zero'] },
+    { id: 'refrigerantes', name: 'Refrigerantes', expectedPrice: 8, aliases: ['Coca-Cola', 'Coca-Cola Zero', 'Coca-Cola 350 ml', 'Coca-Cola Zero 350 ml', 'Coca-Cola Zero lata 350 ml', 'Guaraná', 'Guaraná Zero', 'Guaraná Antártica', 'Guaraná Antártica Zero', 'Schweppes', 'Schweppes 350 ml', 'Sprite Fresh Limão 510 ml'] },
+    { id: 'sucos', name: 'Sucos', expectedPrice: 8, aliases: ['Del Valle', 'Del Valle Uva', 'Del Valle Limonada', 'Del Valle Limonada Pink', 'Del Valle Manga', 'Del Valle Pêssego', 'Suco Uva lata 290 ml'] },
+    { id: 'guaraviton-isotonico', name: 'Guaraviton e Isotônico', expectedPrice: 8, aliases: ['Guaraviton', 'Guaraviton Açaí', 'Powerade', 'Powerade Uva', 'Powerade Limão', 'Powerade Azul', 'Powerade Frutas Tropicais 500 ml', 'Powerade Mountain Blast Zero 500 ml', 'Powerade Tangerina 500 ml', 'Powerade Uva 500 ml'] },
+    { id: 'proteina', name: 'Proteína pronta', expectedPrice: 15, aliases: ['Proteína pronta', 'Pro Force', 'Pro Force 15 g de proteínas', 'Pro Force 15g Proteínas'] },
+    { id: 'energeticos', name: 'Energéticos', expectedPrice: 15, aliases: ['Monster', 'Monster Tradicional', 'Monster Zero', 'Monster Absolutly Zero', 'Monster Mango Loco', 'Monster Rio Punch', 'Monster Tradicional Zero', 'Monster Ultra Zero', 'Red Bull', 'Red Bull Tradicional', 'Red Bull Zero', 'Red Bull Melancia', 'Red Bull Tropical'] },
   ] },
   { id: 'petiscos', title: 'Porções e petiscos', items: [
     { id: 'batata-frita', name: 'Porção de batata frita', expectedPrice: 20, aliases: ['Porção de batata frita', 'Batata frita'] },

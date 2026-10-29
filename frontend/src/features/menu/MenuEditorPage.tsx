@@ -36,7 +36,7 @@ export function MenuEditorPage() {
     } catch (e) { setMessage(e instanceof Error ? e.message : 'Não foi possível salvar.') }
     finally { setBusy(false) }
   }
-  return <main className="page"><h1>Cardápio digital</h1>
+  return <main className="page menu-editor"><h1>Cardápio digital</h1>
     <p>Os preços vêm do cadastro oficial e também afetam as vendas. Alterações do catálogo entram na apresentação somente após nova publicação.</p>
     <p><Link to="/bar/produtos">Abrir cadastro e preços</Link> · <Link to="/cardapio/apresentacao" target="_blank">Abrir apresentação</Link></p>
     <p role="status">{message}</p>

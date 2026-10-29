@@ -1,8 +1,13 @@
+using LongBeach.Application.Abstractions;
 using LongBeach.Application.Bar;
 using LongBeach.Contracts.Bar;
 using LongBeach.Infrastructure.Bar;
 using LongBeach.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using System.Data.Common;
+using LongBeach.Infrastructure.Auditing;
+using LongBeach.Domain.Auditing;
 namespace LongBeach.IntegrationTests;
 public sealed class BarMenuPostgresTests
 {
@@ -66,5 +71,45 @@ public sealed class BarMenuPostgresTests
         }
         var results = await Task.WhenAll(Save(), Save());
         Assert.Single(results, x => x);
+    }
+
+    [PostgresFact]
+    public async Task Saves_and_publications_are_audited()
+    {
+        await using var isolated = await IsolatedBarDatabase.Create(new AuditSaveChangesInterceptor(new NullAuditContext(), TimeProvider.System));
+        var menu = new BarMenuService(isolated.Context, TimeProvider.System);
+        await menu.Save(new(0, new("Cardápio", [])), default);
+        Assert.True(await isolated.Context.Set<AuditLog>().AnyAsync(x => x.Resource == "BarMenu"));
+    }
+
+    [PostgresFact]
+    public async Task Price_change_while_publication_waits_returns_conflict_without_publishing_stale_price()
+    {
+        await using var isolated = await IsolatedBarDatabase.Create();
+        var product = await new BarCatalogService(isolated.Context).SaveProduct(null,
+            new("", "Água", "Água", null, "un", "un", 1, 5, 0, 0, false, false, 0), default);
+        var menu = new BarMenuService(isolated.Context, TimeProvider.System);
+        var saved = await menu.Save(new(0, new("Cardápio", [new("p", "Bebidas", 10, true, [new("i", "Água", "", true, [product.Product.Id])])])), default);
+        var options = new DbContextOptionsBuilder<LongBeachDbContext>().UseNpgsql(isolated.Context.Database.GetConnectionString());
+        await using var writer = new LongBeachDbContext(options.Options, TimeProvider.System);
+        await using var tx = await writer.Database.BeginTransactionAsync();
+        await writer.Database.ExecuteSqlInterpolatedAsync($"UPDATE bar_products SET \"SalePrice\" = 8 WHERE \"Id\" = {product.Product.Id}");
+        var barrier = new PublicationBarrier();
+        await using var publisher = new LongBeachDbContext(options.AddInterceptors(barrier).Options, TimeProvider.System);
+        var publishing = new BarMenuService(publisher, TimeProvider.System).Publish(new(saved.Version), default);
+        await barrier.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await tx.CommitAsync();
+        await Assert.ThrowsAsync<MenuConcurrencyException>(() => publishing);
+        Assert.Null(await menu.Published(default));
+    }
+    private sealed class PublicationBarrier : DbCommandInterceptor
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command, CommandEventData data,
+            InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("FOR SHARE")) Started.TrySetResult();
+            return ValueTask.FromResult(result);
+        }
     }
 }

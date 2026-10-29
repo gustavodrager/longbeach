@@ -20,7 +20,7 @@ public static class BarMenuEndpoints
     private static async Task<IResult> Handle(Func<Task<MenuManagement>> action)
     {
         try { return Results.Ok(await action()); }
-        catch (MenuValidationException ex) { return Results.ValidationProblem(ex.Errors.ToDictionary(x => x.Key, x => x.Value)); }
+        catch (MenuValidationException ex) { return Results.ValidationProblem(ex.Errors.ToDictionary(x => x.Key, x => x.Value), detail: ex.Message); }
         catch (MenuConcurrencyException ex) { return Results.Conflict(new { message = ex.Message }); }
     }
 }

@@ -102,7 +102,7 @@ export function App() {
 }
 function ApplicationRoutes() {
   return <OptionalUnsavedProvider><Routes>
-    <Route path="/cardapio/apresentacao" element={<Suspense fallback={<main className="session-loading" role="status">Abrindo cardápio…</main>}><MenuPresentationPage /></Suspense>} />
+    <Route path="/cardapio/apresentacao" element={<Suspense fallback={<main className="session-loading" role="status">Abrindo cardápio…</main>}><PwaUpdatePrompt /><MenuPresentationPage /></Suspense>} />
     <Route path="/prototipo/*" element={<Suspense fallback={<main className="session-loading" role="status">Abrindo protótipo…</main>}><PrototypeApp /></Suspense>} />
     <Route path="/cliente" element={<Suspense fallback={<main className="session-loading" role="status">Abrindo sua comanda…</main>}><ClientPage /></Suspense>} />
     <Route path="*" element={<OperationalRoutes />} />

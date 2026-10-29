@@ -32,7 +32,7 @@ export function resolveMenuItem(item: MenuItem, catalog: ReadonlyMap<string, Men
   const products = item.productIds.map(id => catalog.get(id))
   if (products.some(product => !product)) return { issue: 'Um produto vinculado não foi encontrado. Revise os vínculos.' }
   if (products.some(product => !product!.active)) return { issue: 'Há produto inativo no grupo. Revise os vínculos ou o cadastro.' }
-  if (products.some(product => !Number.isFinite(product!.salePrice) || product!.salePrice <= 0)) return { issue: 'Há produto sem preço de venda válido. Corrija o cadastro.' }
+  if (products.some(product => !Number.isFinite(product!.salePrice) || product!.salePrice <= 0 || product!.salePrice > 99_999_999)) return { issue: 'Há produto sem preço de venda válido. Corrija o cadastro.' }
   const price = products[0]!.salePrice
   if (products.some(product => product!.salePrice !== price)) return { issue: 'Os produtos do grupo têm preços diferentes. Separe as opções ou corrija o cadastro.' }
   return { price }

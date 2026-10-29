@@ -1,0 +1,11 @@
+{
+  "migration": "20261029210216_DigitalMenu",
+  "previous_migration_count": 29,
+  "next_migration_count": 30,
+  "previous_schema_sha256": "c9f2d161a72410894b9b9f4af1ad243e305f61e1548f94393deac32aeeb6cf11",
+  "next_schema_sha256": "31fcd56f6b4f82fab935f265e6e4d5ef6ddd12a07e113db9247702be9932003d",
+  "delta_sql_sha256": "f5fb856cd464a10f4c9ecf91d66277190c476e071352dfebb9103b573281ed9b",
+  "job_sql_sha256": "8e857664c1e16ede6d27083a4a8aec210ec0208956159a20f788e0959fd9a5c5",
+  "additive_only": true,
+  "execution_status": "not_executed_in_production"
+}

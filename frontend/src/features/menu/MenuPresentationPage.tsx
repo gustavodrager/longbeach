@@ -33,7 +33,8 @@ export function MenuPresentationPage() {
   useEffect(() => {
     const resize = () => {
       // Budget for the header/footer and wrapped descriptions, retaining a minimum type size.
-      setCapacity(Math.max(2, Math.min(9, Math.floor((window.innerHeight - 250) / (window.innerWidth < 600 ? 80 : 75)))))
+      const landscape = window.innerWidth >= 800 && window.innerWidth > window.innerHeight
+      setCapacity(Math.max(2, Math.min(9, Math.floor((window.innerHeight - (landscape ? 250 : 350)) / (landscape ? 80 : 110)))))
       setIndex(0)
     }
     resize(); window.addEventListener('resize', resize)

@@ -67,7 +67,7 @@ public sealed class BarMenuService(LongBeachDbContext db, TimeProvider clock) : 
                     foreach (var item in page.Items.Where(i => i.Visible))
                     {
                         var linked = item.ProductIds.Select(id => products.GetValueOrDefault(id)).ToArray();
-                        if (linked.Length == 0 || linked.Any(p => p is null || !p.Active || p.SalePrice <= 0) || linked.Select(p => p!.SalePrice).Distinct().Count() != 1)
+                        if (linked.Length == 0 || linked.Any(p => p is null || !p.Active || p.SalePrice <= 0 || p.SalePrice > 99_999_999m) || linked.Select(p => p!.SalePrice).Distinct().Count() != 1)
                         { errors[$"{page.Id}/{item.Id}"] = [$"{page.Title} / {item.Name}: confira vínculos, produtos ativos e preços positivos iguais."]; continue; }
                         items.Add(new(item.Id, item.Name, item.Description, linked[0]!.SalePrice));
                     }
@@ -75,7 +75,10 @@ public sealed class BarMenuService(LongBeachDbContext db, TimeProvider clock) : 
                 }
                 if (pages.Count == 0) errors["pages"] = ["Inclua uma página visível com itens válidos."];
                 if (errors.Count > 0) throw new MenuValidationException(errors);
-                menu!.Publish(JsonSerializer.Serialize(new PublishedMenu(menu.Version + 1, clock.GetUtcNow(), document.Title, pages), Json));
+                var snapshot = JsonSerializer.Serialize(new PublishedMenu(menu!.Version + 1, clock.GetUtcNow(), document.Title, pages), Json);
+                if (System.Text.Encoding.UTF8.GetByteCount(snapshot) > 900_000)
+                    throw new MenuValidationException(new Dictionary<string,string[]> { ["pages"] = ["O cardápio excede o limite de cache offline. Reduza páginas ou descrições."] });
+                menu.Publish(snapshot);
             }
             else if (menu is null) { menu = new(JsonSerializer.Serialize(document, Json)); db.Add(menu); }
             else menu.SaveDraft(JsonSerializer.Serialize(document, Json));
