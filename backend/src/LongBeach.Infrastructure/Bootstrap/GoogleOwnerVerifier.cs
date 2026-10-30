@@ -41,14 +41,14 @@ public sealed class GoogleOwnerVerifier(LongBeachDbContext dbContext, IConfigura
         await using var transaction = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         await dbContext.Database.ExecuteSqlRawAsync("SET TRANSACTION READ ONLY", cancellationToken);
         var ownerRoleId = await dbContext.Roles.AsNoTracking()
-            .Where(role => role.Name == SystemRoles.Owner)
+            .Where(role => role.Name == SystemRoles.Manager)
             .Select(role => (Guid?)role.Id)
             .SingleOrDefaultAsync(cancellationToken)
-            ?? throw new InvalidOperationException("Google Owner verification requires the Owner role to exist.");
+            ?? throw new InvalidOperationException("Google Manager verification requires the Manager profile to exist.");
         var normalizedTargets = targets.Select(User.NormalizeEmail).ToArray();
         var users = await dbContext.Users.AsNoTracking()
             .Where(user => normalizedTargets.Contains(user.NormalizedEmail))
-            .Select(user => new { user.Id, user.IsActive, IsOwner = user.UserRoles.Any(role => role.RoleId == ownerRoleId) })
+            .Select(user => new { user.Id, user.IsActive, IsOwner = user.UserRoles.Count == 1 && user.UserRoles.Any(role => role.RoleId == ownerRoleId) })
             .ToArrayAsync(cancellationToken);
         var targetRoleResourceIds = users.Select(user => $"{user.Id}:{ownerRoleId}").ToArray();
         var ownerRoleSuffix = $":{ownerRoleId}";

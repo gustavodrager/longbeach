@@ -1,4 +1,5 @@
 using LongBeach.Application.Auth;
+using LongBeach.Application.Abstractions;
 using LongBeach.Contracts.Auth;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -32,6 +33,7 @@ public sealed class LongBeachWebApplicationFactory : WebApplicationFactory<Progr
         builder.ConfigureServices(services =>
         {
             services.AddSingleton<IAuthService, StubAuthService>();
+            services.AddScoped<IUserRepository>(_ => new TestSessionUserRepository());
         });
     }
 
@@ -87,7 +89,7 @@ public sealed class LongBeachWebApplicationFactory : WebApplicationFactory<Progr
                         Guid.Parse("11111111-1111-1111-1111-111111111111"),
                         "Arena Owner",
                         email,
-                        ["Owner"],
+                        ["Manager"],
                         ["users:manage"])),
                 "refresh-token",
                 ExpiresAt.AddDays(30),

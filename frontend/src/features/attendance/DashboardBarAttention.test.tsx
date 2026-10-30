@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { DashboardBarAttention } from './DashboardBarAttention'
 
-const auth = vi.hoisted(() => ({ roles: ['Owner'], permissions: [] as string[] }))
+const auth = vi.hoisted(() => ({ roles: ['Manager'], permissions: [] as string[] }))
 vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'attention-test', ...auth } }) }))
 const report = { value: 45, available: true, updatedAtUtc: '2026-10-15T12:00:00Z', rows: { total: 2 } }
 function mount() {
@@ -11,7 +11,7 @@ function mount() {
   const view = render(<QueryClientProvider client={client}><MemoryRouter><DashboardBarAttention /></MemoryRouter></QueryClientProvider>)
   return { ...view, client }
 }
-afterEach(() => { auth.roles = ['Owner']; auth.permissions = []; vi.restoreAllMocks() })
+afterEach(() => { auth.roles = ['Manager']; auth.permissions = []; vi.restoreAllMocks() })
 
 it('alerta para Pix sem confirmação e retira o alerta quando não há mais pendências', async () => {
   const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(report)))

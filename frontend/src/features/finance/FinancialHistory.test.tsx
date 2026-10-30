@@ -2,11 +2,11 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { BankStatementOverview, FinancialHistoryOverview, FinancialHistoryPage } from './FinancialHistory'
-const auth = vi.hoisted(() => ({ roles: ['Owner'] }))
+const auth = vi.hoisted(() => ({ roles: ['Manager'] }))
 vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'owner-test', roles: auth.roles } }) }))
 const report = { month: '2026-08', months: ['2026-09', '2026-08'], total: 1, page: 1, totals: [{ series: 'consolidado', metric: 'vendas-bar-bruto', state: 'Informado na planilha', period: '2026-08', grain: 'month', records: 1, amountCents: 155555 }], items: [{ id: 'row', sourceName: 'teste.xlsx', sourceSha256: 'a'.repeat(64), data: { series: 'consolidado', metric: 'vendas-bar-bruto', label: 'Vendas Bar Bruto', state: 'Informado na planilha', sourceCell: 'Teste!I27', periodStart: '2026-08-01', periodEnd: '2026-08-31', grain: 'month', amountCents: 155555, notes: '' } }] }
 function wrap(child: React.ReactNode) { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter>{child}</MemoryRouter></QueryClientProvider>) }
-afterEach(() => { vi.restoreAllMocks(); auth.roles = ['Owner'] })
+afterEach(() => { vi.restoreAllMocks(); auth.roles = ['Manager'] })
 it('separa movimentação bancária de despesas pagas por outro meio no mesmo mês', async () => {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async input => new Response(JSON.stringify({ ...report, totals: String(input).includes('series=pagbank-conta')
     ? [{ ...report.totals[0], series: 'pagbank-conta', metric: 'entradas-extrato', amountCents: 50000 }, { ...report.totals[0], series: 'pagbank-conta', metric: 'saidas-extrato', amountCents: -10000 }]

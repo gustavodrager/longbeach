@@ -14,7 +14,7 @@ import { reportPeriod, reportPeriodError } from './reportPeriod'
 import { BarArenaMetrics } from './BarArenaMetrics'
 import type { CatalogItem, Named, Tab, TabPayment } from './api'
 
-const actor:AuthUser={id:'operator-a',name:'Atendente',email:'atendente@example.com',roles:['BarOperator'],permissions:['bar:sales:read','bar:sales:operate','bar:cash:operate']}
+const actor:AuthUser={id:'operator-a',name:'Atendente',email:'atendente@example.com',roles:['Operations'],permissions:['bar:sales:read','bar:sales:operate','bar:cash:operate']}
 const createdAtUtc='2026-10-04T15:00:00Z'
 const makeTab=():Tab=>({id:'tab-a',version:1,customer:null,number:104,name:'Visitante',mode:'Tab',state:'Open',locationId:'bar-a',actorId:actor.id,total:12.5,paid:0,pending:0,due:12.5,payable:12.5,createdAtUtc,items:[],payments:[],history:[],allowedActions:[]})
 const products:CatalogItem[]=[{id:'water',name:'Água mineral',shortName:'Água',categoryId:'drinks',categoryName:'Bebidas',salePrice:5,favorite:true,displayOrder:1,available:2,prepared:false},{id:'juice',name:'Suco',shortName:'Suco',categoryId:'drinks',categoryName:'Bebidas',salePrice:8,favorite:true,displayOrder:2,available:0,prepared:true}]
@@ -466,15 +466,15 @@ it('aceita exatamente 366 dias e mantém o fim exclusivo na consulta',()=>{
 
 it('fonte indisponível nunca aparece como zero nas métricas globais do bar',async()=>{
   vi.spyOn(globalThis,'fetch').mockImplementation(async input=>json({metric:String(input),value:0,unit:'money',current:false,available:false,updatedAtUtc:createdAtUtc,rows:{items:[],page:1,pageSize:1,total:0}}))
-  mount('/',{...actor,roles:['BarFinance'],permissions:['bar:finance:read']})
+  mount('/',{...actor,roles:['Manager'],permissions:['bar:finance:read']})
   await waitFor(()=>expect(screen.getAllByText('Ainda não disponível')).toHaveLength(4))
   expect(screen.queryByText(/R\$\s*0,00/)).not.toBeInTheDocument()
   expect(screen.getByRole('link',{name:/Consumo confirmado/})).toHaveAttribute('href','/bar/indicadores/consumption?de=2026-10-01&ate=2026-10-04')
 })
 
-it('consulta financeira não oferece abrir comanda e preserva busca e página ao voltar',async()=>{
+it('atendente sem permissão de operar não oferece abrir comanda e preserva busca e página ao voltar',async()=>{
   const fetchMock=server({tab:makeTab(),pixEnabled:false});const filters='/atendimento/comandas?busca=104&pagina=2'
-  mount(filters,{...actor,roles:['BarFinance'],permissions:['bar:sales:read','bar:finance:read']})
+  mount(filters,{...actor,roles:['Operations'],permissions:['bar:sales:read','bar:finance:read']})
   const card=await screen.findByRole('link',{name:/104.*Abrir comanda/})
   expect(screen.queryByRole('button',{name:'Abrir comanda'})).not.toBeInTheDocument()
   fireEvent.click(card)

@@ -5,11 +5,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AppShell } from './AppShell'
 import { AuthContext, type AuthContextValue } from '../features/auth/authContext'
 import type { AuthUser } from '../features/auth/types'
-const operations=vi.hoisted(()=>({reload:vi.fn(async()=>{}),persistenceStatus:'connected',persistenceMessage:'',refreshFailed:false}))
-vi.mock('../features/operations/DemoDataProvider',()=>({useOperations:()=>({...operations,canRead:()=>false})}))
+const operations=vi.hoisted(()=>({reload:vi.fn(async()=>{}),persistenceStatus:'connected',persistenceMessage:'',refreshFailed:false,readable:[] as string[]}))
+vi.mock('../features/operations/DemoDataProvider',()=>({useOperations:()=>({...operations,canRead:(kind:string)=>operations.readable.includes(kind)})}))
 vi.mock('../features/attendance/api',()=>({useBarData:()=>({data:{total:2}})}))
-beforeEach(()=>{operations.reload.mockClear();operations.persistenceStatus='connected';operations.persistenceMessage='';operations.refreshFailed=false})
-const owner:AuthUser={id:'test',name:'Teste',email:'test@example.invalid',roles:['Owner'],permissions:[]}
+beforeEach(()=>{operations.reload.mockClear();operations.persistenceStatus='connected';operations.persistenceMessage='';operations.refreshFailed=false;operations.readable=[]})
+const owner:AuthUser={id:'test',name:'Teste',email:'test@example.invalid',roles:['Manager'],permissions:[]}
 function mount(user=owner,path='/bar/produtos'){
  const router=createMemoryRouter([{element:<AppShell/>,children:[{path:'*',element:<h1>Conteúdo</h1>}]}],{initialEntries:[path]})
  render(<QueryClientProvider client={new QueryClient()}><AuthContext.Provider value={{user,signOut:async()=>{}} as AuthContextValue}><RouterProvider router={router}/></AuthContext.Provider></QueryClientProvider>);return router
@@ -26,14 +26,14 @@ it('usa o mesmo menu em gestão e atendimento, com cinco acessos móveis e secun
  expect(router.state.location.pathname).toBe('/bar/compras');expect(screen.queryByRole('dialog')).not.toBeInTheDocument();router.dispose()
 })
 it('não oferece cadastros ou gestão de caixa ao atendente',()=>{
- const router=mount({...owner,roles:['BarOperator'],permissions:['bar:catalog:read','bar:sales:operate','bar:sales:read','bar:cash:operate']},'/atendimento/vender')
+ const router=mount({...owner,roles:['Operations'],permissions:['bar:catalog:read','bar:sales:operate','bar:sales:read','bar:cash:operate']},'/atendimento/vender')
  const nav=within(screen.getByRole('navigation',{name:'Atendimento'}))
  expect(nav.queryByRole('link',{name:'Produtos e estoque'})).not.toBeInTheDocument()
  expect(nav.getByRole('link',{name:'Caixa'})).toHaveAttribute('href','/bar/caixa')
  expect(screen.queryByRole('button',{name:'Mais'})).not.toBeInTheDocument();router.dispose()
 })
 it('mantém acesso ao estoque sem liberar vendas ou cadastro de produtos',async()=>{
- const router=mount({...owner,roles:['StockManager'],permissions:['bar:stock:read']})
+ const router=mount({...owner,roles:['Operations'],permissions:['bar:stock:read']})
  const nav=within(screen.getByRole('navigation',{name:'Atendimento'}))
  expect(nav.getAllByRole('link')).toHaveLength(1)
  expect(nav.getByRole('link',{name:'Produtos e estoque'})).toBeInTheDocument()
@@ -57,5 +57,15 @@ it('preserva a tentativa local de recuperação quando os registros falham',asyn
  await userEvent.click(screen.getByRole('button',{name:'Tentar novamente'}))
  expect(operations.reload).toHaveBeenCalledTimes(1)
  expect(screen.queryByRole('button',{name:'Atualizar dados'})).not.toBeInTheDocument()
+ router.dispose()
+})
+
+it('atendente vê cadastros e escola, sem oferecer financeiro ou compras', () => {
+ operations.readable=['students','team','inventory','projects','courts','reservations','classes','enrollments','presences','rentalGroups','rentalMonths','rentalAttendances','maintenance']
+ const router=mount({...owner,roles:['Operations'],permissions:['customers:read','customers:write','students:read','students:write','employees:read','inventory:read','inventory:write','projects:read','projects:write','bar:sales:operate','bar:sales:read','bar:cash:operate','bar:stock:read','finance:read','bar:purchases:manage']},'/')
+ const nav=within(screen.getByRole('navigation',{name:'Área de trabalho'}))
+ for(const name of ['Clientes','Agenda','Mensalistas','Aulas','Administração'])expect(nav.getByRole('link',{name})).toBeInTheDocument()
+ expect(nav.queryByRole('link',{name:'Financeiro'})).not.toBeInTheDocument()
+ expect(screen.getByText('Atendente',{exact:true})).toBeInTheDocument()
  router.dispose()
 })

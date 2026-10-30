@@ -50,13 +50,13 @@ public sealed class CourtScheduleRecordsPostgresTests
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(path + "?from=2026-10-09&to=2026-10-16")).StatusCode);
         client.DefaultRequestHeaders.Authorization = Header("Student");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path + "?from=2026-10-09&to=2026-10-16")).StatusCode);
-        client.DefaultRequestHeaders.Authorization = Header("Owner");
+        client.DefaultRequestHeaders.Authorization = Header("Manager");
         foreach (var query in new[] { "", "?from=2026-02-30&to=2026-03-01", "?from=2026-10-10&to=2026-10-09", "?from=2026-01-01&to=2027-01-02" })
             Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync(path + query)).StatusCode);
     }
 
     [PostgresFact]
-    public async Task Period_endpoint_matches_daily_classes_without_disclosing_school_identity_to_reception()
+    public async Task Period_endpoint_matches_daily_classes_for_operations()
     {
         await using var factory = Factory(); using var client = factory.CreateClient();
         await Migrate(factory);
@@ -84,9 +84,9 @@ public sealed class CourtScheduleRecordsPostgresTests
                 Assert.Equal(expected == 0 ? 1 : 2, row.GetProperty("freeIntervals").GetArrayLength());
                 Assert.Equal(1080 - expected * 60, row.GetProperty("availableMinutes").GetInt32());
             }
-            Assert.DoesNotContain(classId.ToString(), period.GetRawText());
+            Assert.Contains(classId.ToString(), period.GetRawText());
             Assert.DoesNotContain("Nome privado da aula", period.GetRawText());
-            client.DefaultRequestHeaders.Authorization = Header("Owner");
+            client.DefaultRequestHeaders.Authorization = Header("Manager");
             var owner = await client.GetStringAsync("/api/v1/operations/courts/schedule-range?from=2026-10-09&to=2026-10-09");
             Assert.Contains(classId.ToString(), owner);
         }

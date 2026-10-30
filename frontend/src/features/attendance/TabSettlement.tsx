@@ -1,3 +1,4 @@
+import { hasPermission } from '../auth/access'
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/authContext'
@@ -17,7 +18,7 @@ function Settlement({ tab, unavailable, showDetailsLink }: { tab: Tab; unavailab
   const intent = useIntent(`settlement:${tab.id}:${previousClose}`)
   const [confirming, setConfirming] = useState(false)
   const closeButton = useRef<HTMLButtonElement>(null)
-  const canOperate = Boolean(user?.permissions.includes('bar:sales:operate'))
+  const canOperate = Boolean(hasPermission(user, 'bar:sales:operate'))
   const requested = tab.items.filter(item => item.state === 'Requested').length
   const accepted = tab.items.filter(item => item.state === 'Accepted').length
   const refundPending = tab.payments.some(payment => payment.refundPending > 0)

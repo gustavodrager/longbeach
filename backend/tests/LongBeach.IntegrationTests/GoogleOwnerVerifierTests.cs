@@ -73,7 +73,7 @@ public sealed class GoogleOwnerVerifierTests
         await using var provider = await Provider();
         await using var scope = provider.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
-        var ownerRole = await db.Roles.SingleAsync(role => role.Name == SystemRoles.Owner);
+        var ownerRole = await db.Roles.SingleAsync(role => role.Name == SystemRoles.Manager);
         var otherRole = new Role($"VerificationStaff-{Guid.NewGuid():N}");
         var target = User.Create("Target fixture", Email(), "fixture-password-hash");
         var outsider = User.Create("Other fixture", Email(), "fixture-password-hash");
@@ -118,7 +118,7 @@ public sealed class GoogleOwnerVerifierTests
         await using var provider = await Provider();
         await using var scope = provider.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
-        var ownerRole = await db.Roles.SingleAsync(role => role.Name == SystemRoles.Owner);
+        var ownerRole = await db.Roles.SingleAsync(role => role.Name == SystemRoles.Manager);
         var target = User.Create("Target fixture", Email(), "fixture-password-hash");
         target.AssignRole(ownerRole);
         db.Users.Add(target);
@@ -146,7 +146,7 @@ public sealed class GoogleOwnerVerifierTests
         await using var provider = await Provider();
         await using var scope = provider.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
-        var ownerRole = await db.Roles.SingleAsync(role => role.Name == SystemRoles.Owner);
+        var ownerRole = await db.Roles.SingleAsync(role => role.Name == SystemRoles.Manager);
         var missing = Email();
         var inactive = User.Create("Inactive fixture", Email(), "inactive-fixture-hash");
         inactive.AssignRole(ownerRole);
@@ -213,9 +213,9 @@ public sealed class GoogleOwnerVerifierTests
         await using var scope = provider.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
         await db.Database.MigrateAsync();
-        if (!await db.Roles.AnyAsync(role => role.Name == SystemRoles.Owner))
+        if (!await db.Roles.AnyAsync(role => role.Name == SystemRoles.Manager))
         {
-            db.Roles.Add(new Role(SystemRoles.Owner));
+            db.Roles.Add(new Role(SystemRoles.Manager));
             await db.SaveChangesAsync();
         }
         return provider;

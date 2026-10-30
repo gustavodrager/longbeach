@@ -3,14 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { ImportPage } from './ImportPage'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-const auth = vi.hoisted(() => ({ roles: ['Owner'] }))
+const auth = vi.hoisted(() => ({ roles: ['Manager'] }))
 vi.mock('../features/auth/authContext', () => ({ useAuth: () => ({ user: { roles: auth.roles } }) }))
 const batch = { id: 'batch', sourceName: 'produtos-teste.xlsx', sourceSha256: 'a'.repeat(64), status: 'NeedsReview', rowCount: 2 }
 const preview = { batchId: 'batch', sourceName: batch.sourceName, applied: false, confirmationToken: 'review-token', canApply: true, creates: 1, matches: 1,
   items: [{ code: 'PV-1', name: 'Água teste', category: 'Bebidas teste', salePrice: 5, action: 'Matched', conflict: null },
     { code: 'PV-2', name: 'Suco teste', category: 'Bebidas teste', salePrice: 8, action: 'Create', conflict: null }] }
 function response(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }) }
-afterEach(() => { vi.restoreAllMocks(); auth.roles = ['Owner'] })
+afterEach(() => { vi.restoreAllMocks(); auth.roles = ['Manager'] })
 const renderImport = () => render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><ImportPage /></QueryClientProvider>)
 
 it.each([false,true])('consulta histórico aplicado=%s sem oferecer aplicação ou gravar catálogo', async applied => {

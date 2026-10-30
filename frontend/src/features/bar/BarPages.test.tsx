@@ -32,7 +32,7 @@ function stockApi(locations = stockLocations) {
 }
 it('usa o saldo do Bar mesmo com filtro antigo na URL e preserva saldos anteriores separados', async () => {
   stockApi()
-  render(wrapper(<BarStockPage balancesOnly/>, { ...user, roles: ['Owner'] }, '/bar/estoque?location=warehouse'))
+  render(wrapper(<BarStockPage balancesOnly/>, { ...user, roles: ['Manager'] }, '/bar/estoque?location=warehouse'))
   const table = await screen.findByRole('table', { name: 'Saldos do estoque' })
   expect(within(table).getByText('4 un')).toBeInTheDocument()
   expect(within(table).queryByRole('columnheader',{name:'Físico'})).not.toBeInTheDocument()
@@ -51,7 +51,7 @@ it.each([
   { component: <BarCashPage/>, action: 'Abrir caixa', submit: 'Abrir caixa', endpoint: '/cash/sessions' },
 ])('envia automaticamente o Bar em $action, mesmo quando Almoxarifado vem primeiro', async ({ component, action, submit, endpoint }) => {
   const api = stockApi(); const u = userEvent.setup()
-  render(wrapper(component,{...user,roles:['Owner']}))
+  render(wrapper(component,{...user,roles:['Manager']}))
   await u.click(await screen.findByRole('button', { name: action }))
   const dialog = screen.getByRole('dialog')
   expect(within(dialog).queryByLabelText(/Local/)).not.toBeInTheDocument()

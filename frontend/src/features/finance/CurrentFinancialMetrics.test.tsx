@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { CurrentFinancialMetrics } from './CurrentFinancialMetrics'
 
-const auth = vi.hoisted(() => ({ roles: ['Owner'] }))
+const auth = vi.hoisted(() => ({ roles: ['Manager'] }))
 vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'owner-current', roles: auth.roles } }) }))
 const outstanding = { amountCents: 4000, records: 1, overdueCents: 4000, overdueRecords: 1, confirmedPaymentsCents: 6000 }
 const position = { date: '2026-10-13', readAtUtc: '2026-10-13T15:00:00Z', lastRecordChangeAtUtc: '2026-10-12T11:00:00Z', registeredEntries: 3, receivable: outstanding, payable: { ...outstanding, amountCents: 2000, confirmedPaymentsCents: 0 }, currentBank: { amountCents: null, asOfUtc: null, status: 'AwaitingImport', issue: 'Nenhum saldo C6 importado.' }, entries: [{ id: 'entry-one', name: 'Conta fictícia', direction: 'Receber', dueDate: '2026-10-12', originalCents: 10000, confirmedPaymentsCents: 6000, outstandingCents: 4000 }] }
@@ -16,7 +16,7 @@ function wrap(compact = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return { client, ...render(<QueryClientProvider client={client}><MemoryRouter><CurrentFinancialMetrics compact={compact} /></MemoryRouter></QueryClientProvider>) }
 }
-afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); auth.roles = ['Owner'] })
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); auth.roles = ['Manager'] })
 
 it('mostra somente as quatro métricas operacionais com horas distintas de leitura e alteração', async () => {
   mockSources(); wrap()

@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { BankBalancesOverview } from './BankBalancesOverview'
 import { CurrentFinancialMetrics } from './CurrentFinancialMetrics'
 
-const auth = vi.hoisted(() => ({ roles: ['Owner'] }))
+const auth = vi.hoisted(() => ({ roles: ['Manager'] }))
 vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'bank-owner', roles: auth.roles } }) }))
 const outstanding = { amountCents: 0, records: 0, overdueCents: 0, overdueRecords: 0, confirmedPaymentsCents: 0 }
 const position = { date: '2026-08-31', readAtUtc: '2026-08-31T12:00:00Z', lastRecordChangeAtUtc: null, registeredEntries: 0, receivable: outstanding, payable: outstanding, entries: [], currentBank: { amountCents: 45678, status: 'Imported', issue: 'Saldo importado de arquivo.', source: 'C6 · extrato-ficticio.csv', sourceDate: '2026-08-29', asOfUtc: '2026-08-31T12:00:00Z' } }
@@ -18,7 +18,7 @@ function mount(withOperational = false) {
 function mockSources(c6: unknown = position, pagBank: unknown = balances) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async input => new Response(JSON.stringify(String(input).endsWith('/current-position') ? c6 : pagBank)))
 }
-afterEach(() => { clients.splice(0).forEach(client => client.clear()); vi.restoreAllMocks(); vi.useRealTimers(); auth.roles = ['Owner'] })
+afterEach(() => { clients.splice(0).forEach(client => client.clear()); vi.restoreAllMocks(); vi.useRealTimers(); auth.roles = ['Manager'] })
 
 it('mostra os dois saldos separados com data e origem, sem somar referências distintas', async () => {
   const fetch = mockSources(); mount()

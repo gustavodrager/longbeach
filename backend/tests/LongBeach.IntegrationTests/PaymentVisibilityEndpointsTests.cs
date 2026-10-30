@@ -17,7 +17,7 @@ public sealed class PaymentVisibilityEndpointsTests
     public async Task Removed_manual_matching_routes_cannot_mutate_even_for_management(string path)
     {
         await using var factory = new LongBeachWebApplicationFactory(); using var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ProfileAuthorizationTests.Token(Guid.NewGuid(), [SystemRoles.Owner]));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ProfileAuthorizationTests.Token(Guid.NewGuid(), [SystemRoles.Manager]));
         var response = await client.PostAsJsonAsync(path, new { operationId = Guid.NewGuid(), paymentId = Guid.NewGuid(), documentId = Guid.NewGuid(), fee = 3, net = 97, externalId = "historical-only", reason = "No manual matching" });
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -26,7 +26,7 @@ public sealed class PaymentVisibilityEndpointsTests
     public async Task Removed_matching_candidates_are_not_exposed()
     {
         await using var factory = new LongBeachWebApplicationFactory(); using var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ProfileAuthorizationTests.Token(Guid.NewGuid(), [SystemRoles.Owner]));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ProfileAuthorizationTests.Token(Guid.NewGuid(), [SystemRoles.Manager]));
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/api/v1/billing/settlements")).StatusCode);
     }
 
@@ -54,6 +54,6 @@ public sealed class PaymentVisibilityEndpointsTests
             Assert.NotEmpty(route.Metadata.GetOrderedMetadata<IAuthorizeData>());
         }
         Assert.DoesNotContain("bar:payments:reconcile", SystemPermissions.All);
-        Assert.DoesNotContain("bar:payments:reconcile", ProfileAccess.Permissions([SystemRoles.BarFinance], ["bar:payments:reconcile", SystemPermissions.BarFinanceRead]));
+        Assert.DoesNotContain("bar:payments:reconcile", ProfileAccess.Permissions([SystemRoles.Manager], ["bar:payments:reconcile", SystemPermissions.BarFinanceRead]));
     }
 }

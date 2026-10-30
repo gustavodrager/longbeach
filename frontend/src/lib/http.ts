@@ -1,14 +1,32 @@
+import type { AuthUser, LoginResponse } from '../features/auth/types'
+
 const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
 const CSRF_COOKIE = 'lb_csrf'
 
-type RefreshResponse = {
-  accessToken: string
-  csrfToken: string
-}
+type RefreshResponse = Pick<LoginResponse, 'accessToken' | 'csrfToken' | 'user'>
+type RefreshedSession = { token: string; version: number }
 
 let accessToken: string | null = null
 let csrfToken: string | null = null
-let refreshRequest: Promise<string | null> | null = null
+let refreshRequest: Promise<RefreshedSession | null> | null = null
+let sessionVersion = 0
+let identityRequest: { version: number; request: Promise<void> } | null = null
+const sessionListeners = new Set<(user: AuthUser | null) => void>()
+
+export function subscribeSession(listener: (user: AuthUser | null) => void) {
+  sessionListeners.add(listener)
+  return () => { sessionListeners.delete(listener) }
+}
+
+function notifySession(user: AuthUser | null) {
+  sessionListeners.forEach(listener => listener(user))
+}
+
+function expireSession() {
+  setAccessToken(null)
+  setCsrfToken(null)
+  notifySession(null)
+}
 
 export class ApiError extends Error {
   readonly status: number
@@ -22,6 +40,7 @@ export class ApiError extends Error {
 
 export function setAccessToken(token: string | null) {
   accessToken = token
+  sessionVersion++
 }
 
 export function getCsrfToken() {
@@ -68,6 +87,7 @@ async function readError(response: Response) {
 
 async function refreshAccessToken() {
   if (!refreshRequest) {
+    const version = sessionVersion
     const headers = new Headers({ Accept: 'application/json' })
     const csrfToken = getCsrfToken()
     if (csrfToken) headers.set('X-CSRF-Token', csrfToken)
@@ -78,21 +98,20 @@ async function refreshAccessToken() {
       headers,
     })
       .then(async (response) => {
+        if (version !== sessionVersion) return null
         if (!response.ok) {
-          setAccessToken(null)
-          setCsrfToken(null)
+          if ([401, 403].includes(response.status)) expireSession()
           return null
         }
         const data = (await response.json()) as RefreshResponse
+        if (version !== sessionVersion) return null
         setAccessToken(data.accessToken)
         setCsrfToken(data.csrfToken)
-        return data.accessToken
+        const refreshed = { token: data.accessToken, version: sessionVersion }
+        notifySession(data.user)
+        return refreshed
       })
-      .catch(() => {
-        setAccessToken(null)
-        setCsrfToken(null)
-        return null
-      })
+      .catch(() => null)
       .finally(() => {
         refreshRequest = null
       })
@@ -101,19 +120,42 @@ async function refreshAccessToken() {
   return refreshRequest
 }
 
+/** A forbidden operation is never replayed; only the current identity is checked. */
+async function revalidateSession(version: number) {
+  if (identityRequest?.version === version) return identityRequest.request
+  const request = (async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/v1/auth/me`, { credentials: 'include', headers: buildHeaders() })
+      if (version !== sessionVersion) return
+      if ([401, 403].includes(response.status)) { expireSession(); return }
+      if (response.ok) {
+        const user = await response.json() as AuthUser
+        if (version === sessionVersion) notifySession(user)
+      }
+    } catch { /* Keep the current session and drafts on a temporary connection failure. */ }
+  })()
+  identityRequest = { version, request }
+  try { await request } finally { if (identityRequest?.request === request) identityRequest = null }
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit, canRefresh = true): Promise<T> {
   if (path.startsWith('/api/v1/bar/') && init?.method && !['GET', 'HEAD'].includes(init.method.toUpperCase()) && !navigator.onLine)
     throw new ApiError(0, 'Sem conexão. O registro só será confirmado após reconectar. Seu rascunho foi preservado.');
+  const version = sessionVersion
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     credentials: 'include',
     headers: buildHeaders(init),
   })
 
-  if (response.status === 401 && canRefresh) {
+  const authentication = path.startsWith('/api/v1/auth/')
+  if (response.status === 401 && canRefresh && version === sessionVersion) {
     const refreshed = await refreshAccessToken()
-    if (refreshed) return apiFetch<T>(path, init, false)
+    if (refreshed && refreshed.version === sessionVersion && refreshed.token === accessToken) return apiFetch<T>(path, init, false)
   }
+
+  if (response.status === 401 && !canRefresh && version === sessionVersion && (!authentication || path === '/api/v1/auth/me')) expireSession()
+  if (response.status === 403 && !authentication && version === sessionVersion && sessionListeners.size > 0) await revalidateSession(version)
 
   if (!response.ok) {
     throw new ApiError(response.status, await readError(response))
@@ -124,5 +166,6 @@ export async function apiFetch<T>(path: string, init?: RequestInit, canRefresh =
 }
 
 export async function restoreSession() {
-  return refreshAccessToken()
+  const refreshed = await refreshAccessToken()
+  return refreshed?.version === sessionVersion && refreshed.token === accessToken ? refreshed.token : null
 }

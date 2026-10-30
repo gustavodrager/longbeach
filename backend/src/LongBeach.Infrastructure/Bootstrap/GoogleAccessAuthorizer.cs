@@ -18,7 +18,7 @@ public sealed class GoogleAccessAuthorizer(LongBeachDbContext db, IPasswordHashe
         var role = configuration["Bootstrap:GoogleAccess:Role"];
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(email) ||
             !System.Net.Mail.MailAddress.TryCreate(email, out var address) || address.Address != email ||
-            email.Length > 320 || string.IsNullOrWhiteSpace(role) ||
+            email.Length > 320 || string.IsNullOrWhiteSpace(role) || !SystemRoles.All.Contains(role, StringComparer.Ordinal) ||
             !configuration.GetValue("Authentication:Google:Enabled", false) ||
             !GoogleEmailAllowlist.Contains(configuration["Authentication:Google:AllowedEmail"], email))
             throw new InvalidOperationException("Configure an explicit existing username, approved role and allowlisted Google email.");
@@ -27,7 +27,7 @@ public sealed class GoogleAccessAuthorizer(LongBeachDbContext db, IPasswordHashe
         var normalized = User.NormalizeEmail(username); var normalizedEmail = User.NormalizeEmail(email);
         var user = await db.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role).Include(x => x.RefreshTokens)
             .SingleOrDefaultAsync(x => x.NormalizedUsername == normalized, ct);
-        if (user is null || !user.IsActive || !user.GetRoleNames().Contains(role))
+        if (user is null || !user.IsActive || user.UserRoles.Count != 1 || !user.GetRoleNames().Contains(role))
             throw new InvalidOperationException("Existing active account with the approved role was not found.");
         if (await db.Users.AnyAsync(x => x.Id != user.Id && x.NormalizedEmail == normalizedEmail, ct))
             throw new InvalidOperationException("The email already belongs to another account. No change was applied.");

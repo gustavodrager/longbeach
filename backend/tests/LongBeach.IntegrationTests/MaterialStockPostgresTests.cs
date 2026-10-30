@@ -44,10 +44,13 @@ public sealed class MaterialStockPostgresTests
         Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync($"/api/v1/operations/inventory/{id}", updated)).StatusCode);
         // A lost metadata response may be retried with the original version without a new write.
         Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync($"/api/v1/operations/inventory/{id}", updated)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/v1/materials/{id}/movements", Input(3, "Count", 0))).StatusCode);
+        var managerId = Guid.NewGuid();
+        client.DefaultRequestHeaders.Authorization = new("Bearer", ProfileAuthorizationTests.Token(managerId, ["Manager"]));
         var count = await client.PostAsJsonAsync($"/api/v1/materials/{id}/movements", Input(3, "Count", 0));
         Assert.Equal(HttpStatusCode.OK, count.StatusCode);
         var history = (await client.GetFromJsonAsync<MaterialHistory>($"/api/v1/materials/{id}/movements"))!;
-        Assert.Equal(2, history.Total); Assert.All(history.Items, row => Assert.Equal(actor, row.ActorId));
+        Assert.Equal(2, history.Total); Assert.All(history.Items, row => Assert.Equal(row.Kind == "Count" ? managerId : actor, row.ActorId));
         Assert.All(history.Items, row => Assert.True(row.OccurredAt > DateTimeOffset.UtcNow.AddMinutes(-2)));
         await using var db = isolated.NewContext();
         var material = JsonNode.Parse((await db.OperationalRecords.SingleAsync(x => x.Id == id)).Payload)!;
@@ -119,11 +122,11 @@ public sealed class MaterialStockPostgresTests
         await using var factory = new LongBeachWebApplicationFactory(); using var client = factory.CreateClient();
         var path = $"/api/v1/materials/{Guid.NewGuid()}/movements";
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(path)).StatusCode);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token(Guid.NewGuid(), "bar:stock:manage"));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ProfileAuthorizationTests.Token(Guid.NewGuid(), ["Student"], ["bar:stock:manage"]));
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(path, Input(1, "Receipt", 1))).StatusCode);
-        client.DefaultRequestHeaders.Authorization = new("Bearer", Token(Guid.NewGuid(), "inventory:read"));
+        client.DefaultRequestHeaders.Authorization = new("Bearer", ProfileAuthorizationTests.Token(Guid.NewGuid(), ["Teacher"], ["inventory:read"]));
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(path, Input(1, "Receipt", 1))).StatusCode);
-        client.DefaultRequestHeaders.Authorization = new("Bearer", Token(Guid.NewGuid(), "inventory:write"));
+        client.DefaultRequestHeaders.Authorization = new("Bearer", ProfileAuthorizationTests.Token(Guid.NewGuid(), ["Teacher"], ["inventory:write"]));
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(path, Input(1, "Receipt", 1))).StatusCode);
         client.DefaultRequestHeaders.Authorization = new("Bearer", Token(Guid.NewGuid(), "inventory:read", "inventory:write"));
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(path, Input(1, "Count", 0))).StatusCode);
@@ -229,7 +232,7 @@ public sealed class MaterialStockPostgresTests
     }
 
     [PostgresFact]
-    public async Task Http_reports_conflict_and_finance_read_is_separate_from_material_write()
+    public async Task Http_reports_conflict_and_old_finance_claims_cannot_expand_operations_profile()
     {
         await using var isolated = await IsolatedMaterialDatabase.Create();
         var id = await Seed(isolated.Context); var actor = Guid.NewGuid();
@@ -243,9 +246,13 @@ public sealed class MaterialStockPostgresTests
         client.DefaultRequestHeaders.Authorization = new("Bearer", Token(actor, "inventory:read", "finance:read"));
         var materials = await client.GetFromJsonAsync<JsonElement>("/api/v1/operations/inventory");
         var material = materials.EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == id);
-        Assert.True(material.GetProperty("costsVisible").GetBoolean());
-        Assert.Equal(9m, material.GetProperty("unitCost").GetDecimal());
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync($"/api/v1/materials/{id}/movements", Input(2, "Receipt", 1))).StatusCode);
+        Assert.False(material.GetProperty("costsVisible").GetBoolean());
+        Assert.Equal(0m, material.GetProperty("unitCost").GetDecimal());
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync($"/api/v1/materials/{id}/movements", Input(2, "Receipt", 1))).StatusCode);
+        client.DefaultRequestHeaders.Authorization = new("Bearer", ProfileAuthorizationTests.Token(Guid.NewGuid(), ["Manager"]));
+        materials = await client.GetFromJsonAsync<JsonElement>("/api/v1/operations/inventory");
+        material = materials.EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == id);
+        Assert.True(material.GetProperty("costsVisible").GetBoolean()); Assert.Equal(9m, material.GetProperty("unitCost").GetDecimal());
     }
 
     [PostgresFact]
@@ -280,7 +287,7 @@ public sealed class MaterialStockPostgresTests
         await using var isolated = await IsolatedMaterialDatabase.Create();
         var actor = Guid.NewGuid();
         await using var factory = Factory(isolated); using var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new("Bearer", Token(actor, "inventory:read", "inventory:write", "inventory:adjust"));
+        client.DefaultRequestHeaders.Authorization = new("Bearer", ProfileAuthorizationTests.Token(actor, ["Manager"]));
         foreach (var (quantity, legacyHistory, allowed) in new[] { (0m, false, true), (1m, false, false), (0m, true, false) })
         {
             var id = await Seed(isolated.Context);
@@ -333,10 +340,6 @@ public sealed class MaterialStockPostgresTests
         new LongBeachWebApplicationFactory().WithWebHostBuilder(b => b.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?>
         { ["ConnectionStrings:LongBeach"] = isolated.Connection, ["BackgroundJobs:Enabled"] = "false" }))
         .ConfigureServices(s => s.AddDbContext<LongBeachDbContext>(o => o.UseNpgsql(isolated.Connection))));
-    private static string Token(Guid actor, params string[] permissions)
-    {
-        var claims = new[] { new Claim("sub", actor.ToString()) }.Concat(permissions.Select(p => new Claim("permission", p)));
-        var credentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes("integration-tests-only-signing-key-with-more-than-32-characters")), SecurityAlgorithms.HmacSha256);
-        return new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken("LongBeach.Tests", "LongBeach.Tests.Client", claims, DateTime.UtcNow.AddMinutes(-1), DateTime.UtcNow.AddMinutes(5), credentials));
-    }
+    private static string Token(Guid actor, params string[] permissions) =>
+        ProfileAuthorizationTests.Token(actor, ["Operations"], permissions);
 }

@@ -15,7 +15,7 @@ const group: RentalGroup = { id: groupId, version: 1, name: 'Turma de teste', sp
 const clients: QueryClient[] = []
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 function start(path: string, permissions?: string[]) {
-  const auth: AuthContextValue = { user: { id: 'test-owner', name: 'Teste', email: 'teste@example.invalid', roles: permissions ? [] : ['Owner'], permissions: permissions ?? [] }, isBootstrapping: false, signIn: async()=>{}, signInWithGoogle: async()=>{}, signOut: async()=>{}, changePassword: async()=>{}, completeFirstAccessWithGoogle: async()=>{} }
+  const auth: AuthContextValue = { user: { id: 'test-owner', name: 'Teste', email: 'teste@example.invalid', roles: permissions ? ['Operations'] : ['Manager'], permissions: permissions ?? [] }, isBootstrapping: false, signIn: async()=>{}, signInWithGoogle: async()=>{}, signOut: async()=>{}, changePassword: async()=>{}, completeFirstAccessWithGoogle: async()=>{} }
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }); clients.push(client)
   render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><DemoDataProvider enabled><MemoryRouter initialEntries={[path]}><Routes><Route path="/mensalistas" element={<RentalGroupsPage />} /><Route path="/mensalistas/:groupId" element={<RentalGroupPage />} /><Route path="/financeiro/:entryId" element={<FinanceDetailsPage />} /></Routes></MemoryRouter></DemoDataProvider></AuthContext.Provider></QueryClientProvider>)
 }

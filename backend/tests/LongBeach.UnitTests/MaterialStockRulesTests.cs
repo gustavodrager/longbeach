@@ -79,7 +79,7 @@ public sealed class MaterialStockRulesTests
     [Fact]
     public void Only_management_profiles_receive_adjust_and_current_model_matches_additive_migration()
     {
-        foreach (var role in new[] { SystemRoles.Owner, SystemRoles.Administrator, SystemRoles.Manager })
+        foreach (var role in new[] { SystemRoles.Manager })
             Assert.Contains(SystemPermissions.InventoryAdjust, ProfileAccess.Permissions([role], []));
         Assert.DoesNotContain(SystemPermissions.InventoryAdjust, ProfileAccess.Permissions([SystemRoles.Operations], SystemPermissions.All));
         using var db = new LongBeachDbContext(new DbContextOptionsBuilder<LongBeachDbContext>()

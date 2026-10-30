@@ -16,8 +16,8 @@ Configure a credencial local no ambiente da sessão, fora de arquivos versionado
 | --- | --- |
 | `LONG_BEACH_LOCAL_TOOL_DATABASE_URL` | Conexão com o banco fictício local, obrigatória para os quatro programas. |
 | `LONG_BEACH_PREVIEW_PASSWORD` | Senha escolhida para os usuários fictícios de `profile-preview-seed` e `google-preview-seed`. |
-| `LONG_BEACH_LOCAL_ADMIN_EMAIL` | Conta já existente e verificada por Google no banco local para receber o papel Administrator. |
-| `LONG_BEACH_LOCAL_OWNER_EMAIL` | Outra conta já existente e verificada por Google no banco local para receber o papel Owner. |
+| `LONG_BEACH_LOCAL_MANAGER_EMAIL` | Conta já existente e verificada por Google no banco local para receber exclusivamente o perfil Gestor (`Manager`). |
+| `LONG_BEACH_LOCAL_SECOND_MANAGER_EMAIL` | Outra conta local, distinta e verificada por Google, para receber exclusivamente o perfil Gestor (`Manager`). |
 
 As fixtures usam endereços sintéticos sob `example.invalid`. As duas variáveis de
 email são usadas somente por `google-admin-local`; nenhum email pessoal é
@@ -32,11 +32,14 @@ dotnet run --project ../tools/google-preview-seed/Preview.csproj -- --apply-loca
 dotnet run --project ../tools/billing-preview-seed/Preview.csproj -- --apply-local-fixtures
 ```
 
-`profile-preview-seed` aplica as migrations locais e cria quatro perfis, agenda e
+`profile-preview-seed` aplica as migrations locais e cria uma conta fictícia de
+cada perfil: Gestor (`Manager`), Professor (`Teacher`), Atendente (`Operations`)
+e Cliente (`Student`), além de agenda e
 matrículas fictícias. `google-preview-seed` cria um cliente fictício com subject
 Google de demonstração e a senha definida no ambiente. `billing-preview-seed`
 depende desses dois preparadores e cria contas e comanda fictícias sem chamar
-provedores de pagamento. Os preparadores não limpam um banco prévio e nem todos
+provedores de pagamento. Visitante é acesso anônimo: estes programas não criam
+conta nem papel de visitante. Os preparadores não limpam um banco prévio e nem todos
 são idempotentes; use um banco descartável preparado para esse fim.
 
 O quarto programa atende à inspeção local de papéis e exige as duas contas
@@ -46,8 +49,12 @@ Google já existentes, ativas e sem primeiro acesso pendente:
 dotnet run --project ../tools/google-admin-local/Preview.csproj -- --apply-local-fixtures
 ```
 
-Ele altera papéis, revoga refresh tokens anteriores e registra a invocação local
-atual na auditoria. O argumento autoriza somente as fixtures no destino local
+Ele substitui todos os papéis anteriores das duas contas pelo único perfil
+Gestor (`Manager`), revoga os refresh tokens das contas alteradas e registra a
+invocação local atual na auditoria. Uma conta que já tenha somente esse perfil
+permanece sem alterações. Os nomes antigos de variáveis para administrador e
+proprietário foram substituídos pelas duas variáveis de Gestor acima.
+O argumento autoriza somente as fixtures no destino local
 validado; não representa autorização para ambiente hospedado.
 
 Para conferir apenas a compilação, sem executar nenhum programa, também dentro de `backend/`:

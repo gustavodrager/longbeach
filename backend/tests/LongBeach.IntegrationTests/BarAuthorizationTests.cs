@@ -102,10 +102,6 @@ public sealed class BarAuthorizationTests
     public async Task Unsigned_webhook_cannot_approve_payment()
     {await using var f=new LongBeachWebApplicationFactory();using var c=f.CreateClient();Assert.Equal(HttpStatusCode.Unauthorized,(await c.PostAsync("/api/v1/integrations/pagbank/webhook",new StringContent("{}",Encoding.UTF8,"application/json"))).StatusCode);}
     private static StringContent JsonBody() => new("{}", Encoding.UTF8, "application/json");
-    private static string Token(params string[] permissions)
-    {
-        var creds=new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes("integration-tests-only-signing-key-with-more-than-32-characters")),SecurityAlgorithms.HmacSha256);
-        var claims = new[] { new Claim("sub", Guid.NewGuid().ToString()) }.Concat(permissions.Select(permission => new Claim("permission", permission)));
-        return new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken("LongBeach.Tests","LongBeach.Tests.Client",claims,DateTime.UtcNow.AddMinutes(-1),DateTime.UtcNow.AddMinutes(5),creds));
-    }
+    private static string Token(params string[] permissions) =>
+        ProfileAuthorizationTests.Token(Guid.NewGuid(), [permissions.Length == 0 ? "Student" : "Operations"], permissions);
 }

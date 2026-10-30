@@ -1,3 +1,4 @@
+import { hasPermission } from '../auth/access'
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -31,7 +32,7 @@ export function OrdersPage() {
     staleTime: 0, refetchOnMount: 'always', refetchOnWindowFocus: !busy, refetchInterval: busy ? false : 15_000 })
   const accessLost = query.error instanceof ApiError && [401, 403, 404, 410].includes(query.error.status)
   const data = accessLost ? undefined : query.data
-  const canOperate = user?.permissions.includes('bar:sales:operate')
+  const canOperate = hasPermission(user, 'bar:sales:operate')
   function filters(changes: Record<string, string>, replace = false) {
     const next = new URLSearchParams(params)
     Object.entries(changes).forEach(([key, value]) => value ? next.set(key, value) : next.delete(key))

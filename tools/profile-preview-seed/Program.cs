@@ -15,7 +15,7 @@ var permissions=new Dictionary<string,Permission>();foreach(var name in SystemPe
 var roles=new Dictionary<string,Role>();foreach(var name in SystemRoles.All){var role=await db.Roles.Include(r=>r.RolePermissions).SingleOrDefaultAsync(r=>r.Name==name);if(role is null){role=new Role(name);db.Add(role);}foreach(var p in ProfileAccess.Grants[name])role.Grant(permissions[p]);roles[name]=role;}
 var hash=new AspNetIdentityPasswordHasher(Options.Create(new PasswordHasherOptions()));
 User Person(string name,string email,string role){var u=User.Create(name,email,hash.Hash(previewPassword));u.AssignRole(roles[role]);db.Add(u);return u;}
-Person("Gestão · demonstração","manager.preview@example.invalid","Manager");var teacher=Person("Marina · professora","teacher.preview@example.invalid","Teacher");Person("Lucas · atendimento","operator.preview@example.invalid","BarOperator");var student=Person("Ana · aluna","student.preview@example.invalid","Student");
+Person("Gestão · demonstração","manager.preview@example.invalid",SystemRoles.Manager);var teacher=Person("Marina · professora","teacher.preview@example.invalid",SystemRoles.Teacher);Person("Lucas · atendimento","operator.preview@example.invalid",SystemRoles.Operations);var student=Person("Ana · cliente","student.preview@example.invalid",SystemRoles.Student);
 void Row(Guid id,string kind,string name,object data)=>db.Add(new OperationalRecord(id,kind,name,JsonSerializer.Serialize(data)));
 var team=Guid.NewGuid();var court=Guid.NewGuid();var aluno=Guid.NewGuid();var aluno2=Guid.NewGuid();
 Row(team,"team","Marina · professora",new{id=team,name="Marina · professora",status="Ativo",role="Professora",paymentFrequency="Mensal",payAmount=(decimal?)null,payBasis="A combinar",notes="Demonstração",phone=""});

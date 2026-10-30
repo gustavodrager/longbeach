@@ -14,7 +14,7 @@ const firstDay = '2030-05-06'
 const lastDay = '2030-05-12'
 const owner: AuthUser = {
   id: '11111111-1111-4111-8111-111111111111', name: 'Operador sintético',
-  email: 'agenda@example.invalid', roles: ['Owner'], permissions: [],
+  email: 'agenda@example.invalid', roles: ['Manager'], permissions: [],
 }
 const courtA: Court = {
   id: '22222222-2222-4222-8222-222222222221', name: 'Quadra Alfa', sport: 'Futevôlei',

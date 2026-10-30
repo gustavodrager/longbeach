@@ -22,6 +22,22 @@ public sealed class ApiTests(LongBeachWebApplicationFactory factory)
         Assert.Equal(StartupCommand.Run, StartupCommandParser.Parse(["--urls", "http://localhost:5100"]));
     }
 
+    [Theory]
+    [InlineData("--preview-profiles")]
+    [InlineData("--PREVIEW-PROFILES")]
+    public void Profile_preview_is_an_explicit_read_only_command(string argument) =>
+        Assert.Equal(ProfileCommand.Preview, ProfileCommandParser.Parse([argument]));
+
+    [Fact]
+    public void Profile_apply_requires_standard_input_and_cannot_mix_startup_commands()
+    {
+        Assert.Equal(ProfileCommand.Apply, ProfileCommandParser.Parse(["--consolidate-profiles", "--provision-from-stdin"]));
+        Assert.Throws<InvalidOperationException>(() => ProfileCommandParser.Parse(["--consolidate-profiles"]));
+        Assert.Throws<InvalidOperationException>(() => ProfileCommandParser.Parse(["--preview-profiles", "--migrate-only"]));
+        Assert.Throws<InvalidOperationException>(() => ProfileCommandParser.Parse(["--preview-profiles", "--consolidate-profiles", "--provision-from-stdin"]));
+        Assert.Throws<InvalidOperationException>(() => ProfileCommandParser.Parse(["--preview-profiles", "--prepare-pagbank-homologation"]));
+    }
+
     [Fact]
     public async Task Health_is_available_without_a_database_in_test_mode()
     {

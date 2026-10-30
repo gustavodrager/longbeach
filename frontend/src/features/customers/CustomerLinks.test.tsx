@@ -29,7 +29,7 @@ it('mensalista aponta para grupo pai, preservando identidade distinta do cliente
   mount({ ...actor, permissions: ['customers:read', 'projects:read'] }); expect(await screen.findByRole('link', { name: /Grupo Sintético/ })).toHaveAttribute('href', '/mensalistas/group-other-id?secao=integrantes')
 })
 
-it.each([{ ...actor, permissions: [...actor.permissions, 'users:manage'] }, { ...manager, permissions: ['customers:read', 'customers:write'] }])('associação não aparece fora da gestão ou sem claims de usuários e cadastro', user => {
+it.each([{ ...actor, permissions: [...actor.permissions, 'users:manage'] }, { ...manager, roles: ['Manager', 'Student'] as AuthUser['roles'] }])('associação não aparece fora do gestor ou com perfis acumulados', user => {
   const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(json([])); mount(user); expect(screen.queryByLabelText('Buscar conta Google')).not.toBeInTheDocument(); expect(fetch.mock.calls.every(([url]) => !String(url).includes('user-candidates'))).toBe(true)
 })
 

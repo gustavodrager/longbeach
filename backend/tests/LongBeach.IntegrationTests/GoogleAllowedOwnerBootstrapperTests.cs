@@ -58,7 +58,7 @@ public sealed class GoogleAllowedOwnerBootstrapperTests
     }
 
     [PostgresFact]
-    public async Task Targeted_promotion_is_idempotent_and_preserves_other_allowed_users_and_existing_credentials()
+    public async Task Existing_manager_is_idempotent_and_preserves_other_allowed_users_and_existing_credentials()
     {
         await using var provider = await Provider();
         var target = Email("target");
@@ -70,15 +70,17 @@ public sealed class GoogleAllowedOwnerBootstrapperTests
         await using (var scope = provider.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
-            var staffRole = new Role($"Staff-{Guid.NewGuid():N}");
+            var staffRole = await db.Roles.SingleOrDefaultAsync(r => r.Name == SystemRoles.Operations) ?? new Role(SystemRoles.Operations);
+            var managerRole = await db.Roles.SingleAsync(r => r.Name == SystemRoles.Manager);
             originalHash = scope.ServiceProvider.GetRequiredService<IPasswordHasher>().Hash("test-existing-password");
             var targetUser = User.Create("Existing target", target, originalHash);
             var otherUser = User.Create("Existing colleague", other, originalHash);
-            targetUser.AssignRole(staffRole);
+            targetUser.AssignRole(managerRole);
             otherUser.AssignRole(staffRole);
             targetId = targetUser.Id;
             otherId = otherUser.Id;
-            db.AddRange(staffRole, targetUser, otherUser);
+            if (db.Entry(staffRole).State == EntityState.Detached) db.Roles.Add(staffRole);
+            db.AddRange(targetUser, otherUser);
             await db.SaveChangesAsync();
         }
         var configuration = Configuration($"{target};{other};{allowedButAbsent}", $" {target.ToUpperInvariant()} ; {target}");
@@ -96,15 +98,37 @@ public sealed class GoogleAllowedOwnerBootstrapperTests
         Assert.Equal("Existing target", targetedUser.Name);
         Assert.Equal(originalHash, targetedUser.PasswordHash);
         Assert.True(targetedUser.IsActive);
-        Assert.Equal(2, targetedUser.UserRoles.Count);
-        Assert.Single(targetedUser.UserRoles, role => role.Role.Name == SystemRoles.Owner);
+        Assert.Single(targetedUser.UserRoles);
+        Assert.Single(targetedUser.UserRoles, role => role.Role.Name == SystemRoles.Manager);
         Assert.Single(colleague.UserRoles);
-        Assert.DoesNotContain(colleague.UserRoles, role => role.Role.Name == SystemRoles.Owner);
+        Assert.DoesNotContain(colleague.UserRoles, role => role.Role.Name == SystemRoles.Manager);
         Assert.Equal(originalHash, colleague.PasswordHash);
         Assert.False(await verificationDb.Users.AnyAsync(user => user.NormalizedEmail == User.NormalizeEmail(allowedButAbsent)));
-        var ownerRole = await verificationDb.Roles.SingleAsync(role => role.Name == SystemRoles.Owner);
+        var ownerRole = await verificationDb.Roles.SingleAsync(role => role.Name == SystemRoles.Manager);
         Assert.Single(await verificationDb.AuditLogs.Where(audit => audit.Resource == nameof(UserRole) &&
             audit.ResourceId == $"{targetId}:{ownerRole.Id}").ToArrayAsync());
+    }
+
+    [PostgresFact]
+    public async Task Existing_nonmanager_target_requires_explicit_consolidation_without_promoting_any_target()
+    {
+        await using var provider = await Provider();
+        var target = Email("staff"); var newTarget = Email("new");
+        Guid id;
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+            var staff = await db.Roles.SingleOrDefaultAsync(r => r.Name == SystemRoles.Operations) ?? new Role(SystemRoles.Operations);
+            if (db.Entry(staff).State == EntityState.Detached) db.Roles.Add(staff);
+            var user = User.Create("Staff target", target, "unchanged-hash"); user.AssignRole(staff); id = user.Id;
+            db.Users.Add(user); await db.SaveChangesAsync();
+        }
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Bootstrapper(provider, Configuration($"{newTarget},{target}", $"{newTarget},{target}")).StartAsync(default));
+        await using var after = provider.CreateAsyncScope(); var check = after.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+        Assert.False(await check.Users.AnyAsync(u => u.NormalizedEmail == User.NormalizeEmail(newTarget)));
+        var preserved = await check.Users.Include(u => u.UserRoles).ThenInclude(ur => ur.Role).SingleAsync(u => u.Id == id);
+        Assert.Equal(SystemRoles.Operations, Assert.Single(preserved.UserRoles).Role.Name);
+        Assert.Equal("unchanged-hash", preserved.PasswordHash);
     }
 
     [PostgresFact]
@@ -120,7 +144,7 @@ public sealed class GoogleAllowedOwnerBootstrapperTests
         var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
         var user = await db.Users.Include(item => item.UserRoles).ThenInclude(role => role.Role)
             .SingleAsync(item => item.NormalizedEmail == User.NormalizeEmail(target));
-        Assert.Single(user.UserRoles, role => role.Role.Name == SystemRoles.Owner);
+        Assert.Single(user.UserRoles, role => role.Role.Name == SystemRoles.Manager);
         Assert.True(user.IsActive);
         Assert.NotEmpty(user.PasswordHash);
         var userAudit = Assert.Single(await db.AuditLogs.Where(audit => audit.Resource == nameof(User) &&
@@ -204,7 +228,7 @@ public sealed class GoogleAllowedOwnerBootstrapperTests
         var users = await db.Users.Include(user => user.UserRoles).ThenInclude(role => role.Role)
             .Where(user => targets.Contains(user.NormalizedEmail)).ToArrayAsync();
         Assert.Equal(2, users.Length);
-        Assert.All(users, user => Assert.Single(user.UserRoles, role => role.Role.Name == SystemRoles.Owner));
+        Assert.All(users, user => Assert.Single(user.UserRoles, role => role.Role.Name == SystemRoles.Manager));
     }
 
     private static string Email(string prefix) => $"{prefix}-{Guid.NewGuid():N}@longbeach.test";
@@ -240,9 +264,9 @@ public sealed class GoogleAllowedOwnerBootstrapperTests
         await using var scope = provider.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
         await db.Database.MigrateAsync();
-        if (!await db.Roles.AnyAsync(role => role.Name == SystemRoles.Owner))
+        if (!await db.Roles.AnyAsync(role => role.Name == SystemRoles.Manager))
         {
-            db.Roles.Add(new Role(SystemRoles.Owner));
+            db.Roles.Add(new Role(SystemRoles.Manager));
             await db.SaveChangesAsync();
         }
         return provider;

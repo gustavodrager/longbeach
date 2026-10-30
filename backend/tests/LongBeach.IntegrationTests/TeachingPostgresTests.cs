@@ -54,6 +54,6 @@ public sealed class TeachingPostgresTests
         Assert.Equal(HttpStatusCode.NotFound,(await client.GetAsync($"/api/v1/me/teaching/classes/{seed.Foreign}?date=2026-10-10")).StatusCode);
         var result=await client.PutAsJsonAsync($"/api/v1/me/teaching/classes/{seed.Class}/presences?date=2026-10-10",new PresenceInput(seed.Student,"Presente",0));Assert.Equal(HttpStatusCode.OK,result.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,(await client.PutAsJsonAsync("/api/v1/teaching/access",new TeacherLink(seed.Other,seed.Team))).StatusCode);
-        foreach(var role in new[]{"Manager","Administrator"}) {client.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",ProfileAuthorizationTests.Token(Guid.NewGuid(),[role],[]));Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/api/v1/teaching/access")).StatusCode);Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/api/v1/financial-history?month=2026-10")).StatusCode);}
+        foreach(var role in new[]{"Manager"}) {client.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",ProfileAuthorizationTests.Token(Guid.NewGuid(),[role],[]));Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/api/v1/teaching/access")).StatusCode);Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/api/v1/financial-history?month=2026-10")).StatusCode);}
     }
 }

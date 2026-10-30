@@ -39,7 +39,7 @@ public sealed class PagBankHomologationPostgresTests
         var users = await db.Users.Include(x => x.UserRoles).ThenInclude(x => x.Role).ToListAsync(); Assert.Equal(2, users.Count);
         var reviewer = users.Single(x => x.Email == ReviewerEmail); var customer = users.Single(x => x.Email == CustomerEmail);
         Assert.Equal("Avaliador PagBank — TESTE", reviewer.Name); Assert.Equal("Cliente Recorrência — TESTE", customer.Name);
-        Assert.Equal(SystemRoles.Administrator, Assert.Single(reviewer.UserRoles).Role.Name);
+        Assert.Equal(SystemRoles.Manager, Assert.Single(reviewer.UserRoles).Role.Name);
         Assert.Equal(SystemRoles.Student, Assert.Single(customer.UserRoles).Role.Name);
         Assert.Equal(PasswordHashVerificationResult.Success, hasher.Verify(ReviewerPassword, reviewer.PasswordHash));
         var customerPassword = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(ReviewerPassword + ":recorrencia-test")));
@@ -56,7 +56,7 @@ public sealed class PagBankHomologationPostgresTests
     public async Task Prepare_adds_customer_to_existing_homologation_without_replacing_reviewer_password()
     {
         await using var isolated = await IsolatedDatabase.Create(); var db = isolated.Context; var hasher = Hasher();
-        var admin = await db.Roles.SingleOrDefaultAsync(x => x.Name == SystemRoles.Administrator) ?? new Role(SystemRoles.Administrator);
+        var admin = await db.Roles.SingleOrDefaultAsync(x => x.Name == SystemRoles.Manager) ?? new Role(SystemRoles.Manager);
         var student = await db.Roles.SingleOrDefaultAsync(x => x.Name == SystemRoles.Student) ?? new Role(SystemRoles.Student);
         if (db.Entry(admin).State == EntityState.Detached) db.Roles.Add(admin);
         if (db.Entry(student).State == EntityState.Detached) db.Roles.Add(student);
@@ -86,11 +86,11 @@ public sealed class PagBankHomologationPostgresTests
         await using var isolated = await IsolatedDatabase.Create(); var db = isolated.Context; var hasher = Hasher();
         await PagBankHomologation.Prepare(db, hasher, Config(), new EnvironmentStub());
         var customer = await db.Users.Include(x => x.UserRoles).SingleAsync(x => x.Email == CustomerEmail);
-        customer.AssignRole(await db.Roles.SingleAsync(x => x.Name == SystemRoles.Administrator)); await db.SaveChangesAsync();
+        customer.SetRole(await db.Roles.SingleAsync(x => x.Name == SystemRoles.Manager)); await db.SaveChangesAsync();
         var hashes = await db.Users.ToDictionaryAsync(x => x.Id, x => x.PasswordHash); db.ChangeTracker.Clear();
         await Assert.ThrowsAsync<InvalidOperationException>(() => PagBankHomologation.Prepare(db, hasher, Config(), new EnvironmentStub()));
         db.ChangeTracker.Clear(); Assert.Equal(hashes.OrderBy(x => x.Key), (await db.Users.ToDictionaryAsync(x => x.Id, x => x.PasswordHash)).OrderBy(x => x.Key));
-        Assert.Equal(2, (await db.Users.Include(x => x.UserRoles).SingleAsync(x => x.Email == CustomerEmail)).UserRoles.Count);
+        Assert.Single((await db.Users.Include(x => x.UserRoles).SingleAsync(x => x.Email == CustomerEmail)).UserRoles);
     }
 
     private sealed class EnvironmentStub : IHostEnvironment

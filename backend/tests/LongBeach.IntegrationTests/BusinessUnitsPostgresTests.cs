@@ -15,7 +15,7 @@ public sealed class BusinessUnitsPostgresTests
     public async Task Monthly_review_preserves_classification_from_older_clients_and_rejects_conflicting_area()
     {
         await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory);
-        client.DefaultRequestHeaders.Authorization = Header("Owner");
+        client.DefaultRequestHeaders.Authorization = Header("Manager");
         const string path = "/api/v1/financial-history/monthly-controls/2091-11";
         await using (var scope = factory.Services.CreateAsyncScope())
             await scope.ServiceProvider.GetRequiredService<LongBeachDbContext>().OperationalRecords.Where(x => x.Kind == "monthlyFinanceControls" && x.Name == "2091-11").ExecuteDeleteAsync();
@@ -45,9 +45,9 @@ public sealed class BusinessUnitsPostgresTests
         await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory);
         var id = Guid.NewGuid(); var path = $"/api/v1/operations/financeEntries/{id}";
         var payload = new JsonObject { ["id"] = id.ToString(), ["name"] = "Limpeza de teste", ["origin"] = "Arena", ["direction"] = "Pagar", ["amount"] = 100, ["dueDate"] = "2026-10-10", ["status"] = "Pendente", ["allocationScope"] = "Shared", ["businessUnitId"] = null };
-        client.DefaultRequestHeaders.Authorization = Header(null, "finance:read");
+        client.DefaultRequestHeaders.Authorization = Header("Operations", "finance:read");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PutAsJsonAsync(path, payload)).StatusCode);
-        client.DefaultRequestHeaders.Authorization = Header("Owner");
+        client.DefaultRequestHeaders.Authorization = Header("Manager");
         var create = await client.PutAsJsonAsync(path, payload); Assert.Equal(HttpStatusCode.Created, create.StatusCode);
         var saved = JsonNode.Parse((await Read(create)).GetRawText())!.AsObject();
         var oldClient = saved.DeepClone().AsObject(); oldClient.Remove("allocationScope"); oldClient.Remove("businessUnitId"); oldClient["name"] = "Limpeza conferida";

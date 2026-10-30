@@ -47,7 +47,7 @@ public static class PagBankHomologation
         if (user is not null)
         {
             if (!user.IsActive || user.Name != "Avaliador PagBank — TESTE" || user.UserRoles.Count != 1 ||
-                !await db.Roles.AnyAsync(x => x.Id == user.UserRoles.First().RoleId && x.Name == SystemRoles.Administrator))
+                !await db.Roles.AnyAsync(x => x.Id == user.UserRoles.First().RoleId && x.Name == SystemRoles.Manager))
                 throw new InvalidOperationException("Existing reviewer conflicts with homologation; no account was changed.");
         }
         else
@@ -63,7 +63,7 @@ public static class PagBankHomologation
                 foreach (var permission in ProfileAccess.Grants[name]) role.Grant(permissions[permission]);
             }
             user = User.Create("Avaliador PagBank — TESTE", email, hasher.Hash(password));
-            user.AssignRole(roles[SystemRoles.Administrator]);
+            user.AssignRole(roles[SystemRoles.Manager]);
             db.Users.Add(user);
         }
         // A separate customer exercises recurrence without changing uncertain

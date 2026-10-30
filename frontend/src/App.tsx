@@ -14,6 +14,7 @@ import { FinancialHistoryPage } from './features/finance/FinancialHistory'
 const MonthlyControlPage = lazy(() => import('./features/finance/MonthlyControlPage').then(module => ({ default: module.MonthlyControlPage })))
 const ExpensesPage = lazy(() => import('./features/finance/ExpensesPage').then(module => ({ default: module.ExpensesPage })))
 import { LoginPage } from './pages/LoginPage'
+import { VisitorPage } from './pages/VisitorPage'
 import { FirstAccessPage } from './pages/FirstAccessPage'
 const BarLayout = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarLayout })))
 const BarProductsPage = lazy(() => import('./features/bar/BarPages').then(module => ({ default: module.BarProductsPage })))
@@ -196,6 +197,7 @@ function OperationalRoutes() {
   </Route>
   return <AuthProvider demoMode={demoMode}><DemoDataProvider enabled demoMode={demoMode}><PwaUpdatePrompt /><Routes>
     <Route path="login" element={demoMode ? <Navigate to="/" replace /> : <LoginPage />} />
+    <Route path="visitante" element={<VisitorPage />} />
     <Route path="primeiro-acesso" element={demoMode ? <Navigate to="/" replace /> : <FirstAccessPage />} />
     {demoMode ? application : <Route element={<AuthGuard />}>{application}<Route path="professor" element={<Suspense fallback={<main role="status">Abrindo aulas…</main>}><TeacherLayout /></Suspense>}><Route index element={<TeacherHome />} /><Route path="turmas" element={<TeacherClasses />} /><Route path="presencas" element={<TeacherClasses attendance />} /><Route path="turmas/:classId" element={<TeacherRoster />} /></Route><Route path="minha-area" element={<Suspense fallback={<main role="status">Abrindo sua área…</main>}><ClientLayout /></Suspense>}><Route index element={<PortalHome />} /><Route path="agenda" element={<PortalAgenda />} /><Route path="solicitar" element={<PortalRequestForm />} /><Route path="ajuda" element={<PortalRequestForm help />} /><Route path="bar" element={<PortalBar />} /><Route path="pagamentos" element={<BillingPage />} /><Route path="perfil" element={<PortalProfile />} /><Route path="seguranca" element={<AccountPage />} /></Route></Route>}
     <Route path="*" element={<MissingDestination />} />

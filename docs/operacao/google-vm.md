@@ -135,3 +135,9 @@ Na perda do host, recriar VM/disco, usar o mesmo artefato PostgreSQL/pgBackRest 
 Antes da primeira gravação no destino, o retorno pode reutilizar a origem congelada depois de retirar o candidato do tráfego e confirmar um único gravador. Depois de gravações na VM, congelar a VM e restaurar/reconciliar sua cópia atualizada na infraestrutura de retorno. Conferir novamente dados, migrações e sessão; só então mover tráfego e habilitar workers. Nunca religar o Railway ou uma base antiga com dados divergentes.
 
 Preservar a origem até aceite explícito da migração e comprovação de recuperação. Depois, remover somente os recursos comprovadamente substituídos, mantendo as cópias e retenções necessárias. Revogar acessos temporários próprios e registrar custos que continuam existindo. Corte de tráfego aplicado não significa que a estabilização, o monitoramento ou a redução de custos foram encerrados.
+
+## Perfis e Visitante — publicação verificada em 30/10/2026
+
+A fonte `e84ba6f19b0d6e47ad52ed7fe768093becfa5815` foi publicada com aprovação expressa e no environment Production. Os seis Proprietários existentes tornaram-se Gestores; Professor, Atendente e Cliente completam os perfis autenticados, um por conta. Visitante entra sem login e pode iniciar cadastro como Cliente. A API permanece com schema 30, sem migration nesta operação; PostgreSQL, Caddy e dados anteriores foram preservados.
+
+O [registro da publicação](publicacao-perfis-visitante-2026-10-30.md) e o [manifesto específico atual](release-perfis-visitante-2026-10-30.json) identificam a API, o frontend, a validação e a limpeza das permissões temporárias. Os registros históricos e as alterações locais anteriores em `release-google-vm.json` foram preservados. Na atualização do PWA, recarregue a página e use **Atualizar agora** se o aviso aparecer.

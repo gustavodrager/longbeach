@@ -8,7 +8,7 @@ import { BarRecipesPage, type RecipeVersion } from './RecipePage'
 
 const prepared = { product: { id: '11111111-1111-1111-1111-111111111111', name: 'Porção preparada', shortName: 'Porção', saleUnit: 'porção', prepared: true, active: true, controlsStock: false }, purchaseUnit: 'porção', conversionFactor: 1 }
 const ingredient = { product: { id: '22222222-2222-2222-2222-222222222222', name: 'Ingrediente de teste', shortName: 'Ingrediente', saleUnit: 'un', prepared: false, active: true, controlsStock: true }, purchaseUnit: 'caixa', conversionFactor: 12 }
-const manager: AuthUser = { id: '33333333-3333-3333-3333-333333333333', name: 'Gestor teste', email: 'teste@example.com', roles: ['StockManager'], permissions: ['bar:catalog:read', 'bar:catalog:write'] }
+const manager: AuthUser = { id: '33333333-3333-3333-3333-333333333333', name: 'Gestor teste', email: 'teste@example.com', roles: ['Manager'], permissions: ['bar:catalog:read', 'bar:catalog:write'] }
 const clients: QueryClient[] = []
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 const version = (number = 1): RecipeVersion => ({ id: `44444444-4444-4444-4444-${String(number).padStart(12, '0')}`, productId: prepared.product.id, productName: prepared.product.name, version: number, yieldQuantity: 10, reason: `Formulação ${number}`, actorId: manager.id, createdAtUtc: '2026-10-04T12:00:00Z', ingredients: [{ id: '55555555-5555-5555-5555-555555555555', productId: ingredient.product.id, name: ingredient.product.name, quantity: 2, unit: 'Purchase', conversionFactor: 12, stockUnit: 'un', stockQuantity: 24 }] })
@@ -31,7 +31,7 @@ afterEach(() => { clients.splice(0).forEach(client => client.clear()); sessionSt
 
 it('restringe receitas e ingredientes à gestão do catálogo', () => {
   const fetchMock = server([version()])
-  start('/bar/receitas', { ...manager, roles: ['BarOperator'], permissions: ['bar:catalog:read', 'bar:sales:operate'] })
+  start('/bar/receitas', { ...manager, roles: ['Operations'], permissions: ['bar:catalog:read', 'bar:sales:operate'] })
   expect(screen.getByRole('heading', { name: 'Acesso restrito' })).toBeInTheDocument()
   expect(screen.queryByText(ingredient.product.name)).not.toBeInTheDocument()
   expect(fetchMock).not.toHaveBeenCalled()

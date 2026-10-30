@@ -18,7 +18,7 @@ it('keeps one material movement dialog and its draft through dirty-state changes
   }
   const owner: AuthUser = {
     id: 'synthetic-owner', name: 'Operador sintético', email: 'operator@example.invalid',
-    roles: ['Owner'], permissions: [],
+    roles: ['Manager'], permissions: [],
   }
   let inventoryReads = 0
   const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {

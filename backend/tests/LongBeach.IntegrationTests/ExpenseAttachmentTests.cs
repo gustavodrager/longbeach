@@ -26,12 +26,12 @@ public sealed class ExpenseAttachmentTests
         var route = $"/api/v1/expenses/{Guid.NewGuid()}/attachments";
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync(route)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync(route, Input())).StatusCode);
-        client.DefaultRequestHeaders.Authorization = Header(null, "bar:sales:operate");
+        client.DefaultRequestHeaders.Authorization = Header("Operations", "bar:sales:operate");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(route)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(route + "/" + Guid.NewGuid())).StatusCode);
-        client.DefaultRequestHeaders.Authorization = Header(null, "finance:read");
+        client.DefaultRequestHeaders.Authorization = Header("Operations", "finance:read");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(route, Input())).StatusCode);
-        client.DefaultRequestHeaders.Authorization = Header(null, "finance:write");
+        client.DefaultRequestHeaders.Authorization = Header("Operations", "finance:write");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(route, Input())).StatusCode);
     }
 
@@ -79,7 +79,7 @@ public sealed class ExpenseAttachmentTests
             .ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?> { ["ConnectionStrings:LongBeach"] = connection }))
             .ConfigureServices(services => services.AddDbContext<LongBeachDbContext>(options => options.UseNpgsql(connection))));
         using var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = Header("Owner");
+        client.DefaultRequestHeaders.Authorization = Header("Manager");
         var route = $"/api/v1/expenses/{expense.Id}/attachments";
         var input = Input();
         var response = await client.PostAsJsonAsync(route, input);
@@ -88,11 +88,12 @@ public sealed class ExpenseAttachmentTests
         var replay = await client.PostAsJsonAsync(route, input);
         replay.EnsureSuccessStatusCode();
         Assert.Equal(row.Id, (await replay.Content.ReadFromJsonAsync<ExpenseAttachmentRow>())!.Id);
-        client.DefaultRequestHeaders.Authorization = Header(null, "finance:read");
+        client.DefaultRequestHeaders.Authorization = Header("Manager");
         Assert.Single((await client.GetFromJsonAsync<ExpenseAttachmentRow[]>(route))!);
         var original = (await client.GetFromJsonAsync<ExpenseAttachmentDownload>(route + "/" + row.Id))!;
         Assert.Equal(input.ContentBase64, original.ContentBase64);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/v1/expenses/{other.Id}/attachments/{row.Id}")).StatusCode);
+        client.DefaultRequestHeaders.Authorization = Header("Operations", "finance:write");
         var invalid = await client.PostAsJsonAsync(route, Input());
         Assert.Equal(HttpStatusCode.Forbidden, invalid.StatusCode);
     }

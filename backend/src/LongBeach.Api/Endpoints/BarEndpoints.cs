@@ -33,10 +33,10 @@ public static class BarEndpoints
         bar.MapPost("/counts/{id:guid}/approve", (Guid id, InventoryApprovalInput i, HttpContext h, IBarStock s, CancellationToken ct) => s.Approve(id,i.Reason,Actor(h),ct,i.ZeroUncounted)).RequireAuthorization(SystemPermissions.BarSupervise);
         bar.MapGet("/cash/history", (string? search, string? state, int? page, IBarCash s, CancellationToken ct) => s.History(search,state,page ?? 1,ct)).RequireAuthorization(SystemPermissions.BarSupervise);
         bar.MapGet("/cash/sessions/{id:guid}/details", (Guid id, IBarCash s, CancellationToken ct) => s.Details(id,ct)).RequireAuthorization(SystemPermissions.BarSupervise);
-        bar.MapGet("/cash/current", async (IBarCash s, CancellationToken ct) =>
+        bar.MapGet("/cash/current", async (HttpContext h, IBarCash s, CancellationToken ct) =>
         {
             var current = await s.Current(ct);
-            return current is null
+            return current is null || current.OpenedBy != Actor(h) && !Has(h, SystemPermissions.BarSupervise)
                 ? (IResult)Results.Text("null", "application/json", statusCode: StatusCodes.Status200OK)
                 : Results.Json(current);
         }).RequireAuthorization(SystemPermissions.BarCashOperate);

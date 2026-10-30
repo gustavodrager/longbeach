@@ -53,7 +53,7 @@ public sealed class GoogleClientRegistrationTests
         string issuer = "https://accounts.google.com", bool expired = false, SecurityKey? key = null) =>
         new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken(issuer, audience,
             [new("sub", subject), new("email", email), new("email_verified", verified), new("name", "Cliente Google teste"),
-             new(ClaimTypes.Role, "Owner"), new("permission", "users:manage")],
+             new(ClaimTypes.Role, "Manager"), new("permission", "users:manage")],
             DateTime.UtcNow.AddHours(-2), expired ? DateTime.UtcNow.AddHours(-1) : DateTime.UtcNow.AddMinutes(5),
             new SigningCredentials(key ?? Key, SecurityAlgorithms.RsaSha256)));
 
@@ -78,6 +78,24 @@ public sealed class GoogleClientRegistrationTests
     {
         await using var factory = Factory(); using var client = factory.CreateClient(); await Prepare(factory);
         var subject = Guid.NewGuid().ToString(); var email = $"{subject}@example.invalid";
+        await using (var visitorScope = factory.Services.CreateAsyncScope())
+        {
+            var visitorDb = visitorScope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+            var usersBefore = await visitorDb.Users.CountAsync();
+            var rolesBefore = await visitorDb.UserRoles.CountAsync();
+            var sessionsBefore = await visitorDb.RefreshTokens.CountAsync();
+            var options = await client.GetFromJsonAsync<JsonElement>("/api/v1/auth/options");
+            Assert.True(options.GetProperty("clientRegistrationEnabled").GetBoolean());
+            Assert.Contains((await client.GetAsync("/api/v1/menu/published")).StatusCode, new[] { HttpStatusCode.OK, HttpStatusCode.NotFound });
+            Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/me/portal/profile")).StatusCode);
+            using var providerCredential = new HttpRequestMessage(HttpMethod.Get, "/api/v1/customers")
+            { Headers = { Authorization = new AuthenticationHeaderValue("Bearer", Credential(subject, email)) } };
+            Assert.Equal(HttpStatusCode.Unauthorized, (await client.SendAsync(providerCredential)).StatusCode);
+            Assert.Equal(usersBefore, await visitorDb.Users.CountAsync());
+            Assert.Equal(rolesBefore, await visitorDb.UserRoles.CountAsync());
+            Assert.Equal(sessionsBefore, await visitorDb.RefreshTokens.CountAsync());
+            Assert.False(await visitorDb.Users.AnyAsync(u => u.GoogleSubject == subject));
+        }
         var response = await SignIn(client, Credential(subject, email));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
@@ -98,13 +116,14 @@ public sealed class GoogleClientRegistrationTests
         var audit = await db.AuditLogs.SingleAsync(a => a.Resource == "User" && a.ResourceId == session.User.Id.ToString() && a.Action == "Added");
         Assert.Contains("[REDACTED]", audit.MetadataJson);
         Assert.DoesNotContain(session.AccessToken, audit.MetadataJson);
+        Assert.False(await db.Set<LongBeach.Domain.Billing.BillingAccount>().AnyAsync(account => account.UserId == session.User.Id));
         Assert.DoesNotContain(await db.OperationalRecords.Where(r => r.Kind == "portalLinks").ToListAsync(), r => r.Payload.Contains(session.User.Id.ToString()));
     }
 
     [PostgresFact]
     public async Task Authorized_existing_staff_binding_is_audited_and_makes_them_available_as_bar_responsible()
     {
-        foreach (var roleName in new[] { SystemRoles.Owner, SystemRoles.Administrator })
+        foreach (var roleName in new[] { SystemRoles.Manager })
         {
             var email = $"{Guid.NewGuid()}@example.invalid";
             var subject = Guid.NewGuid().ToString();
@@ -116,7 +135,7 @@ public sealed class GoogleClientRegistrationTests
             var user = User.Create("Responsável fictício", email, "existing-hash"); user.AssignRole(role);
             db.Users.Add(user); await db.SaveChangesAsync();
             using var bar = factory.CreateClient();
-            bar.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header(SystemRoles.Owner);
+            bar.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header(SystemRoles.Manager);
             var search = "/api/v1/bar/tabs/customers?search=" + Uri.EscapeDataString(email);
             Assert.Empty((await bar.GetFromJsonAsync<TabCustomer[]>(search))!);
 
@@ -260,6 +279,7 @@ public sealed class GoogleClientRegistrationTests
         var manager = await db.Roles.SingleOrDefaultAsync(r => r.Name == SystemRoles.Manager) ?? new Role(SystemRoles.Manager);
         var staff = User.Create("Manager", staffEmail, "test-hash"); staff.AssignRole(manager);
         var returning = User.Create("Returning", $"{Guid.NewGuid()}@example.invalid", "test-hash"); returning.LinkGoogle(Guid.NewGuid().ToString(), returning.Email);
+        returning.AssignRole(await db.Roles.SingleAsync(r => r.Name == SystemRoles.Student));
         db.AddRange(staff, returning); await db.SaveChangesAsync();
         var subject = Guid.NewGuid().ToString();
         Assert.Equal(HttpStatusCode.Unauthorized, (await SignIn(client, Credential(subject, $"{subject}@example.invalid"))).StatusCode);
@@ -303,7 +323,7 @@ public sealed class GoogleClientRegistrationTests
         var other = (await (await SignIn(otherClient, Credential(otherSubject, $"{otherSubject}@example.invalid"))).Content.ReadFromJsonAsync<AuthResponse>())!;
         client.DefaultRequestHeaders.Authorization = new("Bearer", session.AccessToken);
         otherClient.DefaultRequestHeaders.Authorization = new("Bearer", other.AccessToken);
-        management.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header(SystemRoles.Owner);
+        management.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header(SystemRoles.Manager);
 
         var student = Guid.NewGuid(); var group = Guid.NewGuid(); var reservation = Guid.NewGuid();
         var groupReservation = Guid.NewGuid(); var lesson = Guid.NewGuid(); var enrollment = Guid.NewGuid();
@@ -370,10 +390,10 @@ public sealed class GoogleClientRegistrationTests
         await using var factory = Factory(); await Prepare(factory);
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
-        foreach (var roleName in new[] { SystemRoles.Owner, SystemRoles.Administrator, SystemRoles.Teacher, SystemRoles.BarOperator })
+        foreach (var roleName in new[] { SystemRoles.Manager, SystemRoles.Teacher, SystemRoles.Operations })
         {
             var role = await db.Roles.Include(r => r.RolePermissions).SingleOrDefaultAsync(r => r.Name == roleName) ?? new Role(roleName);
-            if (roleName == SystemRoles.BarOperator)
+            if (roleName == SystemRoles.Operations)
                 foreach (var grant in ProfileAccess.Grants[roleName])
                     role.Grant(await db.Permissions.SingleOrDefaultAsync(p => p.Name == grant) ?? new Permission(grant));
             var user = User.Create("Equipe fictícia", $"{Guid.NewGuid()}@example.invalid", "test-hash");
@@ -385,14 +405,14 @@ public sealed class GoogleClientRegistrationTests
             var session = (await response.Content.ReadFromJsonAsync<AuthResponse>())!;
             Assert.Equal(user.Id, session.User.Id); Assert.Equal([roleName], session.User.Roles);
             client.DefaultRequestHeaders.Authorization = new("Bearer", session.AccessToken);
-            var isManagement = roleName is SystemRoles.Owner or SystemRoles.Administrator;
+            var isManagement = roleName == SystemRoles.Manager;
             Assert.Equal(isManagement ? HttpStatusCode.OK : HttpStatusCode.Forbidden,
                 (await client.GetAsync("/api/v1/portal/candidates")).StatusCode);
             Assert.Equal(isManagement ? HttpStatusCode.OK : HttpStatusCode.Forbidden,
                 (await client.GetAsync("/api/v1/operations/financeEntries")).StatusCode);
             Assert.Equal(isManagement || roleName == SystemRoles.Teacher ? HttpStatusCode.OK : HttpStatusCode.Forbidden,
                 (await client.GetAsync("/api/v1/me/teaching")).StatusCode);
-            Assert.Equal(isManagement || roleName == SystemRoles.BarOperator ? HttpStatusCode.OK : HttpStatusCode.Forbidden,
+            Assert.Equal(isManagement || roleName == SystemRoles.Operations ? HttpStatusCode.OK : HttpStatusCode.Forbidden,
                 (await client.GetAsync("/api/v1/bar/tabs")).StatusCode);
             if (isManagement) Assert.Equal(SystemPermissions.All.Order(), session.User.Permissions.Order());
             else Assert.DoesNotContain(SystemPermissions.UsersManage, session.User.Permissions);

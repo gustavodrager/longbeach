@@ -1,4 +1,4 @@
-vi.mock('../auth/authContext',()=>({useAuth:()=>({user:{roles:[],permissions:['bar:catalog:write','bar:stock:read']}})}))
+vi.mock('../auth/authContext',()=>({useAuth:()=>({user:{roles:['Manager'],permissions:['bar:catalog:write','bar:stock:read']}})}))
 import { fireEvent, render, screen, within, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
@@ -28,8 +28,8 @@ it('lista antes de editar, pagina e preserva os campos complementares no salvame
   fireEvent.click(screen.getByRole('button',{name:'Salvar'}))
   await waitFor(()=>expect(screen.queryByLabelText('Nome')).not.toBeInTheDocument())
   const write=api.mock.calls.find(([,init])=>init?.method==='PUT')
-  expect(write?.[0]).toContain('/products/p0')
-  expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({version:7,categoryId:'c',salePrice:6,averageCost:2,purchaseUnit:'cx',conversionFactor:12,controlsStock:true,mainSupplierId:'s',barcode:'123',minimumStock:2})
+  expect(write?.[0]).toContain('/products/p0/stock')
+  expect(JSON.parse(String(write?.[1]?.body)).product).toMatchObject({version:7,categoryId:'c',salePrice:6,averageCost:2,purchaseUnit:'cx',conversionFactor:12,controlsStock:true,mainSupplierId:'s',barcode:'123',minimumStock:2})
   expect(screen.getByRole('searchbox')).toHaveValue('Produto')
   client.clear()
 })

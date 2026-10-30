@@ -27,13 +27,15 @@ public sealed class FirstAccessProvisioner(LongBeachDbContext db, IPasswordHashe
         {
             if (string.IsNullOrWhiteSpace(account.Name) || account.Name.Length > 160)
                 throw new InvalidOperationException("A name of up to 160 characters is required.");
+            if (!SystemRoles.All.Contains(account.Role, StringComparer.Ordinal))
+                throw new InvalidOperationException("Choose exactly one supported profile: Manager, Teacher, Operations or Student.");
             var normalized = User.NormalizeEmail(account.Username);
             var role = await db.Roles.SingleOrDefaultAsync(x => x.Name == account.Role, ct)
                 ?? throw new InvalidOperationException("Requested role does not exist.");
             var user = await db.Users.Include(x => x.UserRoles).SingleOrDefaultAsync(x => x.NormalizedUsername == normalized, ct);
             if (user is not null)
             {
-                if (!user.IsActive || user.Name != account.Name || !user.UserRoles.Any(x => x.RoleId == role.Id))
+                if (!user.IsActive || user.Name != account.Name || user.UserRoles.Count != 1 || !user.UserRoles.Any(x => x.RoleId == role.Id))
                     throw new InvalidOperationException("An existing account conflicts with the request. No credentials were reset.");
                 existing++;
                 continue;

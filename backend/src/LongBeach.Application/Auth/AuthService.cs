@@ -24,7 +24,7 @@ public sealed class AuthService(
             : await users.FindByUsernameAsync(login, cancellationToken);
 
         var passwordVerification = passwordHasher.Verify(password, user?.PasswordHash ?? passwordHasher.DummyHash);
-        if (user is null || !user.IsActive || !user.InitialAccessIsValidAt(timeProvider.GetUtcNow()) || passwordVerification == PasswordHashVerificationResult.Failed)
+        if (user is null || !user.IsActive || !ProfileAccess.HasValidProfile(user.GetRoleNames()) || !user.InitialAccessIsValidAt(timeProvider.GetUtcNow()) || passwordVerification == PasswordHashVerificationResult.Failed)
         {
             throw new AuthenticationFailedException();
         }
@@ -51,7 +51,7 @@ public sealed class AuthService(
         var user = await users.FindByGoogleSubjectAsync(subject, cancellationToken);
         if (user is null && allowEmailMatch)
             user = await users.FindByEmailAsync(User.NormalizeEmail(email), cancellationToken);
-        if (user is null || !user.IsActive || user.RequiresFirstAccess ||
+        if (user is null || !user.IsActive || !ProfileAccess.HasValidProfile(user.GetRoleNames()) || user.RequiresFirstAccess ||
             (user.GoogleSubject is not null && user.GoogleSubject != subject))
         {
             throw new AuthenticationFailedException();
@@ -73,7 +73,7 @@ public sealed class AuthService(
         Guid userId, string subject, string email, string? ipAddress, CancellationToken cancellationToken = default)
     {
         var user = await users.FindByIdAsync(userId, cancellationToken);
-        if (user is null || !user.IsActive || !user.RequiresFirstAccess ||
+        if (user is null || !user.IsActive || !ProfileAccess.HasValidProfile(user.GetRoleNames()) || !user.RequiresFirstAccess ||
             !user.InitialAccessIsValidAt(timeProvider.GetUtcNow())) throw new AuthenticationFailedException();
         var bySubject = await users.FindByGoogleSubjectAsync(subject, cancellationToken);
         var byEmail = await users.FindByEmailAsync(User.NormalizeEmail(email), cancellationToken);
@@ -99,7 +99,7 @@ public sealed class AuthService(
         var currentToken = user?.RefreshTokens.SingleOrDefault(token => token.TokenHash == tokenHash);
         var now = timeProvider.GetUtcNow();
 
-        if (user is null || !user.IsActive || currentToken is null || !user.InitialAccessIsValidAt(now) ||
+        if (user is null || !user.IsActive || !ProfileAccess.HasValidProfile(user.GetRoleNames()) || currentToken is null || !user.InitialAccessIsValidAt(now) ||
             currentToken.FirstAccessOnly != user.RequiresFirstAccess)
         {
             throw new InvalidRefreshTokenException();

@@ -1,3 +1,4 @@
+import { hasPermission } from '../features/auth/access'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -10,7 +11,7 @@ import { Feedback, Field, currency, displayDate, useSave } from './arenaUi'
 type TabChoice = { id: string; number: number; name: string; state: string }
 export function RentalBarPanel({ group, meetings, links, onLinked }: { group: RentalGroup; meetings: Reservation[]; links: RentalBar[]; onLinked: () => Promise<void> }) {
   const { user } = useAuth(); const data = useOperations(); const action = useSave(); const [search, setSearch] = useState(''); const [query, setQuery] = useState<string | null>(null); const [page, setPage] = useState(1); const [meetingId, setMeeting] = useState(''); const [memberId, setMember] = useState('')
-  const canLink = data.canWrite('rentalGroups') && Boolean(user?.roles.includes('Owner') || user?.permissions.includes('bar:sales:operate') && user?.permissions.includes('bar:sales:read'))
+  const canLink = data.canWrite('rentalGroups') && Boolean(hasPermission(user, 'bar:sales:operate') && hasPermission(user, 'bar:sales:read'))
   const selected = meetings.find(r => r.id === meetingId && r.status !== 'Cancelada')?.id ?? meetings.find(r => r.status !== 'Cancelada')?.id ?? ''
   const choices = useQuery({ queryKey: ['rental-tab-search', query, page], queryFn: () => apiFetch<{ items: TabChoice[]; total: number }>(`/api/v1/bar/tabs?search=${encodeURIComponent(query ?? '')}&page=${page}&pageSize=10`), enabled: canLink && query !== null })
   async function link(tabId: string) { await action.run(async () => { const previous = links.find(l => l.tabId === tabId); await apiFetch(`/api/v1/rentals/groups/${group.id}/bar/${tabId}`, { method: 'PUT', body: JSON.stringify({ reservationId: selected, memberId: memberId || null, version: previous?.version ?? 0 }) }); await onLinked() }, 'Comanda vinculada ao encontro.') }

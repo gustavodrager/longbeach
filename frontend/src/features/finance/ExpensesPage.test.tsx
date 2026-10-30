@@ -9,7 +9,7 @@ import { ExpenseDetailPanel } from './ExpenseDetail'
 import { today } from '../../pages/arenaUi'
 import type { ExpenseDetail, ExpenseList, ExpenseOptions, ExpenseRow } from './expenses'
 
-const actor = vi.hoisted(() => ({ roles: ['Owner'], permissions: ['finance:read', 'finance:write'] }))
+const actor = vi.hoisted(() => ({ roles: ['Manager'], permissions: ['finance:read', 'finance:write'] }))
 vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { id: 'finance-test', roles: actor.roles, permissions: actor.permissions } }) }))
 const day = today()
 const partner = { id: '11111111-1111-1111-1111-111111111111', name: 'Sócio de teste' }
@@ -33,7 +33,7 @@ function mockRequests(handler?: (url: string, init?: RequestInit) => Promise<Res
     return response(detail)
   })
 }
-afterEach(() => { clients.splice(0).forEach(client => client.clear()); actor.roles = ['Owner']; actor.permissions = ['finance:read', 'finance:write']; vi.restoreAllMocks() })
+afterEach(() => { clients.splice(0).forEach(client => client.clear()); actor.roles = ['Manager']; actor.permissions = ['finance:read', 'finance:write']; vi.restoreAllMocks() })
 
 it('mostra o saldo restante, os sócios incluídos no total e conserva resumo global ao filtrar', async () => {
   const fetch = mockRequests(); const user = userEvent.setup(); mount()
@@ -49,11 +49,11 @@ it('mostra o saldo restante, os sócios incluídos no total e conserva resumo gl
   expect(summary).toHaveTextContent('R$ 860,00')
 })
 
-it('restringe consulta pela permissão e esconde escrita para usuário somente leitura', async () => {
+it('restringe consulta e escrita ao atendente mesmo com claims financeiras antigas', async () => {
   const fetch = mockRequests(); actor.roles = ['Operations']; actor.permissions = []
   const first = mount(); expect(screen.getByText('Acesso restrito')).toBeInTheDocument(); expect(fetch).not.toHaveBeenCalled(); first.unmount()
   actor.permissions = ['finance:read']; mount()
-  await screen.findByRole('table'); expect(screen.queryByRole('button', { name: '+ Novo lançamento' })).not.toBeInTheDocument()
+  expect(screen.getByText('Acesso restrito')).toBeInTheDocument(); expect(fetch).not.toHaveBeenCalled(); expect(screen.queryByRole('button', { name: '+ Novo lançamento' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /^Pagar / })).not.toBeInTheDocument()
 })
 

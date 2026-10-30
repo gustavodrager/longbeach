@@ -4,7 +4,6 @@ namespace LongBeach.Application.Authorization;
 
 public static class AuthorizationPolicyCatalog
 {
-    public const string Owner = SystemRoles.Owner;
-    public const string Administrator = SystemRoles.Administrator;
+    public const string Management = "Management";
     public static IReadOnlyCollection<string> Permissions => SystemPermissions.All;
 }

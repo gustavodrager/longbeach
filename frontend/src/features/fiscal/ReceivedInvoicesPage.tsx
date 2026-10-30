@@ -130,6 +130,10 @@ function Classification({ invoice, onSaved }: { invoice: Detail; onSaved: () => 
 }
 
 export function ReceivedInvoicesPage() {
+  const { user } = useAuth()
+  return hasPermission(user, 'fiscal:invoices:manage') ? <ReceivedInvoicesContent /> : <main className="operation-page"><h1>Acesso restrito</h1><p role="alert">As notas recebidas são exclusivas do gestor.</p></main>
+}
+function ReceivedInvoicesContent() {
   const client = useQueryClient()
   const { user } = useAuth()
   const canCreateBarPurchase = hasPermission(user, 'bar:purchases:manage')

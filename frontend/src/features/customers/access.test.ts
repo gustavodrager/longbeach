@@ -1,7 +1,7 @@
 import { hasPermission } from '../auth/access'
 import type { AuthUser } from '../auth/types'
 import { canUseCustomerScope } from './api'
-const operator: AuthUser = { id: 'fixture', name: 'Teste', email: 'test@example.invalid', roles: ['BarOperator'], permissions: ['bar:sales:operate'] }
+const operator: AuthUser = { id: 'fixture', name: 'Teste', email: 'test@example.invalid', roles: ['Operations'], permissions: ['bar:sales:operate'] }
 it('picker do Bar não exige leitura escolar e não concede diretório nem unificação', () => {
   expect(canUseCustomerScope(operator, 'bar')).toBe(true)
   expect(canUseCustomerScope(operator, 'students')).toBe(false)

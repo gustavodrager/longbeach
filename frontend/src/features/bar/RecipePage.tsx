@@ -1,3 +1,4 @@
+import { hasPermission } from '../auth/access'
 import { useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { EditorPanel, useEditorQuery, useUnsavedChanges } from '../../components/managementUi'
@@ -77,7 +78,7 @@ function RecipeEditor({ product, products, previous, onCancel, onSaved, onLocked
 
 export function BarRecipesPage() {
   const { user } = useAuth(); const { productId } = useParams(); const filters = useFilters(); const navigate = useNavigate()
-  const allowed = Boolean(user?.roles.includes('Owner')||user?.permissions.includes('bar:catalog:write'))
+  const allowed = Boolean(hasPermission(user, 'bar:catalog:write'))
   const products = useBarData<ManagedProduct[]>('/products', allowed)
   const rawPage = Number(filters.params.get('page') ?? 1); const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1
   const versionId = filters.params.get('version') ?? ''

@@ -43,7 +43,7 @@ public sealed class FirstAccessApiTests
         Assert.Equal(HttpStatusCode.Unauthorized,(await client.PostAsJsonAsync("/api/v1/auth/login",new {email=username,password=Initial})).StatusCode);
         var full = await Login(client,username,"PermanentPassword2!");
         Assert.False(full.GetProperty("user").GetProperty("requiresFirstAccess").GetBoolean());
-        Assert.Contains("Owner",full.GetProperty("user").GetProperty("roles").EnumerateArray().Select(x=>x.GetString()));
+        Assert.Contains("Manager",full.GetProperty("user").GetProperty("roles").EnumerateArray().Select(x=>x.GetString()));
         client.DefaultRequestHeaders.Authorization = new("Bearer",full.GetProperty("accessToken").GetString());
         Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/api/v1/operations/students")).StatusCode);
         await using var scope=factory.Services.CreateAsyncScope(); var db=scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
@@ -105,7 +105,7 @@ public sealed class FirstAccessApiTests
         var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
         IConfiguration Config(string target, string allowed) => new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> {
             ["Bootstrap:GoogleAccess:Username"] = username, ["Bootstrap:GoogleAccess:Email"] = target,
-            ["Bootstrap:GoogleAccess:Role"] = "Owner", ["Authentication:Google:Enabled"] = "true",
+            ["Bootstrap:GoogleAccess:Role"] = "Manager", ["Authentication:Google:Enabled"] = "true",
             ["Authentication:Google:AllowedEmail"] = allowed
         }).Build();
         var command = new GoogleAccessAuthorizer(db, hasher, TimeProvider.System);
@@ -116,7 +116,7 @@ public sealed class FirstAccessApiTests
         var hash = user.PasswordHash;
         Assert.False(await command.RunAsync(Config(email, email)));
         Assert.Equal(before, await db.Users.CountAsync()); Assert.Equal(hash, user.PasswordHash);
-        Assert.Equal(new[] { "Owner" }, user.GetRoleNames()); Assert.False(user.RequiresFirstAccess);
+        Assert.Equal(new[] { "Manager" }, user.GetRoleNames()); Assert.False(user.RequiresFirstAccess);
         Assert.Equal(PasswordHashVerificationResult.Failed, hasher.Verify(Initial, hash));
         client.DefaultRequestHeaders.Authorization = new("Bearer", initialSession.GetProperty("accessToken").GetString());
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/auth/me")).StatusCode);
@@ -129,7 +129,7 @@ public sealed class FirstAccessApiTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var session = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(id, session.GetProperty("user").GetProperty("id").GetGuid());
-        Assert.Contains("Owner", session.GetProperty("user").GetProperty("roles").EnumerateArray().Select(x => x.GetString()));
+        Assert.Contains("Manager", session.GetProperty("user").GetProperty("roles").EnumerateArray().Select(x => x.GetString()));
         Assert.Single(await db.AuditLogs.Where(x => x.ResourceId == id.ToString() && x.Action == "GoogleAccessAuthorized").ToListAsync());
         await Assert.ThrowsAsync<InvalidOperationException>(() => command.RunAsync(Config("replacement@example.test", "replacement@example.test")));
     }
@@ -164,7 +164,7 @@ public sealed class FirstAccessApiTests
     {
         await OperationalPostgresTests.Migrate(factory);
         await using var scope=factory.Services.CreateAsyncScope();var db=scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
-        if(!await db.Roles.AnyAsync(x=>x.Name=="Owner")){ db.Roles.Add(new Role("Owner"));await db.SaveChangesAsync(); }
+        if(!await db.Roles.AnyAsync(x=>x.Name=="Manager")){ db.Roles.Add(new Role("Manager"));await db.SaveChangesAsync(); }
         var username="test-"+Guid.NewGuid().ToString("N");
         var result=await new FirstAccessProvisioner(db,scope.ServiceProvider.GetRequiredService<IPasswordHasher>(),TimeProvider.System).RunAsync(ProvisionConfig(username));
         Assert.Equal((1,0),result);
@@ -172,7 +172,7 @@ public sealed class FirstAccessApiTests
     }
     private static IConfiguration ProvisionConfig(string username)=>new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> {
         ["Bootstrap:FirstAccess:TemporaryPassword"]=Initial,["Bootstrap:FirstAccess:ExpiresAtUtc"]=DateTimeOffset.UtcNow.AddDays(1).ToString("O"),
-        ["Bootstrap:FirstAccess:Accounts:0:Name"]=username,["Bootstrap:FirstAccess:Accounts:0:Username"]=username,["Bootstrap:FirstAccess:Accounts:0:Role"]="Owner"
+        ["Bootstrap:FirstAccess:Accounts:0:Name"]=username,["Bootstrap:FirstAccess:Accounts:0:Username"]=username,["Bootstrap:FirstAccess:Accounts:0:Role"]="Manager"
     }).Build();
     private static async Task<JsonElement> Login(HttpClient client,string username,string password)
     {

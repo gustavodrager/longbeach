@@ -49,7 +49,7 @@ public sealed class CustomerRulesTests
     {
         Assert.Contains(SystemPermissions.CustomersWrite, ProfileAccess.Permissions([SystemRoles.Operations], SystemPermissions.All));
         Assert.DoesNotContain(SystemPermissions.CustomersMerge, ProfileAccess.Permissions([SystemRoles.Operations], SystemPermissions.All));
-        foreach (var role in new[] { SystemRoles.Teacher, SystemRoles.Student, SystemRoles.BarOperator, SystemRoles.Viewer, SystemRoles.Auditor })
+        foreach (var role in new[] { SystemRoles.Teacher, SystemRoles.Student, "BarOperator", "Viewer", "Auditor" })
             Assert.DoesNotContain(SystemPermissions.CustomersRead, ProfileAccess.Permissions([role], SystemPermissions.All));
         using var db = new LongBeachDbContext(new DbContextOptionsBuilder<LongBeachDbContext>().UseNpgsql("Host=localhost;Port=1;Database=test;Username=test;Password=test").Options, TimeProvider.System);
         Assert.False(db.Database.HasPendingModelChanges());

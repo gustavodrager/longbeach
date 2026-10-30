@@ -38,9 +38,9 @@ public sealed class ProductionOwnerBootstrapper(
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
 
         var ownerRole = await dbContext.Roles
-            .SingleOrDefaultAsync(role => role.Name == SystemRoles.Owner, cancellationToken)
+            .SingleOrDefaultAsync(role => role.Name == SystemRoles.Manager, cancellationToken)
             ?? throw new InvalidOperationException(
-                "The Owner role is missing. Enable Authorization:SeedOnStartup for the one-time bootstrap deployment.");
+                "The Manager profile is missing. Provision the current authorization catalog first.");
 
         var normalizedEmail = User.NormalizeEmail(email);
         var user = await dbContext.Users
@@ -57,12 +57,16 @@ public sealed class ProductionOwnerBootstrapper(
         {
             throw new InvalidOperationException("The configured initial Owner already exists but is inactive.");
         }
+        else if (user.UserRoles.Count != 1 || user.UserRoles.Single().RoleId != ownerRole.Id)
+        {
+            throw new InvalidOperationException("The existing account does not have exactly one Manager profile. Use explicit profile consolidation; no account was changed.");
+        }
 
         user!.AssignRole(ownerRole);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         logger.LogWarning(
-            "Production initial Owner bootstrap completed for user {UserId} (created: {Created}). Disable {EnabledKey} and remove the bootstrap password before the next deployment.",
+            "Production initial Manager bootstrap completed for user {UserId} (created: {Created}). Disable {EnabledKey} and remove the bootstrap password before the next deployment.",
             user.Id,
             created,
             EnabledKey);

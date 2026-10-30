@@ -11,7 +11,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const clients: QueryClient[] = []
 function mount(path = '/atendimento/pedidos', operate = true) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }); clients.push(client)
-  const auth: AuthContextValue = { user: { id: 'operator', name: 'Teste', email: 'teste@example.com', roles: [], permissions: operate ? ['bar:sales:read', 'bar:sales:operate'] : ['bar:sales:read'] }, isBootstrapping: false, signIn: async () => {}, signInWithGoogle: async () => {}, signOut: async () => {}, changePassword: async () => {}, completeFirstAccessWithGoogle: async () => {} }
+  const auth: AuthContextValue = { user: { id: 'operator', name: 'Teste', email: 'teste@example.com', roles: ['Operations'], permissions: operate ? ['bar:sales:read', 'bar:sales:operate'] : ['bar:sales:read'] }, isBootstrapping: false, signIn: async () => {}, signInWithGoogle: async () => {}, signOut: async () => {}, changePassword: async () => {}, completeFirstAccessWithGoogle: async () => {} }
   render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><OrdersPage /></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
   return client
 }

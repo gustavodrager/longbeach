@@ -1,3 +1,4 @@
+import { hasPermission } from '../auth/access'
 import { TerminalReceipts } from './TerminalReceipts'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -15,7 +16,7 @@ export function MyCashPage() {
   const [value, setValue] = useState(''); const [reason, setReason] = useState(''); const [step, setStep] = useState(''); const [closing, setClosing] = useState<CashClosing | null>(null)
   const details = useBarData<{terminalReceipts?:{terminalType:string;amount:number;refunded:number}[]}>(`/cash/sessions/${session?.id}/details`, Boolean(session) && step === 'close')
   const locationId = barLocation(locations.data)?.id; const amount = parseAmount(value); const difference = session && Number.isFinite(amount) ? Math.round((amount - session.expected) * 100) / 100 : 0
-  const supervisor = user?.permissions.includes('bar:supervise'); const changed = () => intent(step || 'open', true)
+  const supervisor = hasPermission(user, 'bar:supervise'); const changed = () => intent(step || 'open', true)
   async function open() {
     if (!locationId || locations.isError) { command.setError('Peça à gestão para conferir o cadastro do local Bar.'); return }
     if (!Number.isFinite(amount) || amount < 0) { command.setError('Informe o dinheiro inicial, incluindo zero.'); return }

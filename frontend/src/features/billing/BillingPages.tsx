@@ -1,3 +1,4 @@
+import { isManagement } from '../auth/access'
 import { paymentLabel } from '../attendance/api'
 import { CopyPix } from '../../components/CopyPix'
 import { PixQr } from '../../components/PixQr'
@@ -35,6 +36,10 @@ function PaymentHistory({ account, base, admin, importOnly, refresh }: { account
 }
 
 export function BillingPage({ admin = false }: { admin?: boolean }) {
+  const { user } = useAuth()
+  return admin && !hasPermission(user, 'finance:read') ? <main className="operation-page"><h1>Acesso restrito</h1><p role="alert">Os recebimentos gerais são exclusivos do gestor.</p></main> : <BillingContent admin={admin} />
+}
+function BillingContent({ admin }: { admin: boolean }) {
   const { user } = useAuth(); const cache = useQueryClient(); const base = admin ? '/api/v1/billing' : '/api/v1/me/billing'
   const config = useQuery({ queryKey: ['billing-config', user?.id], queryFn: () => apiFetch<Config>('/api/v1/me/billing/config') })
   const importOnly = config.data?.importOnly === true
@@ -47,7 +52,7 @@ export function BillingPage({ admin = false }: { admin?: boolean }) {
   const [cancelReview, setCancelReview] = useState<Subscription | null>(null)
   const [selected, setSelected] = useState(''); const [mode, setMode] = useState<'pay' | 'subscribe'>('pay'); const [error, setError] = useState(''); const [busy, setBusy] = useState(false)
   const [source, setSource] = useState(''); const [owner, setOwner] = useState(''); const [student, setStudent] = useState('')
-  const canManage = admin && Boolean(user?.permissions.includes('finance:write') || user?.roles.includes('Owner'))
+  const canManage = admin && Boolean(hasPermission(user, 'finance:write') || isManagement(user))
   async function refresh() { await cache.invalidateQueries({ queryKey: ['billing'] }); await cache.invalidateQueries({ queryKey: ['billing-subscriptions'] }) }
   async function subscriptionUpdated(value: Subscription) {
     await cache.cancelQueries({ queryKey: ['billing-subscriptions', user?.id] })

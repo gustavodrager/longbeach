@@ -2,21 +2,13 @@ namespace LongBeach.Domain.Identity;
 
 public static class SystemRoles
 {
-    public const string BarOperator = "BarOperator";
-    public const string BarSupervisor = "BarSupervisor";
-    public const string StockManager = "StockManager";
-    public const string BarFinance = "BarFinance";
-    public const string Owner = "Owner";
-    public const string Administrator = "Administrator";
     public const string Manager = "Manager";
     public const string Teacher = "Teacher";
     public const string Operations = "Operations";
     public const string Student = "Student";
-    public const string Viewer = "Viewer";
-    public const string Auditor = "Auditor";
+    public static readonly IReadOnlyCollection<string> All = [Manager, Teacher, Operations, Student];
 
-    public static readonly IReadOnlyCollection<string> All =
-        [Owner, Administrator, Manager, Teacher, Operations, Student, Viewer, Auditor, BarOperator, BarSupervisor, StockManager, BarFinance];
+    public static bool IsValid(string role) => All.Contains(role, StringComparer.Ordinal);
 }
 
 public static class SystemPermissions

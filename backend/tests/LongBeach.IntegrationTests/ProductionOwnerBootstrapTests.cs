@@ -54,7 +54,7 @@ public sealed class ProductionOwnerBootstrapTests
             var dbContext = setupScope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
             await dbContext.Database.EnsureDeletedAsync();
             await dbContext.Database.MigrateAsync();
-            dbContext.Roles.Add(new Role(SystemRoles.Owner));
+            dbContext.Roles.Add(new Role(SystemRoles.Manager));
             await dbContext.SaveChangesAsync();
         }
 
@@ -75,7 +75,7 @@ public sealed class ProductionOwnerBootstrapTests
             .ToArrayAsync();
         var user = Assert.Single(users);
         Assert.Equal("owner@example.com", user.Email);
-        Assert.Contains(user.UserRoles, userRole => userRole.Role.Name == SystemRoles.Owner);
+        Assert.Contains(user.UserRoles, userRole => userRole.Role.Name == SystemRoles.Manager);
     }
 
     private sealed class TestHostEnvironment(string environmentName) : IHostEnvironment

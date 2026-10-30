@@ -1,16 +1,4 @@
-export type UserRole =
-  | 'BarOperator'
-  | 'BarSupervisor'
-  | 'StockManager'
-  | 'BarFinance'
-  | 'Owner'
-  | 'Administrator'
-  | 'Manager'
-  | 'Teacher'
-  | 'Operations'
-  | 'Student'
-  | 'Viewer'
-  | 'Auditor'
+export type UserRole = 'Manager' | 'Teacher' | 'Operations' | 'Student'
 
 export type AuthUser = {
   id: string

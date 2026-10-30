@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-quer
 import { MemoryRouter } from 'react-router-dom'
 import { PurchaseForm } from './PurchaseForm'
 import { decimal, rowTotal } from './purchaseModel'
-vi.mock('../auth/authContext',()=>({useAuth:()=>({user:{id:'purchase-owner',roles:['Owner'],permissions:[]}})}))
+vi.mock('../auth/authContext',()=>({useAuth:()=>({user:{id:'purchase-owner',roles:['Manager'],permissions:[]}})}))
 const products=[{id:'water',name:'Água teste',code:'AG',purchaseUnit:'caixa',saleUnit:'un',conversionFactor:12,active:true},{id:'old',name:'Inativo',code:'OLD',purchaseUnit:'un',saleUnit:'un',conversionFactor:1,active:false}]
 afterEach(()=>vi.restoreAllMocks())
 function Fixture({onReceive}:{onReceive:(p:any)=>void}){const {data}=useQuery({queryKey:['bar','/suppliers'],queryFn:async()=>[{id:'supplier',name:'Distribuidora teste'}],initialData:[{id:'supplier',name:'Distribuidora teste'}],staleTime:Infinity});return <PurchaseForm products={products} suppliers={data} onClose={vi.fn()} onReceive={onReceive}/> }
