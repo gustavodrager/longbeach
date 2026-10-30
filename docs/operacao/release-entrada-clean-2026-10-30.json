@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "status": "published_and_verified",
+  "scope": "web-only-public-entrance",
+  "web_source_commit": "7310f4408ab44f692526f6a79f61acfee597d926",
+  "source_branch": "codex/entrada-clean-20261030",
+  "review_url": "https://github.com/gustavodrager/longbeach/pull/52",
+  "published_at_utc": "2026-10-30T13:48:49.016Z",
+  "production_run": {
+    "id": 41063195876,
+    "attempt": 1,
+    "conclusion": "success",
+    "human_authorized": true,
+    "owner_environment_approved": true,
+    "temporary_policy_id_removed": 64919598,
+    "reviewers_and_other_protections_preserved": true
+  },
+  "web": {
+    "origin": "https://longbeach.quebranunca.com.br",
+    "entry_path": "/visitante",
+    "version": "sites/parsero-prod-20261022/versions/5f19a1733ce30315",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793368129016000",
+    "previous_version": "sites/parsero-prod-20261022/versions/b4a90452954c97ec",
+    "previous_release": "sites/parsero-prod-20261022/channels/live/releases/1793356095243000",
+    "tree_sha256": "0834f1a54027753693e1d24408ec0483a380193fe1b5350c7d26b1dbf3b2f031",
+    "frontend_source_tree": "fb0321b6889daaf5122a42451e95787f493ddea0",
+    "official_oci_index": "sha256:3f93cdfcdce88563ba8a854d32c5f7b8e4111eb79c010dd420a2669cc0ec272a",
+    "official_oci_runtime_manifest": "sha256:4fd3012fea9e9480f524804f4dd9a54c5d68403a87c7d2b8805383dbe2fa83ab",
+    "official_oci_config": "sha256:ed05cc36b53d855144daf961905f132c44deaf3f8ddc2dcd9414b2a5eb5d185e",
+    "application_files": 86,
+    "active_files": 88,
+    "provider_managed_files": 2,
+    "provider_files_preserved": true,
+    "configuration_sha256": "6785ca752aaa3cb069c94d71885f104ad3a1eee764747906daeea355e20e4402",
+    "configuration_preserved": true,
+    "rebuild_after_workflow": false
+  },
+  "api_database": {
+    "preserved_source_commit": "e84ba6f19b0d6e47ad52ed7fe768093becfa5815",
+    "api_db_identity_sha256": "5210218e38753020d357f24256fc70a825996d7cd7c9af9e39b9928b75775dfa",
+    "api_preserved": true,
+    "database_and_proxy_identity_preserved": true,
+    "configuration_preserved": true,
+    "profile_aggregates_preserved": true,
+    "api_pause_performed": false,
+    "database_migrations_executed": 0,
+    "schema_count": 30,
+    "credential_import_or_renewal_performed": false
+  },
+  "verification": {
+    "frontend_tests_passed": 819,
+    "frontend_build": "passed",
+    "api_build": "passed",
+    "production_quality_jobs": "passed",
+    "public_requests": 94,
+    "files_verified": 86,
+    "failures": 0,
+    "new_entrance_and_removed_old_texts_verified": true,
+    "png_alpha_and_svg_embed_verified": true,
+    "desktop_viewport": {
+      "height": 720,
+      "width": 1280
+    },
+    "mobile_viewport": {
+      "height": 844,
+      "width": 390
+    },
+    "mobile_no_scrolling_required": true,
+    "minimum_control_height_px": 48,
+    "keyboard_focus_visible": true,
+    "help_enter_and_space_verified": true,
+    "pwa_update_applied": true,
+    "production_login_performed": false
+  },
+  "evidence_directory": "LongBeach/evidencias/entrada-clean-2026-10-30/publicacao",
+  "evidence_sha256": {
+    "human-production-authorization.json": "73d2b9693075ff405441eb767f222fefb3ac6f2d9be1d7d6c99b9c1c501ea15f",
+    "web-official-receipt.private.json": "72d03d25a475862d81064623d87d237031b9496ae44b81fb7e23a36c74fc31c3",
+    "hosting-publish.receipt.private.json": "3c7a9b7f51258231346df9a7e30322b4becff38778686523cd31250d97ac1018",
+    "api-preservation.receipt.private.json": "bd6c80028c2799c664cc4676544a0459f84dd6253f97ecda24d171a7d99d4d18",
+    "public-verification-final.private.json": "ee8f95c9e63fd2039ef91912bcbb51b24e405295595e05571ad4ecf02a284f82",
+    "browser-verification.private.json": "4a2a6edd2408848c41200eff2b694500efbb63abe265f4c86fbb0a882ef5bd50",
+    "production-policy-cleanup.receipt.private.json": "ec30fdc6011aba11d2e2f165b02774fa3cf261fe698f596c0af8dd39e4c11058"
+  }
+}
