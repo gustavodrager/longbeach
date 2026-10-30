@@ -11,8 +11,8 @@ const clients:QueryClient[]=[]
 function mount(path='/professor',user=teacher){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);const auth={user,isBootstrapping:false,signOut:async()=>{}} as AuthContextValue;return render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><Routes><Route path="professor" element={<TeacherLayout/>}><Route index element={<TeacherHome/>}/><Route path="turmas/:classId" element={<TeacherRoster/>}/></Route></Routes></MemoryRouter></AuthContext.Provider></QueryClientProvider>)}
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}})
 afterEach(()=>{cleanup();clients.splice(0).forEach(c=>c.clear());vi.restoreAllMocks()})
-it('professor recebe navegação própria e alternância pessoal sem módulos da gestão',async()=>{vi.spyOn(globalThis,'fetch').mockResolvedValue(json({linked:true,classes:[cls]}));mount();await screen.findByRole('heading',{name:'Suas aulas de hoje'});expect(screen.getByRole('navigation',{name:'Área do professor'}).querySelectorAll('a')).toHaveLength(3);expect(screen.getByRole('link',{name:'Minha área'})).toHaveAttribute('href','/minha-area');expect(screen.queryByRole('link',{name:'Gestão'})).not.toBeInTheDocument()})
-it('vínculo ausente não vira lista vazia de alunos',async()=>{vi.spyOn(globalThis,'fetch').mockResolvedValue(json({linked:false,classes:[]}));mount();expect(await screen.findByRole('heading',{name:'Seu acesso às turmas está em preparação'})).toBeInTheDocument();expect(screen.queryByText('Nenhuma aula na grade de hoje')).not.toBeInTheDocument()})
+it('professor recebe navegação própria e alternância pessoal sem módulos da gestão',async()=>{vi.spyOn(globalThis,'fetch').mockResolvedValue(json({linked:true,classes:[cls]}));mount();await screen.findByRole('heading',{name:'Aulas de hoje'});expect(screen.getByRole('navigation',{name:'Área do professor'}).querySelectorAll('a')).toHaveLength(3);fireEvent.click(screen.getByRole('button',{name:'Conta'}));expect(screen.getByRole('link',{name:'Minha área'})).toHaveAttribute('href','/minha-area');expect(screen.queryByRole('link',{name:'Gestão'})).not.toBeInTheDocument()})
+it('vínculo ausente não vira lista vazia de alunos',async()=>{vi.spyOn(globalThis,'fetch').mockResolvedValue(json({linked:false,classes:[]}));mount();expect(await screen.findByRole('heading',{name:'Turmas ainda não vinculadas'})).toBeInTheDocument();expect(screen.queryByText('Nenhuma aula na grade hoje')).not.toBeInTheDocument()})
 it('cliente não consulta a API de professores por URL direta',async()=>{const fetch=vi.spyOn(globalThis,'fetch');mount('/professor',{...teacher,roles:['Student']});expect(await screen.findByRole('heading',{name:'Acesso restrito'})).toBeInTheDocument();expect(fetch).not.toHaveBeenCalled()})
 it('registra presença no endpoint delimitado, com versão, e mostra confirmação',async()=>{let status:string|null=null;let version=0;const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{if(init?.method==='PUT'){const body=JSON.parse(String(init.body));status=body.status;version++;}return String(input).includes('/classes/')?json({class:cls,date:'2026-10-03',students:[{id:'s1',name:'Ana',presence:status,version}]}):json({linked:true,classes:[cls]})});mount('/professor/turmas/c1?date=2026-10-03');fireEvent.click(await screen.findByRole('button',{name:'Ana: Presente'}));await screen.findByText('Presença de Ana registrada.');expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/classes/c1/presences?date=2026-10-03'),expect.objectContaining({method:'PUT',body:JSON.stringify({studentId:'s1',status:'Presente',version:0})}));expect(screen.getByRole('button',{name:'Ana: Presente'})).toHaveAttribute('aria-pressed','true')})
 it('erro de consulta não permite registrar nem indica ausência de alunos',async()=>{vi.spyOn(globalThis,'fetch').mockImplementation(async(input)=>String(input).includes('/classes/')?json({message:'Acesso restrito'},403):json({linked:true,classes:[cls]}));mount('/professor/turmas/c1?date=2026-10-03');await screen.findByRole('alert');expect(screen.queryByText('Nenhuma matrícula válida para esta data.')).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:/Presente/})).not.toBeInTheDocument()})
@@ -21,4 +21,32 @@ it('perfis acumulados são bloqueados e gestor mantém acesso completo',()=>{exp
 it('aula experimental confirmada aparece no dia do professor mesmo sem turma regular',async()=>{
  const date=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())
  vi.spyOn(globalThis,'fetch').mockResolvedValue(json({linked:true,classes:[],appointments:[{id:'trial1',name:'Aula experimental · Visitante',customerName:'Visitante',date,startTime:'14:00',endTime:'15:00',status:'Confirmada'}]}));mount();expect(await screen.findByRole('heading',{name:'Atividades agendadas'})).toBeInTheDocument();expect(screen.getByRole('heading',{name:'Aula experimental · Visitante'})).toBeInTheDocument();expect(screen.getByText(/14:00–15:00/)).toBeInTheDocument()
+})
+
+it('mostra horário, lotação, situação e chamada sem repetir a apresentação',async()=>{
+ const date=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())
+ const weekDay=new Date(date+'T12:00:00').getDay()
+ vi.spyOn(globalThis,'fetch').mockResolvedValue(json({linked:true,classes:[{...cls,weekDay}]}));mount();
+ const card=await screen.findByRole('link',{name:/Iniciantes/})
+ expect(card).toHaveAttribute('href',`/professor/turmas/c1?date=${date}`)
+ expect(card).toHaveTextContent('08:00–09:00')
+ expect(card).toHaveTextContent('Ativa')
+ expect(card).toHaveTextContent('1/6 matrículas ativas')
+ expect(card).toHaveTextContent('Alunos e presença')
+ expect(screen.getByRole('link',{name:'Ver turmas'})).toHaveAttribute('href','/professor/turmas')
+ expect(screen.getByRole('link',{name:'Hoje'})).toHaveAttribute('aria-current','page')
+ expect(screen.queryByText('Área do professor')).not.toBeInTheDocument()
+ expect(screen.queryByText('ÁREA DE TRABALHO')).not.toBeInTheDocument()
+})
+it('conta recolhida mantém saída e área pessoal acessíveis por botão',async()=>{
+ vi.spyOn(globalThis,'fetch').mockResolvedValue(json({linked:true,classes:[]}));mount();
+ const account=screen.getByRole('button',{name:'Conta'})
+ expect(account).toHaveAttribute('aria-expanded','false')
+ expect(screen.queryByRole('link',{name:'Minha área'})).not.toBeInTheDocument()
+ fireEvent.click(account)
+ expect(account).toHaveAttribute('aria-expanded','true')
+ expect(screen.getByRole('dialog',{name:'Conta'})).toBeInTheDocument()
+ expect(screen.getByRole('button',{name:'Sair'})).toBeInTheDocument()
+ fireEvent.click(screen.getByRole('button',{name:'Fechar Conta'}))
+ expect(account).toHaveAttribute('aria-expanded','false')
 })

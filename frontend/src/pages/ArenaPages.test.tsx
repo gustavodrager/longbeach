@@ -25,11 +25,18 @@ afterEach(()=>vi.unstubAllEnvs())
 it('distingue falta de cadastro de zero e recolhe áreas ainda não configuradas', async () => {
   start('/')
   expect(within(screen.getByRole('link', { name: /Reservas de hoje/ })).getByText('Sem cadastros')).toBeInTheDocument()
-  expect(within(screen.getByRole('link', { name: /Tempo de quadra disponível hoje/ })).getByText('Sem quadras')).toBeInTheDocument()
+  expect(within(screen.getByRole('link', { name: /Horas livres de quadra hoje/ })).getByText('Sem quadras')).toBeInTheDocument()
   expect(screen.getByText('Cadastros ainda não disponíveis para acompanhar pendências.')).toBeInTheDocument()
   await userEvent.click(screen.getByText('Cadastros a completar'))
   expect(screen.getAllByText('Sem cadastros · acompanhamento ainda não iniciado')).toHaveLength(4)
   expect(screen.queryByText('Nenhuma pendência nos cadastros consultados.')).not.toBeInTheDocument()
+})
+
+it('mantém os extratos disponíveis em Consultas sem alongar a abertura da inicial', async () => {
+  start('/')
+  expect(screen.queryByRole('heading', { name: 'Movimentos importados dos bancos' })).not.toBeInTheDocument()
+  await userEvent.click(screen.getByText('Movimentos bancários importados', { exact: true }))
+  expect(await screen.findByRole('heading', { name: 'Movimentos importados dos bancos' })).toBeInTheDocument()
 })
 
 it('omite alertas zerados quando o estoque cadastrado está acima do mínimo', async () => {

@@ -142,3 +142,14 @@ it('aceita código do país até 15 dígitos e nomes de 240 caracteres sem reduz
   fireEvent.change(screen.getByLabelText('Nome do novo cliente'), { target: { value: 'N'.repeat(240) } }); fireEvent.change(screen.getByLabelText('Telefone do novo cliente'), { target: { value: '+55 (11) 98888-7777' } }); fireEvent.click(screen.getByRole('button', { name: 'Cadastrar e selecionar' }))
   await waitFor(() => expect(fetch).toHaveBeenCalledOnce()); expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toMatchObject({ name: 'N'.repeat(240), phone: '5511988887777' })
 })
+
+it('mantém a busca acessível no modo compacto e explica o acesso antes do novo cadastro', () => {
+  mount(<CustomerPicker compact scope="bar" value={null} onChange={vi.fn()} />)
+  expect(screen.getByRole('searchbox', { name: 'Buscar cliente' })).toHaveAttribute('aria-describedby')
+  expect(screen.getByText('Digite ao menos 3 caracteres.')).toBeInTheDocument()
+  expect(screen.queryByText('O cadastro é independente do login e do acesso aos pagamentos.')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: '+ Cadastrar cliente' }))
+  expect(screen.getByText('O cadastro é independente do login e do acesso aos pagamentos.')).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: 'Cadastrar e selecionar' }))
+  expect(screen.getByRole('alert')).toHaveTextContent('Informe o nome e um telefone')
+})

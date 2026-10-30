@@ -14,24 +14,58 @@ import { dayLabel, label, messageOf, send, today, usePortal, type Appointment, t
 
 export function QueryState({query}:{query:{isPending:boolean;isError:boolean;refetch:()=>unknown}}) { return query.isPending?<p role="status">Carregando sua área…</p>:query.isError?<div className="portal-alert" role="alert">Não foi possível atualizar. <button onClick={()=>void query.refetch()}>Tentar novamente</button></div>:null }
 export function PortalHome() {
-  const profile=usePortal<Profile>('profile');const agenda=usePortal<Appointment[]>('agenda');const requests=usePortal<PortalRequest[]>('requests');const {user}=useAuth()
-  const accounts=useQuery({queryKey:['billing',user?.id,'/api/v1/me/billing'],queryFn:()=>apiFetch<Account[]>('/api/v1/me/billing/accounts'),refetchOnWindowFocus:true})
-  const next=agenda.data?.find(a=>a.canChange);const pending=requests.data?.filter(r=>['Sent','Reviewing','Alternative'].includes(r.status))??[]
-  const due=(!accounts.isError ? accounts.data : undefined)?.reduce((total,a)=>total+a.payable,0);const bar=(!accounts.isError ? accounts.data : undefined)?.some(a=>a.kind==='Bar'&&a.state==='Open')
-  return <><header className="portal-title"><p>Sua Long Beach</p><h1>Olá, {(profile.data?.name??user?.name??'').split(' ')[0]}</h1><span>Seu próximo encontro com a areia começa aqui.</span></header><QueryState query={agenda}/>
-    {profile.data && !profile.isError && profile.data.links.length === 0 && <section className="portal-card" aria-labelledby="welcome-title">
-      <h2 id="welcome-title">Bem-vindo à sua área</h2><p>Confira seu nome e telefone para facilitar o atendimento.</p>
-      <Link to="/minha-area/perfil">Conferir meu perfil</Link>
-      <p>Já é aluno ou participa de um grupo mensalista? Peça à equipe para vincular seu cadastro. Criar uma conta não confirma matrícula nem reserva.</p>
-      <Link to="/minha-area/ajuda">Solicitar vínculo com meu cadastro</Link>
+  const profile = usePortal<Profile>('profile')
+  const agenda = usePortal<Appointment[]>('agenda')
+  const requests = usePortal<PortalRequest[]>('requests')
+  const { user } = useAuth()
+  const accounts = useQuery({ queryKey: ['billing', user?.id, '/api/v1/me/billing'], queryFn: () => apiFetch<Account[]>('/api/v1/me/billing/accounts'), refetchOnWindowFocus: true })
+  const next = agenda.data?.find(a => a.canChange)
+  const pending = requests.data?.filter(r => ['Sent', 'Reviewing', 'Alternative'].includes(r.status)) ?? []
+  const recentReplies = requests.data?.filter(r => ['Confirmed', 'Declined', 'Withdrawn'].includes(r.status)).slice(0, 2) ?? []
+  const currentAccounts = !accounts.isError ? accounts.data : undefined
+  const due = currentAccounts?.reduce((total, a) => total + a.payable, 0)
+  const inConfirmation = currentAccounts?.reduce((total, a) => total + a.pending, 0) ?? 0
+  const bar = currentAccounts?.some(a => a.kind === 'Bar' && a.state === 'Open')
+  return <div className="portal-home">
+    <header className="portal-title"><h1>Minha área</h1></header>
+    <QueryState query={agenda} />
+    {next ? <section className="portal-next" aria-labelledby="next-appointment">
+      <div className="portal-card-top"><span>Próximo compromisso</span><strong className="portal-status">{next.status}</strong></div>
+      <h2 id="next-appointment">{next.title}</h2>
+      <p className="portal-time">{dayLabel(next.date)} · {next.startTime}–{next.endTime}</p>
+      {(next.court || next.teacher) && <p className="portal-appointment-place">{[next.court, next.teacher && `Professor: ${next.teacher}`].filter(Boolean).join(' · ')}</p>}
+      <Link className="portal-primary" to={`/minha-area/agenda?atividade=${encodeURIComponent(next.key)}`}>Ver compromisso</Link>
+      {profile.data?.reminders && next.date === today() && <p role="status">É hoje!</p>}
+    </section> : !agenda.isPending && !agenda.isError && <section className="portal-next"><h2>Nenhum compromisso agendado</h2><p>Nos próximos 60 dias.</p></section>}
+    <nav className="portal-quick-actions" aria-label="Solicitar atividade">
+      <Link to="/minha-area/solicitar?tipo=Reservation">Solicitar quadra</Link>
+      <Link to="/minha-area/solicitar?tipo=Trial">Aula experimental</Link>
+    </nav>
+    {profile.data && !profile.isError && profile.data.links.length === 0 && <section className="portal-home-notice" aria-labelledby="welcome-title">
+      <h2 id="welcome-title">Cadastro sem vínculos</h2>
+      <p>Peça à equipe para vincular suas aulas ou reservas. Criar conta não confirma matrícula nem reserva.</p>
+      <div className="portal-actions"><Link to="/minha-area/perfil">Conferir perfil</Link><Link to="/minha-area/ajuda">Solicitar vínculo</Link></div>
     </section>}
-    {next?<section className="portal-next"><span className="portal-eyebrow">Seu próximo compromisso</span><h2>{next.title}</h2><p className="portal-time">{dayLabel(next.date)}<br/>{next.startTime}–{next.endTime}</p><p>{next.teacher&&`Professor: ${next.teacher}`}</p><Link className="portal-primary" to={`/minha-area/agenda?atividade=${encodeURIComponent(next.key)}`}>Ver meu compromisso</Link>{profile.data?.reminders&&next.date===today()&&<p role="status">É hoje! Confira o horário e chegue alguns minutos antes.</p>}</section>:!agenda.isPending&&!agenda.isError&&<section className="portal-next"><h2>Vamos marcar seu próximo jogo?</h2><p>Você ainda não tem atividades confirmadas nos próximos 60 dias.</p><Link className="portal-primary" to="/minha-area/solicitar?tipo=Trial">Experimentar uma aula</Link></section>}
-    <div className="portal-quick-actions"><Link to="/minha-area/solicitar?tipo=Reservation">Solicitar quadra <span>Escolha um horário</span></Link><Link to="/minha-area/solicitar?tipo=Trial">Aula experimental <span>Conheça a escola</span></Link></div>
-    <section className="portal-card"><h2>Suas solicitações</h2><QueryState query={requests}/>{pending.length>0?<><p>{pending.length} solicitação(ões) em acompanhamento.</p><Link to="/minha-area/agenda#solicitacoes">Ver respostas da equipe</Link></>:!requests.isPending&&!requests.isError&&<p>Nenhuma solicitação aguardando resposta.</p>}{requests.data?.filter(r=>['Confirmed','Declined','Withdrawn'].includes(r.status)).slice(0,2).map(r=><p key={r.id}>{label(r.kind)}: <strong>{label(r.status)}</strong> — {r.reply}</p>)}</section>
-    {bar&&<section className="portal-card"><h2>Sua comanda está aberta</h2><Link to="/minha-area/bar">Pedir ou acompanhar no bar</Link></section>}
-    <section className="portal-card"><h2>Pagamentos</h2><QueryState query={accounts}/>{accounts.data&&!accounts.isError&&<><p>{due?`${money(due)} disponível para pagar`:'Nenhum valor disponível para pagar agora.'}</p><Link to="/minha-area/pagamentos">Ver minhas contas</Link></>}</section>
-  </>
+    <div className="portal-home-grid">
+      <section className="portal-card" aria-labelledby="home-requests">
+        <h2 id="home-requests">Solicitações</h2><QueryState query={requests} />
+        {pending.length > 0 ? <p><strong>{pending.length}</strong> em acompanhamento</p> : !requests.isPending && !requests.isError && <p>Nenhuma solicitação pendente.</p>}
+        {recentReplies.map(r => <p key={r.id}>{label(r.kind)}: <strong>{label(r.status)}</strong>{r.reply && <> — {r.reply}</>}</p>)}
+        <Link to="/minha-area/agenda#solicitacoes">Ver solicitações e respostas</Link>
+      </section>
+      <section className="portal-card" aria-labelledby="home-payments">
+        <h2 id="home-payments">Pagamentos</h2><QueryState query={accounts} />
+        {currentAccounts && <>
+          {due ? <p className="portal-payment-summary"><strong>{money(due)}</strong><span>Disponível para pagar</span></p> : <p>Nenhum valor disponível para pagar.</p>}
+          {inConfirmation > 0 && <p>{money(inConfirmation)} em confirmação</p>}
+          <Link to="/minha-area/pagamentos">Ver contas</Link>
+        </>}
+      </section>
+      {bar && <section className="portal-card" aria-labelledby="home-tab"><h2 id="home-tab">Comanda aberta</h2><Link to="/minha-area/bar">Ver comanda</Link></section>}
+    </div>
+  </div>
 }
+
 function AppointmentCard({appointment:a,expanded=false}:{appointment:Appointment;expanded?:boolean}) {
   const cache=useQueryClient();const [score,setScore]=useState('');const [message,setMessage]=useState('');const [busy,setBusy]=useState(false)
   async function rate(e:FormEvent){e.preventDefault();setBusy(true);setMessage('');try{await send('/api/v1/me/portal/ratings',{appointmentKey:a.key,score:Number(score)});setMessage('Obrigado por avaliar sua visita.');await cache.invalidateQueries({queryKey:['portal']})}catch(e){setMessage(messageOf(e))}finally{setBusy(false)}}

@@ -1,0 +1,48 @@
+/* Keep the first sales screen focused on destination, products and the draft. */
+.lb-sell.lb-attendance.ux-root { background:transparent; border-radius:0; }
+.lb-sell.lb-attendance .ux-page { padding:32px clamp(24px,4vw,52px); }
+.lb-sell.lb-attendance .ux-page-header { margin-bottom:20px; }
+.lb-sell .ux-page-header h1 { font-size:32px; line-height:1.2; }
+.lb-sell.lb-attendance .lb-sale-destination {
+  background:transparent;
+  border:0;
+  border-bottom:1px solid var(--ux-line);
+  border-radius:0;
+  box-shadow:none;
+  padding:0 0 16px;
+  margin-bottom:16px;
+  align-items:center;
+  gap:12px;
+}
+.lb-sell .lb-sale-destination h2 { font-size:18px; }
+.lb-sell .lb-sale-destination p { margin:6px 0 0; font-size:14px; line-height:1.45; }
+.lb-sell.lb-attendance .lb-sale-destination>.ux-button { min-height:48px; font-size:16px; padding:10px 16px; }
+.lb-sell .customer-picker { margin:0 0 20px; padding:0; border:0; border-radius:0; }
+.lb-sell .customer-picker legend { padding:0; margin-bottom:8px; font-size:16px; }
+.lb-sell .customer-picker .operation-field { font-size:14px; gap:6px; }
+.lb-sell .customer-search-label-compact { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.lb-sell .customer-picker .operation-field input { min-height:48px; font-size:16px; }
+.lb-sell .customer-picker .arena-hint { font-size:14px; line-height:1.45; margin:8px 0; }
+.lb-sell .customer-picker .secondary-link { min-height:48px; font-size:16px; padding:10px 14px; }
+.lb-sell .customer-picker :is(.text-button,.primary-button) { min-height:48px; }
+.lb-sell.lb-attendance .ux-search { min-height:48px; margin-bottom:12px; }
+.lb-sell.lb-attendance .ux-search input { min-height:48px; font-size:16px; }
+.lb-sell.lb-attendance .ux-categories { margin-bottom:16px; gap:8px; }
+.lb-sell.lb-attendance .ux-categories button { min-height:48px; font-size:16px; padding:10px 14px; }
+.lb-sell :is(button,input,textarea,summary):focus-visible { outline:3px solid #7b5d12; outline-offset:3px; }
+@media (min-width:900px) {
+  .lb-sell .customer-picker { display:grid; grid-template-columns:minmax(0,440px) auto; column-gap:16px; align-items:end; }
+  .lb-sell .customer-picker .operation-field { grid-column:1; }
+  .lb-sell .customer-picker>.secondary-link { grid-column:2; grid-row:1; justify-self:start; }
+  .lb-sell .customer-picker>.arena-hint { grid-column:1/-1; }
+  .lb-sell .customer-picker>:is(.customer-selection,.customer-inline-create,.customer-search-results,.customer-merge-review,[role="alert"]) { grid-column:1/-1; }
+}
+@media (max-width:800px) {
+  .lb-sell.lb-attendance .ux-page { padding:24px 16px 200px; }
+  .lb-sell .ux-page-header h1 { font-size:28px; }
+  .lb-sell.lb-attendance .lb-sale-destination { grid-template-columns:minmax(0,1fr); }
+  .lb-sell .customer-picker { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:0 8px; }
+  .lb-sell .customer-picker .operation-field { grid-column:1; }
+  .lb-sell .customer-picker>.secondary-link { grid-column:2; grid-row:1; padding-inline:10px; font-size:13px; }
+  .lb-sell .customer-picker>:is(.arena-hint,.customer-selection,.customer-inline-create,.customer-search-results,.customer-merge-review,[role="alert"]) { grid-column:1/-1; }
+}

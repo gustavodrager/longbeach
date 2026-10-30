@@ -7,7 +7,7 @@ import './customers.css'
 
 export type CustomerPickerProps = {
   scope: CustomerScope; value: CustomerSelection | null; onChange: (value: CustomerLookup | null) => void
-  disabled?: boolean; required?: boolean; label?: string; contextKey?: string
+  disabled?: boolean; required?: boolean; label?: string; contextKey?: string; compact?: boolean
 }
 
 /** Inline creation deliberately has no nested form and never grants portal access. */
@@ -16,7 +16,7 @@ export function CustomerPicker(props: CustomerPickerProps) {
   const session = user ? `${user.id}:${[...user.roles].sort().join(',')}:${[...user.permissions].sort().join(',')}` : 'signed-out'
   return <CustomerPickerContent key={`${session}:${props.scope}:${props.contextKey ?? 'default'}`} {...props} />
 }
-function CustomerPickerContent({ scope, value, onChange, disabled = false, required = false, label = 'Cliente', contextKey = 'default' }: CustomerPickerProps) {
+function CustomerPickerContent({ scope, value, onChange, disabled = false, required = false, label = 'Cliente', contextKey = 'default', compact = false }: CustomerPickerProps) {
   const { user } = useAuth()
   const [saved, setSaved] = useConfirmationGate(`customer-create-v1:${user?.id}:${scope}:${contextKey}`)
   const pending = readCustomerCreation(saved)
@@ -85,8 +85,8 @@ function CustomerPickerContent({ scope, value, onChange, disabled = false, requi
       {invalidPending && <p role="alert">Há uma confirmação anterior que não pôde ser lida. Peça à gestão para conferir antes de iniciar outro cadastro.</p>}
       {recovered && !value && <div className="customer-merge-review" role="status"><p>Cadastro recuperado: <strong>{recovered.name}</strong> · {recovered.phoneHint || 'Telefone pendente'} · {customerReference(recovered.id)}. Confira se é a pessoa deste atendimento.</p><button type="button" className="secondary-link" onClick={() => { onChange(recovered); setRecovered(null) }}>Selecionar cliente recuperado</button></div>}
       {value ? <div className="customer-selection"><strong>{value.name}</strong><small className="customer-reference">{customerReference(value.id)}</small>{value.phoneHint && <span>{value.phoneHint}</span>}{value.incomplete && <span className="status-pill arena-warning">Telefone pendente</span>}<button type="button" className="text-button" onClick={() => { onChange(null); setSearch(''); setSubmitted(''); setValidation(''); requestAnimationFrame(() => input.current?.focus()) }}>Trocar cliente</button>{!required && <button type="button" className="text-button" onClick={() => onChange(null)}>Continuar sem identificar</button>}</div> : !creating ? <>
-        <label className="operation-field" htmlFor={id}>{`Buscar ${label.toLocaleLowerCase('pt-BR')}`}<input id={id} ref={input} type="search" value={search} maxLength={240} autoComplete="off" placeholder="Nome ou telefone" aria-describedby={id + '-hint'} onChange={event => { setSearch(event.target.value); setSubmitted('') }} /></label>
-        <p className="arena-hint" id={id + '-hint'}>Digite ao menos 3 caracteres. O cadastro é independente do login e do acesso aos pagamentos.</p>
+        <label className="operation-field" htmlFor={id}><span className={compact ? 'customer-search-label-compact' : undefined}>{`Buscar ${label.toLocaleLowerCase('pt-BR')}`}</span><input id={id} ref={input} type="search" value={search} maxLength={240} autoComplete="off" placeholder="Nome ou telefone" aria-describedby={id + '-hint'} onChange={event => { setSearch(event.target.value); setSubmitted('') }} /></label>
+        <p className="arena-hint" id={id + '-hint'}>Digite ao menos 3 caracteres.{!compact && ' O cadastro é independente do login e do acesso aos pagamentos.'}</p>
         {shown && <div className="customer-search-results" aria-live="polite">
           {results.isFetching ? <p role="status">Buscando clientes…</p> : results.isError ? <p role="alert">Não foi possível buscar clientes. <button type="button" className="text-button" onClick={() => void results.refetch()}>Tentar novamente</button></p> : results.data && <>
             {results.data.map(person => <button className="customer-option" type="button" key={person.id} aria-label={`${person.name} · ${person.phoneHint || 'Telefone pendente'}${person.incomplete ? ' · Cadastro incompleto' : ''} · ${customerReference(person.id)}`} onClick={() => { onChange(person); setSearch(''); setSubmitted(''); setValidation('') }}><strong>{person.name}</strong><span>{person.phoneHint || 'Telefone pendente'}</span>{person.incomplete && <small>Cadastro incompleto</small>}<small className="customer-reference">{customerReference(person.id)}</small></button>)}
@@ -98,6 +98,7 @@ function CustomerPickerContent({ scope, value, onChange, disabled = false, requi
         {validation && <p role="alert">{validation}</p>}
       </> : <div className="customer-inline-create" role="group" aria-label="Novo cliente" onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void save() } }}>
         {pending && <p role="status">A criação de {pending.name} ainda precisa de confirmação. Confira a mesma operação antes de alterar os dados ou cadastrar outra pessoa.{!required && ' Este atendimento pode continuar sem identificar o cliente; a confirmação fica guardada para recuperação.'}</p>}
+        {compact && <p>O cadastro é independente do login e do acesso aos pagamentos.</p>}
         <p>Confira os resultados para evitar cadastro duplicado. A identificação de possíveis duplicados é revisada pela equipe.</p>
         <label className="operation-field">Nome do novo cliente<input autoFocus disabled={Boolean(saved)} maxLength={240} autoComplete="name" value={pending?.name ?? name} onChange={event => setName(event.target.value)} /></label>
         <label className="operation-field">Telefone do novo cliente<input disabled={Boolean(saved)} type="tel" inputMode="tel" autoComplete="tel" maxLength={30} value={pending?.phone ?? phone} onChange={event => setPhone(event.target.value)} /></label>

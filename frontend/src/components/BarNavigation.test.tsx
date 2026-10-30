@@ -42,7 +42,7 @@ it('mantém acesso ao estoque sem liberar vendas ou cadastro de produtos',async(
 })
 
 
-it.each(['/','/recebimentos','/importacoes','/conta'])('mantém cabeçalho e navegação sem botão global de atualização em %s',path=>{
+it.each(['/recebimentos','/importacoes','/conta'])('mantém cabeçalho e navegação sem botão global de atualização em %s',path=>{
  const router=mount(owner,path)
  expect(screen.getByRole('navigation',{name:'Localização'})).toBeInTheDocument()
  expect(screen.queryByRole('button',{name:'Atualizar dados'})).not.toBeInTheDocument()
@@ -66,6 +66,31 @@ it('atendente vê cadastros e escola, sem oferecer financeiro ou compras', () =>
  const nav=within(screen.getByRole('navigation',{name:'Área de trabalho'}))
  for(const name of ['Clientes','Agenda','Mensalistas','Aulas','Administração'])expect(nav.getByRole('link',{name})).toBeInTheDocument()
  expect(nav.queryByRole('link',{name:'Financeiro'})).not.toBeInTheDocument()
- expect(screen.getByText('Atendente',{exact:true})).toBeInTheDocument()
+ expect(screen.getByText(/Teste · Atendente/)).toBeInTheDocument()
+ router.dispose()
+})
+
+
+it('reúne os acessos pessoais em Conta e evita repetir a navegação na inicial', async () => {
+ const router=mount(owner,'/')
+ expect(screen.queryByRole('navigation',{name:'Localização'})).not.toBeInTheDocument()
+ const account=screen.getByText('Conta',{exact:true}).closest('details')!
+ expect(account).not.toHaveAttribute('open')
+ await userEvent.click(within(account).getByText('Conta',{exact:true}))
+ expect(account).toHaveAttribute('open')
+ expect(within(account).getByRole('link',{name:'Minha área'})).toHaveAttribute('href','/minha-area')
+ expect(within(account).getByRole('link',{name:'Segurança'})).toHaveAttribute('href','/conta')
+ router.dispose()
+})
+it('oferece a área de trabalho e a conta no menu móvel do atendente sem permissões de gestão', async () => {
+ const router=mount({...owner,roles:['Operations'],permissions:['bar:sales:operate','bar:sales:read','bar:cash:operate']},'/atendimento/vender')
+ await userEvent.click(screen.getByRole('button',{name:'Menu'}))
+ const dialog=within(screen.getByRole('dialog'))
+ expect(dialog.getByRole('link',{name:'Área de trabalho'})).toHaveAttribute('href','/')
+ expect(dialog.getByRole('link',{name:'Minha área'})).toHaveAttribute('href','/minha-area')
+ expect(dialog.queryByRole('link',{name:'Compras'})).not.toBeInTheDocument()
+ await userEvent.click(dialog.getByRole('link',{name:'Minha área'}))
+ expect(router.state.location.pathname).toBe('/minha-area')
+ expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
  router.dispose()
 })

@@ -1,0 +1,27 @@
+.app-shell .shell-account { flex-shrink: 0; margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line); }
+.app-shell .shell-account > summary { display: flex; align-items: center; gap: 10px; min-height: 56px; cursor: pointer; list-style: none; }
+.app-shell .shell-account > summary::-webkit-details-marker { display: none; }
+.app-shell .shell-account > summary::after { content: '+'; margin-left: auto; font-size: 20px; }
+.app-shell .shell-account[open] > summary::after { content: '−'; }
+.app-shell .shell-account > summary > span:nth-child(2) { min-width: 0; }
+.app-shell .shell-account strong { display: block; font-size: 15px; }
+.app-shell .shell-account small { display: block; max-width: 155px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
+.app-shell .shell-account .avatar { color: var(--ink); }
+.app-shell .shell-account-links,.shell-navigation-dialog .shell-account-links { display: grid; gap: 0; flex: none; padding: 8px 0 0; }
+.shell-account-links a,.shell-account-links button { display: flex; align-items: center; min-height: 48px; padding: 10px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); font: inherit; font-size: 14px; text-decoration: none; text-align: left; cursor: pointer; }
+.shell-account-links a:hover,.shell-account-links button:hover { background: var(--sand); }
+.shell-navigation-dialog .shell-account-links { border-top: 1px solid var(--line); margin-top: 16px; }
+.shell-navigation-dialog .dialog-close { min-width: 48px; min-height: 48px; }
+.app-shell .shell-mode-link { background: transparent; border: 1px solid var(--line); min-height: 48px; margin-bottom: 12px; }
+.app-shell .shell-mode-link:hover { background: var(--gold); }
+.app-shell .mobile-header { background: var(--deep); min-height: 72px; border-bottom-color: transparent; }
+.app-shell .mobile-header .brand-logo { width: 150px; }
+.app-shell .mobile-header .shell-menu-button { min-height: 48px; }
+.app-shell .management-topbar { min-height: 56px; background: transparent; }
+.shell-navigation-dialog :is(a,button,summary):focus-visible,.app-shell .shell-account :is(a,button,summary):focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+@media (min-width:64rem) {
+  .app-shell .side-nav { background: var(--deep); }
+  .app-shell .side-nav > .brand { padding-bottom: 24px; }
+  .app-shell .side-nav .brand-logo { width: 190px; }
+  .app-shell .side-nav > nav { flex: 1; padding-bottom: 16px; }
+}
