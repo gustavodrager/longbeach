@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "status": "published_and_verified",
+  "source_commit": "e84ba6f19b0d6e47ad52ed7fe768093becfa5815",
+  "source_branch": "codex/quatro-perfis-20261029",
+  "review_url": "https://github.com/gustavodrager/longbeach/pull/50",
+  "release_date_brasilia": "2026-10-30",
+  "verified_at_utc": "2026-10-30T03:03:02.542102+00:00",
+  "quality_run": "https://github.com/gustavodrager/longbeach/actions/runs/40964108543",
+  "production_run": {
+    "id": 40991015956,
+    "attempt": 1,
+    "conclusion": "success",
+    "human_authorized": true,
+    "environment_approved": true,
+    "reviewers_and_protections_preserved": true,
+    "temporary_branch_policy_removed": true
+  },
+  "api": {
+    "origin": "https://api.longbeach.quebranunca.com.br",
+    "image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:97ae528cb7cefb83efbfe57fe7979cdddac5e67e2837cd9fcd491f97f218076f",
+    "runtime_manifest_digest": "sha256:c0ea0427201847d59b9b5f4c65fe6aff882b566e6da8ff5c390b89051d4ee480",
+    "config_digest": "sha256:490faf0bc8207f45831f2673f04f4c35e8eb1a5739af20fe423f75f012c8b2ea",
+    "started_at_utc": "2026-10-30T02:46:55.230718757Z",
+    "verified_at_utc": "2026-10-30T02:47:48.897591+00:00",
+    "ready_status": 200,
+    "private_routes_without_session": 401,
+    "postgres_and_caddy_preserved": true,
+    "workers_configuration_preserved": true
+  },
+  "web": {
+    "origin": "https://longbeach.quebranunca.com.br",
+    "visitor_url": "https://longbeach.quebranunca.com.br/visitante",
+    "signup_url": "https://longbeach.quebranunca.com.br/login?cadastro=cliente",
+    "version": "sites/parsero-prod-20261022/versions/e2223d9a3f5ebe9c",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793329363925000",
+    "published_at_utc": "2026-10-30T03:02:43.925Z",
+    "previous_version": "sites/parsero-prod-20261022/versions/1b1fcc50de9f73b0",
+    "tree_sha256": "249dffff887372ebb5728656950787e381179e9ee7e6c13964519e996c4bdaac",
+    "application_file_count": 85,
+    "active_file_count": 87,
+    "provider_managed_file_count": 2,
+    "provider_managed_files_preserved": true,
+    "configuration_sha256": "6785ca752aaa3cb069c94d71885f104ad3a1eee764747906daeea355e20e4402",
+    "configuration_preserved": true,
+    "official_workflow_bytes": true,
+    "selection_receipt_sha256": "06164ba373ee243c4f0b513d7151855a0a6b0e91e24bfc06044672e377bfcf20"
+  },
+  "profiles": {
+    "authenticated_roles": {
+      "Manager": "Gestor",
+      "Teacher": "Professor",
+      "Operations": "Atendente",
+      "Student": "Cliente"
+    },
+    "visitor": "Anonymous public entry; self-registration creates Student only",
+    "users_converted": 6,
+    "conversion": "single Owner -> Manager",
+    "usable_managers_after": 6,
+    "invalid_or_multiple_profiles_after": 0,
+    "active_refresh_sessions_revoked": 3,
+    "existing_sign_in_links_preserved": true
+  },
+  "database": {
+    "migration_count": 30,
+    "latest_migration": "20261029210216_DigitalMenu",
+    "migrations_executed_by_this_release": 0,
+    "business_users_and_links_preserved_before_consumers": true,
+    "business_before_sha256": "d7dcd10a7624d82959a58c451adbd8b3c6600ce0d1c4793ab8d3d5b44d3ef842",
+    "business_after_sha256": "d7dcd10a7624d82959a58c451adbd8b3c6600ce0d1c4793ab8d3d5b44d3ef842",
+    "previous_audit_preserved": true
+  },
+  "verification": {
+    "backend_unit_tests_per_postgres": 533,
+    "backend_integration_tests_per_postgres": 486,
+    "postgres_versions_tested": [
+      17,
+      18
+    ],
+    "frontend_tests": 805,
+    "public_http_checks": 95,
+    "application_files_verified": 85,
+    "failures": 0,
+    "browser_visitor_signup_navigation_verified": true,
+    "pwa_updated_through_visible_update_button": true,
+    "active_browser_bundle": "https://longbeach.quebranunca.com.br/assets/index-rt59yN8W.js",
+    "production_google_login_completed": false,
+    "production_test_account_created": false
+  },
+  "evidence_directory": "LongBeach/evidencias/perfis-visitante-2026-10-29",
+  "evidence_sha256": {
+    "human-production-authorization.json": "9c123c48dc2cbd555e21bb0db14ea4770e2555a552316e2ced278202981c726e",
+    "registry-source-proof.json": "f4df6f9bad1fde36d5cfc6509915cd993ccd179a14638a96f1ad7a03a0ccb24e",
+    "registry-push-receipt.json": "d12a38a88168f5a2b99cb51317c92bea1f91cd42993afa5b3d8785af22ee9c5e",
+    "web-official-selection.private.json": "06164ba373ee243c4f0b513d7151855a0a6b0e91e24bfc06044672e377bfcf20",
+    "vm-apply.receipt.private.json": "5559b435ff92d2c26ae82ef76fd4088d8f8e1c79a69f0b46f9827b7d71727eca",
+    "vm-verify.receipt.private.json": "bc05f71e9091d64f7143604785220067e908e677f319b65726348f54272b9521",
+    "hosting-publish.receipt.private.json": "aca8572759dce836e97a6b79a27c49bd551b10c6bbc2b1bfc70c193f32619fb3",
+    "public-verification-final.private.json": "1881b6d745c67b5e1b026360c9865ea99d561b2da5240cc202c4da6f42117bf9",
+    "browser-verification.private.json": "032b77dd4a75c3f37c8e0ed04a8375f10a08488dbf75e0ef2612c6b7e72abc47",
+    "production-policy-cleanup.receipt.private.json": "5e0c03d252e1c2a0705d0edf060cabbe3845b410c0eba760caab734cb23c2cef"
+  },
+  "historical_manifest_note": "Pre-existing uncommitted release-google-vm.json and publicacao-clientes-2026-10-29.md were preserved. This manifest records this exact publication."
+}
