@@ -11,13 +11,34 @@ export function VisitorPage() {
   const location = useLocation()
   const options = useQuery({ queryKey: ['sign-in-options'], queryFn: getSignInOptions, retry: false, staleTime: 0, enabled: !user })
   const canRegister = !user && !options.isError && Boolean(options.data?.googleClientId && options.data.clientRegistrationEnabled)
-  return <main className="visitor-page">
-    <header className="visitor-header"><Logo tagline="Sua arena, no seu ritmo" /><nav aria-label="Acesso à arena">{user ? <Link to={user.requiresFirstAccess ? '/primeiro-acesso' : workHome(user)}>{hasWorkArea(user) ? 'Área de trabalho' : 'Minha área'}</Link> : <Link to="/login" state={location.state}>Entrar</Link>}</nav></header>
-    <section className="visitor-welcome" aria-labelledby="visitor-title"><p className="eyebrow">Long Beach Arena · Visitante</p><h1 id="visitor-title">Seu momento na arena começa aqui.</h1><p>Conheça nosso cardápio e aproveite a Long Beach. Quando quiser, crie sua conta para acompanhar seus próximos encontros.</p><Link className="visitor-primary" to="/cardapio/apresentacao">Ver cardápio</Link></section>
-    <div className="visitor-cards">
-      <section aria-labelledby="visitor-account"><p className="eyebrow">Perto de você</p><h2 id="visitor-account">Sua Long Beach, no seu celular.</h2><p>Com uma conta de cliente, você pode enviar solicitações e consultar as atividades e contas vinculadas a você pela equipe.</p>{user ? <Link className="visitor-primary" to="/minha-area">Abrir minha área</Link> : <>{canRegister && <Link className="visitor-primary" to="/login?cadastro=cliente" state={location.state}>Cadastrar como cliente</Link>}{options.isPending && <p role="status">Consultando as opções de cadastro…</p>}{options.isError && <p role="status">Não foi possível consultar o cadastro agora. <button type="button" className="text-button" onClick={() => void options.refetch()}>Tentar novamente</button></p>}{options.isSuccess && !canRegister && <p>Para cadastrar seu acesso, procure a equipe da arena. Se você já tem uma conta, use “Entrar”.</p>}</>}<p className="visitor-detail">Aulas, grupos, reservas e pagamentos existentes são vinculados após conferência da equipe.</p></section>
-      <section aria-labelledby="visitor-tab"><p className="eyebrow">Já está na arena?</p><h2 id="visitor-tab">Sua comanda tem um acesso próprio.</h2><p>Peça à equipe o QR Code da sua comanda para fazer pedidos e acompanhar o consumo pelo celular.</p><p className="visitor-detail">Você pode consultar o cardápio sem criar uma conta.</p></section>
-    </div>
-    <footer className="visitor-footer">Long Beach Arena · Quadra, encontros e bons momentos.</footer>
+  const needsFirstAccess = Boolean(user?.requiresFirstAccess)
+  const hasWorkspace = hasWorkArea(user)
+  const primaryDestination = !user ? '/login' : needsFirstAccess ? '/primeiro-acesso' : workHome(user)
+  const primaryLabel = !user ? 'Entrar' : needsFirstAccess ? 'Concluir acesso' : hasWorkspace ? 'Área de trabalho' : 'Minha área'
+
+  return <main className="visitor-page" aria-labelledby="visitor-title">
+    <section className="visitor-entry">
+      <Logo showTagline={false} />
+      <h1 id="visitor-title">Bem-vindo à Long Beach</h1>
+
+      <nav className="visitor-actions" aria-label="Acessos da Long Beach">
+        <Link className="visitor-primary" to={primaryDestination} state={location.state}>{primaryLabel}</Link>
+        {user ? <>
+          {hasWorkspace && !needsFirstAccess && <Link className="visitor-secondary" to="/minha-area">Minha área</Link>}
+        </> : <>
+          {canRegister && <Link className="visitor-secondary" to="/login?cadastro=cliente" state={location.state}>Criar conta</Link>}
+          {options.isPending && <p className="visitor-status" role="status">Carregando opções de cadastro…</p>}
+          {options.isError && <p className="visitor-status" role="status">Não foi possível consultar o cadastro. <button type="button" className="text-button" onClick={() => void options.refetch()}>Tentar novamente</button></p>}
+          {options.isSuccess && !canRegister && <p className="visitor-status" role="status">Para criar sua conta, fale com a equipe.</p>}
+        </>}
+        <Link className="visitor-menu" to="/cardapio/apresentacao">Ver cardápio</Link>
+      </nav>
+
+      <details className="visitor-help">
+        <summary>Precisa de ajuda?</summary>
+        <p>Peça à equipe o QR Code da sua comanda.</p>
+        <p>Aulas, reservas e pagamentos aparecem após a equipe vincular seu cadastro.</p>
+      </details>
+    </section>
   </main>
 }
