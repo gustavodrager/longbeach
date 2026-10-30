@@ -217,7 +217,7 @@ describe('autenticação e shell', () => {
     await user.click(await screen.findByRole('button', { name: 'Entrar com Google' }))
 
     expect(await screen.findByRole('heading', { name: 'Visão geral' })).toBeInTheDocument()
-    expect(screen.getByText('Gustavo Drager')).toBeInTheDocument()
+    expect(screen.getByText(/Gustavo Drager · Gestor/)).toBeInTheDocument()
     await waitFor(() => expect(authFetch).toHaveBeenCalledTimes(2))
 
     const loginRequest = authFetch.mock.calls[1]
@@ -245,9 +245,9 @@ describe('autenticação e shell', () => {
     await user.click(await screen.findByRole('link', { name: 'Criar conta' }))
     expect(await screen.findByRole('heading', { name: 'Criar conta' })).toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: 'Entrar com Google' }))
-    expect(await screen.findByRole('heading', { name: 'Olá, Cliente' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Minha área' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/minha-area')
-    expect(screen.queryByRole('link', { name: 'Área de trabalho →' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Área de trabalho' })).not.toBeInTheDocument()
     expect(requests.mock.calls.every(([input]) => String(input).startsWith('/api/v1/auth/') || String(input).startsWith('/api/v1/me/'))).toBe(true)
   })
 
@@ -312,7 +312,8 @@ describe('autenticação e shell', () => {
     const user = userEvent.setup()
 
     expect(await screen.findByRole('heading', { name: 'Visão geral' })).toBeInTheDocument()
-    await user.click(screen.getAllByRole('link', { name: 'Abrir configurações da conta' })[0])
+    await user.click(screen.getByText('Conta', { exact: true }))
+    await user.click(screen.getByRole('link', { name: 'Segurança' }))
     expect(await screen.findByRole('heading', { name: 'Segurança' })).toBeInTheDocument()
 
     await user.type(screen.getByLabelText('Senha atual'), 'AtualSenha2026!')

@@ -9,7 +9,7 @@ import { CopyPix } from '../../components/CopyPix'
 import type { PortalRequest } from './api'
 const user:AuthUser={id:'portal-user',name:'Cliente teste',email:'client@example.invalid',roles:['Student'],permissions:[]}
 const clients:QueryClient[]=[]
-function mount(content:React.ReactNode,path='/minha-area') { const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{},completeFirstAccessWithGoogle:async()=>{}};return render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}>{content}</MemoryRouter></AuthContext.Provider></QueryClientProvider>) }
+function mount(content:React.ReactNode,path='/minha-area',currentUser=user) { const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);const auth:AuthContextValue={user:currentUser,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{},completeFirstAccessWithGoogle:async()=>{}};return render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}>{content}</MemoryRouter></AuthContext.Provider></QueryClientProvider>) }
 function json(body:unknown,status=200){return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}})}
 const profile={name:'Cliente teste',email:user.email,phone:'11988887777',reminders:true,links:[]}
 const ownCustomer={id:'own-client',name:'Nome canônico',phone:'11977776666',email:null,status:'Ativo',version:4,origin:'Google',incomplete:false,userId:user.id,profiles:[],mergedIntoId:null}
@@ -19,7 +19,38 @@ beforeEach(()=>{vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2
 afterEach(()=>{vi.useRealTimers();cleanup();clients.splice(0).forEach(c=>c.clear());sessionStorage.clear();vi.restoreAllMocks()})
 it('área pessoal tem cinco destinos sem navegação da gestão',async()=>{
  const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>String(input).endsWith('/profile')?json(profile):json([]));mount(<Routes><Route path="/minha-area" element={<ClientLayout/>}><Route index element={<PortalHome/>}/></Route></Routes>)
- expect(await screen.findByRole('heading',{name:'Olá, Cliente'})).toBeInTheDocument();expect(screen.getByRole('navigation',{name:'Minha área'}).querySelectorAll('a')).toHaveLength(5);expect(screen.queryByText('Gestão da arena')).not.toBeInTheDocument();expect(await screen.findByRole('link',{name:'Experimentar uma aula'})).toHaveAttribute('href','/minha-area/solicitar?tipo=Trial');expect(fetch.mock.calls.every(([url])=>String(url).includes('/api/v1/me/'))).toBe(true)
+ expect(await screen.findByRole('heading',{name:'Minha área'})).toBeInTheDocument();expect(screen.getByRole('navigation',{name:'Minha área'}).querySelectorAll('a')).toHaveLength(5);expect(screen.queryByText('Gestão da arena')).not.toBeInTheDocument();expect(screen.queryByRole('link',{name:'Área de trabalho'})).not.toBeInTheDocument();expect(screen.queryByText('Sua arena, no seu ritmo')).not.toBeInTheDocument();expect(await screen.findByRole('link',{name:'Aula experimental'})).toHaveAttribute('href','/minha-area/solicitar?tipo=Trial');expect(screen.getByRole('link',{name:'Início'})).toHaveAttribute('aria-current','page');expect(fetch.mock.calls.every(([url])=>String(url).includes('/api/v1/me/'))).toBe(true)
+})
+it.each([
+ ['Manager','/'],['Teacher','/professor'],['Operations','/atendimento/vender'],
+] as const)('área pessoal mantém retorno ao trabalho do perfil %s',async(role,destination)=>{
+ mount(<Routes><Route path="/minha-area" element={<ClientLayout/>}><Route index element={<h1>Área pessoal</h1>}/></Route></Routes>,'/minha-area',{...user,roles:[role],permissions:['bar:sales:operate']})
+ expect(screen.getByRole('link',{name:'Área de trabalho'})).toHaveAttribute('href',destination)
+})
+it('início conserva compromisso, resposta, comanda e valores do próprio cliente',async()=>{
+ const appointment={key:'own-class',sourceId:'class-own',kind:'Aula',title:'Beach tênis',date:'2026-10-10',startTime:'18:00',endTime:'19:00',court:'Quadra 2',teacher:'Professora teste',status:'Confirmada',instructions:'',canChange:true,canRate:false}
+ const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
+  const url=String(input)
+  if(url.endsWith('/profile'))return json({...profile,links:[{kind:'students',sourceId:'own-student',name:'Cliente teste'}]})
+  if(url.endsWith('/agenda'))return json([appointment])
+  if(url.endsWith('/requests'))return json([request,{...request,id:'reply',status:'Confirmed',reply:'Reserva confirmada pela equipe'}])
+  return json([{id:'own-tab',kind:'Bar',state:'Open',payable:25,pending:10}])
+ })
+ mount(<PortalHome/>)
+ expect(await screen.findByRole('heading',{name:'Beach tênis'})).toBeInTheDocument()
+ expect(screen.getByText(/18:00–19:00/)).toBeInTheDocument();expect(screen.getByText(/Quadra 2 · Professor: Professora teste/)).toBeInTheDocument()
+ expect(screen.getByRole('link',{name:'Ver compromisso'})).toHaveAttribute('href','/minha-area/agenda?atividade=own-class')
+ expect(screen.getByText(/Reserva confirmada pela equipe/)).toBeInTheDocument();expect(screen.getByText('1')).toBeInTheDocument()
+ expect(screen.getByText(/R\$\s*25,00/)).toBeInTheDocument();expect(screen.getByText(/R\$\s*10,00 em confirmação/)).toBeInTheDocument()
+ expect(screen.getByRole('link',{name:'Ver comanda'})).toHaveAttribute('href','/minha-area/bar')
+ expect(screen.queryByRole('heading',{name:'Cadastro sem vínculos'})).not.toBeInTheDocument()
+ expect(fetch.mock.calls.every(([url,init])=>String(url).startsWith('/api/v1/me/')&&!init?.method)).toBe(true)
+})
+it('falha no início mantém alerta e tentativa sem indicar agenda ou saldo vazios',async()=>{
+ vi.spyOn(globalThis,'fetch').mockResolvedValue(json({message:'Falha temporária'},503));mount(<PortalHome/>)
+ expect(await screen.findAllByRole('alert')).toHaveLength(3)
+ expect(screen.queryByText('Nenhum compromisso agendado')).not.toBeInTheDocument();expect(screen.queryByText('Nenhum valor disponível para pagar.')).not.toBeInTheDocument();expect(screen.queryByText('Nenhuma solicitação pendente.')).not.toBeInTheDocument()
+ expect(screen.getAllByRole('button',{name:'Tentar novamente'})).toHaveLength(3)
 })
 it('falha de consulta não vira agenda vazia',async()=>{
  vi.spyOn(globalThis,'fetch').mockResolvedValue(json({message:'Falha temporária'},503));mount(<PortalAgenda/>);expect(await screen.findAllByRole('alert')).not.toHaveLength(0);expect(screen.queryByText('Nenhum compromisso nos próximos 60 dias')).not.toBeInTheDocument()

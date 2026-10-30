@@ -33,7 +33,6 @@ export function SaleDestination({ tab, locked, hasDraft }: { tab?: Tab; locked: 
     <div><h2>{tab ? `Comanda ${tab.number} · ${tab.name || 'Visitante'}` : 'Venda avulsa'}</h2>
       <p>{tab ? tab.responsible ? `Responsável: ${tab.responsible.name}` : 'Sem responsável vinculado à área do cliente.' : 'Nova comanda sem responsável ao registrar.'}</p>
       {tab && <p>Saldo atual: <strong>{money(tab.due)}</strong></p>}
-      <p className="ux-note">{tab ? 'Adicionar consumo nesta comanda.' : 'Cobrar agora, sem escolher uma comanda.'}</p>
     </div>
     <button type="button" className="ux-button secondary" disabled={locked} onClick={() => { setChoosing(!choosing); setSelected(null); setError('') }}>{choosing ? 'Fechar seleção' : tab ? 'Trocar comanda' : 'Escolher uma comanda'}</button>
     {choosing && <div className="lb-destination-picker" aria-label="Escolher comanda"><label className="ux-field">Buscar comanda<input type="search" maxLength={80} value={search} onChange={e => { setSearch(e.target.value); setSelected(null) }} /></label><LoadState query={query} />

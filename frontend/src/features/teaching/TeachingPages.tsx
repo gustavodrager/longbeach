@@ -5,6 +5,7 @@ import { useAuth } from '../auth/authContext'
 import { hasPermission, isManagement, profileRole } from '../auth/access'
 import { apiFetch } from '../../lib/http'
 import { Logo } from '../../components/Logo'
+import { ModalPanel } from '../../components/managementUi'
 import { today, dayLabel, messageOf } from '../portal/api'
 import './teaching.css'
 
@@ -18,20 +19,40 @@ const days = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-fe
 const allowed = (user: ReturnType<typeof useAuth>['user']) => isManagement(user) || Boolean(profileRole(user) === 'Teacher')
 function useTeaching<T>(path = '') { const { user } = useAuth(); return useQuery({ queryKey: ['teaching',user?.id,path], queryFn: () => apiFetch<T>('/api/v1/me/teaching'+path), enabled: allowed(user), retry: false, refetchInterval: 30000, refetchOnWindowFocus: true }) }
 function Notice({ pending, error }: { pending: boolean; error: Error | null }) { return pending ? <p role="status">Carregando suas aulas…</p> : error ? <p role="alert">Não foi possível consultar as aulas. {error.message}</p> : null }
-function ClassCard({ cls, date }: { cls: Class; date?: string }) { return <Link className="teaching-card" to={`/professor/turmas/${cls.id}${date ? '?date='+date : ''}`}><span className="teaching-time">{days[cls.weekDay]} · {cls.startTime}–{cls.endTime}</span><h2>{cls.name}</h2><p>{cls.enrolled}/{cls.capacity} matrículas ativas · {cls.status}</p><span className="teaching-action">Ver alunos e presença →</span></Link> }
+function ClassCard({ cls, date }: { cls: Class; date?: string }) {
+  return <Link className="teaching-card" to={`/professor/turmas/${cls.id}${date ? '?date='+date : ''}`}>
+    <div className="teaching-card-meta"><span className="teaching-time">{!date && `${days[cls.weekDay]} · `}{cls.startTime}–{cls.endTime}</span><span className="teaching-class-status">{cls.status}</span></div>
+    <h2>{cls.name}</h2><p>{cls.enrolled}/{cls.capacity} matrículas ativas</p><span className="teaching-action">Alunos e presença <span aria-hidden="true">→</span></span>
+  </Link>
+}
 export function TeacherLayout() {
   const { user, signOut } = useAuth(); const location = useLocation(); const main = useRef<HTMLElement>(null)
-  useEffect(() => { main.current?.focus({preventScroll:true}) },[location.pathname])
+  const [accountOpen, setAccountOpen] = useState(false)
+  useEffect(() => { setAccountOpen(false); main.current?.focus({preventScroll:true}) },[location.pathname])
   if (!allowed(user)) return <main className="operation-page"><h1>Acesso restrito</h1><p>Esta área é destinada aos professores.</p><Link to="/minha-area">Minha área</Link></main>
-  return <div className="teaching-shell"><a className="skip-link" href="#teaching-content">Ir para o conteúdo</a><header className="teaching-header"><Link to="/professor"><Logo tagline="Área do professor" /></Link><div><Link to="/minha-area">Minha área</Link>{isManagement(user) && <Link to="/">Gestão</Link>}{hasPermission(user,'bar:sales:operate') && <Link to="/atendimento/vender">Atendimento</Link>}<button onClick={() => void signOut()}>Sair</button></div></header><main id="teaching-content" tabIndex={-1} ref={main} className="teaching-main"><Outlet /></main><nav className="teaching-nav" aria-label="Área do professor"><NavLink end to="/professor">Hoje</NavLink><NavLink to="/professor/turmas">Minhas turmas</NavLink><NavLink to="/professor/presencas">Presenças</NavLink></nav></div>
+  return <div className="teaching-shell">
+    <a className="skip-link" href="#teaching-content">Ir para o conteúdo</a>
+    <header className="teaching-header"><Link to="/professor" aria-label="Início das minhas aulas"><Logo showTagline={false} /></Link><button type="button" aria-haspopup="dialog" aria-expanded={accountOpen} onClick={() => setAccountOpen(true)}>Conta</button></header>
+    {accountOpen && <ModalPanel title="Conta" className="teaching-account-menu" onClose={() => setAccountOpen(false)}><p className="teaching-account-name">{user?.name}</p><nav aria-label="Minha conta"><Link to="/minha-area">Minha área</Link>{isManagement(user) && <Link to="/">Gestão</Link>}{hasPermission(user,'bar:sales:operate') && <Link to="/atendimento/vender">Atendimento</Link>}</nav><button type="button" onClick={() => void signOut()}>Sair</button></ModalPanel>}
+    <main id="teaching-content" tabIndex={-1} ref={main} className="teaching-main"><Outlet /></main>
+    <nav className="teaching-nav" aria-label="Área do professor"><NavLink end to="/professor">Hoje</NavLink><NavLink to="/professor/turmas">Turmas</NavLink><NavLink to="/professor/presencas">Presenças</NavLink></nav>
+  </div>
 }
-function MissingLink() { return <section className="teaching-empty"><h2>Seu acesso às turmas está em preparação</h2><p>Peça à gestão para vincular sua conta ao seu cadastro de professor. As turmas aparecem após essa conferência.</p></section> }
+function MissingLink() { return <section className="teaching-empty"><h2>Turmas ainda não vinculadas</h2><p>Peça à gestão para vincular seu cadastro de professor.</p></section> }
 function ScheduledLessons({items}:{items:ScheduledLesson[]}) {
-  return items.length ? <section><h2>Atividades agendadas</h2><p>Encontros confirmados fora da grade regular.</p><div className="teaching-grid">{items.map(a=><article className="teaching-card" key={a.id}><h3>{a.name}</h3><p>{dayLabel(a.date)} · {a.startTime}–{a.endTime}</p><p>{a.customerName} · {a.status}</p></article>)}</div></section> : null
+  return items.length ? <section className="teaching-appointments"><h2>Atividades agendadas</h2><div className="teaching-grid">{items.map(a=><article className="teaching-card" key={a.id}><div className="teaching-card-meta"><span className="teaching-time">{dayLabel(a.date)} · {a.startTime}–{a.endTime}</span><span className="teaching-class-status">{a.status}</span></div><h3>{a.name}</h3><p>{a.customerName}</p></article>)}</div></section> : null
 }
 export function TeacherHome() {
   const query = useTeaching<Overview>(); const date = today(); const weekday = new Date(date+'T12:00:00').getDay(); const classes = query.data?.classes.filter(c => c.status==='Ativa' && c.weekDay===weekday && (!c.startDate || c.startDate<=date)) ?? []
-  return <><p className="eyebrow">ÁREA DE TRABALHO</p><h1>Suas aulas de hoje</h1><p>{dayLabel(date)}</p><Notice pending={query.isPending} error={query.error}/>{!query.isError && query.data && (!query.data.linked ? <MissingLink/> : <><div className="teaching-summary"><strong>{classes.length}</strong><span>{classes.length===1?'aula na sua grade hoje':'aulas na sua grade hoje'}</span><Link to="/professor/turmas">Ver grade completa →</Link></div>{classes.length ? <div className="teaching-grid">{classes.map(c=><ClassCard key={c.id} cls={c} date={date}/>)}</div> : <section className="teaching-empty"><h2>Nenhuma aula na grade de hoje</h2><p>Consulte suas turmas para conferir os próximos dias.</p></section>}<ScheduledLessons items={query.data.appointments?.filter(a=>a.date===date)??[]}/></>)}</>
+  return <>
+    <header className="teaching-home-heading"><h1>Aulas de hoje</h1><time dateTime={date}>{dayLabel(date)}</time></header>
+    <Notice pending={query.isPending} error={query.error}/>
+    {!query.isError && query.data && (!query.data.linked ? <MissingLink/> : <>
+      <div className="teaching-summary"><span>{classes.length ? <><strong>{classes.length}</strong> {classes.length===1?'aula na grade':'aulas na grade'}</> : 'Nenhuma aula na grade hoje'}</span><Link to="/professor/turmas">Ver turmas <span aria-hidden="true">→</span></Link></div>
+      {classes.length > 0 && <div className="teaching-grid">{classes.map(c=><ClassCard key={c.id} cls={c} date={date}/>)}</div>}
+      <ScheduledLessons items={query.data.appointments?.filter(a=>a.date===date)??[]}/>
+    </>)}
+  </>
 }
 export function TeacherClasses({ attendance = false }: { attendance?: boolean }) {
   const query = useTeaching<Overview>()

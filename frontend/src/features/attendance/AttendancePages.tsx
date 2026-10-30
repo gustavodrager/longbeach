@@ -7,7 +7,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../../lib/http'
 import { useAuth } from '../auth/authContext'
-import { CartReview, Empty, Feedback, Header, Icon, ItemStatus, Payments, Products, Summary, WorkflowSteps, cartTotal } from './components'
+import { CartReview, Empty, Feedback, Header, Icon, ItemStatus, Payments, Products, Summary, cartTotal } from './components'
 import { dateTime, money, parseAmount, postBar, useBarCommand, useBarData, useIntent, type CatalogItem, type Named, type PageResult, type Tab } from './api'
 import { OrderWaiting, TabAttention, useAttentionClock } from './TabAttention'
 import { OpenTabForm } from './OpenTabForm'
@@ -17,6 +17,7 @@ import { AccessQr } from './AccessQr'
 
 import { BarFrame, LoadState, useCart, useConfirmationGate, useBarConnection } from './Core'
 import { barLocation } from './serviceLocation'
+import './sell-entry.css'
 export { BarFrame, LoadState, useCart } from './Core'
 
 export function SellPage() {
@@ -77,10 +78,10 @@ function SellOrder({ tabId }: { tabId: string | null }) {
     if (result.ok) { setPendingOrder(''); setCustomerDraft(''); intent(`open:${fingerprint}`, true); intent(`add:${fingerprint}:${deliver}`, true); setCart([]); setReview(false); navigate(deliver && !tabId ? `/atendimento/receber/${result.value.id}` : `/atendimento/comandas/${result.value.id}`) }
     else if (result.error instanceof ApiError && [400, 422].includes(result.error.status)) setPendingOrder('')
   }
-  return <BarFrame className="lb-sell"><Header title={targetKnown ? `Vender · Comanda ${target.data!.number}` : 'Vender'} description="Toque no produto. Depois confira o pedido." back={tabId ? `/atendimento/comandas/${encodeURIComponent(tabId)}` : undefined} /><WorkflowSteps current={review ? 'review' : 'products'} />
+  return <BarFrame className="lb-sell"><Header title={targetKnown ? `Vender · Comanda ${target.data!.number}` : 'Vender'} back={tabId ? `/atendimento/comandas/${encodeURIComponent(tabId)}` : undefined} />
     <LoadState query={locations} />{storageError && <p role="alert" className="ux-notice warning">Não foi possível guardar o rascunho neste dispositivo. Mantenha esta tela aberta e libere o armazenamento antes de registrar.</p>}<LoadState query={catalog} />{tabId && <LoadState query={target} />}<Feedback {...command} />{!connection.online && <p className="ux-notice warning" role="status">Sem conexão. Você pode preparar o rascunho; o registro aguarda reconexão.</p>}{pendingOrder && <p className="ux-notice warning" role="status">Este pedido precisa ser confirmado. Repita o mesmo registro antes de alterar os produtos.</p>}
     {(!tabId || targetKnown) && <SaleDestination tab={tabId ? target.data : undefined} locked={command.busy || Boolean(pendingOrder) || !connection.online || storageError} hasDraft={cart.length > 0} />}
-    {!tabId && <CustomerPicker scope="bar" contextKey="bar-sale:immediate" label="Cliente da venda" value={identifiedCustomer} onChange={selectCustomer} disabled={command.busy || Boolean(pendingOrder) || !canOperate} />}
+    {!tabId && <CustomerPicker compact scope="bar" contextKey="bar-sale:immediate" label="Cliente da venda" value={identifiedCustomer} onChange={selectCustomer} disabled={command.busy || Boolean(pendingOrder) || !canOperate} />}
     {tabId && targetKnown && target.data?.state !== 'Open' && <p className="ux-notice warning" role="status">Esta comanda está encerrada e não recebe novos produtos. Consulte o consumo em Voltar ou escolha uma comanda aberta.</p>}
     {tabId && !targetReady && cart.length > 0 && <p className="ux-note">O rascunho deste pedido foi preservado. Nenhum novo registro será enviado enquanto a comanda não estiver disponível.</p>}
     {!locationId && !tabId && !locations.isLoading && !locations.isError && <Empty title="Estoque Bar não configurado"><p>Peça à gestão para conferir o cadastro do local Bar.</p></Empty>}
