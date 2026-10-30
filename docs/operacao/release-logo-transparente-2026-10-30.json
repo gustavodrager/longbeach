@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "status": "published_and_verified",
+  "scope": "web-only-logo",
+  "web_source_commit": "393eb94fea352da10ab66343a810f4046f50c7a6",
+  "source_branch": "codex/logo-transparente-20261030",
+  "review_url": "https://github.com/gustavodrager/longbeach/pull/51",
+  "published_at_utc": "2026-10-30T10:28:15.243Z",
+  "production_run": {
+    "id": 41038240553,
+    "attempt": 1,
+    "conclusion": "success",
+    "human_authorized": true,
+    "owner_environment_approved": true,
+    "temporary_policy_id_removed": 64900955,
+    "reviewers_and_other_protections_preserved": true
+  },
+  "web": {
+    "origin": "https://longbeach.quebranunca.com.br",
+    "version": "sites/parsero-prod-20261022/versions/b4a90452954c97ec",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793356095243000",
+    "previous_version": "sites/parsero-prod-20261022/versions/e2223d9a3f5ebe9c",
+    "previous_release": "sites/parsero-prod-20261022/channels/live/releases/1793329363925000",
+    "tree_sha256": "f316c0f1ccaa2288114843b0348fe76ee2cc54563702ec20e5b6db7531a756c2",
+    "official_oci_index": "sha256:8272cb90f256b85d81ff0af3fc1cc00f1a59ac1f26722224be366f2e9be13c0c",
+    "application_files": 86,
+    "active_files": 88,
+    "provider_managed_files": 2,
+    "provider_files_preserved": true,
+    "configuration_sha256": "6785ca752aaa3cb069c94d71885f104ad3a1eee764747906daeea355e20e4402",
+    "configuration_preserved": true
+  },
+  "logo": {
+    "png": "frontend/public/brand/long-beach-transparent.png",
+    "public_url": "https://longbeach.quebranunca.com.br/brand/long-beach-transparent.png",
+    "sha256": "99b0b0cb4d70cdc127f40e57e84c09c7309616065551d18ac95c7da30cc1884d",
+    "size": [
+      1898,
+      829
+    ],
+    "transparent_pixels": 1346976,
+    "original_png_preserved": true,
+    "svg_viewboxes_preserved": true,
+    "image_edit_tool": "built-in image_gen.imagegen"
+  },
+  "api_database": {
+    "preserved_source_commit": "e84ba6f19b0d6e47ad52ed7fe768093becfa5815",
+    "api_db_identity_sha256": "5210218e38753020d357f24256fc70a825996d7cd7c9af9e39b9928b75775dfa",
+    "api_preserved": true,
+    "database_and_proxy_identity_preserved": true,
+    "configuration_preserved": true,
+    "api_pause_performed": false,
+    "database_migrations_executed": 0,
+    "schema_count": 30
+  },
+  "verification": {
+    "public_requests": 94,
+    "files_verified": 86,
+    "failures": 0,
+    "png_alpha_and_svg_embed_verified": true,
+    "browser_logo_loaded": true,
+    "browser_beige_rectangle_removed": true,
+    "horizontal_overflow": false,
+    "pwa_update_applied": true
+  },
+  "evidence_directory": "LongBeach/evidencias/logo-transparente-2026-10-30",
+  "evidence_sha256": {
+    "human-production-authorization.json": "3e691497713d28cc0362e37c69d95dfb54d92a467ed942d9db134b6e2426d0bc",
+    "web-official-receipt.private.json": "84412ff0031d369264dffcc6cb7d34b1bc75531f6294b470f2788af7fac7f2a5",
+    "hosting-publish.receipt.private.json": "d6ee1f4925f8802bc2e79aa48982afeea4a3df1825bfc93b8bef7e352e931ca0",
+    "api-preservation.receipt.private.json": "3e63405b4879f315973f4cbf3e1a02c377befed8937eb1b919ad4c2c80e014b9",
+    "public-verification-final.private.json": "f1af8193e3677649f4017ed75046dfc567182c08cc5cc7843e332d1440c50566",
+    "browser-verification.private.json": "1bd2229a2e6548504dd42baee4f5205e9fe6e2d378d94a6b14358f536c232d23",
+    "production-policy-cleanup.receipt.private.json": "f92431d5474c348cb5fa0e69d792f755dcccc54ac24d25851989e84965647164"
+  }
+}
