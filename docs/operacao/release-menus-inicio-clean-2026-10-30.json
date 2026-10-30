@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "scope": "frontend-only",
+  "sourceCommit": "6cf09d4d725d6e7c4cf4eaf2356141a30e142978",
+  "frontendTree": "2d587f2387de892389af3c5b4792ee40f0cd9562",
+  "branch": "codex/menus-inicio-clean-20261030",
+  "pullRequest": "https://github.com/gustavodrager/longbeach/pull/54",
+  "workflow": {
+    "runId": 41114751702,
+    "attempt": 1,
+    "url": "https://github.com/gustavodrager/longbeach/actions/runs/41114751702",
+    "allFourJobsPassed": true,
+    "productionOwnerApprovalRecorded": true
+  },
+  "hosting": {
+    "site": "parsero-prod-20261022",
+    "version": "sites/parsero-prod-20261022/versions/6cb960df28c7023f",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793389520346000",
+    "publishedAtUtc": "2026-10-30T19:45:20.346Z",
+    "previousVersion": "sites/parsero-prod-20261022/versions/3d32f6eea365e054",
+    "previousRelease": "sites/parsero-prod-20261022/channels/live/releases/1793385007745000",
+    "configurationSha256": "6785ca752aaa3cb069c94d71885f104ad3a1eee764747906daeea355e20e4402",
+    "configurationPreserved": true,
+    "applicationFiles": 86,
+    "managedFiles": 2,
+    "treeSha256": "423f15979b3c39c4947f4f94b081ddbba5a0124bd22958871d973fdb1664e55d",
+    "fullActiveMapSha256": "6cd17f9d359be1d6f146b2a69df5bef6ac55fa837bc217135ab989842c19dde9",
+    "bytes": 3093632
+  },
+  "officialArtifact": {
+    "index_digest": "sha256:ede8d5fe61ca52be162167e1a3c95663d755495f1eae3726bd195a7bdb28d2dd",
+    "runtime_manifest_digest": "sha256:8e2186e4eb09c49b4b42b7ed108f5f25615de62ad3fc9ca1e4e882e42e9fff64",
+    "config_digest": "sha256:20c90b6f23b5f118d613e199f4e327eb75d77ec311062f7e4c3d658d7d971e6f",
+    "provenance_digest": "sha256:499af33aa4deb5e351e2a9e7a9d8a39f71029afc89f26cee058a87c5a2ce3635",
+    "sbom_digest": "sha256:803577b9286079e2c595d687a2b7f54e862b3878e20f3805e569be715dec25f2"
+  },
+  "apiAndDatabase": {
+    "sourceCommit": "e84ba6f19b0d6e47ad52ed7fe768093becfa5815",
+    "image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:97ae528cb7cefb83efbfe57fe7979cdddac5e67e2837cd9fcd491f97f218076f",
+    "configDigest": "sha256:490faf0bc8207f45831f2673f04f4c35e8eb1a5739af20fe423f75f012c8b2ea",
+    "schemaCount": 30,
+    "migrationsSha256": "31fcd56f6b4f82fab935f265e6e4d5ef6ddd12a07e113db9247702be9932003d",
+    "beforePrepublishAfterIdentitySha256": "5210218e38753020d357f24256fc70a825996d7cd7c9af9e39b9928b75775dfa",
+    "configurationProfilesAndGooglePreserved": true,
+    "mutationPerformed": false
+  },
+  "validation": {
+    "frontendTests": 855,
+    "frontendTestFiles": 82,
+    "frontendBuild": "passed",
+    "apiBuild": "passed, 0 warnings, 0 errors",
+    "releaseToolTests": 53,
+    "publicGetRequests": 102,
+    "publicFailures": 0,
+    "browserPwaUpdate": "passed; activated official new entry bundle",
+    "anonymousPrivatePages": "3 redirect to login",
+    "mobileViewport": "390x844; no horizontal overflow",
+    "localFourProfilesUsedFictionalData": true
+  },
+  "cleanup": {
+    "temporaryPolicyRemoved": 64958511,
+    "reviewersAndProtectionsPreserved": true,
+    "newHostedResources": false,
+    "sshCredentialImportOrRenewal": false
+  },
+  "receiptSha256": {
+    "human-production-authorization.json": "b5b44d45f8a64c273915930f5e0ff266f90cc8f2166ebd46b0868276cb576546",
+    "production-reviewed-approvals.private.json": "dcfdeb8fe7f16489b37ef8466cf9aba8d130f285bab5adc0c389baf4f3a572c1",
+    "production-build-vars.json": "d56c69eac3890d093f2af7901d30dc9800e9e3a5097bd881d5304e3eaa412c27",
+    "web-official-receipt.private.json": "0e729319b450ebca010322af34cac87065a100c3aad85100c5e5a910d0374934",
+    "hosting-publish.receipt.private.json": "1aa359d9079cd906d8d6aa31a67a4ccd0a9a961236f0080b47d81adcc2569056",
+    "public-verification-final.private.json": "47af206c18ccfa329d392b297fcfabd9706ce5abd75d70ba7b3026b12f282088",
+    "api-before.private.json": "41b81bc77663a46ff4b7ad017eefdd7c108cc567920a572ca22f68d7dd4ae43a",
+    "api-prepublish.private.json": "6489630b5277d2474e60826a4b3b5bc4e453c74aa3532a9e40eb3a5a68750f9f",
+    "api-after.private.json": "f60893edc062ef62a2dee74b5b3beee65cf435987da27dfbaf2c711128d91d8b",
+    "api-preservation-comparison.private.json": "cd7eddaa74e62abf08936601b510e51f8b93c305130dc4a27d7a3c462af540f6",
+    "production-policy-cleanup.receipt.private.json": "d07c1ee1583abf491aeffe5d12cf9b604ab7afee803878ef6c70268ef13195b4"
+  },
+  "privateEvidenceDirectory": "LongBeach/evidencias/menus-inicio-clean-2026-10-30/publicacao"
+}

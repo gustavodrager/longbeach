@@ -1,6 +1,6 @@
 # Menus e telas iniciais simplificados — 30/10/2026
 
-Esta revisão aplica o padrão de entrada e login aos menus e às telas iniciais de Gestor, Professor, Atendente e Cliente. A publicação da nova versão depende de aprovação específica. Nenhum workflow Production, alteração de proteção ou implantação foi iniciado nesta preparação.
+Esta revisão aplica o padrão de entrada e login aos menus e às telas iniciais de Gestor, Professor, Atendente e Cliente. A fonte `6cf09d4` foi publicada após aprovação específica em 30/10/2026 às 16:45:20 de Brasília. O [registro da publicação](../operacao/publicacao-menus-inicio-clean-2026-10-30.md) contém os resultados e comprovantes da operação.
 
 ## Resultado
 
