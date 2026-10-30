@@ -1,19 +1,22 @@
-.visitor-page { min-height: 100vh; min-height: 100dvh; background: var(--deep); color: var(--ink); padding: 0 max(1.25rem, env(safe-area-inset-left)); }
-.visitor-header,.visitor-welcome,.visitor-cards,.visitor-footer { max-width: 1080px; margin-inline: auto; }
-.visitor-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: 1.5rem; border-bottom: 1px solid var(--line); }
-.visitor-header .brand-logo { width: min(48vw, 240px); }
-.visitor-header nav a { display: inline-flex; align-items: center; min-height: 48px; padding: .6rem .9rem; border: 1px solid var(--ink); border-radius: 10px; color: var(--ink); text-decoration: none; font-size: .9rem; font-weight: 800; }
-.visitor-welcome { padding-block: clamp(3rem, 8vw, 6rem); }
-.visitor-page .eyebrow { color: var(--teal-soft); }
-.visitor-welcome h1 { max-width: 850px; margin-bottom: 1.5rem; font-size: clamp(2.5rem, 7vw, 5rem); line-height: 1.08; letter-spacing: -.045em; }
-.visitor-welcome > p:not(.eyebrow) { max-width: 620px; margin-bottom: 1.75rem; color: var(--muted); font-size: 1.1rem; }
-.visitor-primary { display: inline-flex; justify-content: center; align-items: center; min-height: 52px; padding: .8rem 1.25rem; border-radius: 10px; background: var(--gold); color: var(--ink); font-weight: 800; text-decoration: none; }
-.visitor-primary:hover,.visitor-header nav a:hover { background: var(--sand); }
-.visitor-cards { display: grid; grid-template-columns: 1.1fr 1fr; gap: 1.25rem; }
-.visitor-cards section { min-width: 0; padding: clamp(1.25rem, 4vw, 2rem); border: 1px solid var(--line); border-radius: 18px; background: white; }
-.visitor-cards h2 { font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.2; }
-.visitor-cards p { color: var(--muted); }
-.visitor-detail { margin-top: 1.25rem; font-size: .9rem; }
-.visitor-footer { padding-block: 2.5rem; color: var(--muted); font-size: .85rem; }
+.visitor-page { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: max(2rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right)) max(2rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left)); background: var(--deep); color: var(--ink); }
+.visitor-entry { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; width: 100%; max-width: 420px; text-align: center; }
+.visitor-entry .brand { align-items: center; max-width: 100%; }
+.visitor-entry .brand-logo { width: 220px; max-width: 100%; }
+.visitor-entry h1 { margin: 0; font-size: 32px; line-height: 1.2; letter-spacing: -.035em; text-wrap: balance; }
+.visitor-actions { display: grid; gap: .75rem; width: 100%; }
+.visitor-primary,.visitor-secondary,.visitor-menu { display: flex; justify-content: center; align-items: center; min-height: 48px; padding: .75rem 1rem; border: 1px solid transparent; border-radius: 10px; color: var(--ink); font-size: 1rem; font-weight: 700; line-height: 1.35; text-decoration: none; }
+.visitor-primary { background: var(--gold); border-color: var(--gold); }
+.visitor-primary:hover { background: #eeb42f; border-color: #eeb42f; }
+.visitor-secondary { border-color: var(--line); }
+.visitor-secondary:hover { background: var(--sand); border-color: var(--ink); }
+.visitor-menu { text-decoration: underline; text-underline-offset: 4px; }
+.visitor-menu:hover { background: var(--sand); }
+.visitor-status { margin: 0; color: var(--muted); font-size: .875rem; line-height: 1.5; }
+.visitor-status .text-button { min-height: 48px; padding: .25rem .5rem; border: 0; color: var(--ink); font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.visitor-help { width: 100%; color: var(--muted); font-size: .875rem; }
+.visitor-help summary { min-height: 48px; padding: .75rem; border-radius: 10px; cursor: pointer; list-style-position: inside; }
+.visitor-help summary:hover { color: var(--ink); }
+.visitor-help p { margin: .75rem 0 0; line-height: 1.5; }
+.visitor-page :is(a,button,summary):focus-visible { outline: 3px solid #8a6412; outline-offset: 4px; }
 .login-visitor-link,.login-registration-link { display: block; margin-block: 1rem; text-align: center; color: var(--ink); font-weight: 700; }
-@media (max-width: 640px) { .visitor-header .brand-system { max-width: 175px; font-size: .75rem; } .visitor-cards { grid-template-columns: 1fr; } .visitor-header nav a { padding-inline: .7rem; } }
+@media (max-width: 640px) { .visitor-entry .brand-logo { width: 190px; } .visitor-entry h1 { font-size: 28px; } }

@@ -184,7 +184,7 @@ describe('autenticação e shell', () => {
 
     render(<App />)
 
-    expect(await screen.findByRole('heading', { name: 'Seu momento na arena começa aqui.' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Bem-vindo à Long Beach' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/visitante')
     expect(screen.getByRole('link', { name: 'Ver cardápio' })).toHaveAttribute('href', '/cardapio/apresentacao')
     expect(screen.queryByRole('heading', { name: 'Visão geral' })).not.toBeInTheDocument()
@@ -242,7 +242,7 @@ describe('autenticação e shell', () => {
     window.history.replaceState({}, '', '/')
     render(<App />)
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('link', { name: 'Cadastrar como cliente' }))
+    await user.click(await screen.findByRole('link', { name: 'Criar conta' }))
     expect(await screen.findByRole('heading', { name: 'Cadastre-se como cliente' })).toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: 'Entrar com Google' }))
     expect(await screen.findByRole('heading', { name: 'Olá, Cliente' })).toBeInTheDocument()
