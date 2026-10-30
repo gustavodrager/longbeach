@@ -50,7 +50,7 @@ describe('autenticação e shell', () => {
 
     expect(await screen.findByRole('heading', { name: 'Visão geral' })).toBeInTheDocument()
     expect(screen.getByText(/Dados fictícios.*neste navegador/)).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Entre no Long Beach OS' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Entrar' })).not.toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
@@ -243,7 +243,7 @@ describe('autenticação e shell', () => {
     render(<App />)
     const user = userEvent.setup()
     await user.click(await screen.findByRole('link', { name: 'Criar conta' }))
-    expect(await screen.findByRole('heading', { name: 'Cadastre-se como cliente' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Criar conta' })).toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: 'Entrar com Google' }))
     expect(await screen.findByRole('heading', { name: 'Olá, Cliente' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/minha-area')
@@ -320,7 +320,7 @@ describe('autenticação e shell', () => {
     await user.type(screen.getByLabelText('Confirmar nova senha'), 'NovaSenha2026!')
     await user.click(screen.getByRole('button', { name: 'Alterar senha' }))
 
-    expect(await screen.findByRole('heading', { name: 'Entre no Long Beach OS' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Entrar' })).toBeInTheDocument()
     expect(screen.queryByLabelText('Senha')).not.toBeInTheDocument()
     await waitFor(() => expect(authFetch).toHaveBeenCalledTimes(3))
 
