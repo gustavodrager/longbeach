@@ -1,0 +1,36 @@
+.auth-entry-page { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: max(2rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right)) max(2rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left)); background: var(--deep); color: var(--ink); }
+.auth-entry-panel { display: flex; flex-direction: column; align-items: stretch; gap: 1.5rem; width: 100%; max-width: 420px; min-width: 0; text-align: center; }
+.auth-entry-brand { display: flex; justify-content: center; }
+.auth-entry-brand .brand { align-items: center; max-width: 100%; }
+.auth-entry-brand .brand-logo { width: 220px; max-width: 100%; }
+.auth-entry-heading h1 { margin: 0; font-size: 32px; line-height: 1.2; letter-spacing: -.035em; text-wrap: balance; }
+.auth-entry-google { display: grid; justify-items: center; gap: .75rem; width: 100%; max-width: 320px; align-self: center; }
+.auth-entry-google .google-signin-button { width: 100%; min-height: 48px; }
+.auth-entry-note,.auth-entry-status,.auth-entry-account { margin: 0; color: var(--muted); font-size: .875rem; line-height: 1.5; overflow-wrap: anywhere; }
+.auth-entry-account { margin-top: .75rem; }
+.auth-entry-test { margin: 0; padding: .75rem; border: 1px solid var(--gold); border-radius: 10px; background: #fff4d7; color: var(--ink); font-size: .875rem; line-height: 1.5; }
+.auth-entry-actions { display: grid; gap: .75rem; }
+.auth-entry-secondary,.auth-entry-back,.auth-entry-exit { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: .75rem 1rem; border: 1px solid transparent; border-radius: 10px; color: var(--ink); font-size: 1rem; line-height: 1.35; font-weight: 700; text-decoration: none; }
+.auth-entry-secondary { border-color: var(--line); }
+.auth-entry-page .auth-entry-exit { border-color: transparent; background: transparent; text-decoration: underline; text-underline-offset: 4px; }
+.auth-entry-secondary:hover { background: var(--sand); border-color: var(--ink); }
+.auth-entry-back { text-decoration: underline; text-underline-offset: 4px; }
+.auth-entry-back:hover,.auth-entry-exit:hover { background: var(--sand); }
+.auth-entry-help { color: var(--muted); font-size: .875rem; }
+.auth-entry-help summary,.auth-entry-password summary { min-height: 48px; padding: .75rem; border-radius: 10px; cursor: pointer; list-style-position: inside; }
+.auth-entry-help summary:hover { color: var(--ink); }
+.auth-entry-help p { margin: .75rem 0 0; line-height: 1.5; }
+.auth-entry-help a { color: var(--ink); text-underline-offset: 3px; }
+.auth-entry-password summary { border: 1px solid var(--line); color: var(--ink); font-size: 1rem; font-weight: 700; }
+.auth-entry-password summary:hover { background: var(--sand); border-color: var(--ink); }
+.auth-entry-password[open] > summary { margin-bottom: 1rem; }
+.auth-entry-form { display: grid; gap: 1rem; min-width: 0; text-align: left; }
+.auth-entry-form label { display: grid; gap: .5rem; color: var(--ink); font-size: 1rem; font-weight: 700; line-height: 1.5; }
+.auth-entry-form input { width: 100%; min-width: 0; min-height: 48px; padding: .75rem 1rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 1rem; line-height: 1.35; }
+.auth-entry-form .field-help { margin: 0; color: var(--muted); font-size: .875rem; line-height: 1.5; }
+.auth-entry-form .primary-button { min-height: 48px; margin: 0; padding: .75rem 1rem; border: 0; border-radius: 10px; background: var(--gold); color: var(--ink); font-size: 1rem; font-weight: 700; line-height: 1.35; box-shadow: none; }
+.auth-entry-form .primary-button:hover { background: #eeb42f; }
+.auth-entry-status .text-button { min-height: 48px; padding: .25rem .5rem; border: 0; color: var(--ink); font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.auth-entry-page .form-error { margin: 0; line-height: 1.5; text-align: left; }
+.auth-entry-page :is(a,button,input,summary):focus-visible { outline: 3px solid #8a6412; outline-offset: 4px; }
+@media (max-width: 640px) { .auth-entry-brand .brand-logo { width: 190px; } .auth-entry-heading h1 { font-size: 28px; } }
