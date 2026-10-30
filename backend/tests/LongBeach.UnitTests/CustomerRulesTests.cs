@@ -55,7 +55,7 @@ public sealed class CustomerRulesTests
         Assert.False(db.Database.HasPendingModelChanges());
         var sql = db.GetService<IMigrator>().GenerateScript("20261027135728_MaterialStockLedger");
         Assert.Contains("CREATE TABLE customers", sql); Assert.Contains("customer_operations_immutable", sql);
-        Assert.Contains("ON CONFLICT", sql); Assert.Equal(29, db.Database.GetMigrations().Count());
+        Assert.Contains("ON CONFLICT", sql); Assert.Equal(30, db.Database.GetMigrations().Count());
         Assert.DoesNotContain("UPDATE operational_records", sql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("UPDATE users", sql, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("DELETE FROM", sql, StringComparison.OrdinalIgnoreCase);

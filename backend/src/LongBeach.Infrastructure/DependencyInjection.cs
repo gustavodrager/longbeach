@@ -66,6 +66,7 @@ public static class DependencyInjection
         services.AddScoped<LongBeach.Application.Bar.IBarSales, LongBeach.Infrastructure.Bar.BarSalesService>();
         services.AddScoped<LongBeach.Application.Bar.IBarCash, LongBeach.Infrastructure.Bar.BarCashService>();
         services.AddScoped<LongBeach.Application.Bar.IBarStock, LongBeach.Infrastructure.Bar.BarStockService>();
+        services.AddScoped<LongBeach.Application.Bar.IBarMenu, LongBeach.Infrastructure.Bar.BarMenuService>();
         services.AddScoped<LongBeach.Application.Bar.IBarCatalog, LongBeach.Infrastructure.Bar.BarCatalogService>();
         services.AddScoped<LongBeach.Application.Bar.ICatalogImport, LongBeach.Infrastructure.Bar.CatalogImportService>();
         services.AddScoped<LongBeach.Infrastructure.Customers.CustomerService>();
