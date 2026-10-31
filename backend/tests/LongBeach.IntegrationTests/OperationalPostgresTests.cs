@@ -20,7 +20,7 @@ namespace LongBeach.IntegrationTests;
 public sealed class OperationalPostgresTests
 {
     [PostgresFact]
-    public async Task Weekday_court_persists_midnight_and_does_not_report_unknown_agenda_as_free()
+    public async Task Daily_court_normalizes_legacy_days_replays_once_and_keeps_unknown_agenda_pending()
     {
         await using var factory = Factory(); using var client = factory.CreateClient();
         await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Manager");
@@ -29,6 +29,15 @@ public sealed class OperationalPostgresTests
         var created = await client.PutAsJsonAsync(path, input);
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var saved = await Read(created);
+        Assert.Equal(Enumerable.Range(0, 7), saved.GetProperty("operatingDays").EnumerateArray().Select(day => day.GetInt32()));
+        var replay = await client.PutAsJsonAsync(path, input);
+        Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
+        Assert.Equal(1, (await Read(replay)).GetProperty("version").GetInt32());
+        foreach (var days in new[] { "[-1]", "[7]", "[1,1]", "[1.5]", "[\"1\"]", "null" })
+        {
+            var invalid = JsonNode.Parse(saved.GetRawText())!.AsObject(); invalid["operatingDays"] = JsonNode.Parse(days);
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(path, invalid)).StatusCode);
+        }
         async Task<JsonElement> Day(string date)
         {
             var schedule = await client.GetFromJsonAsync<JsonElement>($"/api/v1/operations/courts/schedule?date={date}");
@@ -38,18 +47,20 @@ public sealed class OperationalPostgresTests
         Assert.Equal(1080, friday.GetProperty("operatingMinutes").GetInt32());
         Assert.Equal(JsonValueKind.Null, friday.GetProperty("availableMinutes").ValueKind);
         var saturday = await Day("2026-10-10");
-        Assert.True(saturday.GetProperty("closedForDay").GetBoolean());
-        Assert.Equal(0, saturday.GetProperty("availableMinutes").GetInt32());
+        Assert.False(saturday.GetProperty("closedForDay").GetBoolean());
+        Assert.Equal(1080, saturday.GetProperty("operatingMinutes").GetInt32());
+        Assert.Equal(JsonValueKind.Null, saturday.GetProperty("availableMinutes").ValueKind);
         async Task<HttpResponseMessage> Reserve(string date)
         {
             var booking = Guid.NewGuid();
             return await client.PutAsJsonAsync($"/api/v1/operations/reservations/{booking}", new { id = booking, name = "Última hora", courtId = id, date, startTime = "23:00", endTime = "24:00", status = "Confirmada", amount = 80 });
         }
         Assert.Equal(HttpStatusCode.Created, (await Reserve("2026-10-09")).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await Reserve("2026-10-10")).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await Reserve("2026-10-10")).StatusCode);
         var edit = JsonNode.Parse(saved.GetRawText())!.AsObject(); edit["scheduleConfirmed"] = true;
         Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync(path, edit)).StatusCode);
         Assert.Equal(1020, (await Day("2026-10-09")).GetProperty("availableMinutes").GetInt32());
+        Assert.Equal(1020, (await Day("2026-10-10")).GetProperty("availableMinutes").GetInt32());
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
         Assert.Equal(2, await db.AuditLogs.CountAsync(row => row.ResourceId == id.ToString()));

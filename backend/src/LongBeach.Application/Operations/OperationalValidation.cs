@@ -74,13 +74,11 @@ public static class OperationalValidation
                     (!CourtHours.TryMinute(Text(body, "weekendPackageLatestEndTime"), true, out var latestEnd) || latestEnd <= 0 || Number(body, "weekendPackageHours") * 60 > latestEnd))
                     return "Confira o limite de saída e a duração do pacote de fim de semana.";
                 if (!Status(body, "Disponível", "Manutenção") || !Time(body, "openingTime", out var open) || !Time(body, "closingTime", out var close) || open >= close) return "Confira o estado e os horários de funcionamento da quadra.";
-                if (!CourtHours.ValidDays(body)) return "Escolha os dias de funcionamento da quadra, sem repetir dias.";
+                if (!CourtHours.ValidDays(body)) return "Informe os dias da semana de 0 a 6, sem repetir dias.";
                 if (body.TryGetProperty("scheduleConfirmed", out var confirmed) && confirmed.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) return "Informe se a agenda atual foi conferida.";
                 foreach (var booking in Rows("reservations").Where(row => Id(row, "courtId") == id && Text(row, "status") != "Cancelada" && Date(row, "date", out var day) && day >= today).Concat(Rows("classes").Where(row => Id(row, "courtId") == id && Text(row, "status") == "Ativa")))
                 {
                     if (Time(booking, "startTime", out var start) && Time(booking, "endTime", out var end) && (start < open || end > close)) return "O novo horário da quadra não comporta suas reservas ou aulas. Ajuste a agenda primeiro.";
-                    var bookingDay = Date(booking, "date", out var bookedDate) ? (int)bookedDate.DayOfWeek : (int)Number(booking, "weekDay");
-                    if (!CourtHours.OpensOn(body, bookingDay)) return "Os dias de funcionamento não comportam suas reservas ou aulas. Ajuste a agenda primeiro.";
                 }
                 break;
             case "reservations":
@@ -92,7 +90,6 @@ public static class OperationalValidation
                 {
                     if (!Date(body, "date", out var date) || !Money(body, "amount") || !Status(body, "Confirmada", "Chegou", "Concluída", "Cancelada", "Bloqueio")) return "Confira a data, o valor e o estado da reserva.";
                     if (Text(body, "status") == "Cancelada") break;
-                    if (!CourtHours.OpensOn(court, (int)date.DayOfWeek)) return "A quadra não funciona neste dia da semana.";
                     if (date > today && Status(body, "Chegou", "Concluída")) return "A chegada ou conclusão só pode ser registrada na data da reserva ou depois dela.";
                     if (Text(court, "status") != "Disponível") return "Esta quadra está em manutenção.";
                     if (others.Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "date") == Text(body, "date") && Text(row, "status") != "Cancelada" && Overlaps(row, body)) || Rows("classes").Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "status") == "Ativa" && ClassStartedOn(row, date) && Number(row, "weekDay") == (int)date.DayOfWeek && Overlaps(row, body))) return "Este horário já está ocupado por uma reserva ou aula nesta quadra.";
@@ -109,7 +106,6 @@ public static class OperationalValidation
                     if (students.Distinct().Count() != students.Length || students.Any(student => student == Guid.Empty || !Rows("students").Any(row => Id(row) == student))) return "A turma contém alunos inválidos ou repetidos.";
                     if (Rows("enrollments").Count(row => Id(row, "classId") == id && Text(row, "status") == "Ativa") > capacity) return "A capacidade não pode ficar abaixo do número de matrículas ativas.";
                     if (Text(body, "status") != "Ativa") break;
-                    if (!CourtHours.OpensOn(court, (int)weekday)) return "A quadra não funciona neste dia da semana.";
                     if (Text(court, "status") != "Disponível") return "Esta quadra está em manutenção.";
                     if (others.Any(row => Id(row, "courtId") == Id(body, "courtId") && Number(row, "weekDay") == weekday && Text(row, "status") == "Ativa" && Overlaps(row, body)) || Rows("reservations").Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "status") != "Cancelada" && Date(row, "date", out var day) && day >= today && ClassStartedOn(body, day) && (int)day.DayOfWeek == weekday && Overlaps(row, body))) return "A aula conflita com uma reserva ou turma nesta quadra.";
                 }

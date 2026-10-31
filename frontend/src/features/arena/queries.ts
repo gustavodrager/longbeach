@@ -39,9 +39,9 @@ function demoSchedule(date: string, data: ReturnType<typeof useOperations>): Cou
     for (const block of blocks) { occupiedMinutes += Math.max(0, minute(block.endTime) - Math.max(occupiedEnd,minute(block.startTime))); occupiedEnd = Math.max(occupiedEnd,minute(block.endTime)) }
     const reservedMinutes = blocks.filter(block => !['Aula','Aula experimental'].includes(block.source)).reduce((sum,block) => sum + Math.max(0, Math.min(end,minute(block.endTime))-Math.max(begin,minute(block.startTime))),0)
     const classMinutes = blocks.filter(block => ['Aula','Aula experimental'].includes(block.source)).reduce((sum,block) => sum + Math.max(0, Math.min(end,minute(block.endTime))-Math.max(begin,minute(block.startTime))),0)
-    const closedForDay = !(court.operatingDays ?? [0,1,2,3,4,5,6]).includes(weekday)
-    const closed = closedForDay || court.status === 'Manutenção'
-    return { closedForDay, operatingMinutes: closed ? 0 : end-begin, schedulePending: court.scheduleConfirmed === false, courtId: court.id, openingTime: court.openingTime, closingTime: court.closingTime, availableMinutes: closed ? 0 : court.scheduleConfirmed === false ? null : Math.max(0,end-begin-used), reservedMinutes, classMinutes, closedForMaintenance: court.status === 'Manutenção', occupiedMinutes, freeIntervals: court.scheduleConfirmed === false ? null : closed ? [] : freeIntervals, hasConflict: reservedMinutes+classMinutes>used || closed && blocks.length>0 || blocks.some(block => minute(block.startTime) < begin || minute(block.endTime) > end), blocks }
+    // Legacy operatingDays never closes the arena; only maintenance closes a demo court.
+    const closed = court.status === 'Manutenção'
+    return { closedForDay: false, operatingMinutes: closed ? 0 : end-begin, schedulePending: court.scheduleConfirmed === false, courtId: court.id, openingTime: court.openingTime, closingTime: court.closingTime, availableMinutes: closed ? 0 : court.scheduleConfirmed === false ? null : Math.max(0,end-begin-used), reservedMinutes, classMinutes, closedForMaintenance: closed, occupiedMinutes, freeIntervals: court.scheduleConfirmed === false ? null : closed ? [] : freeIntervals, hasConflict: reservedMinutes+classMinutes>used || closed && blocks.length>0 || blocks.some(block => minute(block.startTime) < begin || minute(block.endTime) > end), blocks }
   }) }
 }
 

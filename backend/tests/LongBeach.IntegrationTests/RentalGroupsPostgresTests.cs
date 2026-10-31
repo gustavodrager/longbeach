@@ -25,6 +25,43 @@ public sealed class RentalGroupsPostgresTests
     }
     private static string GroupPath(JsonObject group) => $"/api/v1/rentals/groups/{group["id"]}";
     [PostgresFact]
+    public async Task Legacy_restricted_and_empty_days_allow_month_generation_for_every_weekday()
+    {
+        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory);
+        client.DefaultRequestHeaders.Authorization = Header("Manager");
+        foreach (var empty in new[] { false, true })
+        foreach (var weekday in Enumerable.Range(0, 7))
+        {
+            var group = await Setup(client, amount: null); var courtId = Guid.Parse(group["courtId"]!.ToString());
+            await using (var scope = factory.Services.CreateAsyncScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+                var court = await db.OperationalRecords.SingleAsync(r => r.Id == courtId);
+                var payload = JsonNode.Parse(court.Payload)!.AsObject();
+                payload["operatingDays"] = empty ? new JsonArray() : new JsonArray(1, 2, 3, 4, 5);
+                court.Update(court.Name, payload.ToJsonString()); await db.SaveChangesAsync();
+            }
+            group["weekDay"] = weekday; group["name"] = $"Mensalista diário {weekday}";
+            var saved = await client.PutAsJsonAsync($"/api/v1/operations/rentalGroups/{group["id"]}", group);
+            Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+            var preview = await Read(await client.GetAsync(GroupPath(group) + "/months/2026-11/preview"));
+            Assert.Empty(preview.GetProperty("errors").EnumerateArray());
+            var expected = preview.GetProperty("dates").EnumerateArray().Select(d => d.GetString()!).ToArray();
+            Assert.NotEmpty(expected); Assert.All(expected, date => Assert.Equal(weekday, (int)DateOnly.Parse(date).DayOfWeek));
+            var generated = await client.PostAsJsonAsync(GroupPath(group) + "/months", new { month = "2026-11", groupVersion = 2, createCharge = false });
+            Assert.Equal(HttpStatusCode.OK, generated.StatusCode);
+            var month = await Read(generated);
+            Assert.Equal(expected, month.GetProperty("dates").EnumerateArray().Select(d => d.GetString()!).ToArray());
+            await using var verifyScope = factory.Services.CreateAsyncScope();
+            var verify = verifyScope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
+            var groupId = Guid.Parse(group["id"]!.ToString());
+            var reservationIds = expected.Select(date => RentalGroupRules.StableId("reservation", groupId, date)).ToArray();
+            Assert.Equal(expected.Length, await verify.OperationalRecords.CountAsync(r => r.Kind == "reservations" && reservationIds.Contains(r.Id)));
+            var legacy = JsonDocument.Parse((await verify.OperationalRecords.SingleAsync(r => r.Id == courtId)).Payload).RootElement;
+            Assert.Equal(empty ? 0 : 5, legacy.GetProperty("operatingDays").GetArrayLength());
+        }
+    }
+    [PostgresFact]
     public async Task Five_Fridays_midnight_month_generates_once_and_replay_preserves_changes_and_single_charge()
     {
         await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory); client.DefaultRequestHeaders.Authorization = Header("Manager"); var group = await Setup(client, "Extra"); var path = GroupPath(group);

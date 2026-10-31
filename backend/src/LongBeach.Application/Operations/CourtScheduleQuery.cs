@@ -37,7 +37,6 @@ public static class CourtScheduleQuery
             }
             if (cursor < end) free.Add(new(Time(cursor), Time(end)));
             var unavailable = OperationalValidation.Text(court, "status") == "Manutenção";
-            var closedForDay = !CourtHours.OpensOn(court, (int)date.DayOfWeek);
             var pending = !CourtHours.ScheduleConfirmed(court);
             var occupied = 0; var occupiedEnd = 0;
             foreach (var interval in rawIntervals.OrderBy(interval => interval.Start).ThenBy(interval => interval.End))
@@ -45,7 +44,7 @@ public static class CourtScheduleQuery
                 occupied += Math.Max(0, interval.End - Math.Max(occupiedEnd, interval.Start));
                 occupiedEnd = Math.Max(occupiedEnd, interval.End);
             }
-            rows.Add(new(courtId, opening, closing, unavailable || closedForDay ? 0 : pending ? null : Math.Max(0, end - begin - used), reserved, classes, unavailable, outsideHours || reserved + classes > used || (closedForDay || unavailable) && blocks.Count > 0, blocks.OrderBy(block => block.StartTime).ToArray(), closedForDay, unavailable || closedForDay ? 0 : end - begin, pending, occupied, pending ? null : unavailable || closedForDay ? [] : free));
+            rows.Add(new(courtId, opening, closing, unavailable ? 0 : pending ? null : Math.Max(0, end - begin - used), reserved, classes, unavailable, outsideHours || reserved + classes > used || unavailable && blocks.Count > 0, blocks.OrderBy(block => block.StartTime).ToArray(), false, unavailable ? 0 : end - begin, pending, occupied, pending ? null : unavailable ? [] : free));
             void AddBlock(JsonElement record, string source, bool includeId)
             {
                 var startTime = OperationalValidation.Text(record, "startTime"); var endTime = OperationalValidation.Text(record, "endTime");

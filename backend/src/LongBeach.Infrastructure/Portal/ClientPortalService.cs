@@ -94,7 +94,7 @@ public sealed class ClientPortalService(LongBeachDbContext db, TimeProvider time
         var snapshot = rows.GroupBy(r => r.Kind).ToDictionary(g => g.Key, g => g.Select(r => JsonSerializer.Deserialize<JsonElement>(r.Payload)).ToArray());
         var row = CourtScheduleQuery.Build(date, now, snapshot, false).Courts.SingleOrDefault(r => r.CourtId == selected.Id);
         if (row is null || row.SchedulePending) return new(date.ToString("yyyy-MM-dd"), selected.Id, "Pending", [], now);
-        if (row.ClosedForDay || row.ClosedForMaintenance || Text(Data(selected), "status") != "Disponível")
+        if (row.ClosedForMaintenance || Text(Data(selected), "status") != "Disponível")
             return new(date.ToString("yyyy-MM-dd"), selected.Id, "Closed", [], now);
         // Expose only free intervals, never identities, activity types or reservation IDs.
         var minute = date == Today ? (int)Math.Floor(now.ToOffset(TimeSpan.FromHours(-3)).TimeOfDay.TotalMinutes) + 1 : 0;
