@@ -1,0 +1,5 @@
+.agenda-view-navigation { display:flex; flex-wrap:wrap; gap:8px; padding:6px 0; margin:0 0 20px; }
+.agenda-view-navigation :is(a,span) { display:inline-flex; align-items:center; min-height:48px; padding:10px 18px; border:1px solid transparent; border-radius:9px; color:var(--muted); font-weight:700; text-decoration:none; }
+.agenda-view-navigation a[aria-current] { border-color:var(--line); background:var(--surface); color:var(--ink); }
+.agenda-view-navigation [aria-disabled] { opacity:.55; }
+.agenda-view-navigation a:focus-visible { outline:3px solid var(--focus); outline-offset:3px; }

@@ -2,3 +2,12 @@
 
 .customer-selection-validator{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 .customer-reference{display:block;flex-basis:100%;overflow-wrap:anywhere;margin-top:4px}
+
+.customer-page-clean .customer-directory-tools { display:grid; gap:12px; margin:0 0 20px; }
+.customer-page-clean .customer-directory-tools > .operation-field { max-width:640px; }
+.customer-page-clean .customer-directory-tools > .management-disclosure { margin:0; }
+.registration-clean.customer-page-clean .customer-directory-filters { margin:12px 0 0; }
+.customer-page-clean .customer-directory-row .customer-contact-pending { font-weight:600; }
+form.customer-editor > fieldset { min-width:0; border:0; margin:0; padding:0; }
+form.customer-editor .arena-form-group { margin:0; padding:0; }
+form.customer-editor .arena-form-group > legend { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; }

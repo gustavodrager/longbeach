@@ -1,11 +1,10 @@
-import { Link } from 'react-router-dom'
 import { ModalPanel, ContextLink } from '../components/managementUi'
 import { useOperations } from '../features/operations/DemoDataProvider'
 import type { ArenaClass, Reservation } from '../features/arena/types'
 import { DetailList, displayDate, useFilters } from './arenaUi'
 
 export type AgendaSelection = { date: string; startTime: string; endTime: string; lesson?: ArenaClass; reservation?: Reservation; isClass?: boolean }
-export function AgendaActivityDetails({ selected, onClose }: { selected: AgendaSelection; onClose: () => void }) {
+export function AgendaActivityDetails({ selected, onClose, returnLabel = 'Agenda' }: { selected: AgendaSelection; onClose: () => void; returnLabel?: string }) {
   const data = useOperations()
   const filters = useFilters()
   const lesson = data.canRead('classes') ? selected.lesson : undefined
@@ -24,7 +23,7 @@ export function AgendaActivityDetails({ selected, onClose }: { selected: AgendaS
         <DetailList items={[["Professor", data.canRead('team') ? data.team.find(row => row.id === lesson.teacherId)?.name ?? 'Não informado' : 'Acesso restrito'], ["Situação", lesson.status], ["Capacidade", String(lesson.capacity)], ["Matrículas ativas", enrolled ? String(enrolled.length) : 'Acesso restrito'], ["Vagas no cadastro atual", enrolled ? String(Math.max(0, lesson.capacity - enrolled.length)) : 'Acesso restrito']]} />
         <h3>Alunos</h3>{!data.canRead('students') || !enrolled ? <p>Acesso restrito aos alunos.</p> : enrolled.length ? <ul>{enrolled.map(row => <li key={row.id}>{data.students.find(student => student.id === row.studentId)?.name ?? 'Aluno não disponível'}</li>)}</ul> : <p>Nenhuma matrícula ativa no cadastro atual.</p>}
         {lesson.notes && <><h3>Observações</h3><p className="detail-notes">{lesson.notes}</p></>}
-        <Link className="primary-link" to={`/escola/turmas/${lesson.id}`}>Ver turma</Link>
+        <ContextLink className="primary-link" state={{ returnLabel }} to={`/escola/turmas/${lesson.id}`}>Ver turma</ContextLink>
       </> : <p>Detalhes da aula indisponíveis para seu acesso.</p> : reservation ? <>
         <DetailList items={[["Situação", reservation.status], ["Responsável", group ? group.members.find(row => row.id === group.organizerId)?.name ?? 'Não informado' : reservation.customerName || 'Não informado']]} />
         {reservation.activityKind === 'Trial' && <DetailList items={[["Professor", data.canRead('team') ? data.team.find(row=>row.id===reservation.teacherId)?.name??'Não informado' : 'Acesso restrito'], ["Tipo de encontro", "Aula experimental individual"]]} />}
@@ -33,7 +32,7 @@ export function AgendaActivityDetails({ selected, onClose }: { selected: AgendaS
           {!data.canRead('rentalGroups') || !group ? <p>Detalhes do grupo indisponíveis para seu acesso.</p> : <><p className="arena-hint">{month ? `Participantes registrados no mês ${month.month.slice(5)}/${month.month.slice(0, 4)}.` : 'Participantes atuais do grupo; mês não disponível.'}</p>{participants?.length ? <ul>{participants.map(row => <li key={row.id}>{row.name}</li>)}</ul> : <p>Nenhum participante registrado.</p>}</>}
         </>}
         {(reservation.notes || group?.notes) && <><h3>Observações</h3>{reservation.notes && <p className="detail-notes">{reservation.notes}</p>}{group?.notes && group.notes !== reservation.notes && <p className="detail-notes">{group.notes}</p>}</>}
-        <div className="arena-actions"><ContextLink className="primary-link" state={{ returnLabel: 'Agenda' }} to={filters.href(`/agenda/${reservation.id}`)}>Ver reserva</ContextLink>{group && <Link className="secondary-link" to={`/mensalistas/${group.id}`}>Ver grupo</Link>}</div>
+        <div className="arena-actions"><ContextLink className="primary-link" state={{ returnLabel }} to={filters.href(`/agenda/${reservation.id}`)}>Ver reserva</ContextLink>{group && <ContextLink className="secondary-link" state={{ returnLabel }} to={filters.href(`/mensalistas/${group.id}`, { month: reservation.rentalMonth ?? selected.date.slice(0, 7) })}>Ver grupo</ContextLink>}</div>
       </> : <p>Os detalhes desta ocupação não estão disponíveis.</p>}
     </div>
   </ModalPanel>

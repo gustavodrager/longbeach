@@ -42,6 +42,8 @@ const ImportPage = lazy(() => import('./pages/ImportPage').then(module => ({ def
 import { useAuth } from './features/auth/authContext'
 import { operationalPermissions, type OperationalKind } from './features/operations/DemoDataProvider'
 const RentalGroupsPage = lazy(() => import('./pages/RentalGroupsPage').then(module => ({ default: module.RentalGroupsPage })))
+const RentalAgendaPage = lazy(() => import('./pages/RentalAgendaPage').then(module => ({ default: module.RentalAgendaPage })))
+const SchoolAgendaPage = lazy(() => import('./pages/SchoolAgendaPage').then(module => ({ default: module.SchoolAgendaPage })))
 const RentalGroupPage = lazy(() => import('./pages/RentalGroupsPage').then(module => ({ default: module.RentalGroupPage })))
 const CourtsPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.CourtsPage })))
 const AgendaPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.AgendaPage })))
@@ -150,6 +152,7 @@ function OperationalRoutes() {
     <Route path="projetos" element={arena('projects', <ProjectsPage />)} />
     <Route path="projetos/:projectId" element={arena('projects', <ProjectDetailsPage />)} />
     <Route path="mensalistas" element={arena('rentalGroups', <RentalGroupsPage />)} />
+    <Route path="mensalistas/agenda" element={arena('rentalGroups', <RentalAgendaPage />)} />
     <Route path="mensalistas/:groupId" element={arena('rentalGroups', <RentalGroupPage />)} />
     <Route path="quadras" element={<LegacyDestination to="/agenda/funcionamento" />} />
     <Route path="agenda/funcionamento" element={arena('courts', <CourtsPage />)} />
@@ -157,6 +160,7 @@ function OperationalRoutes() {
     <Route path="agenda/recorrentes/novo" element={arena('reservations', <RecurringReservationsPage />)} />
     <Route path="agenda/:reservationId" element={arena('reservations', <ReservationDetailsPage />)} />
     <Route path="escola" element={arena('classes', <SchoolPage />)} />
+    <Route path="escola/agenda" element={arena('classes', <SchoolAgendaPage />)} />
     <Route path="escola/turmas/:classId" element={arena('classes', <ClassDetailsPage />)} />
     <Route path="escola/:classId" element={<LegacyDestination to="/escola/turmas" parameter="classId" />} />
     <Route path="escola/matriculas" element={arena('enrollments', <EnrollmentsPage />)} />

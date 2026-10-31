@@ -34,11 +34,43 @@ it('lista/pagina filtra vínculos e telefone pendente na API e conserva retorno 
   fireEvent.click(await screen.findByRole('link', { name: /Pessoa Teste/ })); await screen.findByRole('heading', { name: customer.name }); expect(screen.getByRole('link', { name: '← Clientes' })).toHaveAttribute('href', '/clientes?profile=Aluno&incomplete=true&q=Pessoa&page=2')
 })
 
+it('mantém busca visível e filtros recolhidos sem perder os filtros ativos ao editar a seleção', async () => {
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ items: [customer], total: 1, page: 1, pageSize: 20 }))
+  const router = mount('/clientes?q=Pessoa&profile=Aluno&status=Inativo&incomplete=true&page=2')
+  await screen.findByRole('link', { name: /Pessoa Teste/ })
+  expect(screen.getByLabelText('Buscar cliente')).toBeVisible()
+  expect(screen.getByRole('link', { name: 'Novo cliente' })).toHaveAttribute('href', '/clientes/novo?q=Pessoa&profile=Aluno&status=Inativo&incomplete=true&page=2')
+  const summary = screen.getByText('Filtros', { selector: 'summary' })
+  expect(summary.closest('details')).not.toHaveAttribute('open')
+  expect(within(summary).getByText('3')).toBeVisible()
+  expect(screen.getByLabelText('Vínculo')).not.toBeVisible()
+  fireEvent.click(summary)
+  expect(screen.getByLabelText('Vínculo')).toBeVisible()
+  fireEvent.change(screen.getByLabelText('Telefone'), { target: { value: 'false' } })
+  await waitFor(() => expect(router.state.location.search).toBe('?q=Pessoa&profile=Aluno&status=Inativo&incomplete=false'))
+  await waitFor(() => expect(fetch.mock.calls.some(([url]) => String(url).includes('incomplete=false') && String(url).includes('status=Inativo'))).toBe(true))
+  fireEvent.click(summary)
+  expect(summary.closest('details')).not.toHaveAttribute('open')
+  expect(router.state.location.search).toContain('incomplete=false')
+})
+
+it('mantém a situação Inativo junto do telefone pendente sem presumir que o cliente está ativo', async () => {
+  const inactive = { ...customer, status: 'Inativo', phone: '', incomplete: true }
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ items: [inactive], total: 1, page: 1, pageSize: 20 }))
+  mount()
+  const row = await screen.findByRole('link', { name: /Pessoa Teste/ })
+  expect(within(row).getByText('Inativo')).toBeVisible()
+  expect(within(row).getByText('Telefone pendente')).toBeVisible()
+  expect(within(row).getByText('Aluno')).toBeVisible()
+  expect(within(row).getByText('Bar')).toBeVisible()
+})
+
 it('novo cadastro exige contato e só navega após confirmação, bloqueando duplo envio', async () => {
   let finish: ((response: Response) => void) | undefined; const bodies: unknown[] = []
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => { if (init?.method === 'POST') { bodies.push(JSON.parse(String(init.body))); return new Promise<Response>(resolve => { finish = resolve }) } return json(customer) })
-  const router = mount('/clientes/novo'); const dialog = screen.getByRole('dialog', { name: 'Cadastrar cliente' })
+  const router = mount('/clientes/novo'); const dialog = screen.getByRole('dialog', { name: 'Novo cliente' })
   expect(within(dialog).getByText('O cadastro não cria login, matrícula, reserva ou cobrança.')).toBeVisible()
+  expect(within(dialog).queryByText(/Cadastro antigo com telefone pendente/)).not.toBeInTheDocument()
   fireEvent.change(within(dialog).getByLabelText('Nome'), { target: { value: customer.name } }); fireEvent.click(within(dialog).getByRole('button', { name: 'Salvar cliente' })); expect(bodies).toHaveLength(0)
   fireEvent.change(within(dialog).getByLabelText('Telefone com DDD'), { target: { value: '(11) 98888-7777' } }); const save = within(dialog).getByRole('button', { name: 'Salvar cliente' }); fireEvent.click(save); fireEvent.click(save)
   expect(bodies).toHaveLength(1); expect(router.state.location.pathname).toBe('/clientes/novo'); finish?.(json(customer)); await waitFor(() => expect(router.state.location.pathname).toBe('/clientes/one'))
@@ -47,8 +79,16 @@ it('novo cadastro exige contato e só navega após confirmação, bloqueando dup
 it('legado sem telefone continua pendente e edição não inventa contato ou login', async () => {
   const legacy = { ...customer, phone: '', incomplete: true }; let body: Record<string, unknown> | undefined
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => { if (init?.method === 'PUT') { body = JSON.parse(String(init.body)); return json({ ...legacy, name: body!.name, version: 2 }) } return json(legacy) })
-  mount('/clientes/one?acao=editar'); const dialog = await screen.findByRole('dialog', { name: 'Editar cliente' }); fireEvent.change(within(dialog).getByLabelText('Nome'), { target: { value: 'Nome corrigido' } }); fireEvent.click(within(dialog).getByRole('button', { name: 'Salvar cliente' }))
-  await waitFor(() => expect(body).toMatchObject({ expectedVersion: 1, name: 'Nome corrigido', phone: '' })); expect(body).not.toHaveProperty('userId'); expect(body).not.toHaveProperty('profiles'); expect(await screen.findByText(/Cadastro antigo com telefone pendente/)).toBeInTheDocument()
+  mount('/clientes/one?acao=editar'); const dialog = await screen.findByRole('dialog', { name: 'Editar cliente' }); expect(within(dialog).getByText(/Cadastro antigo com telefone pendente/)).toBeVisible(); fireEvent.change(within(dialog).getByLabelText('Nome'), { target: { value: 'Nome corrigido' } }); fireEvent.click(within(dialog).getByRole('button', { name: 'Salvar cliente' }))
+  await waitFor(() => expect(body).toMatchObject({ expectedVersion: 1, name: 'Nome corrigido', phone: '' })); expect(body).not.toHaveProperty('userId'); expect(body).not.toHaveProperty('profiles'); await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Editar cliente' })).not.toBeInTheDocument()); expect(screen.getByText(/Cadastro antigo com telefone pendente/)).toBeVisible()
+})
+
+it.each(['sem escrita', 'unificado'])('aviso do telefone legado continua visível quando a edição não abre: %s', async mode => {
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ ...customer, phone: '', incomplete: true, mergedIntoId: mode === 'unificado' ? 'canonical-customer' : null }))
+  mount('/clientes/one?acao=editar', mode === 'sem escrita' ? { ...actor, permissions: ['customers:read'] } : actor)
+  await screen.findByRole('heading', { name: customer.name })
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(screen.getByText(/Cadastro antigo com telefone pendente/)).toBeVisible()
 })
 
 it('conflito409 preserva edição e comparar usa nova leitura sem reenviar versão antiga', async () => {
