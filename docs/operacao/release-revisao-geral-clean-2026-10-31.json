@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "scope": "frontend-only",
+  "sourceCommit": "4b4a80c7f64b6fec729add05c5a05537acd09bb2",
+  "frontendTree": "2a479d89ff97768397093e2385a74a4029439a27",
+  "backendTreePreserved": "17c864fbe20fa56f2b5d3ffb6605ea9a6128f312",
+  "branch": "codex/revisao-geral-clean-20261031",
+  "pullRequest": "https://github.com/gustavodrager/longbeach/pull/58",
+  "workflow": {
+    "runId": 41238294190,
+    "attempt": 1,
+    "url": "https://github.com/gustavodrager/longbeach/actions/runs/41238294190",
+    "allFourJobsPassed": true,
+    "productionOwnerApprovalRecorded": true
+  },
+  "hosting": {
+    "site": "parsero-prod-20261022",
+    "version": "sites/parsero-prod-20261022/versions/9007762806325989",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793479009923000",
+    "publishedAtUtc": "2026-10-31T20:36:49.923Z",
+    "previousVersion": "sites/parsero-prod-20261022/versions/15d217c002c4f873",
+    "previousRelease": "sites/parsero-prod-20261022/channels/live/releases/1793471534935000",
+    "configurationSha256": "6785ca752aaa3cb069c94d71885f104ad3a1eee764747906daeea355e20e4402",
+    "configurationPreserved": true,
+    "applicationFiles": 94,
+    "activeFiles": 96,
+    "managedFiles": 2,
+    "managedFileSha256": {
+      "/__/firebase/init.js": "e7bd33241cf11ab231f58fd0beb480b5462cfc7a69db6d508bacac5700f67345",
+      "/__/firebase/init.json": "0e92e3bcff11f2280adbb22fd5c515dfc4db6275fffe6544dd079a9d36c82ea8"
+    },
+    "treeSha256": "66fe77631b1c76ce81302af3fb99516731ddac22ad5e61bb16437c9fb58c4a33",
+    "fullActiveMapSha256": "69b953ddd6be6f0edc5bf4633de32bc9948753fffabf3e9acb754573e3390b7d",
+    "bytes": 3121408
+  },
+  "officialArtifact": {
+    "index_digest": "sha256:5fb89be8f47a2c142c7222a208b9f46cc065278f7a218a97f9e24f37e3ef27eb",
+    "runtime_manifest_digest": "sha256:b1fa361fa4ad4e74880c3d2dfec6260edd43aa6867ab5e80104a380094368074",
+    "config_digest": "sha256:4f133cf4ac2caf2e13bd9d686067f9ea26fe4294104be1665434d267693b292c",
+    "provenance_digest": "sha256:1eec05b859000f00022d2ec93d3730ddaea3285f710dbaf47b6c2994ae48243b",
+    "sbom_digest": "sha256:33ee5ef6d35b63a6bbb4590c166ca7c220a44bc4f66eeb623c29ed2b7caa39f4"
+  },
+  "apiAndDatabase": {
+    "sourceCommit": "66fa521dc2b578fda7182d8d5af81b2f0cb00544",
+    "image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:084d31181f4bc9f184483c49583c053241b9e1f71283b6d4942b93e11168d255",
+    "configDigest": "sha256:b58dd582557be2181dff66d64164ef060a2c5dcd5842b46f1f2b02026a69f3f3",
+    "schemaCount": 30,
+    "latestMigration": "20261029210216_DigitalMenu",
+    "migrationsSha256": "31fcd56f6b4f82fab935f265e6e4d5ef6ddd12a07e113db9247702be9932003d",
+    "beforePrepublishAfterIdentitySha256": "021a5bc22b2f513dd205deb240d2c1aa71b3879bdbe79278649c7760bc99ec5f",
+    "authorizationCatalogSha256": "8a6a9b5baeff9766ae33a0e94866b8982159d0371a8b566efca49642e20b5279",
+    "userAccessBindingsSha256": "cd9599b9e8f745cac7d0dba74d1e9e042a39ede7ede33930394ea1550a68bc1b",
+    "configurationProfilesAndGooglePreserved": true,
+    "allThreeContainersAndStartTimesPreserved": true,
+    "mutationPerformed": false,
+    "sharedReleaseLeaseCreatedOrMutated": false
+  },
+  "validation": {
+    "frontendTests": 924,
+    "frontendTestFiles": 85,
+    "laterFocusedChecks": {
+      "menuPresentation": 10,
+      "prototype": 44
+    },
+    "frontendBuild": {
+      "passed": true,
+      "pwaEntries": 83,
+      "index": "assets/index-BQZHZkxw.js"
+    },
+    "apiBuild": {
+      "passed": true,
+      "warnings": 0,
+      "errors": 0
+    },
+    "releaseToolTests": 87,
+    "publicGetRequests": 166,
+    "publicFailures": 0,
+    "filesVerifiedByHash": 94,
+    "spaRoutes": 56,
+    "staticAnalyzers": [
+      "logos",
+      "entrance",
+      "auth_screens",
+      "menus_and_homes",
+      "operation_screens",
+      "daily_courts",
+      "management_screens",
+      "general_clean_screens"
+    ],
+    "browserNewEntry": "assets/index-DRvXLeIG.js",
+    "anonymousPrivatePagesRedirectToLogin": [
+      "/administracao/professores",
+      "/bar/caixa",
+      "/bar/cardapio",
+      "/financeiro/despesas",
+      "/manutencao",
+      "/minha-area/bar",
+      "/minha-area/perfil",
+      "/professor/turmas"
+    ],
+    "mobileViewport": {
+      "width": 390,
+      "scrollWidth": 390,
+      "horizontalOverflow": false
+    },
+    "authenticatedProductionFlowsTested": false,
+    "localPreviewUsedFictionalData": true
+  },
+  "cleanup": {
+    "temporaryPolicyRemoved": 65059413,
+    "reviewersAndProtectionsPreserved": true,
+    "newInfrastructureResources": false,
+    "sshCredentialImportOrRenewal": false,
+    "sharedReleaseLeaseCreatedOrMutated": false
+  },
+  "receiptSha256": {
+    "human-production-authorization.json": "f7c6e1482169ca2b7a4d849f9b20d2241ac5bb37a3278d1d370fb058168b9f9c",
+    "production-reviewed-approvals.private.json": "7b690d647bbfbf190550ab389189a1a770ebd8d57f3511914f70b445b6fd5768",
+    "production-build-vars.json": "cf87b06ae42ad5fa2831a8dcd1dfab5ff7a98fa778ab8034c0038bfabbe36f36",
+    "publisher-helpers-final-verified.private.json": "305bc19aa8ed2b93adc616787617093af3620facd962b7631fb1a654a35f6b85",
+    "independent-operations-review.private.json": "d595893b892732d8e142a473894949b4531566fc7a2c9b224516be5021085a1d",
+    "independent-operations-review-final.private.json": "771d36616a2e8a36b94ea826c2d0ecf0784f64583bfb5ffa954c8a9d07474476",
+    "independent-publication-review.private.json": "2301610de6fd06d8b824cda275d3dbd5ebfc41f5390fd4314999a527128e41ee",
+    "registry-web-gate.private.json": "9c6ec698daf5511afab3badfef51ecd24dc1983af7fb8836f2198ecdac07aab0",
+    "registry-web-source-proof.private.json": "51399c471e72dc8a721dac325c4520d81297c26ea8668bad454136c16c175139",
+    "registry-web-preparation-receipt.private.json": "1c2f830dc218cd10649ee4efbb3dbd351bdeecf9f42176a36bb96a9ad4ebd394",
+    "web-official-receipt.private.json": "dbc02a42f15f9080573defe1838a4763da6cc13dba78851d69f9a3e432c7f94a",
+    "api-before.private.json": "c3099c9e5f25a5104ec5e2c22e59942d3dbd67aecea630e83a80998f00f8f9e6",
+    "api-prepublish.private.json": "1660c506ef66c3ce854a2298d9d8fde138ebfa6bb7a93f8e5126fe1f1eafa724",
+    "api-after.private.json": "a9205a658c0b43c9633b54c34afe36fe4ffed7033c9594453693dbce1f16156b",
+    "hosting-plan.private.json": "7573bd6e5a7609b186f6fd5ec0aa09ced44ad03b80b0b81f593de4ec731ed4aa",
+    "hosting-capture.private.json": "42008a3da38961cca96e0d6170fc6b92db26ebb335ce4cb0a34300707a0ee701",
+    "hosting-publish.receipt.private.json": "b8c38a5a1b6e0b287c56acd8112b36eb0f39bb80d2bb499120b27af88c4885b9",
+    "public-verification-final.private.json": "bca6c3b386a3700818fa4f559c3ea38bf5daefd6cc7c593fe05472b185ecc192",
+    "production-policy-cleanup.receipt.private.json": "36d65348e75e318a4aaf76c39d40f38167abef9eb1afcc90363ad0f1458acd2b",
+    "browser-before.private.json": "b4c58ebd49016f80769ed4abe8cf61b3b6cdd95fb7489f10c5ab793763351ecb",
+    "browser-after.private.json": "55e7a169e1ecea6e1036e5d31d3c9f197318ca4117d4674679a168608be9b4b2",
+    "browser-mobile.private.json": "0c2adab092edb313f7c4a0a1e2275b554a674251f5d321eae9a8f5b68ee4cf10",
+    "browser-private-guards.private.json": "a97b5b5d24540ec7f8edb65db78dd9211eef00a62e7aa7020e75999bf912193f",
+    "../validacao-final.json": "e44aac379eec4e52c63bfb0639109e8f53e39655a02587a3830777ccb2220be8",
+    "completion.private.json": "d3f3219ed971370869d55ed32eaf58b09280eba9c85c7028523969ae58ad1681"
+  },
+  "privateEvidenceDirectory": "LongBeach/evidencias/revisao-geral-clean-2026-10-31/publicacao"
+}

@@ -15,4 +15,4 @@ export function ClientLayout() {
     <div id="portal-content" className="portal-content" ref={main} tabIndex={-1}><Outlet /></div>
   </div>
 }
-export function HelpContact() { const options=usePortal<Options>('options');return <aside className="portal-help"><strong>A equipe está por perto</strong><p>Na arena, procure o balcão. Você também pode enviar uma solicitação de ajuda e acompanhar a resposta aqui.</p>{options.data?.helpUrl&&<a href={options.data.helpUrl} target="_blank" rel="noopener noreferrer">Falar com a arena</a>}</aside> }
+export function HelpContact() { const options=usePortal<Options>('options');return <aside className="portal-help"><details><summary>Ajuda e contato</summary><p>Procure o balcão ou envie uma solicitação de ajuda. A resposta aparece em Minhas solicitações.</p>{options.data?.helpUrl&&<a href={options.data.helpUrl} target="_blank" rel="noopener noreferrer">Falar com a arena</a>}</details></aside> }

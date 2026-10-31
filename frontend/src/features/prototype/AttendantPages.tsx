@@ -87,7 +87,7 @@ export function SellPage() {
   const canEdit = !draft.accountId || !api.state.consumptions.some(item => item.accountId === draft.accountId)
   const itemCount = draft.cart.reduce((sum, item) => sum + item.quantity, 0)
   return <div className="ux-page">
-    <PageHeader eyebrow="Atendimento" title="Vender" description="Toque no produto. Confira. Receba." />
+    <PageHeader title="Vender" />
     <Notice error={error} />
     {stale ? <EmptyState title="Este pedido precisa ser recomeçado" description="Os dados de demonstração foram reiniciados."><button className="ux-button primary" onClick={() => persistDraft({ cart: [], openId: operationId(), addId: operationId(), reviewing: false })}>Começar nova venda</button></EmptyState> : <>
       {!draft.reviewing ? <>
@@ -128,7 +128,7 @@ export function TabsPage() {
     navigate(`/prototipo/comandas/${result.value.id}`)
   }
   return <div className="ux-page">
-    <PageHeader eyebrow="Atendimento" title="Comandas" description="Encontre pelo número ou pelo nome."><button className="ux-button primary" onClick={() => { setCreating(true); setError('') }}><Icon name="plus" /> Abrir comanda</button></PageHeader>
+    <PageHeader title="Comandas"><button className="ux-button primary" onClick={() => { setCreating(true); setError('') }}><Icon name="plus" /> Abrir comanda</button></PageHeader>
     <Notice error={error} />
     {creating && <form className="ux-panel" onSubmit={create}>
       <h2>Nova comanda</h2>
@@ -220,7 +220,7 @@ export function OrdersPage() {
     setError(''); setMessage('Pedido recusado. O cliente verá o motivo.'); setRejectId(''); setReason('')
   }
   return <div className="ux-page">
-    <PageHeader eyebrow="Atendimento" title="Pedidos" description="Confirme o pedido. Prepare. Entregue." />
+    <PageHeader title="Pedidos" />
     <Notice error={error} message={message} />
     <div className="ux-actions" aria-label="Filtrar pedidos">{[['all', 'Todos'], ['requested', 'Confirmar'], ['accepted', 'Entregar']].map(([value, label]) => <button className={`ux-button ${filter === value ? 'primary' : 'secondary'}`} aria-pressed={filter === value} key={value} onClick={() => setQuery(value === 'all' ? {} : { status: value })}>{label}</button>)}</div>
     {!items.length && <EmptyState title="Tudo em dia" description="Os próximos pedidos aparecerão aqui." />}

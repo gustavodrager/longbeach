@@ -4,8 +4,9 @@ import { Icon, Status } from '../prototype/components'
 import { dateTime, itemLabels, money, paymentLabel, type CatalogItem, type CartLine, type Tab, type TabItem, type TabPayment } from './api'
 export { Icon, Status }
 
-export function Header({ title, description, back, children }: { title: string; description?: string; back?: string; children?: ReactNode }) {
-  return <header className="ux-page-header">{back && <Link className="ux-back" to={back}><Icon name="back" />Voltar</Link>}<div className="ux-heading-line"><div><h1>{title}</h1>{description && <p className="ux-description">{description}</p>}</div>{children}</div></header>
+export function Header({ title, description, back, children, level = 1 }: { title: string; description?: string; back?: string; children?: ReactNode; level?: 1 | 2 }) {
+  const Title = level === 2 ? 'h2' : 'h1'
+  return <header className="ux-page-header">{back && <Link className="ux-back" to={back}><Icon name="back" />Voltar</Link>}<div className="ux-heading-line"><div><Title>{title}</Title>{description && <p className="ux-description">{description}</p>}</div>{children}</div></header>
 }
 export function Feedback({ error, message, busy }: { error?: string; message?: string; busy?: boolean }) {
   return <>{error && <p className="ux-notice error" role="alert"><Icon name="alert" />{error}</p>}{message && <p className="ux-notice success" role="status"><Icon name="check" />{message}</p>}{busy && <p className="ux-note" role="status">Aguardando confirmação…</p>}</>

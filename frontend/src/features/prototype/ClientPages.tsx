@@ -37,7 +37,7 @@ export function ClientPage() {
   const account = state.accounts.find(item => item.accessId === accessId)
   const expires = account ? Date.parse(account.accessExpiresAt) : NaN
   const valid = account && account.state === 'open' && !account.accessRevoked && Number.isFinite(expires) && expires > Date.now()
-  if (!valid) return <section className="ux-page"><PageHeader eyebrow="Long Beach · Cliente" title="Peça um novo acesso" /><EmptyState title="Este acesso não está disponível" description="Ele pode ter expirado ou a comanda pode ter sido encerrada. Peça à equipe o QR da sua comanda." /><p className="ux-note">Para proteger sua conta, número e nome não liberam o acesso.</p></section>
+  if (!valid) return <section className="ux-page"><PageHeader title="Peça um novo acesso" /><EmptyState title="Este acesso não está disponível" description="Ele pode ter expirado ou a comanda pode ter sido encerrada. Peça à equipe o QR da sua comanda." /><p className="ux-note">Para proteger sua conta, número e nome não liberam o acesso.</p></section>
   return <ClientAccount key={account.accessId} account={account} />
 }
 

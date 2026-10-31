@@ -42,7 +42,7 @@
 .teaching-actions button[aria-pressed=true] { background:#242420; color:#fff; }
 .teaching-actions button:disabled { opacity:.55; cursor:default; }
 .teaching-date { display:flex; flex-direction:column; gap:8px; max-width:240px; margin:24px 0; }
-.teaching-date input,.teaching-card select { padding:12px; border:1px solid #acb2a4; border-radius:8px; background:#fff; max-width:100%; min-height:44px; }
+.teaching-date input,.teaching-card select { padding:12px; border:1px solid #acb2a4; border-radius:8px; background:#fff; max-width:100%; min-height:48px; }
 .teaching-card label { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
 .teaching-shell :focus-visible,.teaching-account-menu :focus-visible { outline:3px solid #c17b22; outline-offset:4px; }
 @media(max-width:600px) {
@@ -58,3 +58,8 @@
   .teaching-actions button { flex:1; }
   .teaching-nav a { padding:12px 14px; flex:1; }
 }
+
+.teaching-section-heading { margin-bottom:20px; }
+.teaching-section-heading p { margin:12px 0 0; color:#5b6056; }
+.teaching-back { display:inline-flex; align-items:center; min-height:48px; margin-bottom:12px; color:inherit; }
+.teaching-roster-note { max-width:64ch; font-size:14px; line-height:1.5; }

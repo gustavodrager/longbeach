@@ -3,7 +3,7 @@
 .ux-root * { box-sizing:border-box; }
 .ux-root h1,.ux-root h2,.ux-root h3,.ux-root p { margin-top:0; }
 .ux-root h1,.ux-root h2,.ux-root h3 { font-family:Manrope,system-ui,sans-serif; color:var(--ux-ink); }
-.ux-root h1 { font-size:clamp(28px,3vw,40px); line-height:1.15; letter-spacing:-1.2px; font-weight:800; margin-bottom:8px; }
+.ux-root h1 { font-size:32px; line-height:1.15; letter-spacing:-1.2px; font-weight:800; margin-bottom:8px; }
 .ux-root h2 { font-size:23px; letter-spacing:-.65px; line-height:1.3; margin-bottom:16px; }
 .ux-root h3 { font-size:19px; letter-spacing:-.3px; margin-bottom:12px; }
 .ux-root :where(button,input,select,textarea) { font:inherit; }
@@ -230,7 +230,7 @@
   .ux-heading-line { align-items:start; flex-wrap:wrap; }
   .ux-page-header { margin-bottom:24px; }
   .ux-eyebrow { font-size:11px; }
-  .ux-attendant .ux-page-header .ux-eyebrow { display:none; }
+  .ux-root h1 { font-size:28px; }
   .ux-panel { padding:20px 16px; border-radius:14px; }
   .ux-products { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
   .ux-product-add { padding:10px 12px 14px; }

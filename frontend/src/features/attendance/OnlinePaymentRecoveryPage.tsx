@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
+import './service-clean.css'
 import { CardRecovery } from '../billing/CardRecovery'
 import { PixRecovery } from './PixRecovery'
 import { PixDetails } from './PaymentPages'
@@ -18,7 +19,7 @@ export function OnlinePaymentRecoveryPage() {
     if (!payment || busy) throw new Error('Atualize a cobrança antes de retomar.')
     return postBar<TabPayment>(`/tabs/${tabId}/payments`, { operationId: payment.operationId, amount: payment.amount, method: payment.method, ...payer })
   })
-  return <BarFrame><Header title="Pagamento online existente" description="Recupere somente a cobrança original. Não cobre novamente na maquininha." back={`/atendimento/receber/${tabId}?paymentId=${paymentId}`} /><LoadState query={query}/><Feedback {...command}/>{!connection.online && <p role="status">Reconecte para consultar esta cobrança.</p>}{payment ? <>
+  return <BarFrame className="lb-service-recovery"><Header title="Pagamento online existente" description="Recupere somente a cobrança original. Não cobre novamente na maquininha." back={`/atendimento/receber/${tabId}?paymentId=${paymentId}`} /><LoadState query={query}/><Feedback {...command}/>{!connection.online && <p role="status">Reconecte para consultar esta cobrança.</p>}{payment ? <>
     <PixDetails payment={payment} busy={busy} refresh={() => void command.run(() => postBar(`/tabs/${tabId}/payments/${payment.id}/refresh`, {}))}/>
     <CardRecovery payment={payment} publicKey={config.data?.cardPublicKey} busy={busy} resume={resume}/>
     <PixRecovery payment={payment} busy={busy} resume={resume}/>
