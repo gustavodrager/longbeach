@@ -1,6 +1,6 @@
 # Agenda, cadastros e atendimento simplificados — 31/10/2026
 
-Esta entrega aplica o padrão de entrada, login e páginas iniciais aos fluxos de operação. Está preparada para revisão; a publicação desta nova versão depende de autorização específica.
+Esta entrega aplica o padrão de entrada, login e páginas iniciais aos fluxos de operação. A fonte `a28303c` foi publicada após autorização específica em 31/10/2026 às 07:13:18 de Brasília. O [registro da publicação](../operacao/publicacao-operacao-clean-2026-10-31.md) contém os resultados e comprovantes.
 
 ## Resultado
 
