@@ -1,6 +1,6 @@
 # Funcionamento diário das quadras — 31/10/2026
 
-A Long Beach abre todos os dias. Esta correção remove o fechamento por dia da semana das decisões da API e da interface. Está preparada para revisão; a publicação exige aprovação específica desta versão e envolve API e interface.
+A Long Beach abre todos os dias. Esta correção remove o fechamento por dia da semana das decisões da API e da interface. A fonte `66fa521dc2b578fda7182d8d5af81b2f0cb00544` foi publicada com autorização específica em 31/10/2026: API às 08:39:09 e interface às 08:42:19 de Brasília. O [registro da publicação](../operacao/publicacao-quadra-todos-dias-2026-10-31.md) contém os comprovantes e os limites da conferência.
 
 ## Comportamento
 
@@ -25,4 +25,4 @@ Não há migration, alteração de perfis, preços, dados pessoais, horários de
 
 O banco temporário usou imagem oficial já disponível, armazenamento em memória e porta acessível somente pelo próprio computador. Foi removido após os testes, junto com suas credenciais locais. A prévia foi encerrada, a aba temporária fechada e o tamanho padrão restaurado. Produção não foi consultada ou alterada durante esta preparação.
 
-Registros e capturas locais: `LongBeach/evidencias/quadra-todos-dias-2026-10-31/`. A publicação deverá promover API e interface compatíveis, mantendo o banco e o schema atuais. As autorizações das publicações anteriores não cobrem esta versão.
+Registros e capturas locais: `LongBeach/evidencias/quadra-todos-dias-2026-10-31/`. A publicação autorizada promoveu API e interface compatíveis, mantendo o banco e o schema existentes. Esta autorização cobriu somente a fonte `66fa521` e não se estende a futuras versões.
