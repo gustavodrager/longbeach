@@ -12,7 +12,7 @@ import { hasPermission } from '../auth/access'
 export function ExpenseDetailPanel({ id, actor, canWrite, onClose, onPaid }: { id: string; actor: string; canWrite: boolean; onClose: () => void; onPaid: (detail: ExpenseDetail) => void }) {
   const [activity, setActivity] = useState({ operation: false, attachment: false })
   const query = useQuery({ queryKey: ['expenses', 'detail', actor, id], queryFn: ({ signal }) => expenseApi.detail(id, signal), retry: false })
-  return <EditorPanel title="Detalhes do lançamento" onClose={onClose} busy={activity.operation || activity.attachment} className="expenses-editor">
+  return <EditorPanel title="Detalhes do lançamento" onClose={onClose} busy={activity.operation || activity.attachment} className="expenses-editor finance-clean">
     {query.isPending && <p role="status">Carregando lançamento…</p>}
     {query.isError && <p role="alert" className="expenses-error">Não foi possível carregar o lançamento. <button type="button" className="expenses-retry" onClick={() => void query.refetch()}>Tentar novamente</button></p>}
     {query.data && <ExpenseDetailContent key={id} detail={query.data} actor={actor} canWrite={canWrite} onPaid={onPaid} onBusyChange={value => setActivity(current => ({ ...current, operation: value }))} onAttachmentBusyChange={value => setActivity(current => ({ ...current, attachment: value }))} refresh={async () => { const result = await query.refetch(); return result.isError ? undefined : result.data }} />}

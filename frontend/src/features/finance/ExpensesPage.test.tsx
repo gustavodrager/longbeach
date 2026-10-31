@@ -53,7 +53,7 @@ it('restringe consulta e escrita ao atendente mesmo com claims financeiras antig
   const fetch = mockRequests(); actor.roles = ['Operations']; actor.permissions = []
   const first = mount(); expect(screen.getByText('Acesso restrito')).toBeInTheDocument(); expect(fetch).not.toHaveBeenCalled(); first.unmount()
   actor.permissions = ['finance:read']; mount()
-  expect(screen.getByText('Acesso restrito')).toBeInTheDocument(); expect(fetch).not.toHaveBeenCalled(); expect(screen.queryByRole('button', { name: '+ Novo lançamento' })).not.toBeInTheDocument()
+  expect(screen.getByText('Acesso restrito')).toBeInTheDocument(); expect(fetch).not.toHaveBeenCalled(); expect(screen.queryByRole('button', { name: 'Novo lançamento' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /^Pagar / })).not.toBeInTheDocument()
 })
 

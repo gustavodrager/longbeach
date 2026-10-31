@@ -23,6 +23,19 @@
 .bar-operation-actions a { min-height:48px; margin:0; padding:12px 16px; display:inline-flex; align-items:center; justify-content:center; text-decoration:none; font-size:14px; font-weight:700; border-radius:12px; box-sizing:border-box; }
 .bar-stock-scope { margin-top:16px; line-height:1.6; }
 .bar-stock-scope a { display:inline-flex; align-items:center; min-height:44px; }
+.app-shell .arena-page.bar-reports.report-clean .page-heading { border:0; padding-bottom:0; margin-bottom:24px; }
+.app-shell .arena-page.bar-reports.report-clean .page-heading h1 { font-size:32px; line-height:1.2; }
+.report-clean .arena-section-heading { margin-bottom:16px; }
+.report-clean .arena-section-heading h2 { margin:0; }
+.report-clean .arena-dashboard-section { margin-top:28px; }
+.bar-reports.report-clean .arena-metric { min-height:0; padding:18px; gap:8px; border-radius:12px; box-shadow:none; }
+.bar-reports.report-clean .arena-metric-label { min-height:0; }
+.bar-reports.report-clean .arena-metric .arena-link-label { padding-top:8px; }
+.bar-reports.report-clean .bar-report-period { border:0; padding:0; background:transparent; margin-bottom:20px; }
+.report-clean :is(a,button,input,select,summary):focus-visible,.report-source-clean summary:focus-visible { outline:3px solid var(--focus); outline-offset:3px; }
+.report-clean :is(button,summary,.secondary-link),.report-source-clean summary { min-height:48px; }
+.report-source-clean .report-reference { overflow-wrap:anywhere; }
+.report-source-clean summary { cursor:pointer; align-content:center; }
 @media (min-width:1440px) {
   .bar-reports .bar-report-metrics { grid-template-columns: repeat(5,minmax(0,1fr)); }
 }
@@ -30,6 +43,7 @@
   .bar-reports .bar-report-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 @media (max-width:700px) {
+  .app-shell .arena-page.bar-reports.report-clean .page-heading h1 { font-size:28px; }
   .bar-reports .bar-report-period { padding: 16px; gap: 12px; }
   .bar-reports .bar-report-period .operation-field { min-width: 0; max-width: none; flex-basis: calc(50% - 6px); }
   .bar-reports .bar-report-period .primary-button { width: 100%; }

@@ -5,6 +5,7 @@ import { EditorPanel, useEditorQuery, useUnsavedChanges } from '../../components
 import { useAuth } from '../auth/authContext'
 import { dateTime, useBarCommand, useBarData, type PageResult } from '../attendance/api'
 import { ApiError, apiFetch } from '../../lib/http'
+import './stock-clean.css'
 import { Breadcrumb, Empty, Field, Group, Heading, NoAccess, Notes, SaveRow, Status, quantity, useFilters } from '../../pages/arenaUi'
 
 export type RecipeVersion = {
@@ -56,8 +57,8 @@ function RecipeEditor({ product, products, previous, onCancel, onSaved, onLocked
     {action.error && <p className="arena-message arena-error" role="alert">{action.error}</p>}
     {uncertain && <p className="arena-message" role="status">O registro ainda não foi confirmado. Repita este envio com os mesmos dados antes de criar outra versão.</p>}
     <fieldset className="arena-input-lock" disabled={disabled}>
-      <Group title="1. Rendimento"><Field label={`Rendimento (${product.product.saleUnit})`} type="number" min={0.001} required value={yieldQuantity} onChange={value => setYield(Number(value))} /><Notes label="Motivo desta versão" value={reason} onChange={setReason} /></Group>
-      <Group title="2. Ingredientes para esse rendimento">
+      <Group title="Rendimento"><Field label={`Rendimento (${product.product.saleUnit})`} type="number" min={0.001} required value={yieldQuantity} onChange={value => setYield(Number(value))} /><Notes label="Motivo desta versão" value={reason} onChange={setReason} /></Group>
+      <Group title="Ingredientes para esse rendimento">
         <div className="operation-field-wide arena-recipe-rows">{rows.map((row, index) => {
           const ingredient = ingredients.find(item => item.product.id === row.productId)
           return <div className="arena-recipe-row" key={row.key}>
@@ -91,9 +92,9 @@ export function BarRecipesPage() {
   const selected = versionId ? version.data?.productId === productId ? version.data : undefined : current
   if (!allowed) return <NoAccess />
   const choose = (id: string) => { setEditing(false); setSaved(null); navigate(filters.href(id ? `/bar/receitas/${id}` : '/bar/receitas', { page: '', version: '' })) }
-  return <main className="operation-page arena-page">
+  return <main className="operation-page arena-page stock-clean">
     <Breadcrumb to="/bar/produtos" label="Produtos do bar" />
-    <Heading eyebrow="Gestão do bar" title="Fichas técnicas" description="Defina ingredientes e rendimento. A equipe de atendimento vende o produto; a entrega utiliza a receita confirmada no pedido." />
+    <Heading eyebrow="" title="Fichas técnicas" />
     {products.isLoading && <p role="status" className="arena-message">Carregando produtos…</p>}
     {products.error && <p role="alert" className="arena-message arena-error">{products.error.message} <button className="text-button" onClick={() => void products.refetch()}>Tentar novamente</button></p>}
     <div className="arena-toolbar"><Field label="Produto preparado" disabled={draftLocked} value={productId ?? ''} onChange={choose} options={[{ value: '', label: 'Escolha um produto preparado' }, ...(products.data?.filter(item => item.product.prepared).map(item => ({ value: item.product.id, label: `${item.product.name}${item.product.active ? '' : ' · inativo'}` })) ?? [])]} /></div>
@@ -103,11 +104,11 @@ export function BarRecipesPage() {
       {first.error && <p className="arena-message arena-error" role="alert">{first.error.message} <button className="text-button" onClick={() => void first.refetch()}>Consultar receitas novamente</button></p>}
       {version.error && versionId && <p className="arena-message arena-error" role="alert">Não foi possível consultar esta versão.</p>}
       {version.data && versionId && version.data.productId !== productId && <p className="arena-message arena-error" role="alert">Esta versão pertence a outro produto. Escolha uma versão no histórico abaixo.</p>}
-      {editing ? <EditorPanel title="Editar ficha técnica" busy={draftLocked} onClose={()=>setEditing(false)}><RecipeEditor key={productId} product={product} products={products.data ?? []} previous={current} onLockedChange={setDraftLocked} onCancel={() => setEditing(false)} onSaved={recipe => { setSaved(recipe); setEditing(false); navigate(filters.href(`/bar/receitas/${productId}`,{version:recipe.id})) }} /></EditorPanel> : !first.isLoading && !first.isError ? <div className="arena-actions"><button className="primary-link" disabled={!product.product.active} onClick={() => setEditing(true)}>{current ? 'Criar nova versão da receita' : 'Cadastrar primeira receita'}</button>{versionId && <Link className="secondary-link" to={filters.href(`/bar/receitas/${productId}`, { version: '', page: '' })}>Ver receita atual →</Link>}</div> : null}
+      {editing ? <EditorPanel title="Editar ficha técnica" className="stock-clean" busy={draftLocked} onClose={()=>setEditing(false)}><RecipeEditor key={productId} product={product} products={products.data ?? []} previous={current} onLockedChange={setDraftLocked} onCancel={() => setEditing(false)} onSaved={recipe => { setSaved(recipe); setEditing(false); navigate(filters.href(`/bar/receitas/${productId}`,{version:recipe.id})) }} /></EditorPanel> : !first.isLoading && !first.isError ? <div className="arena-actions"><button className="primary-link" disabled={!product.product.active} onClick={() => setEditing(true)}>{current ? 'Criar nova versão da receita' : 'Cadastrar primeira receita'}</button>{versionId && <Link className="secondary-link" to={filters.href(`/bar/receitas/${productId}`, { version: '', page: '' })}>Ver receita atual →</Link>}</div> : null}
       {!editing && selected && <RecipeDetails recipe={selected} current={!first.isError && selected.id === current?.id} />}
       {!editing && !current && !first.isLoading && !first.isError && <Empty>Este preparado ainda não tem receita. Até cadastrar uma receita, a entrega usa o próprio estoque conforme a configuração do produto.</Empty>}
       {!product.product.active && <p className="arena-hint">Produto inativo. Ative-o em Produtos para cadastrar uma nova versão.</p>}
-      <section className="operation-card"><h2>Histórico de versões</h2><p className="arena-hint">As versões anteriores permanecem disponíveis para conferir consumos já confirmados.</p>
+      <section className="operation-card"><h2>Histórico de versões</h2>
         {history.error && <p className="arena-message arena-error" role="alert">O histórico não pôde ser atualizado.</p>}
         <div className="arena-slots">{history.data?.items.map(recipe => <Link className="arena-slot" key={recipe.id} to={filters.href(`/bar/receitas/${productId}`, { version: recipe.id })} aria-label={`Versão ${recipe.version} · ${recipe.reason} · Ver composição`}><strong>Versão {recipe.version}</strong><span><strong>{recipe.reason}</strong><small>{dateTime(recipe.createdAtUtc)} · {recipe.ingredients.length} ingredientes · rendimento {quantity(recipe.yieldQuantity)} {product.product.saleUnit}</small></span><span>Ver composição →</span></Link>)}</div>
         {history.data && history.data.total > history.data.pageSize && <nav className="arena-pagination" aria-label="Páginas das receitas"><button className="secondary-link" disabled={page <= 1} onClick={() => filters.set('page', String(page - 1))}>Anterior</button><span>{page} de {Math.ceil(history.data.total / history.data.pageSize)}</span><button className="secondary-link" disabled={page * history.data.pageSize >= history.data.total} onClick={() => filters.set('page', String(page + 1))}>Próxima</button></nav>}

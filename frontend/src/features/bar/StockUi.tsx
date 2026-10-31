@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import { Heading } from '../../pages/arenaUi'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/access'
+import './stock-clean.css'
 export const amount = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 3 })
-export function StockPage({ title, description, children }: { title: string; description: string; children: ReactNode }) {
-  return <main className="operation-page arena-page stock-page"><Heading title={title} description={description} eyebrow="Gestão do bar"/>{children}</main>
+export function StockPage({ title, children }: { title: string; children: ReactNode }) {
+  return <main className="operation-page arena-page stock-page stock-clean"><Heading title={title} eyebrow=""/>{children}</main>
 }
 export function StockActions() {
   const { user } = useAuth()

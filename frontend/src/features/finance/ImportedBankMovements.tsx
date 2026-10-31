@@ -27,12 +27,12 @@ export function ImportedBankMovements() {
   ]
 
   return <section className="arena-dashboard-section imported-bank-movements" aria-labelledby={titleId}>
-    <div className="arena-section-heading"><div><p className="arena-section-eyebrow">EXTRATOS · IMPORTAÇÃO MANUAL</p><h2 id={titleId}>Movimentos importados dos bancos</h2></div>{report && <Link className="secondary-link" to={historyLink()}>Ver todos os movimentos e origens →</Link>}</div>
+    <div className="arena-section-heading"><div><h2 id={titleId}>Movimentos bancários</h2></div>{report && <Link className="secondary-link" to={historyLink()}>Ver movimentos →</Link>}</div>
     <div className="compact-filters">
       <label className="operation-field">Banco dos movimentos<select value={selection.bank} onChange={event => setSelection({ bank: event.target.value as Bank, month: '' })}>{Object.entries(banks).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       <label className="operation-field">Mês dos movimentos<select value={selection.month || report?.month || ''} disabled={!months.length} onChange={event => setSelection({ ...selection, month: event.target.value })}>{!months.length && <option value="">{query.isPending ? 'Consultando meses…' : 'Sem período disponível'}</option>}{months.map(month => <option key={month} value={month}>{monthLabel(month)}</option>)}</select></label>
     </div>
-    <p className="arena-hint">O mês selecionado vale apenas para este bloco. Os arquivos importados são a fonte destes valores.</p>
+    <p className="arena-hint">Período deste bloco · fonte: arquivos importados.</p>
     {query.isPending && <p role="status">Carregando movimentos importados…</p>}
     {query.isError && <p role="alert">Não foi possível consultar os movimentos importados do {banks[selection.bank]}. <button type="button" disabled={query.isFetching} onClick={() => void query.refetch()}>Tentar novamente</button></p>}
     {report && <>
@@ -42,13 +42,11 @@ export function ImportedBankMovements() {
           const totals = report.totals.filter(total => total.series === selection.bank && total.metric === card.metric)
           return <Link className="arena-metric" key={card.metric} to={historyLink(card.metric)}><span className="arena-metric-label">{card.label}</span><strong>{centsMoney(Math.abs(totals.reduce((sum, total) => sum + total.amountCents, 0)))}</strong><small>{totals.reduce((sum, total) => sum + total.records, 0)} movimento(s) · {monthLabel(report.month)}</small><span className="arena-link-label">Conferir origem →</span></Link>
         })}</div>
-        <p className="arena-hint">Prévia dos primeiros {preview.length} de {report.total} movimentos do mês, em ordem de data. A origem abaixo pertence a cada movimento exibido.</p>
-        <p className="arena-hint imported-bank-sources"><strong>Arquivos na prévia:</strong> {previewSources.join(' · ')}</p>
-        <Disclosure title={`Ver prévia de ${preview.length} movimentos e suas origens`} lazy>
+        <p className="arena-hint imported-bank-sources"><strong>Arquivos na prévia:</strong> {previewSources.join(' · ')}</p><Disclosure title={`Ver prévia de ${preview.length} movimentos e suas origens`} lazy><p className="arena-hint">Primeiros {preview.length} de {report.total} movimentos, em ordem de data.</p>
           <RecordTable label={`Prévia dos movimentos importados do ${banks[selection.bank]}`} columns={['Data', 'Movimento', 'Valor', 'Origem']} rows={preview.map(item => ({ key: item.id, cells: [item.data.periodStart.split('-').reverse().join('/'), item.data.label, centsMoney(item.data.amountCents), item.sourceName] }))} />
         </Disclosure>
       </> : <p>Sem movimentos importados neste período para o {banks[selection.bank]}.</p>}
     </>}
-    <p className="imported-bank-note">Movimentos do extrato podem incluir transferências, liquidações, taxas e pagamentos já registrados nas contas. Estes valores ficam separados dos recebimentos das contas e dos resultados da arena, sem gerar outro pagamento. O saldo bancário mantém a data e a origem do extrato de saldo.</p>
+    <p className="imported-bank-note">Extratos podem incluir transferências, liquidações, taxas e pagamentos já registrados. Não some novamente aos recebimentos ou resultados. Saldos mantêm a data e a origem do extrato.</p>
   </section>
 }

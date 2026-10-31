@@ -35,8 +35,8 @@ export function ArenaHistoryOverview() {
   if (!isManagement(user)) return null
   const report = query.isError ? undefined : query.data; const students = report?.students; const rentals = report?.rentals; const lessons = report?.lessons
   return <section className="arena-dashboard-section" aria-labelledby="arena-history-title">
-    <div className="arena-section-heading"><div><p className="arena-section-eyebrow">CONTROLES DA ESCOLA E DAS QUADRAS</p><h2 id="arena-history-title">Escola e aluguel de quadras</h2></div></div>
-    <div className="arena-toolbar"><label className="operation-field">Mês dos controles<select value={month} onChange={event => setMonth(event.target.value)}><option value="">Último mês de cada controle</option>{month && !report?.months.includes(month) && <option value={month}>{monthLabel(month)}</option>}{report?.months.map(value => <option key={value} value={value}>{monthLabel(value)}</option>)}</select></label><p className="arena-hint">Histórico das planilhas. Cada indicador mostra seu mês de referência.</p></div>
+    <div className="arena-section-heading"><div><h2 id="arena-history-title">Escola e aluguel de quadras</h2></div></div>
+    <div className="arena-toolbar"><label className="operation-field">Mês dos controles<select value={month} onChange={event => setMonth(event.target.value)}><option value="">Último mês de cada controle</option>{month && !report?.months.includes(month) && <option value={month}>{monthLabel(month)}</option>}{report?.months.map(value => <option key={value} value={value}>{monthLabel(value)}</option>)}</select></label><p className="arena-hint">Fonte: planilhas · mês de referência em cada indicador.</p></div>
     {query.isPending && <p role="status">Carregando controles da escola e das quadras…</p>}
     {query.isError && <p role="alert" className="arena-message arena-error">Não foi possível atualizar os controles da escola e das quadras. <button type="button" onClick={() => void query.refetch()}>Tentar novamente</button></p>}
     {report && <>

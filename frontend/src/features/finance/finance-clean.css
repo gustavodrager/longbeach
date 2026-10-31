@@ -1,0 +1,28 @@
+/* Finance pages and editors retain their own layout and financial context. */
+.app-shell .arena-page.finance-clean .page-heading { border:0; padding:0; margin-bottom:20px; }
+.finance-clean .page-heading h1 { font-size:32px; line-height:1.2; margin:0; }
+.finance-clean .arena-section-heading { margin-bottom:16px; gap:16px; }
+.finance-clean .arena-section-heading h2,.finance-clean .arena-section-heading h3 { margin:0; }
+.finance-clean :is(.operation-card,.foundation-card,.arena-metric) { box-shadow:none; border-radius:12px; }
+.finance-clean:is(.arena-page,.management-dialog) :is(input:not([type=checkbox]):not([type=radio]),select,textarea,button,.primary-link,.secondary-link,.primary-button,.form-actions a,.management-disclosure > summary) { min-height:48px; }
+.finance-clean :is(a,button,input,select,textarea,summary):focus-visible { outline:3px solid var(--focus); outline-offset:3px; }
+.finance-clean :is(.compact-filters,.arena-actions) { gap:12px; }
+.finance-clean .source-hash { overflow-wrap:anywhere; }
+.finance-clean .management-disclosure { margin-block:16px; }
+.finance-clean .arena-hint { max-width:78ch; }
+@media(max-width:700px) {
+  .app-shell .arena-page.finance-clean .page-heading h1,.finance-clean .page-heading h1 { font-size:28px; }
+  .finance-clean :is(.operation-field,.arena-field) { min-width:0; max-width:100%; }
+  .finance-clean :is(input,select,textarea) { max-width:100%; font-size:16px; }
+  .finance-clean .compact-filters { align-items:stretch; }
+  .finance-clean .compact-filters > :is(label,.operation-field) { flex:1 1 100%; }
+  .finance-clean .arena-section-heading { align-items:flex-start; flex-wrap:wrap; }
+  .finance-clean .arena-section-heading > div { min-width:0; }
+  .finance-clean pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+}
+@media(max-width:540px) {
+  .finance-clean .expenses-summary { grid-template-columns:minmax(0,1fr) minmax(0,1fr); padding:16px; gap:12px; }
+  .finance-clean .expenses-summary article { min-width:0; }
+  .finance-clean .expenses-summary article+article { border-top:0; border-left:1px solid var(--line); padding:0 0 0 12px; }
+  .finance-clean .expenses-summary strong { font-size:24px; overflow-wrap:anywhere; }
+}

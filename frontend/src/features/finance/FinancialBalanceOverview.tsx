@@ -19,7 +19,7 @@ export function FinancialBalanceOverview({ compact = false }: { compact?: boolea
   const generalHref = reviewed ? `/financeiro/controle-mensal?${new URLSearchParams({ ...(general?.month ? { month: general.month } : {}) })}` : `/financeiro/historico?${new URLSearchParams({ series: 'consolidado', ...(general?.month ? { month: general.month } : {}) })}`
   const value = (amount: number | null | undefined) => query.isError ? 'Falha na atualização' : query.isPending ? 'Carregando…' : amount == null ? 'Ainda não disponível' : centsMoney(amount)
   return <section className="arena-dashboard-section" aria-labelledby="financial-balances-title">
-    <div className="arena-section-heading"><div>{!compact && <p className="arena-section-eyebrow">Saldos importados e fontes disponíveis</p>}<h2 id="financial-balances-title">{compact ? 'Resumo financeiro' : 'Visão financeira'}</h2></div><Link className="secondary-link" to="/importacoes">Importar extratos</Link></div>
+    <div className="arena-section-heading"><div><h2 id="financial-balances-title">{compact ? 'Resumo financeiro' : 'Visão financeira'}</h2></div><Link className="secondary-link" to="/importacoes">Importar extratos</Link></div>
     <BankBalancesOverview headingLevel={3} />
     <CurrentFinancialMetrics compact={compact} />
     {query.isError && <p role="alert">Não foi possível carregar os saldos e as fontes importadas. <button type="button" onClick={() => void query.refetch()}>Tentar novamente</button></p>}
@@ -27,7 +27,7 @@ export function FinancialBalanceOverview({ compact = false }: { compact?: boolea
     {wallet && <div className="arena-metric-grid arena-financial-grid"><Link className={`arena-metric ${wallet.amountCents == null ? 'arena-metric-unavailable' : ''}`} to={`/financeiro/historico?ediDate=${wallet.date ?? ''}#pagbank-edi`}>
       <span className="arena-metric-label">Carteira de vendas PagBank · histórico EDI</span><strong>{value(wallet.amountCents)}</strong>
       <small>{wallet.date ? `Saldo final de ${wallet.date.split('-').reverse().join('/')}` : 'Data a confirmar'}</small>
-      <small>Referência histórica da carteira de liquidação das vendas, separada da conta digital. A data pertence ao documento preservado.</small>
+      <small>Carteira de liquidação das vendas, separada da conta digital. A data pertence ao documento preservado.</small>
       {wallet.collectedAtUtc && <small>Registrado em: {new Date(wallet.collectedAtUtc).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</small>}
       {wallet.issue && <small>{wallet.issue}</small>}
       <span className="arena-link-label">Conferir documentos EDI →</span>

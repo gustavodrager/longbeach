@@ -33,7 +33,7 @@ export function BarStockPage({balancesOnly=false}:{balancesOnly?:boolean}) {
   const [,setParams] = useContextSearchParams()
   const changeStatus = (value: string) => { const next = new URLSearchParams(filters.params); next.delete('low'); next.delete('page'); value ? next.set('status',value) : next.delete('status'); setParams(next,{preventScrollReset:true}) }
   if(!balancesOnly && section!=='movimentos') return <Navigate replace to={{pathname:'/bar/produtos',search:filters.params.toString()}}/>
-  return <StockPage title={balancesOnly?'Produtos e estoque':'Movimentações do estoque'} description={balancesOnly?"Confira o que está disponível e ajuste a quantidade quando necessário.":"Consulte as entradas, saídas e ajustes, com responsável e origem."}>
+  return <StockPage title={balancesOnly?'Produtos e estoque':'Movimentações do estoque'}>
     {!balancesOnly&&<Link to="/bar/produtos">Produtos e estoque →</Link>}<StockActions/><StockNotice stock={stock}/><QueryNotice query={balances}/>
     {balancesOnly && stock.ready && balances.isSuccess && <div className="stock-overview" aria-label="Situação do estoque">
       <span><strong>{all.filter(r=>r.available>0).length}</strong> Com saldo disponível</span>
@@ -47,8 +47,8 @@ export function BarStockPage({balancesOnly=false}:{balancesOnly?:boolean}) {
     {section === 'saldos' ? <>
       <p className="arena-hint">{rows.length} produtos nesta seleção</p>
       {stock.ready && rows.length > 0 && <Pagination total={rows.length}>{(start,end)=><div className="stock-balances"><RecordTable label="Saldos do estoque" columns={['Produto','Disponível']} rows={rows.slice(start,end).map(r=>({key:r.productId,cells:[<><strong>{r.name}</strong><small>{r.unit || 'un'} · mínimo {amount(r.minimumStock ?? 0)}{r.low ? ` · ${r.available <= 0 ? 'Esgotado' : 'Repor'}` : ''}</small></>,<div className="stock-available"><strong className={r.low?'stock-alert':''}>{r.controlsStock===false?'Sem controle':`${amount(r.available)} ${r.unit||'un'}`}</strong>{hasPermission(user,'bar:supervise')&&r.active&&r.controlsStock&&r.alertEligible&&<button onClick={()=>setEditing({...r})} aria-label={`Editar quantidade de ${r.name}`}>Editar</button>}</div>]}))}/></div>}</Pagination>}
-      {!rows.length && stock.ready && balances.isSuccess && <Empty>Nenhum produto nesta seleção. Ajuste os filtros para consultar outros saldos.</Empty>}
-      <p className="arena-hint">Disponível é o que pode ser vendido agora. Cada correção fica registrada no histórico.</p>
+      {!rows.length && stock.ready && balances.isSuccess && <Empty>Nenhum produto nesta seleção.</Empty>}
+      <Disclosure title="Sobre os saldos"><p>Disponível é o que pode ser vendido agora. Cada correção fica registrada no histórico.</p></Disclosure>
       {previous.length>0 && <Disclosure title="Saldos anteriores para conferência"><p>Estes locais não são usados pelo atendimento do Bar.</p><Pagination total={previous.length}>{(start,end)=><RecordTable label="Saldos anteriores" columns={['Produto','Disponível']} rows={previous.slice(start,end).map(r=>({key:r.productId+r.locationId,cells:[<>{r.name}<small>{stock.query.data?.find(l=>l.id===r.locationId)?.name ?? 'Cadastro anterior'}</small></>,amount(r.available)]}))}/>}</Pagination></Disclosure>}
     </> : <>
       <div className="compact-filters stock-history-filters">
@@ -56,7 +56,7 @@ export function BarStockPage({balancesOnly=false}:{balancesOnly?:boolean}) {
         <Field label="Tipo" value={filters.params.get('tipo')??''} onChange={v=>filters.set('tipo',v)} options={[{value:'',label:'Todos'},...movementKinds.map(k=>({value:k,label:label(k)}))]}/>
         <Field label="De" type="date" value={from} onChange={v=>filters.set('de',v)}/><Field label="Até" type="date" value={to} onChange={v=>filters.set('ate',v)}/>
       </div>
-      <p className="arena-hint">Horário de Brasília · datas incluídas · {location==='all'?'Todos os locais':stock.query.data?.find(l=>l.id===location)?.name}. O histórico mostra o saldo registrado antes e depois de cada movimento.</p>
+      <p className="arena-hint">Horário de Brasília · datas incluídas · {location==='all'?'Todos os locais':stock.query.data?.find(l=>l.id===location)?.name}. </p>
       {!datesValid ? <p role="alert">Confira as datas: o fim deve ser igual ou posterior ao início.</p> : <><QueryNotice query={history}/>{history.data && <>
         <p className="arena-hint">{history.data.total} movimentações nesta seleção</p>
         <div className="stock-movements"><RecordTable label="Movimentações do estoque" columns={['Produto','Data e local','Movimento','Saldo registrado','Motivo']} rows={history.data.items.map(r=>({key:r.id,cells:[<strong>{r.name}</strong>,<>{new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(r.createdAtUtc))}<small>{r.locationName}</small></>,<>{label(r.kind)}<small>{r.quantity>0?'+':''}{amount(r.quantity)} {r.unit}</small></>,`${amount(r.before)} → ${amount(r.after)} ${r.unit}`,<details><summary>Ver motivo e origem</summary><p>{r.reason}</p><p>Responsável: {r.actorName || r.actorId || 'Não informado no registro histórico'}</p><small>Referência: {r.originId}</small></details>]}))}/></div>
@@ -70,7 +70,7 @@ export function BarStockPage({balancesOnly=false}:{balancesOnly?:boolean}) {
 
 export function BarLossesPage() {
   const stock=useBarStock(); const balances=useBar<Balance[]>('/stock/balances'); const a=useAction()
-  return <StockPage title="Perdas e consumo interno" description="Confira o produto e o saldo antes de registrar a saída."><Notice action={a}/><Link className="secondary-link" to="/bar/estoque?secao=movimentos">Ver movimentações →</Link>
+  return <StockPage title="Perdas e consumo interno"><Notice action={a}/><Link className="secondary-link" to="/bar/estoque?secao=movimentos">Ver movimentações →</Link>
     <ActionPanel title="Registrar saída" action="novo" busy={a.busy} primary closeLabel="Fechar"><Notice action={a}/><StockNotice stock={stock}/><QueryNotice query={balances}/><StockOutputForm balances={(balances.data??[]).filter(r=>r.locationId===stock.location?.id && r.active && r.controlsStock)} ready={stock.ready && balances.isSuccess} locationId={stock.location?.id} action={a}/></ActionPanel>
   </StockPage>
 }

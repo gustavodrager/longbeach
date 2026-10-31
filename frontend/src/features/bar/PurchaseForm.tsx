@@ -29,7 +29,7 @@ export function PurchaseForm({products,suppliers,onClose,onReceive}:{products:Pu
     catch(e){setSupplierError(e instanceof Error?e.message:'Não foi possível cadastrar o fornecedor.')}
     finally{supplierLock.current=false;setSupplierBusy(false)}
   }
-  return <EditorPanel title="Nova compra" className="purchase-panel" busy={busy||supplierBusy} hasUnsavedChanges={dirty&&!saved} onClose={onClose}>
+  return <EditorPanel title="Nova compra" className="purchase-panel stock-clean" busy={busy||supplierBusy} hasUnsavedChanges={dirty&&!saved} onClose={onClose}>
     {saved?<section className="purchase-success" role="status"><h3>Compra registrada</h3><p>{saved.document} · {money(saved.total)}</p><p>Os produtos ainda não entraram no estoque. Confirme o que chegou no recebimento.</p><button className="primary-button" onClick={()=>onReceive(saved)}>Receber esta compra</button>{saved.total > 0 && <PurchaseFinanceLink purchaseId={saved.id} />}<button className="secondary-link" onClick={onClose}>Voltar às compras</button></section>:<form className="purchase-form" onChange={e=>{if(!(e.target as HTMLElement).closest('[data-unsaved-ignore]'))setDirty(true)}} onSubmit={async e=>{
       e.preventDefault();setSubmitted(true);if(!valid||locked.current||supplierLock.current)return
       locked.current=true;setBusy(true);setError('')

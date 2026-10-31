@@ -1,0 +1,19 @@
+.app-shell .arena-page.stock-clean:not(.dashboard) .page-heading,.stock-clean .page-heading { border:0; padding-bottom:0; margin-bottom:20px; }
+.app-shell .arena-page.stock-clean:not(.dashboard) .page-heading h1,.stock-clean .page-heading h1 { font-size:32px; line-height:1.2; }
+.stock-clean :is(input:not([type=checkbox]):not([type=radio]),select,textarea,button,.primary-link,.secondary-link,summary,.stock-actions a) { min-height:48px; }
+.stock-clean :is(a,button,input,select,textarea,summary):focus-visible { outline:3px solid var(--focus); outline-offset:3px; }
+.stock-clean .operation-card { border-radius:12px; box-shadow:none; }
+.stock-clean .stock-material-meta { color:var(--muted); font-size:13px; }
+.stock-clean :is(.management-disclosure,.stock-help,.invoice-source) > summary { cursor:pointer; align-content:center; }
+.stock-clean .stock-help { margin-bottom:16px; }
+.stock-clean .stock-help p { margin-top:0; }
+.stock-clean .invoice-source { color:var(--muted); }
+.stock-clean .bar-form p { line-height:1.5; }
+@media(max-width:700px) {
+  .app-shell .arena-page.stock-clean:not(.dashboard) .page-heading { border:0; padding:0; margin-bottom:16px; }
+  .app-shell .arena-page.stock-clean:not(.dashboard) .page-heading h1,.stock-clean .page-heading h1 { font-size:28px; }
+  .stock-clean :is(input,select,textarea) { max-width:100%; font-size:16px; }
+  .stock-clean .operation-field { min-width:0; }
+  .stock-clean .stock-actions { display:flex; flex-wrap:wrap; }
+  .stock-clean .stock-actions a { flex:1 1 140px; }
+}

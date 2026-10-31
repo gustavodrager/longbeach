@@ -52,7 +52,7 @@ export function C6StatementPanel() {
   }
   return <section aria-labelledby="c6-statement-title">
     <h2 id="c6-statement-title">Consultas C6 anteriores</h2>
-    <p>Movimentos obtidos em consultas anteriores à suspensão das APIs. Os novos arquivos ficam no controle Extrato bancário C6 do histórico financeiro.</p>
+    <p>Histórico anterior à suspensão das consultas automáticas. Novos arquivos: Extrato bancário C6, no histórico financeiro.</p>
     <form className="compact-filters" onSubmit={event => { event.preventDefault(); search() }}>
       <label className="operation-field">Início do extrato C6<input type="date" required value={from} max={todayInBrazil()} onChange={event => setFrom(event.target.value)} /></label>
       <label className="operation-field">Fim do extrato C6<input type="date" required value={through} min={from} max={todayInBrazil()} onChange={event => setThrough(event.target.value)} /></label>

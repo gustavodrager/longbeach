@@ -6,6 +6,7 @@ import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/access'
 import { Heading } from '../../pages/arenaUi'
 import './receivedInvoices.css'
+import '../bar/stock-clean.css'
 
 const root = '/api/v1/received-invoices'
 const money = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -34,7 +35,7 @@ function InvoiceSummary({ data }: { data: InvoiceData }) {
     <h2>NF-e {data.number} · série {data.series}</h2>
     <p><strong>{data.supplierName}</strong> · {data.supplierTaxId}</p>
     <p>Destinatário: {data.recipientTaxId} · Emissão: {new Date(data.issuedAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>
-    <p className="invoice-key">Chave: {data.accessKey}</p>
+    <details className="invoice-source"><summary>Chave da NF-e</summary><p className="invoice-key">{data.accessKey}</p></details>
     <p><strong>Total: {money(data.total)}</strong> · Produtos: {money(data.productsTotal)} · Frete: {money(data.freight)} · Desconto: {money(data.discount)}</p>
     <p className="arena-hint">Arquivo importado. Autenticidade da assinatura e situação atual na SEFAZ ainda não verificadas.{data.environment === 2 && ' Documento de homologação, sem valor fiscal.'}</p>
     {data.warnings.length > 0 && <div role="alert"><strong>Conferência específica necessária</strong><ul>{data.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul></div>}
@@ -114,7 +115,7 @@ function Classification({ invoice, onSaved }: { invoice: Detail; onSaved: () => 
     finally { lock.current = false; setBusy(false) }
   }
   return <section className="operation-card"><h2>Finalidade da compra</h2>
-    <p>Classifique para que a Arena adquiriu estes itens. Uma mesma nota pode ter várias finalidades.</p>
+
     {invoice.purchaseId ? <p>Mercadorias do bar · classificação vinculada à compra já gerada.</p> : <form className="bar-form" onSubmit={event => void save(event)}>
       <label className="bar-field">Finalidade da nota<select disabled={busy} value={purpose} onChange={event => setPurpose(event.target.value)}>
         {Object.entries(purposes).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -185,8 +186,8 @@ function ReceivedInvoicesContent() {
       setTimeout(() => URL.revokeObjectURL(url), 1000)
     })
   }
-  return <main className="operation-page arena-page received-invoices"><Heading title="Notas recebidas da Arena" description="Reúna as notas emitidas para o CNPJ da Arena e classifique a finalidade de cada compra." eyebrow="Financeiro"/>
-    <p className="arena-hint">Captura automática pela SEFAZ aguardando certificado digital. Esta etapa aceita XML de NF-e de mercadorias de qualquer área da Arena. Notas de serviços (NFS-e) terão uma integração própria.</p>
+  return <main className="operation-page arena-page received-invoices stock-clean"><Heading title="Notas recebidas" eyebrow=""/>
+    <details className="stock-help"><summary>Quais notas posso importar?</summary><p>Importe XML de NF-e de mercadorias, de até 2 MB. A captura automática pela SEFAZ aguarda certificado digital. Notas de serviços (NFS-e) ainda não são aceitas.</p></details>
     <form className="operation-card bar-form" onSubmit={event => void showPreview(event)}>
       <label className="bar-field">Arquivo XML da nota<input type="file" accept=".xml,application/xml,text/xml" disabled={busy} onChange={event => { setFile(event.target.files?.[0] ?? null); setPreview(null); setSelected(null); setError(''); setMessage('') }}/></label>
       <button disabled={!file || busy}>{busy ? 'Processando…' : 'Conferir arquivo'}</button>

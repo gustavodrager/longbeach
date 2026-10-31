@@ -332,6 +332,8 @@ it('comanda sem vínculo aparece com valores e comprovante, com ações somente 
  expect(within(row).getByText('2 × Água')).toBeVisible()
  fireEvent.click(within(row).getByText('Histórico de pagamentos (2)'))
  expect(within(row).getByRole('button',{name:'Baixar comprovante'})).toBeVisible()
+ const reference=within(row).getByText('Pagamento unlinked-pending').closest('details')!
+ fireEvent.click(within(reference).getByText('Referência do pagamento'))
  expect(within(row).getByText('Pagamento unlinked-pending')).toBeVisible()
  for(const name of ['Pagar esta conta','Retomar pagamento pendente','Consultar confirmação','Estornar'])expect(within(row).queryByRole('button',{name})).not.toBeInTheDocument()
  expect(vi.mocked(fetch).mock.calls.every(([,init])=>!init?.method)).toBe(true)
@@ -517,6 +519,8 @@ it('modo por arquivos mantém histórico e comprovantes sem Pix, consulta, cobra
  for(const name of ['Pagar esta conta','Retomar pagamento pendente','Consultar confirmação','Estornar','Copiar código Pix'])expect(within(row).queryByRole('button',{name})).not.toBeInTheDocument()
  expect(within(row).queryByLabelText('CPF ou CNPJ')).not.toBeInTheDocument()
  expect(within(row).queryByRole('img',{name:'QR Code Pix desta conta'})).not.toBeInTheDocument()
+ const reference=within(row).getByText('Pagamento import-pending').closest('details')!
+ fireEvent.click(within(reference).getByText('Referência do pagamento'))
  expect(within(row).getByText('Pagamento import-pending')).toBeVisible()
  expect(vi.mocked(fetch).mock.calls.every(([,options])=>!options?.method)).toBe(true)
 })
@@ -599,7 +603,7 @@ it('mostra os saldos dos dois bancos e seus movimentos separados dos pagamentos 
  expect(pagBank).toHaveTextContent('Origem: Portal PagBank · consulta manual')
  expect(c6).toHaveTextContent('26/10/2026')
  expect(c6).toHaveTextContent('Extrato C6 de teste.csv')
- expect(await screen.findByRole('heading',{name:'Movimentos importados dos bancos'})).toBeVisible()
+ expect(await screen.findByRole('heading',{name:'Movimentos bancários'})).toBeVisible()
  expect(await screen.findByText('R$ 16.287,08')).toBeVisible()
  expect(screen.getByText('R$ 10.524,70')).toBeVisible()
  expect(screen.getAllByText(/Extrato de teste.csv/).some(element=>!element.closest('details'))).toBe(true)
@@ -639,6 +643,6 @@ it.each([
  if(admin) { expect(screen.getByRole('heading',{name:'Acesso restrito'})).toBeInTheDocument(); expect(requests).not.toHaveBeenCalled() }
  else expect(await screen.findByRole('article',{name:account.title})).toBeInTheDocument()
  expect(screen.queryByRole('region',{name:'Saldos dos bancos'})).not.toBeInTheDocument()
- expect(screen.queryByRole('heading',{name:'Movimentos importados dos bancos'})).not.toBeInTheDocument()
+ expect(screen.queryByRole('heading',{name:'Movimentos bancários'})).not.toBeInTheDocument()
  expect(requests.mock.calls.every(([input])=>!String(input).startsWith('/api/v1/financial-history'))).toBe(true)
 })
