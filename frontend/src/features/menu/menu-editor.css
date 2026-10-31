@@ -1,0 +1,47 @@
+.app-shell .arena-page.menu-editor-clean:not(.dashboard) .page-heading { padding:0; border:0; margin-bottom:20px; }
+.app-shell .arena-page.menu-editor-clean:not(.dashboard) .page-heading h1 { margin:0; font-size:32px; line-height:1.2; }
+.menu-editor-clean .page-heading { gap:16px; flex-wrap:wrap; }
+.menu-editor-clean .menu-editor-links,.menu-editor-clean .menu-editor-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.menu-editor-clean .menu-editor-links a { display:inline-flex; min-height:48px; align-items:center; }
+.menu-editor-clean .menu-editor-actions { margin:16px 0 24px; }
+.menu-editor.menu-editor-clean button { min-height:48px; max-width:100%; padding:11px 16px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--ink); font:inherit; font-size:16px; font-weight:700; line-height:1.4; white-space:normal; box-shadow:none; margin:4px 8px 4px 0; }
+.menu-editor.menu-editor-clean button:not(:disabled):hover { background:var(--deep); border-color:var(--muted); }
+.menu-editor.menu-editor-clean button.primary-button { background:var(--gold); border-color:var(--gold); color:var(--ink); }
+.menu-editor.menu-editor-clean button.primary-button:not(:disabled):hover { background:#eab130; border-color:#eab130; }
+.menu-editor.menu-editor-clean button:disabled { background:var(--surface-raised); border-color:var(--line); color:var(--muted); opacity:1; cursor:default; }
+.menu-editor.menu-editor-clean .menu-editor-actions button { margin:0; }
+.menu-editor.menu-editor-clean :is(input:not([type=checkbox]),select) { width:100%; min-width:0; max-width:100%; min-height:48px; padding:11px 12px; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--ink); font:inherit; font-size:16px; line-height:1.4; }
+.menu-editor.menu-editor-clean :is(input:not([type=checkbox]),select):disabled { background:var(--surface-raised); color:var(--muted); opacity:1; }
+.menu-editor.menu-editor-clean input[type=checkbox] { width:20px; height:20px; min-height:20px; margin:0; flex:0 0 auto; accent-color:var(--gold); }
+.menu-editor.menu-editor-clean select[multiple] { min-height:180px; padding:6px; }
+.menu-editor.menu-editor-clean select[multiple] option { padding:8px 10px; overflow-wrap:anywhere; }
+.menu-editor-clean summary { min-height:48px; }
+.menu-editor-clean :is(a,button,input,select,summary):focus-visible { outline:3px solid var(--focus); outline-offset:3px; }
+.menu-editor.menu-editor-clean > fieldset { width:100%; max-width:960px; min-width:0; padding:0; border:0; margin:24px 0 0; }
+.menu-editor.menu-editor-clean legend { padding:0 8px; color:var(--ink); font-size:16px; font-weight:700; }
+.menu-editor.menu-editor-clean label { display:flex; flex-direction:column; gap:8px; min-width:0; max-width:100%; margin:12px 0 20px; color:var(--muted); font-size:14px; font-weight:700; }
+.menu-editor.menu-editor-clean label:has(input[type=checkbox]) { flex-direction:row; align-items:center; min-height:48px; gap:10px; color:var(--ink); }
+.menu-editor.menu-editor-clean > fieldset > label { max-width:720px; }
+.menu-editor-clean :is(.menu-editor-page,.menu-editor-item) { border:1px solid var(--line); border-radius:12px; margin:16px 0; background:var(--surface); }
+.menu-editor-clean :is(.menu-editor-page,.menu-editor-item) > summary { padding:16px; cursor:pointer; overflow-wrap:anywhere; }
+.menu-editor-clean :is(.menu-editor-page,.menu-editor-item) > summary span { display:block; margin:6px 0 0 18px; font-size:14px; color:var(--muted); }
+.menu-editor-clean :is(.menu-editor-page,.menu-editor-item) > summary .menu-editor-issue { color:var(--danger); font-weight:700; }
+.menu-editor.menu-editor-clean :is(.menu-editor-page,.menu-editor-item) > fieldset { display:flex; flex-wrap:wrap; align-items:flex-start; gap:12px; min-width:0; padding:20px; margin:0; border:0; border-top:1px solid var(--line); border-radius:0 0 12px 12px; background:var(--surface); }
+.menu-editor.menu-editor-clean :is(.menu-editor-page,.menu-editor-item) > fieldset > label { flex:1 1 100%; margin:0; }
+.menu-editor.menu-editor-clean .menu-editor-page > fieldset > label:first-of-type { flex:1 1 480px; }
+.menu-editor.menu-editor-clean .menu-editor-page > fieldset > label:nth-of-type(2) { flex:0 1 140px; }
+.menu-editor.menu-editor-clean :is(.menu-editor-page,.menu-editor-item) > fieldset > button { margin:0; }
+.menu-editor.menu-editor-clean .menu-editor-item { flex:1 1 100%; min-width:0; margin:4px 0; }
+.menu-editor-clean .menu-editor-options { margin:12px 0; }
+.menu-editor-clean .menu-editor-options > summary { align-content:center; cursor:pointer; }
+.menu-editor.menu-editor-clean .menu-editor-options button { margin-top:8px; }
+@media(max-width:700px) {
+  .app-shell .arena-page.menu-editor-clean:not(.dashboard) .page-heading h1 { font-size:28px; }
+  .menu-editor-clean .menu-editor-links { gap:16px; }
+  .menu-editor-clean .menu-editor-actions button { flex:1 1 140px; }
+  .menu-editor.menu-editor-clean :is(.menu-editor-page,.menu-editor-item) > fieldset { padding:16px 12px; }
+  .menu-editor.menu-editor-clean .menu-editor-page > fieldset > label:first-of-type { flex-basis:100%; }
+  .menu-editor.menu-editor-clean .menu-editor-page > fieldset > label:nth-of-type(2) { flex-basis:140px; }
+  .menu-editor.menu-editor-clean :is(.menu-editor-page,.menu-editor-item) > fieldset > button { flex:1 1 130px; }
+  .menu-editor.menu-editor-clean .menu-editor-options button { width:100%; margin-right:0; }
+}

@@ -1,4 +1,4 @@
-/* Personal agenda and requests only; home, profile and billing keep their layout. */
+/* Personal agenda, requests, Bar and profile share the compact presentation. */
 .portal-service-clean .portal-title { margin-bottom:24px; }
 .portal-service-clean .portal-title h1 { margin:0; font-size:32px; line-height:1.2; overflow-wrap:anywhere; }
 .portal-service-clean .portal-title p { margin:16px 0 0; font-size:14px; line-height:1.5; }
@@ -34,3 +34,9 @@
   .portal-service-clean .portal-two { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .portal-service-clean .portal-form :is(input,select,textarea) { min-width:0; }
 }
+
+.client-portal .portal-help { padding:12px 0; border:0; border-top:1px solid #ddd9ce; background:transparent; margin-top:24px; }
+.client-portal .portal-help summary { min-height:48px; align-content:center; cursor:pointer; font-weight:700; }
+.client-portal .portal-help p { margin:8px 0 12px; font-size:14px; }
+.client-portal .portal-help a { display:inline-flex; align-items:center; min-height:48px; }
+.portal-profile-page .portal-card .portal-check input { min-height:22px; width:22px; }

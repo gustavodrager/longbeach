@@ -70,7 +70,7 @@ export function ManagementPage() {
   const { state } = usePrototype(); const period = usePeriod()
   const updated = time(new Date().toISOString())
   return <section className="ux-page">
-    <PageHeader eyebrow="Visão da arena" title="Tudo em um só lugar" description="Veja o que precisa da equipe e acompanhe os resultados do bar." />
+    <PageHeader title="Visão geral" />
     <section aria-labelledby="attention-title">
       <div className="ux-section-heading"><h2 id="attention-title">Atenção agora</h2><span className="ux-note">Agora · atualizado em {updated}</span></div>
       <div className="ux-metric-grid">{nowMetrics.map(metric => <MetricCard key={metric} metric={metric} report={getReport(state, metric, period.from, period.to)} query={period.query} periodLabel={period.label} updatedAt={updated.slice(-5)} />)}</div>

@@ -19,6 +19,11 @@
 .app-shell .mobile-header .shell-menu-button { min-height: 48px; }
 .app-shell .management-topbar { min-height: 56px; background: transparent; }
 .shell-navigation-dialog :is(a,button,summary):focus-visible,.app-shell .shell-account :is(a,button,summary):focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.app-shell :is(.module-navigation,.related-navigation) a { min-height:48px; box-shadow:none; }
+@media(max-width:700px) {
+  .app-shell :is(.module-navigation,.related-navigation) { flex-wrap:nowrap; overflow-x:auto; max-width:100%; padding-block:8px; scrollbar-width:thin; scroll-padding-inline:16px; }
+  .app-shell :is(.module-navigation,.related-navigation) a { flex:0 0 auto; white-space:nowrap; }
+}
 @media (min-width:64rem) {
   .app-shell .side-nav { background: var(--deep); }
   .app-shell .side-nav > .brand { padding-bottom: 24px; }

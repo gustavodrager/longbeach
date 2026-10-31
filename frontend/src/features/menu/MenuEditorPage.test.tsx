@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { MenuEditorPage } from './MenuEditorPage'
@@ -26,6 +26,31 @@ it('exige salvar alterações antes de publicar e mantém chamadas separadas', a
 it('bloqueia publicação e mostra produtos com preço pendente', async () => {
   vi.mocked(loadMenuCatalog).mockResolvedValue([{ id: 'a', name: 'Água', salePrice: 0, active: true }])
   render(<MemoryRouter><MenuEditorPage /></MemoryRouter>)
-  await screen.findByText(/Há produto sem preço de venda válido/)
+  expect(within(await screen.findByRole('region', { name: 'Pendências de publicação' })).getByText(/Há produto sem preço de venda válido/)).toBeVisible()
   expect(screen.getByText('Publicar versão salva')).toBeDisabled()
+})
+
+it('mantém pendências de páginas recolhidas visíveis antes da publicação', async () => {
+  vi.mocked(loadMenu).mockResolvedValue({ version: 1, published: null, draft: { ...draft, pages: [...draft.pages, { ...draft.pages[0], id: 'second', title: 'Lanches', items: [{ ...draft.pages[0].items[0], id: 'second-item', name: 'Suco', productIds: ['b'] }] }] } })
+  vi.mocked(loadMenuCatalog).mockResolvedValue([{ id: 'a', name: 'Água', salePrice: 5, active: true }, { id: 'b', name: 'Suco', salePrice: 0, active: true }])
+  render(<MemoryRouter><MenuEditorPage /></MemoryRouter>)
+  expect(within(await screen.findByRole('region', { name: 'Pendências de publicação' })).getByText(/Há produto sem preço de venda válido/)).toBeVisible()
+  const page = screen.getByText('Lanches', { selector: 'summary strong' }).closest('details')!
+  expect(page).not.toHaveAttribute('open')
+  expect(within(page.querySelector('summary')!).getByText(/Há produto sem preço de venda válido/)).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Publicar versão salva' })).toBeDisabled()
+  expect(screen.getByRole('region', { name: 'Pendências de publicação' })).toBeVisible()
+})
+
+it('abre a página e o item recolhidos para focar um campo inválido', async () => {
+  render(<MemoryRouter><MenuEditorPage /></MemoryRouter>)
+  const page = (await screen.findByText('Bebidas', { selector: 'summary strong' })).closest('details')!
+  const item = within(page).getByText('Água', { selector: 'summary strong' }).closest('details')!
+  page.open = false
+  item.open = false
+  const input = within(item).getByLabelText('Nome')
+  fireEvent.invalid(input)
+  await waitFor(() => expect(input).toHaveFocus())
+  expect(page).toHaveAttribute('open')
+  expect(item).toHaveAttribute('open')
 })

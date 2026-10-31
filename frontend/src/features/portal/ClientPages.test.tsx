@@ -160,3 +160,14 @@ it('falha ao atualizar solicitações não apresenta a seleção vazia anterior 
  expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível atualizar.')
  expect(screen.queryByText('Nenhuma solicitação.')).not.toBeInTheDocument()
 })
+
+it('bar sem comanda mantém ajuda recolhida e contato disponível',async()=>{
+ vi.spyOn(globalThis,'fetch').mockImplementation(async input=>String(input).endsWith('/options')?json({courts:[],teachers:[],helpUrl:'https://example.invalid/ajuda'}):json([]))
+ mount(<PortalBar/>,'/minha-area/bar')
+ expect(await screen.findByRole('heading',{name:'Nenhuma comanda aberta'})).toBeVisible()
+ expect(screen.getByText('Peça à equipe o QR da sua comanda para pedir pelo celular.')).toBeVisible()
+ const help=screen.getByText('Ajuda e contato',{selector:'summary'})
+ expect(help.closest('details')).not.toHaveAttribute('open')
+ fireEvent.click(help)
+ expect(await screen.findByRole('link',{name:'Falar com a arena'})).toHaveAttribute('href','https://example.invalid/ajuda')
+})

@@ -3,12 +3,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { AuthContext, type AuthContextValue } from '../auth/authContext'
 import type { AuthUser } from '../auth/types'
-import { TeacherLayout,TeacherHome,TeacherRoster,TeacherAccess } from './TeachingPages'
+import { TeacherLayout,TeacherHome,TeacherClasses,TeacherRoster,TeacherAccess } from './TeachingPages'
 import { hasPermission,workHome } from '../auth/access'
 const teacher:AuthUser={id:'teacher',name:'Professor',email:'teacher@example.invalid',roles:['Teacher'],permissions:['students:read','students:write','projects:read']}
 const cls={id:'c1',name:'Iniciantes',weekDay:6,startTime:'08:00',endTime:'09:00',startDate:'2026-10-01',status:'Ativa',capacity:6,enrolled:1}
 const clients:QueryClient[]=[]
-function mount(path='/professor',user=teacher){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);const auth={user,isBootstrapping:false,signOut:async()=>{}} as AuthContextValue;return render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><Routes><Route path="professor" element={<TeacherLayout/>}><Route index element={<TeacherHome/>}/><Route path="turmas/:classId" element={<TeacherRoster/>}/></Route></Routes></MemoryRouter></AuthContext.Provider></QueryClientProvider>)}
+function mount(path='/professor',user=teacher){const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);const auth={user,isBootstrapping:false,signOut:async()=>{}} as AuthContextValue;return render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><Routes><Route path="professor" element={<TeacherLayout/>}><Route index element={<TeacherHome/>}/><Route path="turmas" element={<TeacherClasses/>}/><Route path="presencas" element={<TeacherClasses attendance/>}/><Route path="turmas/:classId" element={<TeacherRoster/>}/></Route></Routes></MemoryRouter></AuthContext.Provider></QueryClientProvider>)}
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}})
 afterEach(()=>{cleanup();clients.splice(0).forEach(c=>c.clear());vi.restoreAllMocks()})
 it('professor recebe navegação própria e alternância pessoal sem módulos da gestão',async()=>{vi.spyOn(globalThis,'fetch').mockResolvedValue(json({linked:true,classes:[cls]}));mount();await screen.findByRole('heading',{name:'Aulas de hoje'});expect(screen.getByRole('navigation',{name:'Área do professor'}).querySelectorAll('a')).toHaveLength(3);fireEvent.click(screen.getByRole('button',{name:'Conta'}));expect(screen.getByRole('link',{name:'Minha área'})).toHaveAttribute('href','/minha-area');expect(screen.queryByRole('link',{name:'Gestão'})).not.toBeInTheDocument()})
@@ -64,4 +64,17 @@ it('avisa a concessão de acesso e salva apenas o vínculo escolhido pela gestã
  fireEvent.submit(select.closest('form')!)
  expect(await screen.findByRole('status')).toHaveTextContent('Vínculo atualizado. O acesso às turmas passa a seguir este cadastro.')
  expect(fetch).toHaveBeenCalledWith('/api/v1/teaching/access',expect.objectContaining({method:'PUT',body:JSON.stringify({userId:'prof-account',teamId:'team-prof'})}))
+})
+
+it.each([['/professor/turmas','Minhas turmas'],['/professor/presencas','Presenças']])('lista %s mantém horário, situação e acesso à chamada',async(path,title)=>{
+ vi.spyOn(globalThis,'fetch').mockResolvedValue(json({linked:true,classes:[cls]}))
+ mount(path)
+ expect(await screen.findByRole('heading',{name:title,level:1})).toBeVisible()
+ const card=await screen.findByRole('link',{name:/Iniciantes/})
+ expect(card).toHaveTextContent('Sábado · 08:00–09:00')
+ expect(card).toHaveTextContent('Ativa')
+ expect(card).toHaveTextContent('1/6 matrículas ativas')
+ expect(card).toHaveAttribute('href','/professor/turmas/c1')
+ expect(screen.queryByText('ÁREA DO PROFESSOR')).not.toBeInTheDocument()
+ expect(screen.queryByText(/A disponibilidade geral da arena/)).not.toBeInTheDocument()
 })

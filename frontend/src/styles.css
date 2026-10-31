@@ -109,6 +109,8 @@ h1, h2, h3, .brand-copy strong { font-family: Manrope, ui-sans-serif, system-ui,
 .dashboard { padding: 1.5rem 1rem 3rem; max-width: 92rem; margin: auto; }
 .page-heading { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem; }
 .page-heading h1 { font-size: clamp(2rem, 8vw, 3.1rem); letter-spacing: -.045em; line-height: 1; margin-bottom: .75rem; }
+.operation-page > h1 { font-size:32px; line-height:1.2; margin-bottom:16px; }
+@media(max-width:700px) { .operation-page > h1 { font-size:28px; } }
 .page-heading > div > p:last-child { color: var(--muted); line-height: 1.6; max-width: 38rem; margin-bottom: 0; }
 .foundation-status { align-self: flex-start; display: inline-flex; align-items: center; gap: .55rem; padding: .55rem .75rem; border: 1px solid var(--line); border-radius: 999px; color: #696354; font-size: .82rem; }
 .foundation-status i { width: .45rem; height: .45rem; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 4px rgba(245, 190, 61, .12); }

@@ -18,8 +18,8 @@
 .section-tabs button { font: inherit; font-size: 14px; font-weight: 700; }
 .app-shell .shell-content { min-width: 0; }
 .app-shell .operation-page { max-width: 1440px; width: 100%; padding-top: 24px; }
-.app-shell .arena-page:not(.dashboard) .page-heading { padding-bottom: 18px; margin-bottom: 20px; gap: 16px; }
-.app-shell .arena-page:not(.dashboard) .page-heading h1 { font-size: clamp(26px,3vw,34px); line-height: 1.2; margin-bottom: 8px; }
+.app-shell .arena-page:not(.dashboard) .page-heading { padding-bottom: 0; border:0; margin-bottom: 20px; gap: 16px; }
+.app-shell .arena-page:not(.dashboard) .page-heading h1 { font-size: 32px; line-height: 1.2; margin-bottom: 0; }
 .app-shell .arena-page:not(.dashboard) .page-heading > div > p:last-child { font-size: 15px; line-height: 1.6; margin-bottom: 0; }
 .app-shell .arena-page .operation-card h2,.app-shell .rental-section h2 { font-size: 20px; margin-bottom: 16px; }
 .app-shell .arena-page .detail-list { grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 12px 24px; }
@@ -49,7 +49,7 @@
 .management-dialog::backdrop { background: #17171770; }
 .dialog-heading { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 16px; background: #fffcf6; padding: 16px 24px; border-bottom: 1px solid var(--line); }
 .dialog-heading h2 { font-size: 20px; margin: 0; line-height: 1.3; }
-.dialog-close { border: 1px solid var(--line); border-radius: 10px; min-width: 44px; min-height: 44px; font-size: 26px; background: #fff; color: var(--ink); }
+.dialog-close { border: 1px solid var(--line); border-radius: 10px; min-width: 48px; min-height: 48px; font-size: 26px; background: #fff; color: var(--ink); }
 .editor-body { padding: 24px; }
 .editor-body .operation-form,.editor-body .operation-card { max-width: none; margin: 0; padding: 0; box-shadow: none; background: transparent; border: 0; }
 .editor-body .field-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
@@ -92,6 +92,7 @@
 @media (max-width:700px) {
   .app-shell .operation-page { padding: 20px 16px 32px; }
   .app-shell .arena-page:not(.dashboard) .page-heading { gap: 12px; }
+  .app-shell .arena-page:not(.dashboard) .page-heading h1 { font-size:28px; }
   .app-shell .arena-page .operation-card,.app-shell .rental-section { padding: 16px; }
   .module-navigation,.related-navigation { padding-inline: 16px; gap: 4px; }
   .module-navigation a,.section-tabs button { padding: 10px 12px; font-size: 13px; }
