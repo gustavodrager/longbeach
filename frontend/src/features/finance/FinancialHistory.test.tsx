@@ -15,7 +15,7 @@ it('separa movimentação bancária de despesas pagas por outro meio no mesmo m�
   expect(await screen.findByText('R$ 500,00')).toBeInTheDocument()
   expect(await screen.findByText('R$ 70,00')).toBeInTheDocument()
   expect(screen.getByText('R$ 100,00')).toBeInTheDocument()
-  expect(screen.getByText(/não devem ser somados a ele novamente/)).toBeInTheDocument()
+  expect(screen.getByText(/Não some novamente/)).toBeInTheDocument()
 })
 it('dashboard abre o mês da fonte e identifica o valor informado', async () => {
   vi.spyOn(globalThis, 'fetch').mockImplementation(async input => new Response(JSON.stringify(String(input).includes('pagvendas-vendas') ? { ...report, totals: [], items: [] } : report), { headers: { 'Content-Type': 'application/json' } }))

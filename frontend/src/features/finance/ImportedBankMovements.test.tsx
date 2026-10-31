@@ -45,7 +45,7 @@ it('destaca totais de todos os movimentos sem recalcular pela pequena prévia da
   mount()
   expect(await screen.findByText('R$ 16.287,08')).toBeVisible()
   expect(screen.getByText('R$ 10.524,70')).toBeVisible()
-  expect(screen.getByRole('heading', { name: 'Movimentos importados dos bancos' })).toBeVisible()
+  expect(screen.getByRole('heading', { name: 'Movimentos bancários' })).toBeVisible()
   expect(screen.getByLabelText('Banco dos movimentos')).toHaveValue('pagbank-conta')
   expect(screen.getAllByText(/307/).length).toBeGreaterThan(0)
   expect(screen.getAllByText(/Extrato outubro.csv/).some(element => !element.closest('details'))).toBe(true)
@@ -57,7 +57,7 @@ it('destaca totais de todos os movimentos sem recalcular pela pequena prévia da
   expect(screen.queryByText('Movimento 6')).not.toBeInTheDocument()
   expect(screen.getByText('Movimento 1')).toBeVisible()
   expect(screen.getByText('01/10/2026')).toBeVisible()
-  expect(screen.getByText(/Prévia dos primeiros 5 de 307/)).toBeVisible()
+  expect(screen.getByText(/Primeiros 5 de 307/)).toBeVisible()
   expect(screen.getAllByRole('link').some(link => {
     const href = new URL(link.getAttribute('href')!, 'https://longbeach.example.invalid')
     return href.pathname === '/financeiro/historico' && href.searchParams.get('month') === '2026-10' && href.searchParams.get('series') === 'pagbank-conta'
@@ -136,6 +136,6 @@ it.each(['Student', 'Operations', 'Teacher'])('não expõe movimentos nem consul
   actor.roles = [role]
   const fetch = vi.spyOn(globalThis, 'fetch')
   mount()
-  expect(screen.queryByRole('heading', { name: 'Movimentos importados dos bancos' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: 'Movimentos bancários' })).not.toBeInTheDocument()
   expect(fetch).not.toHaveBeenCalled()
 })

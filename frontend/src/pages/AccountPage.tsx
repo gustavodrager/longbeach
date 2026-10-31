@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../features/auth/authContext'
+import './administration-clean.css'
 
 const minimumPasswordLength = 14
 
@@ -63,10 +64,9 @@ export function AccountPage() {
   }
 
   return (
-    <main className="account-page">
+    <main className="account-page administration-clean">
       <header className="account-heading">
         <div>
-          <p className="eyebrow">Sua conta</p>
           <h1>Segurança</h1>
           <p>{user?.name} · {user?.email || user?.username}</p>
         </div>
@@ -78,15 +78,15 @@ export function AccountPage() {
 
       {user?.googleLinked ? <section className="account-card" aria-labelledby="google-security-title">
         <div className="account-card-copy"><h2 id="google-security-title">Acesso pelo Google</h2>
-        <p>Você vinculou sua conta Google à Long Beach. Use a mesma conta para entrar. A senha do Google é gerenciada pelo próprio Google.</p>
+        <p>Entre com a conta Google vinculada. A senha é gerenciada pelo Google.</p>
         <a className="secondary-link" href="https://myaccount.google.com/security" target="_blank" rel="noreferrer">Gerenciar segurança no Google (nova aba)</a>
-        <p>Se perdeu acesso a essa conta, procure a equipe para confirmar sua identidade.</p></div>
+        <details><summary>Perdeu acesso à conta?</summary><p>Procure a equipe para confirmar sua identidade.</p></details></div>
       </section> : <section className="account-card" aria-labelledby="change-password-title">
         <div className="account-card-copy">
           <h2 id="change-password-title">Alterar senha</h2>
           <p>
-            Depois da alteração, nenhuma sessão poderá ser renovada e este acesso será encerrado.
-            Você entrará novamente com a nova senha.
+            Alterar a senha encerra este acesso e impede a renovação das outras sessões.
+            Entre novamente com a nova senha.
           </p>
         </div>
 

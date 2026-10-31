@@ -5,6 +5,8 @@ import { useAuth } from '../features/auth/authContext'
 import { centsMoney, seriesLabels, type HistoryPreview } from '../features/finance/FinancialHistory'
 import { GradeImportReview } from '../features/arena/GradeImportReview'
 import { BankStatementImport } from '../features/finance/BankStatementImportPanel'
+import { Disclosure } from '../components/managementUi'
+import './administration-clean.css'
 
 type StagedBatch = { id: string; sourceName: string; sourceSha256: string; status: string; rowCount: number; createdAtUtc: string }
 type ImportPackage = { sourceName: string; sourceSha256: string; records: Array<{ sheetName: string; rowNumber: number; recordType: string; externalId?: string | null; data: unknown }> }
@@ -44,7 +46,7 @@ export function ImportPage() {
     setBusy(true); setMessage('')
     try {
       setHistoryPreview(await apiFetch<HistoryPreview>(`/api/v1/financial-history/imports/${historyPreview.batchId}/apply`, { method: 'POST', body: JSON.stringify({ confirmationToken: historyPreview.confirmationToken }) }))
-      setMessage('Histórico aplicado ao painel dos proprietários. Cada valor mantém sua origem e estado informado na fonte.'); await load()
+      setMessage('Histórico aplicado. Origem e situação de cada valor preservadas.'); await load()
     } catch (error) { setHistoryPreview(null); setMessage(error instanceof Error ? error.message : 'Confira o histórico novamente.') }
     finally { setBusy(false) }
   }
@@ -70,23 +72,23 @@ export function ImportPage() {
     }
   }
 
-  return <main className="dashboard import-page">
-    <header className="page-heading"><div><p className="eyebrow">DADOS E CONFERÊNCIA</p><h1>Importações</h1><p>Os arquivos ficam registrados com hash e origem antes de qualquer integração com os cadastros.</p></div></header>
+  return <main className="dashboard import-page administration-clean">
+    <header className="page-heading"><h1>Importações</h1></header>
     {!canImport ? <p role="alert">Esta área está disponível para a gestão.</p> : <>
       <BankStatementImport onApplied={load} />
-      <section className="foundation-card import-card"><div><span className="card-kicker">Etapa segura</span><h2>Preparar lote para conferência</h2><p>Selecione um pacote JSON preparado a partir das planilhas. As linhas ficam em staging com a aba e o número original. Status, pagamentos e saldos não são confirmados nem lançados automaticamente.</p></div>
+      <Disclosure title="Importar outros arquivos"><section className="import-card"><div><h2>Lote para conferência</h2><p>O envio guarda o lote para conferência. Não confirma status, pagamentos ou saldos.</p><details><summary>Formato do arquivo</summary><p>Selecione um pacote JSON preparado a partir das planilhas. Cada linha mantém a aba e o número original.</p></details></div>
         <label className="button-primary import-picker">{busy ? 'Carregando lote…' : 'Selecionar pacote JSON'}<input aria-label="Selecionar pacote JSON" type="file" accept="application/json,.json" disabled={busy} onChange={(event) => void upload(event)} /></label>
-      </section>
+      </section></Disclosure>
       {message && <p className="persistence-banner" role="status">{message}</p>}
-      <section className="import-batches"><div className="section-heading"><div><p className="eyebrow">REGISTRO DE ORIGEM</p><h2>Lotes no PostgreSQL</h2></div><button type="button" onClick={() => void load()}>Atualizar</button></div>
-        {batches.length === 0 ? <p>Nenhum lote foi carregado.</p> : batches.map((batch) => <article className="import-batch" key={batch.id}><div><strong>{batch.sourceName}</strong><span>{batch.rowCount} linhas · {batch.status === 'NeedsReview' ? 'Pendente de conferência' : batch.status === 'Applied' ? 'Aplicado' : batch.status}</span></div><code>{batch.sourceSha256}</code><button type="button" disabled={busy} onClick={() => void inspectCatalog(batch.id)} aria-label={`Conferir produtos do bar: ${batch.sourceName}`}>Conferir produtos do bar</button><button type="button" disabled={busy} onClick={() => void inspectHistory(batch.id)} aria-label={`Conferir histórico financeiro: ${batch.sourceName}`}>Conferir histórico financeiro</button><GradeImportReview batchId={batch.id} sourceName={batch.sourceName} onApplied={load} /><GradeImportReview kind="rentals" batchId={batch.id} sourceName={batch.sourceName} onApplied={load} /></article>)}
+      <section className="import-batches"><div className="section-heading"><h2>Lotes carregados</h2><button type="button" onClick={() => void load()}>Atualizar</button></div>
+        {batches.length === 0 ? <p>Nenhum lote foi carregado.</p> : batches.map((batch) => <article className="import-batch" key={batch.id}><div><strong>{batch.sourceName}</strong><span>{batch.rowCount} linhas · {batch.status === 'NeedsReview' ? 'Pendente de conferência' : batch.status === 'Applied' ? 'Aplicado' : batch.status}</span></div><details className="import-source"><summary>Origem do arquivo</summary><code>{batch.sourceSha256}</code></details><button type="button" disabled={busy} onClick={() => void inspectCatalog(batch.id)} aria-label={`Conferir produtos do bar: ${batch.sourceName}`}>Conferir produtos do bar</button><button type="button" disabled={busy} onClick={() => void inspectHistory(batch.id)} aria-label={`Conferir histórico financeiro: ${batch.sourceName}`}>Conferir histórico financeiro</button><GradeImportReview batchId={batch.id} sourceName={batch.sourceName} onApplied={load} /><GradeImportReview kind="rentals" batchId={batch.id} sourceName={batch.sourceName} onApplied={load} /></article>)}
       </section>
-      {historyPreview && <section className="foundation-card" aria-label="Conferência financeira"><h2>Conferir histórico financeiro</h2><p>{historyPreview.sourceName} · {historyPreview.creates} valores novos · {historyPreview.matches} já aplicados.</p><p>Os totais de cada controle permanecem separados. Esta aplicação disponibiliza o histórico para os donos com o estado informado na fonte.</p><div className="table-scroll"><table><thead><tr><th>Controle</th><th>Indicador</th><th>Período</th><th>Estado</th><th>Registros</th><th>Total</th></tr></thead><tbody>{historyPreview.totals.map(total => <tr key={`${total.series}:${total.metric}:${total.state}:${total.period}:${total.grain}`}><td>{seriesLabels[total.series]}</td><td>{total.metric}</td><td>{total.period} · {total.grain}</td><td>{total.state}</td><td>{total.records}</td><td>{centsMoney(total.amountCents)}</td></tr>)}</tbody></table></div>{historyPreview.applied ? <p role="status">Histórico já aplicado.</p> : <button type="button" disabled={busy} onClick={() => void applyHistory()} className="button-primary">Aplicar histórico conferido</button>}</section>}
+      {historyPreview && <section className="foundation-card" aria-label="Conferência financeira"><h2>Conferir histórico financeiro</h2><p>{historyPreview.sourceName} · {historyPreview.creates} valores novos · {historyPreview.matches} já aplicados.</p><p>Aplicar disponibiliza o histórico à gestão com a situação informada na fonte. Os totais dos controles permanecem separados.</p><div className="table-scroll"><table><thead><tr><th>Controle</th><th>Indicador</th><th>Período</th><th>Estado</th><th>Registros</th><th>Total</th></tr></thead><tbody>{historyPreview.totals.map(total => <tr key={`${total.series}:${total.metric}:${total.state}:${total.period}:${total.grain}`}><td>{seriesLabels[total.series]}</td><td>{total.metric}</td><td>{total.period} · {total.grain}</td><td>{total.state}</td><td>{total.records}</td><td>{centsMoney(total.amountCents)}</td></tr>)}</tbody></table></div>{historyPreview.applied ? <p role="status">Histórico já aplicado.</p> : <button type="button" disabled={busy} onClick={() => void applyHistory()} className="button-primary">Aplicar histórico conferido</button>}</section>}
       {catalogPreview && <section className="foundation-card" aria-label="Conferência de produtos do bar">
         <h2>Conferir catálogo do bar</h2>
         <p>Arquivo: {catalogPreview.sourceName}</p>
         <p>{catalogPreview.creates} referências de produtos novos · {catalogPreview.matches} já cadastrados. Este arquivo não altera o cadastro.</p>
-        <p>As quantidades precisam ser conferidas no inventário. Fotos, receitas e custos calculados continuam no cadastro do bar.</p>
+        <p>Confira as quantidades no inventário. Fotos, receitas e custos ficam no cadastro do bar.</p>
         <div className="table-scroll"><table><thead><tr><th>Código</th><th>Produto</th><th>Categoria</th><th>Preço</th><th>Conferência</th></tr></thead><tbody>
           {catalogPreview.items.map(item => <tr key={item.code}><td>{item.code}</td><td>{item.name}</td><td>{item.category}</td><td>{item.salePrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td><td>{item.conflict ?? (item.action === 'Create' ? 'Novo produto' : 'Já cadastrado')}</td></tr>)}
         </tbody></table></div>

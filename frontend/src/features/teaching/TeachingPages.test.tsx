@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { AuthContext, type AuthContextValue } from '../auth/authContext'
 import type { AuthUser } from '../auth/types'
-import { TeacherLayout,TeacherHome,TeacherRoster } from './TeachingPages'
+import { TeacherLayout,TeacherHome,TeacherRoster,TeacherAccess } from './TeachingPages'
 import { hasPermission,workHome } from '../auth/access'
 const teacher:AuthUser={id:'teacher',name:'Professor',email:'teacher@example.invalid',roles:['Teacher'],permissions:['students:read','students:write','projects:read']}
 const cls={id:'c1',name:'Iniciantes',weekDay:6,startTime:'08:00',endTime:'09:00',startDate:'2026-10-01',status:'Ativa',capacity:6,enrolled:1}
@@ -49,4 +49,19 @@ it('conta recolhida mantém saída e área pessoal acessíveis por botão',async
  expect(screen.getByRole('button',{name:'Sair'})).toBeInTheDocument()
  fireEvent.click(screen.getByRole('button',{name:'Fechar Conta'}))
  expect(account).toHaveAttribute('aria-expanded','false')
+})
+
+it('avisa a concessão de acesso e salva apenas o vínculo escolhido pela gestão', async () => {
+ const access={users:[{id:'prof-account',name:'Professora teste'}],team:[{id:'team-prof',name:'Cadastro teste'}],links:[]}
+ const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async(_input,init)=>json(init?.method==='PUT'?{}:access))
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client)
+ const auth={user:{...teacher,roles:['Manager']},isBootstrapping:false} as AuthContextValue
+ render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter><TeacherAccess/></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
+ expect(screen.getByText('Confira a identidade antes de salvar. O vínculo libera as turmas e a chamada desse professor.')).toBeVisible()
+ const select=await screen.findByLabelText('Cadastro na equipe')
+ expect(screen.getByRole('option',{name:'Sem vínculo · acesso às turmas bloqueado'})).toBeInTheDocument()
+ fireEvent.change(select,{target:{value:'team-prof'}})
+ fireEvent.submit(select.closest('form')!)
+ expect(await screen.findByRole('status')).toHaveTextContent('Vínculo atualizado. O acesso às turmas passa a seguir este cadastro.')
+ expect(fetch).toHaveBeenCalledWith('/api/v1/teaching/access',expect.objectContaining({method:'PUT',body:JSON.stringify({userId:'prof-account',teamId:'team-prof'})}))
 })

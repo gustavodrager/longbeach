@@ -11,7 +11,7 @@ beforeEach(() => { auth.roles = ['Manager']; request.mockReset() })
 it('explica modo por arquivos e oferece importação sem consultar ou configurar APIs', () => {
   show()
   expect(screen.getByRole('heading', { name: 'Extratos e saldos por importação' })).toBeInTheDocument()
-  expect(screen.getByText(/As conexões automáticas C6, PagBank e PagVendas estão suspensas/)).toBeInTheDocument()
+  expect(screen.getByText(/Conexões automáticas C6, PagBank e PagVendas suspensas/)).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Importar extratos' })).toHaveAttribute('href', '/importacoes')
   expect(screen.getByRole('link', { name: 'Conferir extrato C6' })).toHaveAttribute('href', '/financeiro/historico?series=c6-conta')
   expect(screen.getByRole('link', { name: 'Conferir movimentos PagBank' })).toHaveAttribute('href', '/financeiro/historico?series=pagbank-conta')

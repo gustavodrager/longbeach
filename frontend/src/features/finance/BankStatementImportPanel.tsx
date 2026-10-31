@@ -50,15 +50,14 @@ export function BankStatementImport({ onApplied }: { onApplied: () => Promise<un
   const movements = rows.filter(row => row.grain === 'day')
   const balances = rows.filter(row => row.grain === 'snapshot')
   return <section className="foundation-card bank-statement-import" aria-labelledby="bank-import-title" id="extratos-bancarios">
-    <h2 id="bank-import-title">Importar extratos dos bancos</h2>
-    <p>Selecione o banco e um arquivo OFX ou CSV. Confira os valores antes de aplicar. A importação guarda movimentos e saldos com a origem; não registra vendas ou baixa contas automaticamente.</p>
+    <h2 id="bank-import-title">Importar extratos</h2>
+    <p>OFX ou CSV. A importação não registra vendas nem baixa contas.</p>
     <div className="compact-filters">
       <label className="operation-field">Banco do extrato<select value={bank} disabled={busy} onChange={event => { clear(); setBank(event.target.value as StatementBank) }}><option value="pagbank">PagBank</option><option value="c6">C6</option></select></label>
       <label className="operation-field">Número da conta no CSV<input value={account} maxLength={160} disabled={busy} placeholder="Mesmo número informado no OFX, incluindo zeros" onChange={event => { clear(); setAccount(event.target.value) }} /></label>
       <label className="operation-field">Arquivo OFX ou CSV<input type="file" accept=".ofx,.csv" disabled={busy} onChange={event => void selectFile(event)} /></label>
     </div>
-    <p>OFX identifica a conta pelo próprio arquivo. Para CSV, informe o mesmo número da conta do extrato, incluindo zeros, para reconhecer transações já importadas.</p>
-    <details><summary>Formato CSV aceito</summary><p>Cabeçalho: <code>Data;Descrição;Valor;ID;Saldo</code>. Data em DD/MM/AAAA ou AAAA-MM-DD; entrada positiva e saída negativa; valores como 1234,56. O ID deve ser o identificador da transação no banco. Saldo é opcional e deve conter uma única posição por data; deixe vazio nos demais movimentos. Também é possível importar somente Data e Saldo. Arquivos com até 2.000 registros e 5 MB.</p><p>Exemplo fictício:</p><pre>Data;Descrição;Valor;ID;Saldo{'\n'}25/10/2026;Pix recebido;100,00;PIX-EXEMPLO;150,00</pre></details>
+    <details><summary>Formato CSV aceito</summary><p>OFX identifica a conta pelo arquivo. No CSV, use o mesmo número da conta do extrato, incluindo zeros, para reconhecer transações já importadas.</p><p>Cabeçalho: <code>Data;Descrição;Valor;ID;Saldo</code>. Data em DD/MM/AAAA ou AAAA-MM-DD; entrada positiva e saída negativa; valores como 1234,56. O ID deve ser o identificador da transação no banco. Saldo é opcional e deve conter uma única posição por data; deixe vazio nos demais movimentos. Também é possível importar somente Data e Saldo. Arquivos com até 2.000 registros e 5 MB.</p><p>Exemplo fictício:</p><pre>Data;Descrição;Valor;ID;Saldo{'\n'}25/10/2026;Pix recebido;100,00;PIX-EXEMPLO;150,00</pre></details>
     {error && <p role="alert">{error}</p>}{message && <p role="status">{message}</p>}
     {prepared && <div aria-label="Prévia do arquivo bancário"><h3>{bank === 'c6' ? 'C6' : 'PagBank'} · {prepared.sourceName}</h3><p>{movements.length} movimento(s) · {balances.length} saldo(s) informado(s).</p><p>Entradas: {centsMoney(movements.filter(row => row.amountCents >= 0).reduce((sum, row) => sum + row.amountCents, 0))} · Saídas: {centsMoney(Math.abs(movements.filter(row => row.amountCents < 0).reduce((sum, row) => sum + row.amountCents, 0)))}</p>
       {balances.map(row => <p key={row.sourceCell}>Saldo informado em {row.periodStart.split('-').reverse().join('/')}: {centsMoney(row.amountCents)}</p>)}

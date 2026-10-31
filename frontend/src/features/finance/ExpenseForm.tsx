@@ -78,7 +78,7 @@ export function ExpenseForm({ options, onClose, onSaved, purchase }: { options: 
     finally { lock.current = false; setBusy(false) }
   }
 
-  return <EditorPanel title={purchase ? 'Pagamento da compra' : 'Novo lançamento'} onClose={onClose} busy={busy || partnerBusy} hasUnsavedChanges={dirty} className="expenses-editor">
+  return <EditorPanel title={purchase ? 'Pagamento da compra' : 'Novo lançamento'} onClose={onClose} busy={busy || partnerBusy} hasUnsavedChanges={dirty} className="expenses-editor finance-clean">
     <form className="operation-form" onSubmit={submit} onChange={() => setDirty(true)}>
       {error && <p role="alert" className="expenses-error">{error}</p>}
       <fieldset disabled={busy || partnerBusy || uncertain}>

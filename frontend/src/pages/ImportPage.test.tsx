@@ -38,3 +38,18 @@ it('atendente não acessa nem consulta os lotes', () => {
   expect(screen.getByRole('alert')).toHaveTextContent('disponível para a gestão')
   expect(api).not.toHaveBeenCalled()
 })
+
+it('mantém a consequência do envio junto à seleção e consulta a origem sem gravar', async () => {
+  const api = vi.spyOn(globalThis, 'fetch').mockResolvedValue(response([batch]))
+  renderImport(); const user = userEvent.setup()
+  expect(await screen.findByRole('heading', { name: 'Lotes carregados' })).toBeInTheDocument()
+  const picker = screen.getByLabelText('Selecionar pacote JSON')
+  expect(picker).not.toBeVisible()
+  await user.click(screen.getByText('Importar outros arquivos'))
+  expect(picker.closest('label')).toBeVisible()
+  expect(screen.getByText('O envio guarda o lote para conferência. Não confirma status, pagamentos ou saldos.')).toBeVisible()
+  expect(screen.getByText(batch.sourceSha256)).not.toBeVisible()
+  await user.click(screen.getByText('Origem do arquivo'))
+  expect(screen.getByText(batch.sourceSha256)).toBeVisible()
+  expect(api.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true)
+})

@@ -16,17 +16,17 @@ export function BarCountsPage() {
   const identities=new Map<string,Pick<Product,'id'|'name'|'saleUnit'>>((balances.data??[]).map(b=>[b.productId,{id:b.productId,name:b.name,saleUnit:b.unit}]))
   for(const product of catalog.data??[]) identities.set(product.id,product)
   const initialUnavailable=counts.data?.some(c=>c.locationId===stock.location?.id&&c.state==='Approved')
-  return <StockPage title="Inventário do Bar" description="Conte os produtos, confira as diferenças e só então aprove os ajustes.">
+  return <StockPage title="Inventário do Bar">
     <QueryNotice query={counts}/><StockNotice stock={stock}/>
     <ActionPanel title="Nova contagem" action="novo" busy={a.busy} primary><Notice action={a}/><form className="bar-form" onSubmit={async e=>{const f=formData(e);if(!stock.location)return;const result=await a.run<StockCount>('/counts',{locationId:stock.location.id,initial:f.has('initial')});if(result)show(result.id)}}>
-      <StockNotice stock={stock}/><p>A contagem usa uma fotografia do saldo atual do Bar. Se houver movimentações ou reservas, será necessário refazer a contagem antes de aprovar.</p>
+      <StockNotice stock={stock}/><p>Se houver movimentações ou reservas após a abertura, será preciso refazer a contagem antes de aprovar.</p>
       {!initialUnavailable && <label><input type="checkbox" name="initial"/> Primeira contagem física do estoque</label>}
       <button disabled={a.busy||!stock.ready}>Abrir contagem</button></form></ActionPanel>
     {counts.data && <Pagination total={counts.data.length}>{(start,end)=><>{counts.data.slice(start,end).map(c=>{
       const counted=c.items.filter(i=>i.counted!==null).length;const different=c.items.filter(i=>c.state==='Counting'?(i.counted??0)!==i.theoretical:i.counted!==null&&i.counted!==i.theoretical).length
       return <section key={c.id} className="operation-card stock-count-card"><div><h2>{c.initial?'Contagem inicial':'Inventário'} · {c.state==='Approved'?'Aprovado':c.state==='Canceled'?'Cancelado':'Em contagem'}</h2><p>{stock.query.data?.find(l=>l.id===c.locationId)?.name??'Local a consultar'}{c.createdAtUtc&&` · ${new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(c.createdAtUtc))}`}</p><p>{counted} de {c.items.length} produtos contados · {different} divergências</p></div><button onClick={()=>show(c.id)}>{c.state==='Counting'?'Continuar contagem':'Ver contagem'}</button></section>
     })}</>}</Pagination>}
-    {counts.isSuccess&&!counts.data.length&&<Empty>Nenhum inventário registrado. Abra uma contagem para conferir o estoque.</Empty>}
+    {counts.isSuccess&&!counts.data.length&&<Empty>Nenhum inventário registrado.</Empty>}
     {open && selected && <CountPanel key={selected.id} count={selected} products={[...identities.values()]} catalogReady={catalog.isSuccess&&balances.isSuccess} onClose={close}/>}
   </StockPage>
 }
@@ -42,7 +42,7 @@ function CountPanel({count,products,catalogReady,onClose}:{count:StockCount;prod
   const sorted=[...count.items].sort((a,b)=>Number(initiallyPending.current.has(b.productId))-Number(initiallyPending.current.has(a.productId))||(productMap.get(a.productId)?.name??a.productId).localeCompare(productMap.get(b.productId)?.name??b.productId,'pt-BR'))
   const rows=sorted.filter(i=>(productMap.get(i.productId)?.name??i.productId).toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))&&(!filterIds||filterIds.has(i.productId)))
   const filter=(next:string)=>{setStatus(next);setFilterIds(next==='all'?null:new Set(count.items.filter(i=>next==='pending'?i.counted===null:(i.counted??0)!==i.theoretical).map(i=>i.productId)))}
-  return <EditorPanel title={editable?'Contar estoque':'Consultar inventário'} onClose={onClose} busy={a.busy||quick.busy} hasUnsavedChanges={!review&&!canceling?quick.dirty:undefined} className="stock-quick-panel">
+  return <EditorPanel title={editable?'Contar estoque':'Consultar inventário'} onClose={onClose} busy={a.busy||quick.busy} hasUnsavedChanges={!review&&!canceling?quick.dirty:undefined} className="stock-quick-panel stock-clean">
     <div className="stock-count-workbench"><Notice action={a}/>
       <section className="stock-count-progress" aria-label="Progresso da contagem"><strong>{counted} de {count.items.length} contados</strong><span>{count.items.length-counted} em branco · {differences.length} divergências</span><progress aria-label="Produtos contados" value={counted} max={Math.max(1,count.items.length)}/></section>
       {!catalogReady&&<p role="alert">Aguarde o catálogo para identificar os produtos. Se não carregar, feche e tente novamente.</p>}

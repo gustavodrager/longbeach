@@ -34,9 +34,9 @@ it('distingue falta de cadastro de zero e recolhe áreas ainda não configuradas
 
 it('mantém os extratos disponíveis em Consultas sem alongar a abertura da inicial', async () => {
   start('/')
-  expect(screen.queryByRole('heading', { name: 'Movimentos importados dos bancos' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('heading', { name: 'Movimentos bancários' })).not.toBeInTheDocument()
   await userEvent.click(screen.getByText('Movimentos bancários importados', { exact: true }))
-  expect(await screen.findByRole('heading', { name: 'Movimentos importados dos bancos' })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'Movimentos bancários' })).toBeInTheDocument()
 })
 
 it('omite alertas zerados quando o estoque cadastrado está acima do mínimo', async () => {
@@ -101,7 +101,7 @@ it('mostra recebimentos pela data paga, abre a composição e preserva período 
   const user=userEvent.setup();const card=screen.getByRole('link',{name:/Recebimentos registrados/})
   expect(within(card).getByText(/120,00/)).toBeInTheDocument()
   await user.click(card)
-  expect(await screen.findByRole('heading',{name:'Financeiro operacional'})).toBeInTheDocument()
+  expect(await screen.findByRole('heading',{name:'Lançamentos'})).toBeInTheDocument()
   expect(screen.queryByText('Valor ainda pendente')).not.toBeInTheDocument()
   await user.click(screen.getByRole('link',{name:/Mensalidade de teste/}))
   expect(await screen.findByRole('heading',{name:'Mensalidade de teste'})).toBeInTheDocument()
@@ -204,7 +204,7 @@ it('despesa criada pela manutenção conserva vínculo, tipo e retorno ao servi�
   localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({maintenance:[maintenance]}))
   start(`/manutencao/${maintenance.id}`)
   const user=userEvent.setup();await user.click(screen.getByRole('link',{name:'Ver despesas vinculadas →'}))
-  await user.click(screen.getByRole('link',{name:'+ Novo lançamento'}))
+  await user.click(screen.getByRole('link',{name:'Novo lançamento'}))
   expect(screen.getByLabelText('Descrição do lançamento')).toHaveValue('Manutenção · Trocar rede da quadra')
   expect(screen.getByLabelText('Tipo')).toHaveValue('Pagar')
   expect(screen.getByLabelText('Origem')).toHaveValue('Arena')

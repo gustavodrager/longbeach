@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import '../bar/stock-clean.css'
 import { EditorPanel, useUnsavedChanges } from '../../components/managementUi'
 import { Field, SaveRow } from '../../pages/arenaUi'
 import { useOperations, type InventoryItem } from './DemoDataProvider'
@@ -69,7 +70,7 @@ export function MaterialStockPanel({ item, onClose }: { item: InventoryItem; onC
     }
   }
 
-  return <EditorPanel title={`Movimentar ${snapshot.name}`} busy={busy} onClose={close}>
+  return <EditorPanel title={`Movimentar ${snapshot.name}`} className="stock-clean" busy={busy} onClose={close}>
     <p>Saldo conferido: <strong>{materialQuantity(snapshot.quantity)} {snapshot.unit}</strong> · {snapshot.location || 'Informe o local no cadastro'}</p>
     {error && <p role="alert">{error}</p>}
     {!data.canMoveMaterials ? <p role="alert">Movimentações exigem uma sessão individual com acesso ao estoque.</p>
@@ -78,7 +79,7 @@ export function MaterialStockPanel({ item, onClose }: { item: InventoryItem; onC
           : <form className="operation-form" onSubmit={submit}>
             {uncertain && <p role="status">A confirmação não chegou. Confira a mesma solicitação para evitar duplicação. Se fechar esta janela, ela continuará pendente ao retornar.</p>}
             {attempt?.status === 'sending' && <p role="status">Aguardando a confirmação desta movimentação…</p>}
-            <fieldset disabled={frozen} className="arena-form-group"><legend>Movimentação de material</legend><div className="field-grid">
+            <fieldset disabled={frozen} className="arena-form-group" aria-label="Movimentação de material"><div className="field-grid">
               <Field label="Tipo de movimentação" value={kind} onChange={next => setKind(next as MaterialMovementInput['kind'])} options={Object.entries(materialKinds).filter(([key]) => (key !== 'Count' || data.canAdjustMaterials) && (key !== 'Consumption' || snapshot.nature === 'Consumable')).map(([key, label]) => ({ value: key, label }))} />
               <label className="operation-field">{kind === 'Count' ? `Quantidade contada (${snapshot.unit})` : `Quantidade (${snapshot.unit})`}<input required inputMode="decimal" value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={amount !== '' && value === null} /></label>
               <label className="operation-field">Motivo ou documento de referência<input required maxLength={500} value={reason} onChange={event => setReason(event.target.value)} /></label>
@@ -109,9 +110,9 @@ export function MaterialStockHistory({ item }: { item: InventoryItem }) {
     )
     return () => { active = false }
   }, [materialHistory, item.id, item.version, page, revision])
-  return <section className="operation-card"><h2>Movimentações confirmadas</h2>
+  return <section className="operation-card stock-clean"><h2>Movimentações confirmadas</h2>
     {error ? <p role="alert">{error} <button type="button" onClick={() => setRevision(current => current + 1)}>Tentar novamente</button></p> : !history ? <p role="status">Carregando movimentações…</p> : <>
-      {!history.total && <p>Nenhuma movimentação registrada neste controle. O saldo anterior foi preservado como ponto de partida.</p>}
+      {!history.total && <p>Nenhuma movimentação registrada. Saldo anterior preservado.</p>}
       <div className="movement-list">{history.items.map(row => <article key={row.id} className="operation-card">
         <strong>{materialKinds[row.kind]} · {materialQuantity(row.quantity)} {row.unit}</strong>
         <p>{materialQuantity(row.before)} → {materialQuantity(row.after)} {row.unit} · {row.location}</p>

@@ -1,0 +1,39 @@
+.administration-clean .page-heading { padding-bottom:0; border:0; margin-bottom:24px; }
+.administration-clean :is(.page-heading,.account-heading) h1 { font-size:32px; line-height:1.2; margin:0; }
+.app-shell .operation-page.administration-clean:not(.dashboard) .page-heading h1 { font-size:32px; line-height:1.2; }
+.administration-clean :is(a,button,input,select,textarea,summary):focus-visible { outline:3px solid var(--focus); outline-offset:3px; }
+.administration-clean :is(button,select,input:not([type=checkbox]):not([type=radio]),.secondary-link,.import-picker) { min-height:48px; }
+.administration-clean summary { min-height:48px; align-content:center; cursor:pointer; }
+.administration-clean :is(.foundation-card,.account-card,.teaching-card,.import-batch) { border-radius:12px; box-shadow:none; }
+.administration-clean :is(.foundation-card,.import-batch,.teaching-card) { min-width:0; }
+.import-page.administration-clean .foundation-card { display:block; padding:24px; background:#fff; }
+.import-page.administration-clean .foundation-card::after { content:none; }
+.import-page.administration-clean .foundation-card h2 { margin:0 0 12px; font-size:20px; }
+.import-page.administration-clean .foundation-card .table-scroll { margin:20px 0; }
+.administration-clean .import-card { gap:16px; }
+.administration-clean .import-card > div { flex:1 1 300px; }
+.administration-clean .import-card h2 { font-size:18px; }
+.administration-clean .import-batch { background:#fff; }
+.administration-clean .import-batch > div { flex-wrap:wrap; }
+.administration-clean .import-source { min-width:0; }
+.administration-clean .import-source code { display:block; color:var(--muted); }
+.administration-clean .table-scroll { min-width:0; }
+.teacher-access-clean > p { margin:0 0 24px; max-width:60ch; line-height:1.6; }
+.teacher-access-clean .teaching-card { gap:16px; }
+.teacher-access-clean .teaching-card label { display:grid; gap:8px; }
+.teacher-access-clean .teaching-card select { width:100%; min-width:0; max-width:100%; font:inherit; padding:10px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); }
+.account-page.administration-clean .account-actions { flex-wrap:wrap; }
+.account-page.administration-clean .account-card-copy > a { display:inline-flex; align-items:center; margin-top:16px; }
+.account-page.administration-clean .account-card-copy details { margin-top:8px; }
+.account-page.administration-clean .account-card-copy p { font-size:15px; }
+.account-page.administration-clean .account-heading h1 { margin-bottom:8px; }
+@media(max-width:700px) {
+  .app-shell .operation-page.administration-clean:not(.dashboard) .page-heading h1 { font-size:28px; }
+  .administration-clean :is(.page-heading,.account-heading) h1 { font-size:28px; }
+  .administration-clean :is(input,select,textarea) { max-width:100%; font-size:16px; }
+  .administration-clean .import-batch { grid-template-columns:minmax(0,1fr); }
+  .administration-clean .import-batch > div { display:grid; gap:8px; }
+  .administration-clean .import-card { align-items:stretch; }
+  .administration-clean .import-picker { justify-content:center; }
+  .teacher-access-clean .teaching-grid { grid-template-columns:minmax(0,1fr); }
+}
