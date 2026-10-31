@@ -1,6 +1,6 @@
 # Agenda de mensalistas, agenda de aulas e clientes — 31/10/2026
 
-Entrega preparada para revisão, sem publicação. Reúne os três pedidos desta etapa e preserva a API, o banco, os perfis e a configuração Google.
+A interface da fonte `ccdd341c4b77bab5901d59ba473e7bda66733b2f` foi publicada com autorização específica em 31/10/2026 às 19:24:41 de Brasília. Reúne as agendas de Mensalistas e Aulas e a simplificação de Clientes. O [registro da publicação](../operacao/publicacao-agendas-clientes-clean-2026-10-31.md) reúne os comprovantes e limites; API, banco, perfis e configuração Google foram preservados.
 
 ## Mensalistas e Aulas
 
@@ -33,4 +33,4 @@ Editar e cadastrar mantêm os campos e ações atuais, com menos molduras e sem 
 - Falha da consulta escolar não mostra horários livres como confirmados. Recuperação por **Tentar novamente** conferida. Aviso do PWA exibido e atualização aplicada na prévia local.
 - Revisão independente encontrou e levou à correção de dois retornos de criação. Nomes acessíveis, agrupamento dos campos, foco e permissões foram revisados. Não foram executadas gravações de negócio no servidor da prévia.
 
-Capturas, fixtures, registros e logs estão em `LongBeach/evidencias/agendas-clientes-clean-2026-10-31/`. O registro `conferencia-visual-final.json` separa estados de sucesso, falha e acesso negado. A aba foi fechada, o tamanho padrão do navegador restaurado e o servidor local encerrado. A publicação desta nova versão depende de autorização específica.
+Capturas, fixtures, registros e logs estão em `LongBeach/evidencias/agendas-clientes-clean-2026-10-31/`. O registro `conferencia-visual-final.json` separa estados de sucesso, falha e acesso negado. A aba foi fechada, o tamanho padrão do navegador restaurado e o servidor local encerrado. Esta publicação autorizada está registrada nos comprovantes acima; futuras versões exigem autorização específica.
