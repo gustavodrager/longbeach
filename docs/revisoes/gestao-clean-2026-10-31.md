@@ -1,6 +1,6 @@
 # Financeiro, estoque, relatórios e administração — 31/10/2026
 
-Esta entrega aplica o padrão visual simplificado às áreas de gestão. Está preparada para revisão, sem publicação em produção. A publicação da nova interface depende de autorização específica desta versão.
+Esta entrega aplica o padrão visual simplificado às áreas de gestão. A interface da fonte `4ec26bbb7975c869e67acef5f00c7ba6a0884948` foi publicada com autorização específica em 31/10/2026 às 15:32:14 de Brasília. O [registro da publicação](../operacao/publicacao-gestao-clean-2026-10-31.md) contém os comprovantes e os limites da conferência; API e banco foram preservados.
 
 ## Resultado
 
