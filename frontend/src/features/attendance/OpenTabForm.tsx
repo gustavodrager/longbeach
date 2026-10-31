@@ -62,8 +62,8 @@ export function OpenTabForm() {
     {opening && <form className="ux-panel lb-open-tab" onSubmit={event => { event.preventDefault(); void open() }}>
       <h2>Nova comanda</h2>
       {pending ? <p className="ux-notice warning" role="status">{command.busy ? `Abrindo a comanda de ${pending.name || 'Visitante'}… Aguarde a confirmação.` : `Estamos conferindo a abertura de ${pending.name || 'Visitante'}. Repita a confirmação para recuperar a mesma comanda. Os dados ficam preservados até a resposta.`}</p> : <>
-        <CustomerPicker scope="bar" contextKey="bar-tab:new" label="Cliente identificado" value={identifiedCustomer} onChange={setIdentifiedCustomer} disabled={locked} />
-        <p className="ux-note">Identificar o cliente não vincula pagamento nem libera acesso à comanda. Você também pode continuar sem identificar.</p>
+        <CustomerPicker compact scope="bar" contextKey="bar-tab:new" label="Cliente identificado" value={identifiedCustomer} onChange={setIdentifiedCustomer} disabled={locked} />
+        <p className="ux-note">Identificar o cliente não vincula pagamento nem libera acesso à comanda.</p>
         <fieldset disabled={locked}>
           <legend>Acesso à área do cliente</legend>
           <label className="ux-check"><input type="radio" name="tab-kind" checked={kind === 'visitor'} onChange={() => { setKind('visitor'); setConfirmed(false) }} />Sem responsável financeiro vinculado</label>
@@ -72,7 +72,7 @@ export function OpenTabForm() {
         {kind === 'customer' && <section aria-label="Escolher responsável">
           <label className="ux-field">Buscar responsável<input value={search} maxLength={320} disabled={locked} placeholder="Nome ou e-mail completo" onChange={event => { setSearch(event.target.value); setSubmittedSearch(''); setCustomer(null); setConfirmed(false) }} /></label>
 
-          <p className="ux-note">Digite ao menos 3 letras do nome ou o e-mail completo. Só aparecem pessoas que já entraram com o Google.</p>
+          <p className="ux-note">Busque pelo nome (3 letras) ou e-mail completo. Somente contas Google.</p>
           {submittedSearch && <><LoadState query={customers} />{!customers.isError && customers.data?.map(person => <label className="ux-check" key={person.id}><input type="radio" name="tab-customer" value={person.id} checked={customer?.id === person.id} disabled={locked} onChange={() => { setCustomer(person); setConfirmed(false) }} />{person.name} · {person.emailHint}</label>)}
             {!customers.isError && customers.data?.length === 0 && <p role="status">Nenhum cliente encontrado. Confira o e-mail completo ou abra como visitante.</p>}
             {customers.data?.length === 20 && <p>Mostrando até 20 pessoas. Refine a busca para identificar o responsável.</p>}
@@ -80,7 +80,7 @@ export function OpenTabForm() {
           {customer && <label className="ux-check"><input type="checkbox" checked={confirmed} disabled={locked} onChange={event => setConfirmed(event.target.checked)} />Confirmo que {customer.name} é o responsável e poderá ver o consumo e os pagamentos desta comanda na sua área.</label>}
         </section>}
         <label className="ux-field">Nome da pessoa ou do grupo (opcional)<input value={name} maxLength={80} disabled={locked} onChange={event => setName(event.target.value)} placeholder={customer && kind === 'customer' ? customer.name : 'Ex.: Visitante ou Turma de quinta'} /></label>
-        <details className="lb-tab-options"><summary>Observações e orientações</summary><label className="ux-field">Observações da comanda (opcional)<textarea value={notes} maxLength={500} disabled={locked} onChange={event => setNotes(event.target.value)} placeholder="Ex.: Mesa 3, perto da quadra" /></label>
+        <details className="lb-tab-options"><summary>Observações</summary><label className="ux-field">Observações da comanda (opcional)<textarea value={notes} maxLength={500} disabled={locked} onChange={event => setNotes(event.target.value)} placeholder="Ex.: Mesa 3, perto da quadra" /></label>
         <p className="ux-note">Para uma comanda coletiva, informe o nome do grupo. O responsável selecionado responde pelo total; os demais integrantes não recebem acesso automaticamente. O consumo fica separado da mensalidade da quadra.</p>
         {kind === 'visitor' && <p className="ux-note">Sem vínculo automático à área de um cliente. A equipe poderá fornecer o QR desta comanda.</p>}
         </details><LoadState query={locations} />

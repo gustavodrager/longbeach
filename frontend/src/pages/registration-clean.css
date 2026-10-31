@@ -1,0 +1,34 @@
+/* Registration pages only; stock and other modules keep their existing layout. */
+.registration-clean .page-heading { align-items:center; gap:16px; margin-bottom:24px; }
+.registration-clean .page-heading h1 { font-size:32px; line-height:1.2; margin:0; overflow-wrap:anywhere; }
+.registration-clean .arena-actions { margin:0 0 16px; }
+.registration-clean :is(.primary-link,.secondary-link,.text-button,.arena-record-actions a,.arena-pagination button),
+.registration-clean .management-disclosure>summary,
+.registration-clean-editor :is(button,input:not([type=checkbox]),select,textarea),
+.registration-clean-editor .management-disclosure>summary { min-height:48px; }
+.registration-clean .operation-field :is(input,select),.registration-clean-editor .operation-field :is(input,select) { min-height:48px; min-width:0; font-size:16px; }
+.registration-clean .customer-directory-filters { margin:0 0 20px; gap:12px; }
+.registration-clean .customer-directory-row,.registration-clean .record-row,.registration-clean .project-card { box-shadow:none; border-radius:12px; }
+.registration-clean .customer-directory-row>span:last-child { font-size:14px; }
+.registration-clean .customer-tags { margin-top:8px; }
+.registration-clean .operation-card { border-radius:12px; box-shadow:none; }
+.registration-clean .arena-toolbar { margin-bottom:16px; }
+.registration-clean .arena-task-done,.registration-clean-editor .arena-task-done { min-height:48px; }
+.registration-clean :is(a,button,summary,input,select,textarea):focus-visible,
+.registration-clean-editor :is(a,button,summary,input,select,textarea):focus-visible { outline:3px solid var(--focus); outline-offset:3px; }
+.registration-clean-editor .arena-form-group { margin-bottom:16px; }
+.registration-clean-editor .arena-form-group legend { font-size:16px; }
+.registration-clean-editor .arena-hint { font-size:14px; line-height:1.5; }
+.registration-clean-editor .operation-card { padding:0; border:0; background:transparent; box-shadow:none; }
+.registration-clean-editor .field-grid { gap:16px; }
+.registration-clean-editor .form-actions { gap:12px; }
+@media(max-width:700px) {
+  .registration-clean .page-heading { align-items:flex-start; gap:16px; }
+  .registration-clean .page-heading h1 { font-size:28px; }
+  .registration-clean .customer-directory-row>div { flex-basis:100%; }
+  .registration-clean .customer-directory-row { gap:12px; padding:16px; }
+  .registration-clean .customer-directory-row>span:last-child { margin-left:auto; }
+  .registration-clean-editor .field-grid { grid-template-columns:minmax(0,1fr); }
+  .registration-clean-editor .operation-field-wide { grid-column:1; }
+  .registration-clean-editor .form-actions { flex-wrap:wrap; }
+}

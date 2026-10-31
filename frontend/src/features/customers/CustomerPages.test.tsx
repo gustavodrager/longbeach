@@ -38,6 +38,7 @@ it('novo cadastro exige contato e só navega após confirmação, bloqueando dup
   let finish: ((response: Response) => void) | undefined; const bodies: unknown[] = []
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => { if (init?.method === 'POST') { bodies.push(JSON.parse(String(init.body))); return new Promise<Response>(resolve => { finish = resolve }) } return json(customer) })
   const router = mount('/clientes/novo'); const dialog = screen.getByRole('dialog', { name: 'Cadastrar cliente' })
+  expect(within(dialog).getByText('O cadastro não cria login, matrícula, reserva ou cobrança.')).toBeVisible()
   fireEvent.change(within(dialog).getByLabelText('Nome'), { target: { value: customer.name } }); fireEvent.click(within(dialog).getByRole('button', { name: 'Salvar cliente' })); expect(bodies).toHaveLength(0)
   fireEvent.change(within(dialog).getByLabelText('Telefone com DDD'), { target: { value: '(11) 98888-7777' } }); const save = within(dialog).getByRole('button', { name: 'Salvar cliente' }); fireEvent.click(save); fireEvent.click(save)
   expect(bodies).toHaveLength(1); expect(router.state.location.pathname).toBe('/clientes/novo'); finish?.(json(customer)); await waitFor(() => expect(router.state.location.pathname).toBe('/clientes/one'))

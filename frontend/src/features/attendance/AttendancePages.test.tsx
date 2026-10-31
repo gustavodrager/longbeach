@@ -760,7 +760,7 @@ it('encerramento confirma a comanda e repete a mesma operação após resposta p
 it('consulta sem permissão de operação não oferece recebimento ou encerramento no comprovante',async()=>{
  const row=payment({method:'Cash',amount:12.5});server({tab:{...makeTab(),due:0,payable:0,paid:12.5,payments:[row],allowedActions:['close']},pixEnabled:false});
  mount('/atendimento/comprovante/tab-a/payment-a',{...actor,permissions:['bar:sales:read']},true);
- expect(await screen.findByRole('heading',{name:'Próximo passo'})).toBeInTheDocument();
+ expect(await screen.findByRole('heading',{name:'Situação da comanda'})).toBeInTheDocument();
  expect(screen.queryByRole('button',{name:'Encerrar comanda'})).not.toBeInTheDocument();expect(screen.queryByRole('link',{name:/Receber restante/})).not.toBeInTheDocument();
 });
 
@@ -896,7 +896,7 @@ it('venda avulsa preserva cliente e operação incerta após remontar sem vincul
 })
 it('identificação antes de receber repete mesma intenção e versão após resposta interrompida',async()=>{
  const writes:Record<string,unknown>[]=[];const state:Server={tab:makeTab(),pixEnabled:false,customerLookups:[identified],put:(path,body)=>{expect(path).toBe('/api/v1/bar/tabs/tab-a/customer');writes.push(body);state.tab={...state.tab,version:3,customer:identified};if(writes.length===1)throw new TypeError('interrupted');return json(state.tab)}}
- server(state);const client=mount('/atendimento/receber/tab-a');fireEvent.click(await screen.findByRole('button',{name:'Identificar cliente (opcional)'}));await chooseIdentified('Buscar cliente da comanda');const save=screen.getByRole('button',{name:'Salvar identificação'});act(()=>{fireEvent.click(save);fireEvent.click(save)});await screen.findByText(/Não foi possível confirmar esta operação/);expect(writes).toHaveLength(1)
+ server(state);const client=mount('/atendimento/receber/tab-a');await screen.findByRole('heading',{name:'Cliente identificado'});expect(screen.queryByText('A identificação cadastral não concede acesso à comanda nem altera quem responde pelo pagamento.')).not.toBeInTheDocument();fireEvent.click(await screen.findByRole('button',{name:'Identificar cliente (opcional)'}));expect(screen.getByText('A identificação cadastral não concede acesso à comanda nem altera quem responde pelo pagamento.')).toBeVisible();await chooseIdentified('Buscar cliente da comanda');const save=screen.getByRole('button',{name:'Salvar identificação'});act(()=>{fireEvent.click(save);fireEvent.click(save)});await screen.findByText(/Não foi possível confirmar esta operação/);expect(writes).toHaveLength(1)
  cleanup();client.clear();mount('/atendimento/receber/tab-a');const retry=await screen.findByRole('button',{name:'Conferir identificação'});await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry);await screen.findByText(/Identificação atualizada/);expect(writes).toHaveLength(2);expect(writes[1]).toEqual(writes[0]);expect(writes[0]).toEqual({operationId:expect.any(String),customerId:identified.id,expectedVersion:1});expect(writes[0]).not.toHaveProperty('responsibleUserId')
 })
 it('conflito na identificação atualiza versão e permite conferência explícita sem perder seleção',async()=>{
@@ -915,4 +915,39 @@ it('pedido anônimo pendente anterior ao cadastro único conserva identificadore
  const openId='11111111-1111-4111-8111-111111111111',addId='22222222-2222-4222-8222-222222222222';const writes:Record<string,unknown>[]=[]
  localStorage.setItem(`lb-cart:${actor.id}:sale`,JSON.stringify([{productId:'water',quantity:1}]));localStorage.setItem(`lb-confirmation:order:${actor.id}:sale`,'deliver');localStorage.setItem(`lb-operation:${actor.id}:cart:sale:open:bar-a:water:1`,openId);localStorage.setItem(`lb-operation:${actor.id}:cart:sale:add:bar-a:water:1:true`,addId)
  server({tab:makeTab(),pixEnabled:false,post:(_,body)=>{writes.push(body);return json(makeTab())}});mount('/atendimento/vender');const retry=await screen.findByRole('button',{name:'Entregar e receber'});await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry);await waitFor(()=>expect(writes).toHaveLength(2));expect(writes.map(w=>w.operationId)).toEqual([openId,addId]);expect(writes[0]).not.toHaveProperty('customerId')
+})
+
+
+it('gera o QR por ação explícita e mantém validade e destinatário visíveis',async()=>{
+ const requests=server({tab:makeTab(),pixEnabled:false,post:(path)=>{if(path.endsWith('/access'))return json({token:'preview-access-token',expiresAtUtc:'2030-10-04T15:30:00Z'});throw new Error('Operação inesperada')}})
+ mount('/atendimento/comandas/tab-a');await screen.findByRole('heading',{name:'Comanda 104'});
+ fireEvent.click(screen.getByText('Acesso do cliente',{exact:true}));
+ fireEvent.click(screen.getByRole('button',{name:'Gerar QR Code'}));
+ const link=await screen.findByRole('link',{name:'Abrir catálogo do cliente'});
+ expect(link).toHaveAttribute('href','/cliente#token=preview-access-token');
+ expect(screen.getByText(/Válido até.*Compartilhe somente com esta pessoa/)).toBeVisible();
+ expect(screen.getByRole('button',{name:'Encerrar acesso'})).toBeEnabled();
+ expect(requests.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(1)
+})
+
+
+it('caixa próprio conserva responsável, dinheiro e bloqueio de diferença para o Gestor',async()=>{
+ const requests=vi.spyOn(globalThis,'fetch').mockImplementation(async(input,_init)=>{
+   const path=String(input)
+   if(path.endsWith('/cash/sessions'))return json([{id:'session-a',registerId:'register-a',locationId:'bar-a',openedBy:actor.id,state:'Open',opening:20,expected:50,createdAtUtc,terminal:'Atendimento'}])
+   if(path.endsWith('/cash/current'))return json({id:'session-a',responsible:actor.name})
+   if(path.endsWith('/cash/locations'))return json([{id:'bar-a',name:'Bar'}])
+   if(path.endsWith('/cash/sessions/session-a/details'))return json({terminalReceipts:[{terminalType:'Credit',amount:120,refunded:20}]})
+   throw new Error(path)
+ })
+ mount('/atendimento/caixa');await screen.findByRole('heading',{name:'Caixa aberto'});
+ expect(screen.getByText('Responsável: Atendente')).toBeVisible();
+ expect(screen.getByText('Dinheiro inicial')).toBeVisible();expect(screen.getByText('Dinheiro esperado agora')).toBeVisible();
+ fireEvent.click(screen.getByRole('button',{name:'Fechar caixa'}));
+ fireEvent.change(screen.getByLabelText('Dinheiro contado no caixa (R$)'),{target:{value:'40'}});
+ expect(await screen.findByRole('alert')).toHaveTextContent('Peça ao Gestor');
+ expect(screen.getByRole('alert')).toHaveTextContent('Seu caixa continua aberto');
+ expect(screen.getByRole('button',{name:'Confirmar fechamento'})).toBeDisabled();
+ expect(screen.getByText('Comandas abertas atravessam turnos. Pagamentos pendentes precisam ser conferidos antes do fechamento.')).toBeVisible();
+ expect(requests.mock.calls.every(([,init])=>!init||init.method!=='POST')).toBe(true)
 })

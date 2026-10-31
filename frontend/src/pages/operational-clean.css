@@ -1,0 +1,44 @@
+/* Operational pages in this review; other modules keep their existing layout. */
+.operational-clean .page-heading { margin-bottom:24px; }
+.operational-clean .page-heading h1 { font-size:32px; line-height:1.2; }
+.operational-clean .page-heading p { margin-bottom:0; }
+.operational-clean :is(input:not([type=checkbox]):not([type=radio]),select,textarea,button:not(.week-item),.primary-link,.secondary-link,.primary-button,.form-actions a) { min-height:48px; }
+.operational-clean :is(a,button,input,select,textarea,summary):focus-visible { outline:3px solid var(--focus); outline-offset:3px; }
+.operational-clean .operation-card { border-radius:12px; box-shadow:none; }
+.operational-clean .arena-form-group { margin-bottom:20px; }
+.operational-clean .arena-form-group legend { font-size:16px; }
+.operational-clean .arena-extra-fields > summary,.operational-clean .management-disclosure > summary { min-height:48px; align-content:center; }
+.operational-clean .agenda-controls .operation-field { min-width:160px; }
+.operational-clean .agenda-options :is(a,summary) { min-height:48px; }
+.operational-clean .availability-legend { gap:8px 14px; }
+.operational-clean .agenda-availability { padding:16px; background:transparent; border:0; border-bottom:1px solid var(--line); border-radius:0; }
+.operational-clean .availability-intervals > div { border-radius:10px; }
+.operational-clean .agenda-availability-heading p { font-size:13px; }
+.operational-clean .arena-slot { border-radius:10px; box-shadow:none; }
+.operational-clean .agenda-day-free { margin-top:16px; }
+.operational-clean .arena-recurring-preview ol { display:flex; flex-wrap:wrap; list-style:none; gap:8px; padding:0; }
+.operational-clean .arena-recurring-preview li { padding:6px 10px; background:var(--sand); border-radius:6px; font-size:14px; }
+@media(max-width:700px) {
+  .app-shell .agenda-page.operational-clean .page-heading h1,.operational-clean .page-heading h1 { font-size:28px; }
+  .app-shell .agenda-page.operational-clean .page-heading .primary-link { min-height:48px; }
+  .operational-clean .date-navigation button { min-width:48px; }
+  .operational-clean .operation-field { min-width:0; }
+  .operational-clean :is(input,select,textarea) { max-width:100%; font-size:16px; }
+  .operational-clean .agenda-period { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .operational-clean .arena-section-heading { align-items:start; }
+  .operational-clean .agenda-availability { padding:0 0 16px; }
+  .operational-clean .agenda-filter-state a { min-height:48px; }
+}
+
+.portal-management.operational-clean > header h1 { font-size:32px; line-height:1.2; }
+.portal-management.operational-clean .portal-card { border-radius:12px; }
+.portal-management.operational-clean .portal-card summary { min-height:48px; }
+@media(max-width:700px) { .portal-management.operational-clean > header h1 { font-size:28px; } .portal-management.operational-clean .portal-two { grid-template-columns:minmax(0,1fr); } }
+
+.operational-clean .page-heading { border:0; padding-bottom:0; }
+.agenda-page.operational-clean .page-heading { margin-bottom:16px; }
+.operational-clean .agenda-help-title { margin:16px 0 0; font-size:14px; }
+
+.app-shell .arena-page.operational-clean:not(.dashboard) .page-heading { padding:0; border:0; margin-bottom:16px; }
+.app-shell .arena-page.operational-clean:not(.dashboard) .page-heading h1 { font-size:32px; margin:0; }
+@media(max-width:700px) { .app-shell .arena-page.operational-clean:not(.dashboard) .page-heading h1 { font-size:28px; } }

@@ -9,6 +9,7 @@ import { Empty, Header, Icon, ItemStatus } from './components'
 import { dateTime, postBar, useIntent, type PageResult, type Tab, type TabItem } from './api'
 import { OrderWaiting, useAttentionClock } from './TabAttention'
 import './orders.css'
+import './service-clean.css'
 
 type OrderAction = 'accept' | 'fulfill' | 'reject'
 type Progress = { busy: boolean; error?: string; retry?: { action: OrderAction; reason: string } }
@@ -66,7 +67,7 @@ export function OrdersPage() {
     }
   }
   const groups = (data?.items ?? []).map(tab => ({ tab, items: tab.items.filter(item => ['Requested', 'Accepted'].includes(item.state) && (!state || item.state === state)) })).filter(group => group.items.length)
-  return <BarFrame className="lb-orders-page"><Header title="Pedidos" description="Aceite os pedidos e confirme a entrega em cada item." />
+  return <BarFrame className="lb-orders-page"><Header title="Pedidos" />
     <div className="lb-orders-filters"><div className="ux-actions" role="group" aria-label="Situação dos pedidos">{views.map(([value, label]) => <button key={value} className={`ux-button ${state === value ? 'primary' : 'secondary'}`} aria-pressed={state === value} onClick={() => filters({ situacao: value, pagina: '1' })}>{label}</button>)}</div>
     <label className="ux-search"><Icon name="search" /><input type="search" aria-label="Buscar pedidos" placeholder="Comanda, nome ou produto" maxLength={80} value={search} onChange={event => filters({ busca: event.target.value, pagina: '1' }, true)} /></label></div>
     <p className="ux-note">Mais antigos primeiro. A busca encontra comandas com o produto informado.</p>

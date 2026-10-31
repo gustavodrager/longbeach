@@ -1,3 +1,4 @@
+import './operational-clean.css'
 import { CustomerPicker } from '../features/customers/CustomerPicker'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -50,20 +51,20 @@ export function RecurringReservationsPage() {
   }
 
   const disabled = busy || uncertain
-  return <main className="operation-page arena-page">
+  return <main className="operation-page arena-page operational-clean">
     <Breadcrumb to={filters.href('/agenda')} label="Agenda e recepção" />
-    <Heading title="Reservas semanais" description="Reserve o mesmo horário para um grupo, uma vez por semana. Cada ocorrência terá sua própria ficha, com acesso ao registro de cobrança." />
+    <Heading eyebrow="" title="Reservas semanais" />
     <Feedback />
     {error && <p className="arena-message arena-error" role="alert">{error}</p>}
     <form className="operation-card operation-form" onSubmit={submit}>
       <fieldset className="arena-input-lock" disabled={disabled}>
-        <Group title="1. Grupo e período">
+        <Group title="Grupo e período">
           <Field label="Nome do grupo de reservas" required value={form.groupTitle} onChange={groupTitle => setForm({ ...form, groupTitle })} />
           {data.courts.length !== 1 && <Field label="Quadra" required value={form.courtId} onChange={courtId => setForm({ ...form, courtId })} options={[{ value: '', label: 'Escolha a quadra' }, ...data.courts.filter(item => item.status === 'Disponível').map(item => ({ value: item.id, label: item.name }))]} />}
           <Field label="Primeira reserva" required type="date" value={form.startDate} onChange={startDate => setForm({ ...form, startDate })} />
           <Field label="Número de semanas" required type="number" min={1} max={12} step="1" value={form.weeks} onChange={weeks => setForm({ ...form, weeks: Number(weeks) })} />
         </Group>
-        <Group title="2. Horário semanal">
+        <Group title="Horário semanal">
           <Field label="Começa às" required type="time" value={form.startTime} onChange={startTime => setForm({ ...form, startTime })} />
           <Field label="Termina às" required type="end-time" placeholder="HH:mm ou 24:00" value={form.endTime} onChange={endTime => setForm({ ...form, endTime })} />
         </Group>
@@ -74,8 +75,8 @@ export function RecurringReservationsPage() {
           <Notes value={form.notes} onChange={notes => setForm({ ...form, notes })} />
         </div></details>
       </fieldset>
-      {dates.length > 0 && <section className="arena-recurring-preview" aria-label="Conferir ocorrências"><h2>{dates.length} {dates.length === 1 ? 'reserva' : 'reservas'} · {form.startTime}–{form.endTime}</h2><p>De {displayDate(dates[0])} a {displayDate(dates.at(-1))}, sempre no mesmo dia da semana.</p><ol>{dates.map(date => <li key={date}>{displayDate(date)}</li>)}</ol></section>}
-      <p className="arena-hint">Todos os horários serão conferidos, incluindo aulas e bloqueios. Se um horário estiver ocupado, o grupo inteiro será recusado. O valor combinado não comprova pagamento.</p>
+      {dates.length > 0 && <section className="arena-recurring-preview" aria-label="Conferir ocorrências"><h2>{dates.length} {dates.length === 1 ? 'reserva' : 'reservas'} · {form.startTime}–{form.endTime}</h2><p>De {displayDate(dates[0])} a {displayDate(dates.at(-1))} · semanal</p><ol>{dates.map(date => <li key={date}>{displayDate(date)}</li>)}</ol></section>}
+      <p className="arena-hint">Se houver conflito com reserva, aula ou bloqueio, nenhuma ocorrência será criada. O valor combinado não comprova pagamento.</p>
       <SaveRow label={uncertain ? 'Repetir confirmação do grupo' : 'Criar reservas semanais'} busy={busy} disabled={!data.courts.length || data.persistenceStatus === 'connecting'} onCancel={uncertain ? undefined : () => navigate(filters.href('/agenda'))} />
       {uncertain && <p className="arena-hint" role="status">Os dados deste envio estão preservados nesta tela. A repetição usa o mesmo identificador e não cria ocorrências duplicadas.</p>}
     </form>
@@ -91,6 +92,6 @@ export function ReservationGroupDetails({ reservation }: { reservation: Reservat
   return <section className="operation-card"><h2>Grupo semanal · {reservation.groupTitle}</h2>
     <p className="arena-hint">Ocorrência {reservation.occurrenceIndex} de {rows.length}. Alterar ou cancelar esta reserva afeta somente esta ocorrência.</p>
     <div className="arena-slots">{rows.map(item => <Link className="arena-slot" key={item.id} to={filters.href(`/agenda/${item.id}`)} aria-label={`${displayDate(item.date)} · ${item.startTime}–${item.endTime} · ocorrência ${item.occurrenceIndex} · ${item.status}`} aria-current={item.id === reservation.id ? 'page' : undefined}><strong>{displayDate(item.date)}</strong><span>{item.startTime}–{item.endTime} · ocorrência {item.occurrenceIndex}</span><span>{item.status}</span></Link>)}</div>
-    <div className="arena-actions"><Link className="secondary-link" to={groupLink}>Ver todas as ocorrências na agenda →</Link></div>
+    <div className="arena-actions"><Link className="secondary-link" to={groupLink}>Ver ocorrências na agenda</Link></div>
   </section>
 }
