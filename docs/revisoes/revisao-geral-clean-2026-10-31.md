@@ -1,6 +1,6 @@
 # Revisão geral do padrão visual — 31/10/2026
 
-Entrega preparada para revisão, sem publicação. Complementa os lotes anteriores com os pontos que ainda apresentavam introduções genéricas, títulos maiores ou controles diferentes do padrão.
+A interface da fonte `4b4a80c7f64b6fec729add05c5a05537acd09bb2` foi publicada com autorização específica em 31/10/2026 às 17:36:49 de Brasília. Complementa os lotes anteriores com os pontos que ainda apresentavam introduções genéricas, títulos maiores ou controles diferentes do padrão. O [registro da publicação](../operacao/publicacao-revisao-geral-clean-2026-10-31.md) reúne os comprovantes e os limites da conferência; API, banco, perfis e Google foram preservados.
 
 ## Cobertura e resultado
 
@@ -32,4 +32,4 @@ Esta mudança não altera regras, cálculos, rotas de acesso, permissões, contr
 
 As capturas comprovam apresentação local, não os fluxos autenticados de produção. As opções de login são fictícias, com Google desabilitado na prévia. O servidor local recusa gravações de negócio e não acessa API ou banco de produção. Não foram executados pagamentos, estornos, importações, concessões de acesso ou ajustes de estoque. A aba temporária foi fechada, o tamanho padrão do navegador restaurado e o servidor encerrado.
 
-Inventários, capturas, respostas fictícias e logs ficam em `LongBeach/evidencias/revisao-geral-clean-2026-10-31/`. `inventario-rotas.json` identifica a inspeção de código; `conferencia-visual.json` identifica as capturas e seus limites. A publicação desta versão depende de autorização específica.
+Inventários, capturas, respostas fictícias e logs ficam em `LongBeach/evidencias/revisao-geral-clean-2026-10-31/`. `inventario-rotas.json` identifica a inspeção de código; `conferencia-visual.json` identifica as capturas e seus limites. Esta publicação autorizada está registrada nos comprovantes acima; futuras versões exigem autorização específica.
