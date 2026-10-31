@@ -12,9 +12,10 @@ import type { RentalGroup, RentalMember, RentalPreview, RentalBar } from '../fea
 import { weekDays, fifthPolicies } from '../features/arena/rentals'
 import { Breadcrumb, DetailList, Empty, Feedback, Field, Group, Heading, Notes, Pagination, SaveRow, Search, Status, currency, displayDate, today, useFilters, useSave } from './arenaUi'
 import { RentalBarPanel } from './RentalBarPanel'
-import { ContextLink, Disclosure, EditorPanel, SectionTabs, useEditorQuery, useSection } from '../components/managementUi'
+import { ContextLink, Disclosure, EditorPanel, SectionTabs, safeReturn, useEditorQuery, useSection } from '../components/managementUi'
 import { MeetingInline, MonthlyCharge, AttendanceRow, MemberInline, InlineFormGuard, RentalEditingScope, useRentalEditing, QuickGroupEditor } from './RentalInlineEditors'
 import './rental-groups.css'
+import { RentalViewNavigation } from './AgendaViewNavigation'
 
 const normalizeSearch = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR')
 function RentalStats({ items }: { items: [string, string][] }) { return <div className="rental-stats">{items.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</div> }
@@ -55,6 +56,7 @@ function RentalGroupsContent() {
   const filtered = Boolean(filters.query || filters.status || day || pending)
   return <main className="operation-page arena-page rental-page rental-directory">
     <Heading eyebrow="" title="Mensalistas" action={data.canWrite('rentalGroups') && <ContextLink state={{returnLabel:"Mensalistas"}} className="primary-link" to="/mensalistas/novo">+ Cadastrar grupo</ContextLink>} />
+    <RentalViewNavigation active="records" disabled={Boolean(editingId)} />
     <Feedback />
     <div className="rental-directory-summary" aria-label="Resumo dos grupos">
       <span><strong>{loaded ? activeCount : '…'}</strong> {activeCount === 1 ? 'grupo ativo' : 'grupos ativos'} no mês</span>
@@ -112,7 +114,7 @@ export function RentalGroupPage() { const {groupId} = useParams(); return <Renta
 function RentalGroupContent() {
   const scope = useRentalEditing()
   const { groupId } = useParams(); const data = useOperations(); const navigate = useNavigate(); const location = useLocation();
-  const returnTo = typeof location.state?.returnTo === 'string' && /^\/mensalistas(?:\?|$)/.test(location.state.returnTo) ? location.state.returnTo : '/mensalistas'; const [editing, setEditing] = useEditorQuery(false, groupId)
+  const returnTo = safeReturn(location.state?.returnTo) && /^\/mensalistas(?:\/agenda)?(?:\?[^#\u0000-\u0020\u007f]*)?$/.test(location.state.returnTo) ? location.state.returnTo : '/mensalistas'; const [editing, setEditing] = useEditorQuery(false, groupId)
   const group = data.rentalGroups.find(g => g.id === groupId)
   if (groupId === 'novo') return <main className="operation-page arena-page rental-page operational-clean"><Breadcrumb to="/mensalistas" label="Mensalistas" /><Heading eyebrow="" title="Novo grupo mensalista" />{data.canWrite('rentalGroups') ? <EditorPanel title="Novo grupo mensalista" busy={data.saving} onClose={()=>navigate(returnTo, {state:location.state?.returnState})}><GroupEditor initial={blankGroup(data.courts[0]?.id ?? '')} cancel={() => navigate(returnTo, {state:location.state?.returnState})} /></EditorPanel> : <p>Apenas a gestão pode cadastrar grupos.</p>}</main>
   if (!group) return <main className="operation-page arena-page rental-page operational-clean"><Breadcrumb to="/mensalistas" label="Mensalistas" /><Feedback /><p>{data.dataUpdatedAt ? 'Grupo não encontrado.' : 'Carregando grupo…'}</p></main>

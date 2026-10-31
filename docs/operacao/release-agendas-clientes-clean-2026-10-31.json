@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "scope": "frontend-only",
+  "sourceCommit": "ccdd341c4b77bab5901d59ba473e7bda66733b2f",
+  "frontendTree": "db181b41a436cc330c81d8ed4ace4b9c9b2e8f25",
+  "backendTreePreserved": "17c864fbe20fa56f2b5d3ffb6605ea9a6128f312",
+  "branch": "codex/agendas-clientes-clean-20261031",
+  "pullRequest": "https://github.com/gustavodrager/longbeach/pull/59",
+  "workflow": {
+    "runId": 41246539133,
+    "attempt": 1,
+    "url": "https://github.com/gustavodrager/longbeach/actions/runs/41246539133",
+    "allFourJobsPassed": true,
+    "productionOwnerApprovalRecorded": true
+  },
+  "hosting": {
+    "version": "sites/parsero-prod-20261022/versions/ca1594cd838ac562",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793485481236000",
+    "published_at": "2026-10-31T22:24:41.236Z",
+    "previous_version": "sites/parsero-prod-20261022/versions/9007762806325989",
+    "previous_release": "sites/parsero-prod-20261022/channels/live/releases/1793479009923000",
+    "configuration_sha256": "6785ca752aaa3cb069c94d71885f104ad3a1eee764747906daeea355e20e4402",
+    "application_files": 100,
+    "active_files": 102,
+    "tree_sha256": "26e97ba212352cab3bdc8fa0ea4f05bd030413eca2c83eccf439287ae9c55ba3",
+    "byte_count": 3129988,
+    "provider_files": {
+      "/__/firebase/init.js": "e7bd33241cf11ab231f58fd0beb480b5462cfc7a69db6d508bacac5700f67345",
+      "/__/firebase/init.json": "0e92e3bcff11f2280adbb22fd5c515dfc4db6275fffe6544dd079a9d36c82ea8"
+    },
+    "full_active_map_sha256": "a901668892e3c7f993d54adbbab811cf96f7b2781ba332fdc1c85dc9ab3dcb88"
+  },
+  "officialArtifact": {
+    "index_digest": "sha256:c577ef7f913d3f58e66c2a8a0273e70ff461eef1fc2a4430ba383880399bcce2",
+    "runtime_manifest_digest": "sha256:8bcd53b181d0c33760e255ae3afc76fdcc2980e93976a558ec5fc0c118938236",
+    "config_digest": "sha256:852e9b6ae08a52f3ff8a9005fbb6af109d13d9485471957250fef3a99384ed78",
+    "provenance_digest": "sha256:5d9bf3251586ace5606059902252a4d083e567e44a55fa8335c751fe6f138125",
+    "sbom_digest": "sha256:a73a47a241a4aa9dc12f1b7c448de7daaf3e7d3dd86029575295fe3cb3c99aef"
+  },
+  "apiAndDatabase": {
+    "sourceCommit": "66fa521dc2b578fda7182d8d5af81b2f0cb00544",
+    "image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:084d31181f4bc9f184483c49583c053241b9e1f71283b6d4942b93e11168d255",
+    "configDigest": "sha256:b58dd582557be2181dff66d64164ef060a2c5dcd5842b46f1f2b02026a69f3f3",
+    "schemaCount": 30,
+    "latestMigration": "20261029210216_DigitalMenu",
+    "migrationsSha256": "31fcd56f6b4f82fab935f265e6e4d5ef6ddd12a07e113db9247702be9932003d",
+    "beforePrepublishAfterIdentitySha256": "021a5bc22b2f513dd205deb240d2c1aa71b3879bdbe79278649c7760bc99ec5f",
+    "configurationProfilesAndGooglePreserved": true,
+    "allThreeContainersAndStartTimesPreserved": true,
+    "mutationPerformed": false
+  },
+  "validation": {
+    "frontendTests": {
+      "passed": true,
+      "tests": 976,
+      "files": 89
+    },
+    "finalCalendarTests": {
+      "passed": true,
+      "tests": 33,
+      "files": 3
+    },
+    "frontendBuild": {
+      "passed": true,
+      "pwaEntries": 89,
+      "entry": "assets/index-BRFtTxvM.js"
+    },
+    "apiBuild": {
+      "passed": true,
+      "warnings": 0,
+      "errors": 0
+    },
+    "releaseToolTests": 91,
+    "publicGetRequests": 181,
+    "publicFailures": 0,
+    "filesVerifiedByHash": 100,
+    "spaRoutes": 65,
+    "staticAnalyzers": [
+      "logos",
+      "entrance",
+      "auth_screens",
+      "menus_and_homes",
+      "operation_screens",
+      "daily_courts",
+      "management_screens",
+      "general_clean_screens",
+      "agendas_and_customers_screens"
+    ],
+    "browserNewEntry": "assets/index-CD3qKXss.js",
+    "anonymousPrivatePagesRedirectToLogin": [
+      "/administracao/professores",
+      "/bar/caixa",
+      "/bar/cardapio",
+      "/clientes",
+      "/escola/agenda",
+      "/financeiro/despesas",
+      "/manutencao",
+      "/mensalistas/agenda",
+      "/minha-area/bar",
+      "/minha-area/perfil",
+      "/professor/turmas"
+    ],
+    "mobileViewport": {
+      "width": 390,
+      "scrollWidth": 390,
+      "horizontalOverflow": false
+    },
+    "authenticatedProductionFlowsTested": false,
+    "localPreviewUsedFictionalData": true,
+    "googleOriginConsoleErrorObservedInTestBrowser": true,
+    "googleRealLoginTested": false
+  },
+  "cleanup": {
+    "temporaryPolicyRemoved": 65065338,
+    "reviewersAndProtectionsPreserved": true,
+    "newInfrastructureResources": false,
+    "sshCredentialImportOrRenewal": false
+  },
+  "receiptSha256": {
+    "human-production-authorization.json": "6ed768153d782fff8f3ce26149f57f5bec84f35b58f2c07288df6e9c39502a82",
+    "production-reviewed-approvals.private.json": "142f18c07b6a4fd743e59b0b2d2249507aca7e6a8eb97bd23114fa53b9ec7be6",
+    "production-build-vars.json": "2f1f662d614a943c08e02ac1a21204db255496364a5c55da708a7c3ac5f171c1",
+    "review-ci-passed.private.json": "fe6b3fba57bc177c04ba793fa34e9920def4b36ea330a138f4cfef314aac0677",
+    "publisher-helpers-final-verified.private.json": "ef61489ccd28bbb43be014d7c9908cc5b9d271968245dd2cda18278e9a4b7f07",
+    "helpers-offline-final.private.json": "473a50c3de877aa30c8b5e4e994a32b6ed304c19388ddb06920cf02a756d5177",
+    "independent-publication-review.private.json": "2a5f51d185351b5185c76bb1717c91070c2e43169437545d24512b5f51ed01a4",
+    "registry-web-gate.private.json": "73f90603dfff71b6b0c133484651fdbd4a838cecf0f068248e45a04cf6cf8a20",
+    "registry-web-source-proof.private.json": "9a67172b2a60954909c6aafe1ad07d9f8b6cf047262b1c1322ae4291f2132211",
+    "registry-web-preparation-receipt.private.json": "7b325a03bcfa2981faee44449453e8f2fc165dec0623fbfb5c9a26f908908d57",
+    "web-official-receipt.private.json": "bf1d81583129bd12c9a710b0d51dd451b9dabe2a8a95bca734c25574b65a1bf5",
+    "api-before.private.json": "0a13990ed30ce9467483cda2735c71676c125bbfd1f0ce66c868a5efc3d13201",
+    "api-prepublish.private.json": "be066470d19124c6af561533e1e6da7311fb06a87a734b5a6be0b835d560ade8",
+    "api-after.private.json": "d449ff4386c2b638927bf08e9b8695824de76e000d04073637b617042eddc523",
+    "hosting-plan.private.json": "5bfd128519dbad9a1679d6d0ab7505a471cf7fa3e4ac2ae57ffc0b2f8ed454b1",
+    "hosting-capture.private.json": "245a2cf26a12502e7966961d703a3c1a82d1e05dfa8812a2e04802403fb6d6c6",
+    "hosting-publish.receipt.private.json": "577ec72a70cb7d2601a1f619d2c743a3801142156810c8407c3c17f6aa750b45",
+    "public-verification-final.private.json": "c14724856d46d0e6ff0d2c98669ab953d133d31502051bb4687df1f7e15d3970",
+    "production-policy-cleanup.receipt.private.json": "6618139f698fcec89d32cb1b39a0280376a15f31880b83ab2973d72a964f55e9",
+    "browser-before.private.json": "758e1975c90eed86d129d01778378aecb03fee215a6e8d949043ee55f663f6f9",
+    "browser-after.private.json": "5208dc3aec644324f0896847cb8a70b738f9ebe292ca9c3e3d36bd2a3446ec0c",
+    "browser-mobile.private.json": "7b731a60d0789183124f7d8e4bcedc026969e1160c9f8d508b93dde2ed1cbcf8",
+    "browser-private-guards.private.json": "da6077abbe0ffe7c98c6753c83dc0e2286eeb54e7742d5becd8d8ce74248b41d",
+    "browser-console.private.json": "513bc10fcf95d5c7ca059f91278879d8a366452d18061b933eee27f73b3d6222",
+    "completion.private.json": "ffea6ec46686cf943de20f340459807a5d0515d88ebbcb8569d3023f32979898",
+    "../validacao-final.json": "108a10cf8dcd20a77c3c89b8a5bf2c46ab36ab10fbaf044f95deb854e3230e8a"
+  },
+  "privateEvidenceDirectory": "LongBeach/evidencias/agendas-clientes-clean-2026-10-31/publicacao"
+}

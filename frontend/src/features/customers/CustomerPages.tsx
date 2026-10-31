@@ -21,23 +21,26 @@ export function CustomersPage() {
   const pageNumber = Number(filters.params.get('page') ?? 1)
   const page = Number.isInteger(pageNumber) && pageNumber > 0 ? pageNumber : 1
   const profile = profiles.find(value => value === filters.params.get('profile')) ?? ''
+  const secondaryFilterCount = [profile, filters.status, filters.params.get('incomplete')].filter(Boolean).length
   const query = useCustomers({ search: filters.query, profile, incomplete: filters.params.get('incomplete') ?? '', status: filters.status, page })
   if (!hasPermission(user, 'customers:read')) return <CustomerAccessDenied />
-  return <main className="operation-page arena-page registration-clean">
-    <Heading eyebrow="" title="Clientes" action={hasPermission(user, 'customers:write') && <ContextLink className="primary-link" state={{ returnLabel: 'Clientes' }} to={filters.href('/clientes/novo')}>+ Cadastrar cliente</ContextLink>} />
-    <div className="customer-directory-filters">
+  return <main className="operation-page arena-page registration-clean customer-page-clean">
+    <Heading eyebrow="" title="Clientes" action={hasPermission(user, 'customers:write') && <ContextLink className="primary-link" state={{ returnLabel: 'Clientes' }} to={filters.href('/clientes/novo')}>Novo cliente</ContextLink>} />
+    <div className="customer-directory-tools">
       <Field label="Buscar cliente" value={filters.query} onChange={value => filters.set('q', value)} placeholder="Nome ou telefone" />
-      <Field label="Vínculo" value={profile} onChange={value => filters.set('profile', value)} options={[{ value: '', label: 'Todos os clientes' }, ...profiles]} />
-      <Field label="Situação" value={filters.status} onChange={value => filters.set('status', value)} options={[{ value: '', label: 'Todas' }, 'Ativo', 'Inativo']} />
-      <Field label="Preenchimento" value={filters.params.get('incomplete') ?? ''} onChange={value => filters.set('incomplete', value)} options={[{ value: '', label: 'Todos' }, { value: 'true', label: 'Com telefone pendente' }, { value: 'false', label: 'Completos' }]} />
+      <Disclosure title="Filtros" count={secondaryFilterCount}><div className="customer-directory-filters">
+        <Field label="Vínculo" value={profile} onChange={value => filters.set('profile', value)} options={[{ value: '', label: 'Todos os clientes' }, ...profiles]} />
+        <Field label="Situação" value={filters.status} onChange={value => filters.set('status', value)} options={[{ value: '', label: 'Todas' }, 'Ativo', 'Inativo']} />
+        <Field label="Telefone" value={filters.params.get('incomplete') ?? ''} onChange={value => filters.set('incomplete', value)} options={[{ value: '', label: 'Todos' }, { value: 'true', label: 'Pendente' }, { value: 'false', label: 'Informado' }]} />
+      </div></Disclosure>
     </div>
     {query.isFetching && <p role="status">Consultando clientes…</p>}
     {query.isError && <p role="alert">Não foi possível consultar os clientes. <button type="button" className="text-button" onClick={() => void query.refetch()}>Tentar novamente</button></p>}
     {query.data && !query.isError && <>
       <p role="status">{query.data.total} {query.data.total === 1 ? 'cliente encontrado' : 'clientes encontrados'}</p>
       <div className="customer-directory-list">{query.data.items.map(customer => <ContextLink key={customer.id} className="customer-directory-row" to={filters.href(`/clientes/${customer.id}`)} state={{ returnLabel: 'Clientes' }}>
-        <div><strong>{customer.name}</strong><small>{customer.phone || 'Telefone pendente'}</small><div className="customer-tags">{customer.profiles.map(item => <span className="status-pill" key={item}>{item}</span>)}</div></div>
-        <Status warning={customer.incomplete}>{customer.incomplete ? 'Cadastro incompleto' : customer.status}</Status><span>Ver ficha →</span>
+        <div><strong>{customer.name}</strong><small className={customer.incomplete ? 'customer-contact-pending' : undefined}>{customer.phone || 'Telefone pendente'}{customer.incomplete && customer.phone && ' · Telefone pendente'}</small><div className="customer-tags">{customer.profiles.map(item => <span className="status-pill" key={item}>{item}</span>)}</div></div>
+        <Status warning={customer.incomplete}>{customer.status}</Status>
       </ContextLink>)}</div>
       {!query.data.items.length && <p>Nenhum cliente nesta seleção. Confira os filtros antes de cadastrar.</p>}
       {query.data.total > query.data.pageSize && <nav className="arena-pagination" aria-label="Páginas dos clientes"><button type="button" className="secondary-link" disabled={page <= 1 || query.isFetching} onClick={() => filters.set('page', String(page - 1))}>Anterior</button><span>{query.data.page} de {Math.max(1, Math.ceil(query.data.total / query.data.pageSize))}</span><button type="button" className="secondary-link" disabled={page * query.data.pageSize >= query.data.total || query.isFetching} onClick={() => filters.set('page', String(page + 1))}>Próxima</button></nav>}
@@ -68,19 +71,20 @@ function CustomerDetails({ id }: { id: string }) {
   const [section, setSection] = useState('cadastro')
   if (!hasPermission(user, 'customers:read') || isNew && !editable) return <CustomerAccessDenied />
   const customer = query.data
-  return <main className="operation-page arena-page registration-clean">
+  const showForm = editing && editable && Boolean(isNew || customer) && !customer?.mergedIntoId
+  return <main className="operation-page arena-page registration-clean customer-page-clean">
     <Breadcrumb to={filters.href('/clientes')} label="Clientes" />
-    <Heading eyebrow="" title={isNew ? 'Cadastrar cliente' : customer?.name ?? 'Ficha do cliente'} action={!isNew && customer && !customer.mergedIntoId && !editing && editable && <button type="button" className="secondary-link" onClick={open}>Editar cadastro</button>} />
+    <Heading eyebrow="" title={isNew ? 'Novo cliente' : customer?.name ?? 'Ficha do cliente'} action={!isNew && customer && !customer.mergedIntoId && !editing && editable && <button type="button" className="secondary-link" onClick={open}>Editar cadastro</button>} />
     {!isNew && query.isFetching && <p role="status">Consultando cadastro…</p>}
     {!isNew && query.isError && <p role="alert">Não foi possível abrir esta ficha. <button className="text-button" type="button" onClick={() => void query.refetch()}>Tentar novamente</button></p>}
     {customer?.mergedIntoId && <p role="status">Este cadastro foi unificado após revisão. <Link to={filters.href(`/clientes/${customer.mergedIntoId}`)}>Abrir cadastro mantido</Link></p>}
-    {editing && editable && (isNew || customer) && !customer?.mergedIntoId && <EditorPanel className="registration-clean-editor" title={isNew ? 'Cadastrar cliente' : 'Editar cliente'} busy={busy} onClose={close}>
+    {showForm && <EditorPanel className="registration-clean-editor" title={isNew ? 'Novo cliente' : 'Editar cliente'} busy={busy} onClose={close}>
       <CustomerForm customer={customer} busyChanged={setBusy} refresh={async () => { const result = await query.refetch(); return result.isError ? undefined : result.data }} cancel={close} saved={saved => { if (isNew) navigate(filters.href(`/clientes/${saved.id}`)); else close() }} />
     </EditorPanel>}
     {customer && !query.isError && <>
-      {customer.incomplete && <p className="arena-message" role="status">Cadastro antigo com telefone pendente. Os vínculos existentes continuam válidos.</p>}
+      {customer.incomplete && !showForm && <p className="arena-message" role="status">Cadastro antigo com telefone pendente. Os vínculos existentes continuam válidos.</p>}
       <SectionTabs items={[{ value: 'cadastro', label: 'Cadastro' }, { value: 'vinculos', label: 'Vínculos e acesso' }]} value={section} onChange={setSection} />
-      {section === 'cadastro' ? <section className="operation-card"><h2>Dados do cliente</h2><DetailList items={[["Nome", customer.name], ["Telefone", customer.phone || 'Pendente de preenchimento'], ["E-mail de contato", customer.email], ["Situação", customer.status], ["Origem do cadastro", originLabel(customer.origin)]]} /><Disclosure title="Sobre o cadastro"><p>A origem não cria vínculos de aluno, mensalista ou Bar. O e-mail de contato não altera a entrada com Google.</p></Disclosure></section> : <section className="operation-card"><h2>Vínculos e acesso</h2><p>{customer.profiles.length ? customer.profiles.join(' · ') : 'Nenhum vínculo de aluno, mensalista ou Bar informado.'}</p><p>{customer.userId ? 'Conta de acesso vinculada.' : 'Sem conta de acesso vinculada.'} Selecionar este cadastro não libera agenda ou pagamentos.</p><p className="arena-hint">O responsável financeiro pode ser outra pessoa. Unificar cadastros não altera contas, valores ou permissões.</p><CustomerLinks customer={customer} refresh={() => { void query.refetch() }} /></section>}
+      {section === 'cadastro' ? <section className="operation-card"><h2>Contato e situação</h2><DetailList items={[["Telefone", customer.phone || 'Pendente de preenchimento'], ["E-mail de contato", customer.email], ["Situação", customer.status], ["Origem do cadastro", originLabel(customer.origin)]]} /><Disclosure title="Sobre o cadastro"><p>A origem não cria vínculos de aluno, mensalista ou Bar. O e-mail de contato não altera a entrada com Google.</p></Disclosure></section> : <section className="operation-card"><h2>Vínculos e acesso</h2><p>{customer.profiles.length ? customer.profiles.join(' · ') : 'Nenhum vínculo de aluno, mensalista ou Bar informado.'}</p><p>{customer.userId ? 'Conta de acesso vinculada.' : 'Sem conta de acesso vinculada.'} Selecionar este cadastro não libera agenda ou pagamentos.</p><p className="arena-hint">O responsável financeiro pode ser outra pessoa. Unificar cadastros não altera contas, valores ou permissões.</p><CustomerLinks customer={customer} refresh={() => { void query.refetch() }} /></section>}
     </>}
     {customer && !editing && !query.isError && <CustomerReconciliation customer={customer} />}
   </main>
@@ -107,7 +111,7 @@ function CustomerForm({ customer, busyChanged, cancel, saved, refresh }: Custome
     event.preventDefault()
     if (invalidPending) return
     const preserveLegacyPhone = Boolean(customer?.incomplete && phone === customer.phone)
-    if (!name.trim() || (!preserveLegacyPhone && !validCustomerPhone(phone))) { setValidation('Informe o nome e um telefone válido com DDD. O contato de um cadastro antigo pode continuar pendente sem ser alterado.'); return }
+    if (!name.trim() || (!preserveLegacyPhone && !validCustomerPhone(phone))) { setValidation('Informe o nome e um telefone válido com DDD.'); return }
     setValidation('')
     const fields = { name: name.trim(), phone: preserveLegacyPhone ? phone : customerPhone(phone), email: email.trim() || null }
     const fingerprint = JSON.stringify(fields)
@@ -127,6 +131,7 @@ function CustomerForm({ customer, busyChanged, cancel, saved, refresh }: Custome
     <fieldset disabled={command.busy}>
       <Group title="Identificação"><label className="operation-field">Nome<input maxLength={240} disabled={Boolean(pending) || invalidPending} required value={name} onChange={event => setName(event.target.value)} /></label><Field label="Telefone com DDD" type="tel" disabled={Boolean(pending) || invalidPending} required={!customer || Boolean(customer.phone)} value={phone} onChange={setPhone} /><Field label="E-mail de contato (opcional)" type="email" disabled={Boolean(pending) || invalidPending} value={email} onChange={setEmail} />{customer && <Field label="Situação do cliente" value={status} onChange={value => setStatus(value as Customer['status'])} options={['Ativo', 'Inativo']} />}</Group>
       {pending && <p role="status">Há uma criação pendente de confirmação. Os dados e a mesma operação serão recuperados antes de iniciar outro cadastro.</p>}{invalidPending && <p role="alert">A confirmação anterior não pôde ser lida. Peça à gestão para conferir antes de criar outra pessoa.</p>}
+      {customer?.incomplete && <p className="arena-hint" role="status">Cadastro antigo com telefone pendente. Você pode manter o contato atual; os vínculos existentes continuam válidos.</p>}
       <p className="arena-hint">O cadastro não cria login, matrícula, reserva ou cobrança.</p>
       {validation && <p role="alert">{validation}</p>}{command.error && <p role="alert">{command.error}</p>}
       {command.conflict && customer && <section className="customer-merge-review"><h3>O cadastro mudou em outro atendimento</h3><p>Seus campos foram preservados. Confira a versão atual antes de continuar.</p><button className="secondary-link" type="button" onClick={async () => { const value = await refresh(); if (value) setLatest(value) }}>Comparar cadastro atual</button>{latest && <><DetailList items={[["Nome atual", latest.name], ["Telefone atual", latest.phone], ["E-mail atual", latest.email], ["Situação atual", latest.status]]} /><button className="secondary-link" type="button" onClick={() => { setName(latest.name); setPhone(latest.phone); setEmail(latest.email ?? ''); setStatus(latest.status); setVersion(latest.version); setLatest(undefined); cancel() }}>Fechar edição e usar cadastro atualizado</button></>}</section>}
