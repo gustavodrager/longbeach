@@ -134,8 +134,50 @@ public sealed class ClientPortalPostgresTests
         var court=await db.OperationalRecords.SingleAsync(r=>r.Id==seed.Court);var p=JsonNode.Parse(court.Payload)!.AsObject();p["scheduleConfirmed"]=false;court.Update(court.Name,p.ToJsonString());await db.SaveChangesAsync();
         var pending=await service.Availability(new(2026,10,7),seed.Court,default);Assert.Equal("Pending",pending.Status);Assert.Empty(pending.FreeIntervals);
         p["scheduleConfirmed"]=true;p["operatingDays"]=new JsonArray(1);court.Update(court.Name,p.ToJsonString());await db.SaveChangesAsync();
+        var daily=await service.Availability(new(2026,10,7),seed.Court,default);Assert.Equal("Available",daily.Status);Assert.Equal(slots.FreeIntervals,daily.FreeIntervals);
+        p["status"]="Manutenção";court.Update(court.Name,p.ToJsonString());await db.SaveChangesAsync();
         var closed=await service.Availability(new(2026,10,7),seed.Court,default);Assert.Equal("Closed",closed.Status);Assert.Empty(closed.FreeIntervals);
         await Assert.ThrowsAsync<BarRuleException>(()=>service.Availability(new(2026,10,5),seed.Court,default));
+    }
+    [PostgresFact]
+    public async Task Legacy_restricted_and_empty_days_allow_all_seven_days_without_bypassing_live_capacity()
+    {
+        await using var db = Database();
+        foreach (var empty in new[] { false, true })
+        {
+            var seed = await Seed(db); var service = Service(db);
+            var court = await db.OperationalRecords.SingleAsync(r => r.Id == seed.Court);
+            var payload = JsonNode.Parse(court.Payload)!.AsObject();
+            payload["operatingDays"] = empty ? new JsonArray() : new JsonArray(1, 2, 3, 4, 5);
+            court.Update(court.Name, payload.ToJsonString()); await db.SaveChangesAsync();
+            var sunday = new DateOnly(2026, 10, 11);
+            foreach (var weekday in Enumerable.Range(0, 7))
+            {
+                var day = sunday.AddDays(weekday); var date = day.ToString("yyyy-MM-dd");
+                var availability = await service.Availability(day, seed.Court, default);
+                Assert.Equal("Available", availability.Status);
+                Assert.Equal("08:00", availability.FreeIntervals[0].StartTime);
+                Assert.Equal("23:00", availability.FreeIntervals[^1].EndTime);
+                var request = await service.Request(seed.User, Input(seed.Court, date, "10:00", "11:00"), default);
+                var confirmed = await service.Decide(request.Id, Confirm(request), default);
+                Assert.Equal("Confirmed", confirmed.Status);
+                Assert.Contains(await service.Agenda(seed.User, default), a => a.SourceId == confirmed.ReservationId && a.Date == date);
+                var duplicate = await service.Request(seed.Other, Input(seed.Court, date, "10:00", "11:00"), default);
+                await Assert.ThrowsAsync<BarRuleException>(() => service.Decide(duplicate.Id, Confirm(duplicate), default));
+                var after = await service.Availability(day, seed.Court, default);
+                Assert.DoesNotContain(after.FreeIntervals, interval => string.CompareOrdinal(interval.StartTime, "10:00") <= 0 && string.CompareOrdinal(interval.EndTime, "11:00") >= 0);
+            }
+            var pendingRequest = await service.Request(seed.User, Input(seed.Court, "2026-10-11", "20:00", "21:00"), default);
+            payload["scheduleConfirmed"] = false; court.Update(court.Name, payload.ToJsonString()); await db.SaveChangesAsync();
+            Assert.Equal("Pending", (await service.Availability(sunday, seed.Court, default)).Status);
+            await Assert.ThrowsAsync<BarRuleException>(() => service.Decide(pendingRequest.Id, Confirm(pendingRequest), default));
+            payload["scheduleConfirmed"] = true; payload["status"] = "Manutenção";
+            court.Update(court.Name, payload.ToJsonString()); await db.SaveChangesAsync();
+            Assert.Equal("Closed", (await service.Availability(sunday, seed.Court, default)).Status);
+            await Assert.ThrowsAsync<BarRuleException>(() => service.Decide(pendingRequest.Id, Confirm(pendingRequest), default));
+            var saved = JsonDocument.Parse((await db.OperationalRecords.SingleAsync(r => r.Id == seed.Court)).Payload).RootElement;
+            Assert.Equal(empty ? 0 : 5, saved.GetProperty("operatingDays").GetArrayLength());
+        }
     }
     [PostgresFact]
     public async Task Withdrawing_is_private_replay_safe_and_does_not_cancel_a_confirmed_reservation()

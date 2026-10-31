@@ -239,21 +239,23 @@ it('remover ou renomear uma tarefa não transfere identidade nem conclusão para
 })
 
 
-it('salva dias úteis até meia-noite mantendo a conferência da agenda pendente', async () => {
+it('salva funcionamento todos os dias até meia-noite mantendo a conferência da agenda pendente', async () => {
   start('/quadras')
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', {name:'Configurar funcionamento'}))
   await user.type(screen.getByLabelText('Nome da quadra'), 'Quadra principal')
   fireEvent.change(screen.getByLabelText('Abre às'), {target:{value:'06:00'}})
   fireEvent.change(screen.getByLabelText('Fecha às'), {target:{value:'24:00'}})
-  await user.click(screen.getByLabelText('Sábado'))
-  await user.click(screen.getByLabelText('Domingo'))
+  expect(screen.getByText('Todos os dias')).toBeInTheDocument()
+  expect(screen.queryByLabelText('Sábado')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Domingo')).not.toBeInTheDocument()
+  expect(screen.getAllByRole('checkbox')).toHaveLength(1)
   await user.click(screen.getByRole('button', {name:'Salvar quadra'}))
   expect(await screen.findByText('Funcionamento da arena')).toBeInTheDocument()
   expect(screen.queryByRole('button', {name:'+ Adicionar quadra'})).not.toBeInTheDocument()
   const saved = JSON.parse(localStorage.getItem('longbeach-os-demo-v1')??'{}').courts
   expect(saved).toHaveLength(1)
-  expect(saved[0]).toMatchObject({name:'Quadra principal',openingTime:'06:00',closingTime:'24:00',operatingDays:[1,2,3,4,5],scheduleConfirmed:false})
+  expect(saved[0]).toMatchObject({name:'Quadra principal',openingTime:'06:00',closingTime:'24:00',operatingDays:[0,1,2,3,4,5,6],scheduleConfirmed:false})
   expect(screen.getByText('Agenda atual aguardando conferência')).toBeInTheDocument()
 })
 
@@ -264,11 +266,24 @@ it('distingue horas de funcionamento de horas livres com agenda não conferida',
   expect(screen.queryByText(/18 h disponíveis/)).not.toBeInTheDocument()
 })
 
-it('mostra fechamento no sábado sem atribuir capacidade livre à quadra', async () => {
+it.each(['2026-10-10', '2026-10-11'])('mostra disponibilidade no fim de semana %s apesar dos dias úteis legados', async date => {
   localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[{...court,openingTime:'06:00',closingTime:'24:00',operatingDays:[1,2,3,4,5]}]}))
-  start('/agenda?view=day&date=2026-10-10')
-  expect(await screen.findByText('Fechada neste dia da semana')).toBeInTheDocument()
-  expect(screen.queryByText(/18 h disponíveis/)).not.toBeInTheDocument()
+  start(`/agenda?view=day&date=${date}`)
+  expect(await screen.findByText(/18 h livres no dia/)).toBeInTheDocument()
+  expect(screen.queryByText('Fechada neste dia da semana')).not.toBeInTheDocument()
+})
+
+it.each([{operatingDays: []}, {operatingDays: [1,2,3,4,5]}])('normaliza quadra legada ao salvar, sem seletor de dias: $operatingDays', async ({operatingDays}) => {
+  localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({courts: [{...court, operatingDays, scheduleConfirmed: true}]}))
+  start('/quadras')
+  expect(screen.getByText('Todos os dias')).toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', {name:'Editar'}))
+  expect(screen.queryByLabelText('Sábado')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Domingo')).not.toBeInTheDocument()
+  expect(screen.getAllByRole('checkbox')).toHaveLength(1)
+  expect(screen.getByRole('checkbox', {name:'Agenda atual conferida: reservas e aulas cadastradas'})).toBeChecked()
+  await userEvent.click(screen.getByRole('button', {name:'Salvar quadra'}))
+  await waitFor(() => expect(JSON.parse(localStorage.getItem('longbeach-os-demo-v1')!).courts[0]).toMatchObject({openingTime:'07:00',closingTime:'23:00',operatingDays:[0,1,2,3,4,5,6],scheduleConfirmed:true}))
 })
 
 it('filtra financeiro por unidade sem atribuir Arena automaticamente à Quadra',async()=>{
@@ -413,7 +428,7 @@ it('abre a semana por padrão, soma ocupação sem duplicar e destaca sem libera
   start('/agenda?date=2026-10-09')
   await userEvent.click(screen.getByText('Resumo da semana'))
   const dashboard=screen.getByRole('region',{name:'Resumo da semana'})
-  await waitFor(()=>expect(within(dashboard).getByText('4 h')).toBeInTheDocument())
+  await waitFor(()=>expect(within(dashboard).getByText('40 h')).toBeInTheDocument())
   expect(within(dashboard).getByText('2 h')).toBeInTheDocument()
   expect(screen.queryByText('Quadra 1')).not.toBeInTheDocument()
   expect(screen.queryByLabelText('Quadra')).not.toBeInTheDocument()
@@ -424,7 +439,7 @@ it('abre a semana por padrão, soma ocupação sem duplicar e destaca sem libera
   const user=userEvent.setup();await user.click(screen.getByText('Filtros'))
   await user.selectOptions(screen.getByLabelText('Destacar atividade'),'aula')
   expect(member).toHaveClass('is-muted')
-  expect(within(dashboard).getByText('4 h')).toBeInTheDocument()
+  expect(within(dashboard).getByText('40 h')).toBeInTheDocument()
   expect(screen.getByRole('link',{name:'Nova reserva 09/10/2026 19:00–22:00'})).toHaveAttribute('href',expect.stringContaining('end=20%3A00'))
 })
 

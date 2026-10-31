@@ -5,7 +5,12 @@ import type { OperationalData, OperationalKind } from '../operations/DemoDataPro
 import type { ArenaClass, Court, Enrollment, FinanceEntry, Presence, Reservation } from './types'
 
 const validTime = (time: string, end = false) => /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(time) || end && time === '24:00'
-const opensOn = (court: Court, day: number) => (court.operatingDays ?? [0,1,2,3,4,5,6]).includes(day)
+const validWeekDay = (day: number) => Number.isInteger(day) && day >= 0 && day <= 6
+const validDate = (value: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number(value.slice(0, 4)) < 1) return false
+  const date = new Date(`${value}T00:00:00Z`)
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value
+}
 const overlaps = (a: { startTime: string; endTime: string }, b: { startTime: string; endTime: string }) => a.startTime < b.endTime && b.startTime < a.endTime
 /** Local demonstration mirrors the critical server rules; production always uses server validation. */
 export function validateArenaRecord(kind: OperationalKind, input: { id: string }, data: OperationalData): string | null {
@@ -13,8 +18,8 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
   if (kind === 'rentalMonths') return 'Gere a competência na área de mensalistas conectada à arena.'
   if (kind === 'rentalGroups') {
     const group = input as RentalGroup, court = data.courts.find(c => c.id === group.courtId)
-    if (!court || !opensOn(court, group.weekDay) || !validTime(group.startTime) || !validTime(group.endTime, true) || group.startTime >= group.endTime || group.startTime < court.openingTime || group.endTime > court.closingTime) return 'Confira o dia e o horário dentro do funcionamento da quadra.'
-    if (!group.name.trim() || !group.startDate || group.endDate && group.endDate < group.startDate) return 'Confira o nome e as datas do acordo.'
+    if (!court || !validWeekDay(group.weekDay) || !validTime(group.startTime) || !validTime(group.endTime, true) || group.startTime >= group.endTime || group.startTime < court.openingTime || group.endTime > court.closingTime) return 'Confira o dia e o horário dentro do funcionamento da quadra.'
+    if (!group.name.trim() || !validDate(group.startDate) || group.endDate && (!validDate(group.endDate) || group.endDate < group.startDate)) return 'Confira o nome e as datas do acordo.'
     if (group.members.some(m => !m.name.trim()) || new Set(group.members.map(m => m.name.trim().toLocaleLowerCase('pt-BR'))).size !== group.members.length) return 'Confira os nomes de todos os integrantes, sem repetir pessoas.'
     const active = group.members.filter(m => m.status === 'Ativo')
     if (group.organizerId && !active.some(m => m.id === group.organizerId) || group.backupId && (!active.some(m => m.id === group.backupId) || group.backupId === group.organizerId)) return 'Escolha um responsável ativo e um suplente diferente.'
@@ -31,12 +36,16 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
     const record = input as ArenaClass | Reservation
     const court = data.courts.find(row => row.id === record.courtId)
     if (!court) return 'Escolha uma quadra cadastrada.'
+    if (kind === 'classes') {
+      const lesson = record as ArenaClass
+      if (!validWeekDay(lesson.weekDay) || lesson.startDate && !validDate(lesson.startDate)) return 'Confira o dia da semana e a data de início da turma.'
+    }
+    if (kind === 'reservations' && !validDate((record as Reservation).date)) return 'Informe uma data válida para a reserva.'
     if (!validTime(record.startTime) || !validTime(record.endTime, true) || record.startTime >= record.endTime || record.startTime < court.openingTime || record.endTime > court.closingTime) return 'O horário deve ficar dentro do funcionamento da quadra, com término depois do início.'
     if (record.status !== 'Cancelada' && record.status !== 'Pausada' && record.status !== 'Encerrada') {
       if (court.status !== 'Disponível') return 'Esta quadra está em manutenção.'
       if (kind === 'reservations' && (record as Reservation).date > today && (record.status === 'Chegou' || record.status === 'Concluída')) return 'A chegada ou conclusão só pode ser registrada na data da reserva ou depois dela.'
       const weekday = kind === 'classes' ? (record as ArenaClass).weekDay : new Date(`${(record as Reservation).date}T12:00:00`).getDay()
-      if (!opensOn(court, weekday)) return 'A quadra não funciona neste dia da semana.'
       if (data.classes.some(row => row.id !== record.id && row.courtId === record.courtId && row.status === 'Ativa' && (kind === 'classes' || !row.startDate || row.startDate <= (record as Reservation).date) && row.weekDay === weekday && overlaps(row, record)) || data.reservations.some(row => row.id !== record.id && row.courtId === record.courtId && row.status !== 'Cancelada' && (kind === 'reservations' ? row.date === (record as Reservation).date : row.date >= today && (!(record as ArenaClass).startDate || row.date >= (record as ArenaClass).startDate!) && new Date(`${row.date}T12:00:00`).getDay() === weekday) && overlaps(row, record))) return 'Este horário já está ocupado por uma reserva ou aula nesta quadra.'
     }
     if (kind === 'classes') {
@@ -49,9 +58,10 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
   if (kind === 'courts') {
     const court = input as Court
     if (!validTime(court.openingTime) || !validTime(court.closingTime, true) || court.openingTime >= court.closingTime) return 'Confira os horários de funcionamento da quadra.'
-    if (court.operatingDays && (!court.operatingDays.length || court.operatingDays.length > 7 || new Set(court.operatingDays).size !== court.operatingDays.length || court.operatingDays.some(day => !Number.isInteger(day) || day < 0 || day > 6))) return 'Escolha os dias de funcionamento da quadra, sem repetir dias.'
-    const bookings = [...data.reservations.filter(row => row.courtId === court.id && row.status !== 'Cancelada' && row.date >= today).map(row => ({...row, weekDay: new Date(`${row.date}T12:00:00`).getDay()})), ...data.classes.filter(row => row.courtId === court.id && row.status === 'Ativa')]
-    if (bookings.some(row => !opensOn(court, row.weekDay) || row.startTime < court.openingTime || row.endTime > court.closingTime)) return 'O funcionamento não comporta suas reservas ou aulas. Ajuste a agenda primeiro.'
+    // Preserve the legacy field's shape without using it to restrict daily operation.
+    if (court.operatingDays != null && (!Array.isArray(court.operatingDays) || court.operatingDays.length > 7 || new Set(court.operatingDays).size !== court.operatingDays.length || court.operatingDays.some(day => !validWeekDay(day)))) return 'Confira os dias informados, sem repetir e usando valores de 0 a 6.'
+    const bookings = [...data.reservations.filter(row => row.courtId === court.id && row.status !== 'Cancelada' && row.date >= today), ...data.classes.filter(row => row.courtId === court.id && row.status === 'Ativa')]
+    if (bookings.some(row => row.startTime < court.openingTime || row.endTime > court.closingTime)) return 'O funcionamento não comporta suas reservas ou aulas. Ajuste a agenda primeiro.'
   }
   if (kind === 'enrollments') {
     const enrollment = input as Enrollment

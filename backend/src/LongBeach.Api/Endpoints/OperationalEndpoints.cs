@@ -120,6 +120,9 @@ public static class OperationalEndpoints
             body = JsonSerializer.SerializeToElement(incoming);
             var error = OperationalValidation.Validate(kind, id, body, snapshot, DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-3)));
             if (error is not null) return Results.BadRequest(new { message = error });
+            // All courts operate daily. Preserve legacy records until an authorized edit,
+            // then store the compatibility field consistently, after validating its shape.
+            if (kind == "courts") incoming["operatingDays"] = new JsonArray(0, 1, 2, 3, 4, 5, 6);
             if (!publicDemo) await CustomerSchoolIdentityGuard.CheckAsync(db, customers, kind, id, body, records, ct);
             var currentBody = record is null ? default : ParsePayload(record.Payload);
             var currentVersion = record is null ? 0 : OperationalValidation.Version(currentBody);

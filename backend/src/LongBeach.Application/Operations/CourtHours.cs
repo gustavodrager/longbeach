@@ -14,14 +14,11 @@ public static class CourtHours
         return valid;
     }
 
+    // Retain validation of the legacy field; it no longer defines availability.
     public static bool ValidDays(JsonElement court) => !court.TryGetProperty("operatingDays", out var days) ||
-        days.ValueKind == JsonValueKind.Array && days.GetArrayLength() is >= 1 and <= 7 &&
+        days.ValueKind == JsonValueKind.Array && days.GetArrayLength() <= 7 &&
         days.EnumerateArray().All(day => day.ValueKind == JsonValueKind.Number && day.TryGetInt32(out var value) && value is >= 0 and <= 6) &&
         days.EnumerateArray().Select(day => day.GetInt32()).Distinct().Count() == days.GetArrayLength();
-
-    // Older records had daily operation; absent days retain that contract.
-    public static bool OpensOn(JsonElement court, int weekday) => !court.TryGetProperty("operatingDays", out var days) ||
-        days.ValueKind == JsonValueKind.Array && days.EnumerateArray().Any(day => day.ValueKind == JsonValueKind.Number && day.TryGetInt32(out var value) && value == weekday);
 
     public static bool ScheduleConfirmed(JsonElement court) => !court.TryGetProperty("scheduleConfirmed", out var confirmed) || confirmed.ValueKind == JsonValueKind.True;
 }

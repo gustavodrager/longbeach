@@ -20,7 +20,7 @@ public static class RentalGroupRules
         var courts = records.GetValueOrDefault("courts", []);
         var court = courts.FirstOrDefault(row => Id(row) == Id(body, "courtId"));
         if (court.ValueKind == JsonValueKind.Undefined) return "Escolha uma quadra cadastrada.";
-        if (!body.TryGetProperty("weekDay", out var day) || day.ValueKind != JsonValueKind.Number || !day.TryGetInt32(out var weekday) || weekday is < 0 or > 6 || !CourtHours.OpensOn(court, weekday)) return "Escolha um dia em que a quadra funciona.";
+        if (!body.TryGetProperty("weekDay", out var day) || day.ValueKind != JsonValueKind.Number || !day.TryGetInt32(out var weekday) || weekday is < 0 or > 6) return "Escolha um dia da semana de 0 a 6.";
         if (!CourtHours.TryMinute(Text(body, "startTime"), false, out var start) || !CourtHours.TryMinute(Text(body, "endTime"), true, out var end) || start >= end || !CourtHours.TryMinute(Text(court, "openingTime"), false, out var open) || !CourtHours.TryMinute(Text(court, "closingTime"), true, out var close) || start < open || end > close) return "Confira o horário dentro do funcionamento da quadra.";
         if (!DateOnly.TryParseExact(Text(body, "startDate"), "yyyy-MM-dd", out var begins) || Text(body, "endDate") != "" && (!DateOnly.TryParseExact(Text(body, "endDate"), "yyyy-MM-dd", out var ends) || ends < begins)) return "Confira as datas do acordo.";
         if (Text(body, "status") is not ("Ativo" or "Pausado" or "Encerrado")) return "Confira a situação do grupo.";
