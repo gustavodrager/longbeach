@@ -50,9 +50,9 @@ function IdentificationForm({ tab, disabled }: { tab: Tab; disabled: boolean }) 
   return <section className="ux-panel" aria-label="Identificação do cliente">
     <h2>Cliente identificado</h2><p>{tab.customer?.name ?? 'Atendimento sem cliente identificado'}</p>
     {tab.customer?.incomplete && <p className="ux-note">Telefone pendente no cadastro anterior. O atendimento continua disponível.</p>}
-    <p className="ux-note">A identificação cadastral não concede acesso à comanda nem altera quem responde pelo pagamento.</p>
     <Feedback {...command} />
     {editing ? <>
+      <p className="ux-note">A identificação cadastral não concede acesso à comanda nem altera quem responde pelo pagamento.</p>
       {pending ? <p role="status">A identificação aguarda confirmação. Repita os mesmos dados antes de trocar o cliente.</p> : <CustomerPicker scope="bar" contextKey={`tab-identify:${tab.id}`} label="Cliente da comanda" value={selected} onChange={setSelected} disabled={disabled || command.busy} />}
       <div className="ux-actions"><button type="button" className="ux-button primary" disabled={disabled || command.busy || !allowed || !pending && !ready} onClick={() => void save()}>{pending ? 'Conferir identificação' : 'Salvar identificação'}</button>{!pending && <button type="button" className="ux-button secondary" disabled={command.busy} onClick={() => setEditing(false)}>Voltar</button>}</div>
     </> : ready && <button type="button" className="ux-button secondary" disabled={disabled || command.busy} onClick={() => { setSelected(tab.customer ?? null); setEditing(true) }}>{tab.customer ? 'Alterar identificação' : 'Identificar cliente (opcional)'}</button>}

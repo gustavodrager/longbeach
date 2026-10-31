@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { AuthContext, type AuthContextValue } from '../features/auth/authContext'
 import { DemoDataProvider } from '../features/operations/DemoDataProvider'
 import type { AuthUser } from '../features/auth/types'
-import { ClassDetailsPage, CourtsPage, AgendaPage, FinanceDetailsPage, FinancePage, MaintenanceDetailsPage, ReservationDetailsPage } from './ArenaPages'
+import { ClassDetailsPage, CourtsPage, AgendaPage, FinanceDetailsPage, FinancePage, MaintenanceDetailsPage, ReservationDetailsPage, SchoolPage, EnrollmentsPage, PresencesPage } from './ArenaPages'
 import { DashboardPage } from './DashboardPage'
 import { ProjectDetailsPage, TeamDetailsPage, StudentDetailsPage } from './OperationsPages'
 import { today } from './arenaUi'
@@ -16,7 +16,7 @@ function RouteState(){const location=useLocation();return <output data-testid="r
 function start(path:string,demoMode=true,user:AuthUser=owner,staleTime=0){
   const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{}, completeFirstAccessWithGoogle: async () => {}}
   const query=new QueryClient({defaultOptions:{queries:{retry:false,staleTime}}})
-  return render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><DemoDataProvider enabled demoMode={demoMode}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<DashboardPage />} /><Route path="/quadras" element={<CourtsPage />} /><Route path="/agenda" element={<AgendaPage />} /><Route path="/agenda/:reservationId" element={<ReservationDetailsPage />} /><Route path="/escola/:classId" element={<ClassDetailsPage />} /><Route path="/escola/turmas/:classId" element={<ClassDetailsPage />} /><Route path="/financeiro" element={<FinancePage />} /><Route path="/financeiro/:entryId" element={<FinanceDetailsPage />} /><Route path="/alunos/:studentId" element={<StudentDetailsPage />} /><Route path="/equipe/:memberId" element={<TeamDetailsPage />} /><Route path="/projetos/:projectId" element={<ProjectDetailsPage />} /><Route path="/manutencao/:maintenanceId" element={<MaintenanceDetailsPage />} /></Routes></MemoryRouter></DemoDataProvider></AuthContext.Provider></QueryClientProvider>)
+  return render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><DemoDataProvider enabled demoMode={demoMode}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<DashboardPage />} /><Route path="/quadras" element={<CourtsPage />} /><Route path="/agenda" element={<AgendaPage />} /><Route path="/agenda/:reservationId" element={<ReservationDetailsPage />} /><Route path="/escola" element={<SchoolPage />} /><Route path="/escola/matriculas" element={<EnrollmentsPage />} /><Route path="/escola/presencas" element={<PresencesPage />} /><Route path="/escola/:classId" element={<ClassDetailsPage />} /><Route path="/escola/turmas/:classId" element={<ClassDetailsPage />} /><Route path="/financeiro" element={<FinancePage />} /><Route path="/financeiro/:entryId" element={<FinanceDetailsPage />} /><Route path="/alunos/:studentId" element={<StudentDetailsPage />} /><Route path="/equipe/:memberId" element={<TeamDetailsPage />} /><Route path="/projetos/:projectId" element={<ProjectDetailsPage />} /><Route path="/manutencao/:maintenanceId" element={<MaintenanceDetailsPage />} /></Routes></MemoryRouter></DemoDataProvider></AuthContext.Provider></QueryClientProvider>)
 }
 const court={id:'22222222-2222-2222-2222-222222222222',name:'Quadra 1',sport:'Futevôlei',status:'Disponível',openingTime:'07:00',closingTime:'23:00'}
 beforeEach(()=>{localStorage.clear();sessionStorage.clear();vi.stubEnv('VITE_DEMO_MODE','true');vi.stubEnv('VITE_OPERATIONAL_STORAGE','local')})
@@ -90,7 +90,7 @@ it('registra reserva uma vez em dois envios e preserva filtros ao abrir a ficha'
   expect(await screen.findByRole('heading',{name:'Treino do grupo'})).toBeInTheDocument()
   expect(JSON.parse(localStorage.getItem('longbeach-os-demo-v1')??'{}').reservations).toHaveLength(1)
   expect(screen.getByTestId('route')).toHaveTextContent(`date=${today()}`)
-  expect(screen.getByRole('link',{name:'← Agenda e recepção'})).toHaveAttribute('href',expect.stringContaining(`court=${court.id}`))
+  expect(screen.getByRole('link',{name:'← Agenda'})).toHaveAttribute('href',expect.stringContaining(`court=${court.id}`))
 })
 
 it('mostra recebimentos pela data paga, abre a composição e preserva período ao voltar',async()=>{
@@ -390,7 +390,8 @@ it('ocupação de aula sem permissão da Escola aparece sem nome ou link privado
   start('/agenda?view=list&from=2026-10-09&to=2026-10-09',false,reception)
   expect(await screen.findByText('1 atividade')).toBeInTheDocument()
   expect(screen.queryByRole('link',{name:/Aula/})).not.toBeInTheDocument()
-  expect(screen.getByText('Ocupa a quadra neste horário')).toBeInTheDocument()
+  expect(screen.getByText('17:00–18:00')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /17:00–18:00.*Aula/ })).toBeInTheDocument()
 })
 
 it('mantém filtros recolhidos e permite abrir, pesquisar e limpar a seleção',async()=>{
@@ -435,7 +436,7 @@ it('detalhes de aula mostram cadastro atual e voltam ao mesmo horário com foco'
   const panel=screen.getByRole('dialog',{name:'Aula de sexta'})
   expect(within(panel).getByText('Professor Teste')).toBeInTheDocument()
   expect(within(panel).getByText('Aluna Teste')).toBeInTheDocument()
-  expect(within(panel).getByText('Cadastro atual da turma e das matrículas.')).toBeInTheDocument()
+  expect(within(panel).getByRole('heading', { name: 'Turma e matrículas atuais' })).toBeInTheDocument()
   expect(within(panel).queryByText(/cobrança|mensalidade/i)).not.toBeInTheDocument()
   await user.click(within(panel).getByRole('button',{name:'Fechar Aula de sexta'}))
   await waitFor(()=>expect(trigger).toHaveFocus())
@@ -517,7 +518,7 @@ it('salvar na API invalida imediatamente a disponibilidade mesmo com cache de 30
   await user.type(screen.getByLabelText('Nome da reserva'),'Reserva imediata')
   await user.click(screen.getByRole('button',{name:'Salvar reserva'}))
   await screen.findByRole('heading',{name:'Reserva imediata'})
-  await user.click(screen.getByRole('link',{name:'← Agenda e recepção'}))
+  await user.click(screen.getByRole('link',{name:'← Agenda'}))
   expect(await screen.findByRole('button',{name:/Locação.*Reserva imediata/})).toBeInTheDocument()
   expect(scheduleReads).toBe(2)
   expect(screen.queryByRole('link',{name:'Nova reserva 09/10/2026 18:00–19:00'})).not.toBeInTheDocument()
@@ -690,4 +691,68 @@ it.each(['','5511988887777'])('aluno anterior sem customerId preserva contato %s
 })
 it('novo aluno continua exigindo cliente selecionado antes de salvar',async()=>{
  vi.stubEnv('VITE_DEMO_MODE','false');const requests=vi.spyOn(globalThis,'fetch').mockResolvedValue(json([]));start('/alunos/novo',false);await waitFor(()=>expect(screen.queryByText('Carregando registros da arena…')).not.toBeInTheDocument());expect(screen.getByRole('combobox',{name:'Cliente do aluno selecionado'})).toBeRequired();fireEvent.click(screen.getByRole('button',{name:'Salvar cadastro'}));expect(requests.mock.calls.some(([,init])=>init?.method==='PUT')).toBe(false)
+})
+
+
+const cleanLesson = { id: 'clean-class', name: 'Turma de demonstração', sport: 'Futevôlei', courtId: court.id, teacherId: 'clean-teacher', weekDay: 1, startTime: '18:00', endTime: '19:00', capacity: 8, studentIds: [], status: 'Ativa', notes: '' }
+const cleanStudent = { id: 'clean-student', name: 'Aluna de demonstração', phone: '', status: 'Ativo' }
+const cleanEnrollment = { id: 'clean-enrollment', name: 'Matrícula de demonstração', studentId: cleanStudent.id, classId: cleanLesson.id, startDate: '2026-01-01', status: 'Ativa', monthlyAmount: 250 }
+
+it('turmas abrem com título e ação curtos, mantendo horário, situação e lotação', () => {
+  localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({ courts: [court], classes: [cleanLesson], students: [cleanStudent], enrollments: [cleanEnrollment] }))
+  start('/escola')
+  expect(screen.getByRole('heading', { name: 'Turmas' })).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Nova turma' })).toHaveAttribute('href', '/escola/novo')
+  expect(screen.queryByText('Gestão da arena')).not.toBeInTheDocument()
+  const card = screen.getByRole('link', { name: /Turma de demonstração/ })
+  expect(card).toHaveTextContent('Segunda-feira · 18:00–19:00')
+  expect(card).toHaveTextContent('1/8 vagas ocupadas')
+  expect(card).toHaveTextContent('Ativa')
+})
+
+it.each(['Manager', 'Operations'] as const)('matrículas mantêm aluno, turma e datas sem ampliar acesso a valores de %s', async role => {
+  vi.stubEnv('VITE_DEMO_MODE', 'false')
+  const actor: AuthUser = { ...owner, roles: [role], permissions: ['students:read', 'students:write', 'projects:read', 'finance:read', 'finance:write'] }
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+    const path = String(input)
+    return json(path.endsWith('/students') ? [cleanStudent] : path.endsWith('/classes') ? [cleanLesson] : path.endsWith('/enrollments') ? [cleanEnrollment] : [])
+  })
+  start('/escola/matriculas', false, actor)
+  expect(await screen.findByText(cleanStudent.name, { exact: true })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Matrículas' })).toBeInTheDocument()
+  expect(screen.getByText(/Turma de demonstração · desde 01\/01\/2026/)).toBeInTheDocument()
+  if (role === 'Manager') expect(screen.getByRole('link', { name: 'Criar mensalidade →' })).toBeInTheDocument()
+  else expect(screen.queryByRole('link', { name: 'Criar mensalidade →' })).not.toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Editar matrícula' }))
+  const dialog = within(screen.getByRole('dialog', { name: 'Matrícula' }))
+  expect(dialog.getByLabelText('Aluno')).toHaveValue(cleanStudent.id)
+  expect(dialog.getByLabelText('Turma')).toHaveValue(cleanLesson.id)
+  if (role === 'Manager') expect(dialog.getByLabelText('Mensalidade combinada (R$)')).toHaveValue(250)
+  else expect(dialog.queryByLabelText('Mensalidade combinada (R$)')).not.toBeInTheDocument()
+  await userEvent.selectOptions(dialog.getByLabelText('Situação'), 'Encerrada')
+  expect(dialog.getByLabelText('Data de encerramento')).toBeRequired()
+  expect(dialog.getByLabelText('Data de encerramento')).toHaveValue(today())
+})
+
+it('a reserva mantém a ressalva de pagamento junto da confirmação e permite bloqueio', () => {
+  localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({ courts: [court] }))
+  start('/agenda/novo')
+  const dialog = within(screen.getByRole('dialog', { name: 'Nova reserva' }))
+  expect(dialog.getByText('O valor combinado não confirma pagamento.')).toBeVisible()
+  expect(dialog.getByRole('option', { name: 'Bloqueio' })).toBeInTheDocument()
+  expect(dialog.getByLabelText('Nome da reserva')).toBeRequired()
+  expect(dialog.getByLabelText('Começa às')).toHaveValue('18:00')
+  expect(dialog.getByLabelText('Termina às')).toHaveValue('19:00')
+  expect(dialog.getByRole('button', { name: 'Salvar reserva' })).toBeInTheDocument()
+})
+
+it('presenças mantêm data, aluno e situação anunciada nos botões', () => {
+  const date = today()
+  localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({ courts: [court], classes: [cleanLesson], students: [cleanStudent], enrollments: [cleanEnrollment], presences: [{ id: 'clean-presence', name: 'Chamada de demonstração', classId: cleanLesson.id, studentId: cleanStudent.id, date, status: 'Presente' }] }))
+  start(`/escola/presencas?class=${cleanLesson.id}&date=${date}`)
+  expect(screen.getByRole('heading', { name: 'Presenças' })).toBeInTheDocument()
+  expect(screen.getByLabelText('Data da aula')).toHaveValue(date)
+  expect(screen.getByText(cleanStudent.name, { exact: true })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Presente', pressed: true })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Ausente', pressed: false })).toBeInTheDocument()
 })

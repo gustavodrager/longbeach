@@ -32,7 +32,7 @@ export function AgendaAvailability({ date, courts, rows, failed, loading }: {
   if (!courts.length) return null
   const href = (activity: string) => filters.href('/agenda', { date, view: 'day', activity, status: '', group: '', q: '', page: '', start: '', end: '' })
   return <section className="agenda-availability" aria-label={`Disponibilidade em ${displayDate(date)}`}>
-    <div className="agenda-availability-heading"><div><h2>Livres e ocupados · {displayDate(date)}</h2><p>Considere todas as reservas, aulas e bloqueios, mesmo com filtros ativos.</p></div>
+    <div className="agenda-availability-heading"><div><h2>Livres e ocupados · {displayDate(date)}</h2></div>
       <div className="agenda-availability-actions"><Link className="availability-free-link" to={href('livre')}>Ver horários livres</Link><Link to={href('')}>Ver todas as atividades</Link></div>
     </div>
     <div className="agenda-availability-courts">{courts.map(court => {

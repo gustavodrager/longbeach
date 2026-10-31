@@ -29,9 +29,9 @@ function Settlement({ tab, unavailable, showDetailsLink }: { tab: Tab; unavailab
     if (result.ok) { setConfirming(false); command.setMessage('Comanda encerrada.') }
   }
   return <section className="ux-panel ux-no-print" aria-label="Conclusão do atendimento">
-    <h2>{tab.state === 'Closed' ? 'Atendimento encerrado' : 'Próximo passo'}</h2>
+    <h2>{tab.state === 'Closed' ? 'Atendimento encerrado' : 'Situação da comanda'}</h2>
     <Feedback {...command} />
-    {unavailable ? <p role="status">Atualize a consulta para conferir o saldo e as pendências antes de continuar.</p> : tab.state === 'Closed' ? <p>Esta comanda está encerrada. Consumo e pagamentos continuam disponíveis para consulta.</p> : <>
+    {unavailable ? <p role="status">Atualize a consulta para conferir o saldo e as pendências antes de continuar.</p> : tab.state === 'Closed' ? <p>Consumo e pagamentos disponíveis para consulta.</p> : <>
       {tab.due > 0 && <p>Falta pagar: <strong>{money(tab.due)}</strong>.</p>}
       {tab.pending > 0 && <p>{money(tab.pending)} aguardando confirmação. Não cobre esse valor novamente.</p>}
       {requested > 0 && <p>{requested} pedido(s) aguardando aceite.</p>}

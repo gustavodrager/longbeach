@@ -1,0 +1,48 @@
+/* Service screens: current amounts and actions remain visible; help stays contextual. */
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash).lb-attendance.ux-root { background:transparent; border-radius:0; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-page { max-width:1280px; padding:32px clamp(24px,4vw,52px) 48px; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-page-header { margin-bottom:24px; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-page-header h1 { font-size:32px; line-height:1.2; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-description { margin:8px 0 0; font-size:16px; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-panel { border-radius:12px; box-shadow:none; padding:20px; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-panel h2 { font-size:20px; line-height:1.35; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-actions { gap:8px; flex-wrap:wrap; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) :is(.ux-button,.ux-choice,.ux-back) { min-height:48px; font-size:16px; white-space:normal; max-width:100%; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) :is(.ux-field,input,textarea,select) { min-width:0; max-width:100%; font-size:16px; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) :is(.ux-field input,.ux-field select,.ux-search input) { min-height:48px; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-note { font-size:14px; line-height:1.55; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) :is(.ux-check,summary) { min-height:48px; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) :is(.ux-summary,.ux-list-row,.ux-pagination,.lb-payment-destination) { min-width:0; overflow-wrap:anywhere; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-pagination { gap:12px; flex-wrap:wrap; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-empty { padding:24px 16px; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-empty-symbol { display:none; }
+:is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) :is(a,button,input,textarea,select,summary):focus-visible { outline:3px solid #7b5d12; outline-offset:3px; }
+.lb-tabs-page .lb-tab-card { background:var(--ux-paper); border-radius:12px; box-shadow:none; padding:18px; }
+.lb-tabs-page .lb-tab-card-title { min-height:48px; }
+.lb-tabs-page .lb-tab-filters { margin:20px 0 12px; }
+.lb-tabs-page .customer-search-label-compact { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.lb-tabs-page .lb-open-tab .customer-picker { border:0; padding:0; margin-bottom:12px; }
+.lb-tabs-page .lb-open-tab .customer-picker legend { font-size:16px; }
+.lb-tabs-page .lb-open-tab .customer-picker :is(input,.secondary-link,.text-button,.primary-button) { min-height:48px; }
+.lb-tab-detail .lb-tab-context { gap:6px; }
+.lb-service-payment .lb-payment-destination h2 { margin:0 0 8px; }
+.lb-service-payment .lb-payment-destination p { margin:6px 0; }
+:is(.lb-tab-detail,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-summary { gap:10px; }
+:is(.lb-tab-detail,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-summary > div { background:transparent; border-radius:0; padding:12px 0; }
+:is(.lb-tab-detail,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-summary > .ux-total { background:var(--ux-ink); border-radius:10px; padding:12px; }
+.lb-service-payment .ux-choice { padding:14px; }
+.lb-service-receipt .ux-receipt .brand-logo { width:190px; }
+@media(max-width:800px) {
+  :is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-page { padding:24px 16px 110px; }
+  :is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-page-header h1 { font-size:28px; }
+  :is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-panel { padding:16px; }
+  :is(.lb-tab-detail,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  :is(.lb-tab-detail,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-summary dd { font-size:22px; }
+  .lb-tab-detail .ux-page { padding-bottom:190px; }
+  .lb-tabs-page .lb-tab-primary-actions .ux-button { flex:1 1 120px; }
+  .lb-service-payment .ux-choice { padding:12px; }
+}
+
+@media print {
+  :is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash) .ux-page { padding:0; }
+}

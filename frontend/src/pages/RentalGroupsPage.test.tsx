@@ -34,7 +34,7 @@ it('salva todos os integrantes e permanece no grupo cadastrado', async()=>{
   await screen.findByRole('option',{name:'Quadra 1'})
   fireEvent.change(screen.getByLabelText('Nome do grupo'),{target:{value:'Turma nova'}})
   fireEvent.change(screen.getByLabelText('Quadra'),{target:{value:courtId}})
-  fireEvent.click(screen.getByText('2. Integrantes'))
+  fireEvent.click(screen.getByText('Integrantes (opcional)'))
   fireEvent.change(screen.getByRole('searchbox',{name:'Buscar integrante 1 · cliente'}),{target:{value:'Pessoa Um'}})
   fireEvent.click(await screen.findByRole('button',{name:'Pessoa Um · •••• 8888 · Ref. ESSOA UM'}))
   fireEvent.click(screen.getByRole('button',{name:'+ Adicionar integrante'}))
@@ -77,7 +77,7 @@ it('recepção vê integrantes, sem valores nem consultas financeiras do bar', a
   fireEvent.click(await screen.findByRole('button',{name:'Integrantes'}))
   await screen.findByRole('heading',{name:'Todos da turma'})
   expect(screen.queryByText('Mensalidade combinada')).not.toBeInTheDocument()
-  expect(screen.queryByRole('heading',{name:'A resenha no bar'})).not.toBeInTheDocument()
+  expect(screen.queryByRole('heading',{name:'Bar dos encontros'})).not.toBeInTheDocument()
   expect(fetch.mock.calls.some(([path])=>String(path).includes('/bar?'))).toBe(false)
 })
 it('mensalidade criada depois dos encontros preserva competência, origem e vencimento',async()=>{

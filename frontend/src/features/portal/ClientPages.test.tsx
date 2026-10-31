@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthContext, type AuthContextValue } from '../auth/authContext'
@@ -58,7 +58,7 @@ it('falha de consulta não vira agenda vazia',async()=>{
 it('solicitação interrompida mantém dados e identificador após recarregar',async()=>{
  const attempts:Record<string,unknown>[]=[];vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{if(init?.method==='POST'){attempts.push(JSON.parse(String(init.body)));return attempts.length===1?json({message:'Conexão interrompida'},503):json({...request,status:'Sent'})}return String(input).endsWith('/options')?json({courts:[],teachers:[]}):json([])})
  const page=<Routes><Route path="/minha-area/solicitar" element={<PortalRequestForm/>}/><Route path="/minha-area/agenda" element={<h1>Solicitação enviada</h1>}/></Routes>
- const first=mount(page,'/minha-area/solicitar?tipo=Reservation');fireEvent.change(screen.getByLabelText('Data desejada'),{target:{value:'2026-10-10'}});fireEvent.change(screen.getByLabelText('Das'),{target:{value:'23:00'}});fireEvent.change(screen.getByLabelText('Até'),{target:{value:'00:00'}});fireEvent.click(screen.getByRole('button',{name:'Enviar solicitação'}));expect(await screen.findByRole('alert')).toHaveTextContent('Conexão interrompida');first.unmount()
+ const first=mount(page,'/minha-area/solicitar?tipo=Reservation');expect(screen.getByText('Enviar esta solicitação não garante a vaga nem altera seu compromisso atual.')).toBeVisible();fireEvent.change(screen.getByLabelText('Data desejada'),{target:{value:'2026-10-10'}});fireEvent.change(screen.getByLabelText('Das'),{target:{value:'23:00'}});fireEvent.change(screen.getByLabelText('Até'),{target:{value:'00:00'}});fireEvent.click(screen.getByRole('button',{name:'Enviar solicitação'}));expect(await screen.findByRole('alert')).toHaveTextContent('Conexão interrompida');first.unmount()
  mount(page,'/minha-area/solicitar?tipo=Reservation');expect(screen.getByLabelText('Data desejada')).toHaveValue('2026-10-10');expect(screen.getByLabelText('Data desejada')).toBeDisabled();fireEvent.click(screen.getByRole('button',{name:'Verificar envio'}));await screen.findByRole('heading',{name:'Solicitação enviada'});expect(attempts).toHaveLength(2);expect(attempts[0]).toEqual(attempts[1]);expect(attempts[0].endTime).toBe('24:00');expect(sessionStorage.length).toBe(0)
 })
 it('erro de validação permite corrigir a solicitação',async()=>{
@@ -126,4 +126,37 @@ it('conflito com consulta falha bloqueia gravação até carregar e aceitar cont
  vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{const url=String(input);if(init?.method==='PUT'&&url.endsWith('/customer')){writes.push(JSON.parse(String(init.body)));if(!conflicted){conflicted=true;return json({message:'Perfil alterado por outra pessoa'},409)}return json(updated)}if(url.endsWith('/customer'))return conflicted?(failRead?json({message:'Consulta indisponível'},503):json(updated)):json(ownCustomer);return json(profile)})
  mount(<PortalProfile/>);const name=await screen.findByLabelText('Como você quer ser chamado?');fireEvent.change(name,{target:{value:'Meu rascunho preservado'}});fireEvent.click(screen.getByRole('button',{name:'Salvar perfil'}));await screen.findByText('Perfil alterado por outra pessoa');expect(name).toHaveValue('Meu rascunho preservado');expect(screen.getByRole('button',{name:'Salvar perfil'})).toBeDisabled();expect(screen.queryByRole('button',{name:'Manter meus dados após conferir'})).not.toBeInTheDocument();expect(writes).toHaveLength(1)
  failRead=false;fireEvent.click(screen.getByRole('button',{name:'Consultar cadastro atualizado'}));await screen.findByText(/Cadastro atual: Contato atual da equipe/);fireEvent.click(screen.getByRole('button',{name:'Usar cadastro atualizado'}));expect(name).toHaveValue(updated.name);expect(screen.getByLabelText('Telefone com DDD')).toHaveValue(updated.phone);fireEvent.click(screen.getByRole('button',{name:'Salvar perfil'}));await screen.findByText('Perfil atualizado.');expect(writes[1]).toMatchObject({name:updated.name,phone:updated.phone,expectedVersion:7})
+})
+
+
+it('agenda mantém quadra, professor, situação e opções do compromisso e avalia só a visita escolhida', async () => {
+ const future={key:'own-future',sourceId:'class-own',kind:'Aula',title:'Aula da cliente',date:'2026-10-10',startTime:'18:00',endTime:'19:00',court:'Quadra 1',teacher:'Professora teste',status:'Confirmada',instructions:'Trazer água.',canChange:true,canRate:false}
+ const past={...future,key:'own-past',sourceId:'reservation-own',kind:'Reserva',title:'Visita da cliente',date:'2026-10-08',canChange:false,canRate:true}
+ const writes:unknown[]=[]
+ const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{if(init?.method==='POST'){writes.push(JSON.parse(String(init.body)));return json({})}return json(String(input).endsWith('/agenda')?[future,past]:[])})
+ mount(<PortalAgenda/>,'/minha-area/agenda?atividade=own-future')
+ await screen.findByRole('heading',{name:future.title})
+ expect(screen.getByText('Quadra 1 · Professor: Professora teste')).toBeVisible()
+ expect(screen.getByText('Confirmada')).toBeVisible()
+ expect(screen.getByRole('link',{name:'Solicitar remarcação'})).toHaveAttribute('href','/minha-area/solicitar?tipo=Reschedule&atividade=own-future')
+ expect(writes).toHaveLength(0)
+ fireEvent.click(screen.getByRole('button',{name:'Histórico'}))
+ expect(screen.queryByRole('heading',{name:future.title})).not.toBeInTheDocument()
+ expect(screen.getByRole('heading',{name:past.title})).toBeVisible()
+ fireEvent.change(screen.getByRole('combobox',{name:'Como foi sua visita?'}),{target:{value:'5'}})
+ fireEvent.click(screen.getByRole('button',{name:'Enviar avaliação'}))
+ await screen.findByText('Obrigado por avaliar sua visita.')
+ expect(writes).toEqual([{appointmentKey:'own-past',score:5}])
+ expect(fetch.mock.calls.every(([url])=>String(url).startsWith('/api/v1/me/portal/'))).toBe(true)
+})
+
+it('falha ao atualizar solicitações não apresenta a seleção vazia anterior como confirmada', async () => {
+ let failed=false
+ vi.spyOn(globalThis,'fetch').mockImplementation(async input=>String(input).endsWith('/requests')&&failed?json({message:'Sem conexão'},503):json([]))
+ mount(<PortalAgenda/>,'/minha-area/agenda')
+ await screen.findByText('Nenhuma solicitação.')
+ failed=true
+ await act(async()=>{await clients.at(-1)!.invalidateQueries({queryKey:['portal',user.id,'requests']})})
+ expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível atualizar.')
+ expect(screen.queryByText('Nenhuma solicitação.')).not.toBeInTheDocument()
 })

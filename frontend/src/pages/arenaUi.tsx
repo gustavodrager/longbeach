@@ -9,7 +9,7 @@ export const currency = (amount: number | null) => amount === null ? 'A combinar
 export const quantity = (amount: number) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(amount)
 export function validDate(value: string) { if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number(value.slice(0,4)) < 1) return false; const date = new Date(`${value}T00:00:00Z`); return Number.isFinite(date.getTime()) && date.toISOString().slice(0,10) === value }
 export function displayDate(value?: string) { if (!value) return 'Não informado'; const date = new Date(value.length === 10 ? `${value}T12:00:00-03:00` : value); return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short' }).format(date) : 'Data não disponível' }
-export function Heading({ eyebrow = 'Gestão da arena', title, description, action }: { eyebrow?: string; title: string; description: string; action?: ReactNode }) { return <header className="page-heading"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{description}</p></div>{action}</header> }
+export function Heading({ eyebrow = 'Gestão da arena', title, description, action }: { eyebrow?: string; title: string; description?: string; action?: ReactNode }) { return <header className="page-heading"><div>{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h1>{title}</h1>{description && <p>{description}</p>}</div>{action}</header> }
 export type AreaIconName = 'agenda' | 'school' | 'finance' | 'team' | 'materials' | 'projects' | 'maintenance' | 'bar'
 const areaIconPaths: Record<AreaIconName, string> = {
   agenda: 'M5 5h14v15H5z M8 3v4 M16 3v4 M5 10h14 M8 14h2 M14 14h2 M8 17h2',
