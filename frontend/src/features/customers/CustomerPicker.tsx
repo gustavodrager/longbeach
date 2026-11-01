@@ -7,7 +7,7 @@ import './customers.css'
 
 export type CustomerPickerProps = {
   scope: CustomerScope; value: CustomerSelection | null; onChange: (value: CustomerLookup | null) => void
-  disabled?: boolean; required?: boolean; label?: string; contextKey?: string; compact?: boolean
+  disabled?: boolean; required?: boolean; label?: string; contextKey?: string; compact?: boolean; existingOnly?: boolean
 }
 
 /** Inline creation deliberately has no nested form and never grants portal access. */
@@ -16,7 +16,7 @@ export function CustomerPicker(props: CustomerPickerProps) {
   const session = user ? `${user.id}:${[...user.roles].sort().join(',')}:${[...user.permissions].sort().join(',')}` : 'signed-out'
   return <CustomerPickerContent key={`${session}:${props.scope}:${props.contextKey ?? 'default'}`} {...props} />
 }
-function CustomerPickerContent({ scope, value, onChange, disabled = false, required = false, label = 'Cliente', contextKey = 'default', compact = false }: CustomerPickerProps) {
+function CustomerPickerContent({ scope, value, onChange, disabled = false, required = false, label = 'Cliente', contextKey = 'default', compact = false, existingOnly = false }: CustomerPickerProps) {
   const { user } = useAuth()
   const [saved, setSaved] = useConfirmationGate(`customer-create-v1:${user?.id}:${scope}:${contextKey}`)
   const pending = readCustomerCreation(saved)
@@ -37,7 +37,7 @@ function CustomerPickerContent({ scope, value, onChange, disabled = false, requi
   const scopeRef = useRef(scope); scopeRef.current = scope
   const attempt = useRef<{ fingerprint: string; input: CustomerCreate } | null>(null)
   const readable = canUseCustomerScope(user, scope)
-  const writable = canUseCustomerScope(user, scope, true)
+  const writable = !existingOnly && canUseCustomerScope(user, scope, true)
   const locked = disabled || command.busy || !readable
   useEffect(() => {
     setSubmitted('')

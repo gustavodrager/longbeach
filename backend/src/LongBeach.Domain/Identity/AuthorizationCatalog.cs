@@ -13,6 +13,9 @@ public static class SystemRoles
 
 public static class SystemPermissions
 {
+    public const string MessagingRead = "messaging:read";
+    public const string MessagingOperate = "messaging:operate";
+    public const string MessagingManage = "messaging:manage";
     public const string CustomersRead = "customers:read";
     public const string CustomersWrite = "customers:write";
     public const string CustomersMerge = "customers:merge";
@@ -45,6 +48,7 @@ public static class SystemPermissions
 
     public static readonly IReadOnlyCollection<string> All =
     [
+        MessagingRead, MessagingOperate, MessagingManage,
         BarCatalogRead, BarCatalogWrite, BarStockOutput, BarStockRead, BarStockManage, BarCashOperate, BarSupervise,
         BarRefundApprove, BarSalesRead, BarSalesOperate, BarFinanceRead, BarPurchasesManage,
         CustomersRead, CustomersWrite, CustomersMerge,

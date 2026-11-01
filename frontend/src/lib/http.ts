@@ -138,7 +138,7 @@ async function revalidateSession(version: number) {
   try { await request } finally { if (identityRequest?.request === request) identityRequest = null }
 }
 
-export async function apiFetch<T>(path: string, init?: RequestInit, canRefresh = true): Promise<T> {
+export async function apiFetch<T>(path: string, init?: RequestInit, canRefresh = true, responseType: 'json' | 'blob' = 'json'): Promise<T> {
   if (path.startsWith('/api/v1/bar/') && init?.method && !['GET', 'HEAD'].includes(init.method.toUpperCase()) && !navigator.onLine)
     throw new ApiError(0, 'Sem conexão. O registro só será confirmado após reconectar. Seu rascunho foi preservado.');
   const version = sessionVersion
@@ -151,7 +151,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit, canRefresh =
   const authentication = path.startsWith('/api/v1/auth/')
   if (response.status === 401 && canRefresh && version === sessionVersion) {
     const refreshed = await refreshAccessToken()
-    if (refreshed && refreshed.version === sessionVersion && refreshed.token === accessToken) return apiFetch<T>(path, init, false)
+    if (refreshed && refreshed.version === sessionVersion && refreshed.token === accessToken) return apiFetch<T>(path, init, false, responseType)
   }
 
   if (response.status === 401 && !canRefresh && version === sessionVersion && (!authentication || path === '/api/v1/auth/me')) expireSession()
@@ -162,8 +162,12 @@ export async function apiFetch<T>(path: string, init?: RequestInit, canRefresh =
   }
 
   if (response.status === 204) return undefined as T
+  if (responseType === 'blob') return response.blob() as Promise<T>
   return response.json() as Promise<T>
 }
+
+/** Private media uses the same authentication and expiry rules as JSON requests. */
+export const apiFetchBlob = (path: string, signal?: AbortSignal) => apiFetch<Blob>(path, { signal }, true, 'blob')
 
 export async function restoreSession() {
   const refreshed = await refreshAccessToken()

@@ -11,7 +11,7 @@
           {"key": "Referrer-Policy", "value": "strict-origin-when-cross-origin"},
           {"key": "X-Frame-Options", "value": "DENY"},
           {"key": "Permissions-Policy", "value": "camera=(), geolocation=(), microphone=()"},
-          {"key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; connect-src 'self' https:; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; frame-src https://accounts.google.com/gsi/; img-src 'self' data: blob: https:; object-src 'none'; script-src 'self' https://accounts.google.com/gsi/ https://assets.pagseguro.com.br/checkout-sdk-js/rc/dist/browser/pagseguro.min.js; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:"},
+          {"key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; connect-src 'self' https:; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; frame-src https://accounts.google.com/gsi/; img-src 'self' data: blob: https:; media-src 'self' blob:; object-src 'none'; script-src 'self' https://accounts.google.com/gsi/ https://assets.pagseguro.com.br/checkout-sdk-js/rc/dist/browser/pagseguro.min.js; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:"},
           {"key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate"}
         ]
       },

@@ -80,6 +80,10 @@ public sealed class AuditSaveChangesInterceptor(
 
     private static object BuildChanges(EntityEntry entry)
     {
+        if (entry.Entity.GetType().Namespace == "LongBeach.Domain.Messaging")
+            return entry.Properties.Where(property => property.Metadata.IsPrimaryKey() || property.Metadata.Name is
+                "ConversationId" or "OperationId" or "AuthorUserId" or "UploadedBy" or "ResourceId" or "Version" or "State" or "Status" or "Mode" or "Approved" or "AutomationProcessed")
+                .ToDictionary(property => property.Metadata.Name, property => (object?)new { Before = entry.State == EntityState.Added ? null : property.OriginalValue, After = property.CurrentValue });
         if (entry.Entity is LongBeach.Domain.Customers.Customer or LongBeach.Domain.Customers.CustomerSourceLink
             or LongBeach.Domain.Customers.CustomerSourceChange or LongBeach.Domain.Customers.CustomerOperation or LongBeach.Domain.Customers.CustomerMerge)
             return entry.Properties.Where(property => property.Metadata.IsPrimaryKey() || property.Metadata.Name is

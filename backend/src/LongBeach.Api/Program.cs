@@ -226,6 +226,8 @@ app.MapRentalGroupsEndpoints();
 app.MapOperationalEndpoints(publicOperationalDemo);
 app.MapMaterialEndpoints();
 app.MapCustomerEndpoints();
+app.MapMessagingEndpoints();
+app.MapMessagingContextEndpoints();
 
 if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
 {

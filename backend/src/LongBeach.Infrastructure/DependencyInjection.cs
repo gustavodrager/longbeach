@@ -41,6 +41,10 @@ public static class DependencyInjection
                 .AddInterceptors(serviceProvider.GetRequiredService<AuditSaveChangesInterceptor>()));
 
         services.AddScoped<LongBeach.Application.Teaching.ITeaching, LongBeach.Infrastructure.Teaching.TeachingService>();
+        services.AddScoped<LongBeach.Application.Messaging.IMessaging, LongBeach.Infrastructure.Messaging.MessagingService>();
+        LongBeach.Infrastructure.Messaging.MessagingAutomationRegistration.AddMessagingAutomation(services);
+        services.AddHttpClient<LongBeach.Application.Messaging.IMessagingBridge, LongBeach.Infrastructure.Messaging.MessagingBridgeClient>(client => client.Timeout = TimeSpan.FromSeconds(30))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddScoped<LongBeach.Application.Portal.IClientPortal, LongBeach.Infrastructure.Portal.ClientPortalService>();
         services.AddScoped<LongBeach.Application.Billing.IBilling, LongBeach.Infrastructure.Billing.BillingService>();
         LongBeach.Infrastructure.C6.C6ClientRegistration.AddC6Client(services, configuration);
@@ -87,6 +91,8 @@ public static class DependencyInjection
         // Explicit maintenance commands and on-demand collectors remain available without starting the host.
         if (configuration.GetValue("BackgroundJobs:Enabled", true))
         {
+            if (configuration.GetValue("Messaging:Enabled", false))
+                services.AddHostedService<LongBeach.Infrastructure.Messaging.MessagingWorker>();
             services.AddHostedService<LongBeach.Infrastructure.Billing.BillingWorker>();
             services.AddHostedService<LongBeach.Infrastructure.Payments.PagBankReconciliationWorker>();
             services.AddHostedService(sp => sp.GetRequiredService<LongBeach.Infrastructure.Finance.C6BankingWorker>());

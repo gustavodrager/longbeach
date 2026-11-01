@@ -13,8 +13,8 @@ it('apresenta os quatro perfis e suas entradas de trabalho', () => {
 })
 
 it('gestor acessa todas as funções e atendente fica dentro do teto operacional', () => {
-  const operational = ['customers:read', 'customers:write', 'students:read', 'students:write', 'employees:read', 'inventory:read', 'inventory:write', 'projects:read', 'projects:write', 'bar:catalog:read', 'bar:stock:read', 'bar:stock:output', 'bar:cash:operate', 'bar:sales:read', 'bar:sales:operate']
-  const protectedPermissions = ['finance:read', 'finance:write', 'users:manage', 'audit:read', 'customers:merge', 'inventory:adjust', 'employees:write', 'bar:finance:read', 'bar:catalog:write', 'bar:purchases:manage', 'bar:stock:manage', 'bar:supervise', 'bar:refund:approve', 'fiscal:invoices:manage']
+  const operational = ['messaging:read', 'messaging:operate', 'customers:read', 'customers:write', 'students:read', 'students:write', 'employees:read', 'inventory:read', 'inventory:write', 'projects:read', 'projects:write', 'bar:catalog:read', 'bar:stock:read', 'bar:stock:output', 'bar:cash:operate', 'bar:sales:read', 'bar:sales:operate']
+  const protectedPermissions = ['messaging:manage', 'finance:read', 'finance:write', 'users:manage', 'audit:read', 'customers:merge', 'inventory:adjust', 'employees:write', 'bar:finance:read', 'bar:catalog:write', 'bar:purchases:manage', 'bar:stock:manage', 'bar:supervise', 'bar:refund:approve', 'fiscal:invoices:manage']
   const attendant = identity(['Operations'], [...operational, ...protectedPermissions])
   for (const permission of operational) expect(hasPermission(attendant, permission)).toBe(true)
   for (const permission of protectedPermissions) expect(hasPermission(attendant, permission)).toBe(false)

@@ -62,6 +62,7 @@ jobs:
           environment="$(printf '%s' "$TARGET_ENVIRONMENT" | tr '[:upper:]' '[:lower:]')"
           echo "api=ghcr.io/${repository}-api" >> "$GITHUB_OUTPUT"
           echo "web=ghcr.io/${repository}-web" >> "$GITHUB_OUTPUT"
+          echo "whatsapp=ghcr.io/${repository}-whatsapp" >> "$GITHUB_OUTPUT"
           echo "tag=${environment}-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Setup Docker Buildx
@@ -105,6 +106,19 @@ jobs:
           provenance: true
           sbom: true
 
+      - name: Build and publish WhatsApp transport image
+        id: whatsapp
+        uses: docker/build-push-action@v6
+        with:
+          context: backend/whatsapp-bridge
+          file: backend/whatsapp-bridge/Dockerfile
+          push: true
+          tags: ${{ steps.names.outputs.whatsapp }}:${{ steps.names.outputs.tag }}
+          cache-from: type=gha,scope=longbeach-whatsapp
+          cache-to: type=gha,mode=max,scope=longbeach-whatsapp
+          provenance: true
+          sbom: true
+
       - name: Record publication
         env:
           API_IMAGE: ${{ steps.names.outputs.api }}
@@ -112,6 +126,8 @@ jobs:
           IMAGE_TAG: ${{ steps.names.outputs.tag }}
           API_DIGEST: ${{ steps.api.outputs.digest }}
           WEB_DIGEST: ${{ steps.web.outputs.digest }}
+          WHATSAPP_IMAGE: ${{ steps.names.outputs.whatsapp }}
+          WHATSAPP_DIGEST: ${{ steps.whatsapp.outputs.digest }}
           TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
         run: |
           {
@@ -120,6 +136,7 @@ jobs:
             echo "Environment gate: ${TARGET_ENVIRONMENT}"
             echo "API: \`${API_IMAGE}:${IMAGE_TAG}\` (${API_DIGEST})"
             echo "Web: \`${WEB_IMAGE}:${IMAGE_TAG}\` (${WEB_DIGEST})"
+            echo "WhatsApp: \`${WHATSAPP_IMAGE}:${IMAGE_TAG}\` (${WHATSAPP_DIGEST})"
             echo
             echo "No deployment was performed."
           } >> "$GITHUB_STEP_SUMMARY"

@@ -1,6 +1,7 @@
-type IconName = 'home' | 'calendar' | 'school' | 'people' | 'wallet' | 'box' | 'project' | 'tools' | 'bar' | 'orders' | 'stock' | 'check' | 'download' | 'upload' | 'plus' | 'menu'
+type IconName = 'home' | 'calendar' | 'school' | 'people' | 'wallet' | 'box' | 'project' | 'tools' | 'bar' | 'orders' | 'stock' | 'check' | 'download' | 'upload' | 'plus' | 'menu' | 'message'
 
 const paths: Record<IconName, string> = {
+  message: 'M21 11.5a8.4 8.4 0 0 1-.9 3.8A8.5 8.5 0 0 1 12.5 20a8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5ZM8 10h8m-8 4h5',
   home: 'M3 10 12 3l9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z',
   calendar: 'M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2ZM7 3v4m10-4v4M3 10h18M7 14h3m4 0h3m-10 4h3',
   school: 'm2 8 10-5 10 5-10 5Zm4 3v6c4 3 8 3 12 0v-6m4-3v9',

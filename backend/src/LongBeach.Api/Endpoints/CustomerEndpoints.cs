@@ -18,6 +18,7 @@ public static class CustomerEndpoints
         "students" => Has(http, write ? SystemPermissions.StudentsWrite : SystemPermissions.StudentsRead),
         "projects" or "reservations" => Has(http, write ? SystemPermissions.ProjectsWrite : SystemPermissions.ProjectsRead),
         "bar" => Has(http, SystemPermissions.BarSalesOperate),
+        "messaging" => !write && Has(http, SystemPermissions.MessagingOperate),
         _ => false
     };
     public static IEndpointRouteBuilder MapCustomerEndpoints(this IEndpointRouteBuilder endpoints)

@@ -17,6 +17,11 @@ export const attendantNavigation = barNavigation.slice(0, 4)
 export const managementNavigation: NavigationGroup[] = [
   { label: 'Visão geral', icon: 'home', href: '/' },
   { label: 'Clientes', icon: 'people', href: '/clientes', permission: 'customers:read' },
+  { label: 'WhatsApp', icon: 'message', href: '/whatsapp', permission: 'messaging:read', children: [
+    { label: 'Conversas', href: '/whatsapp', permission: 'messaging:read' },
+    { label: 'Envios', href: '/whatsapp/envios', permission: 'messaging:read' },
+    { label: 'Automação', href: '/whatsapp/automacao', permission: 'messaging:read' },
+  ] },
   { label: 'Agenda', icon: 'calendar', href: '/agenda', kind: 'reservations', children: [
     { label: 'Agenda', href: '/agenda', kind: 'reservations' }, { label: 'Solicitações', href: '/solicitacoes-clientes', permission: 'portal:manage' }, { label: 'Funcionamento e preços', href: '/agenda/funcionamento', kind: 'courts' },
   ] },
