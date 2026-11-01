@@ -142,10 +142,13 @@
 .week-item-availability { font-size:10px; font-weight:800; }
 .week-item-court { font-weight:700; }
 .week-day-body.is-unverified { background:repeating-linear-gradient(135deg,#f9f6ee 0 8px,#eee8da 8px 9px); }
-.week-availability-state { position:sticky; top:0; margin:0; padding:9px 6px; background:#f4efe4; color:#605949; font-size:12px; font-weight:700; z-index:1; }
+.week-availability-state { position:sticky; top:0; margin:0; padding:9px 6px; background:#f4efe4; color:#605949; font-size:12px; font-weight:700; z-index:2; }
 .agenda-occupied-heading { margin:20px 0 10px; font-size:16px; }
 .agenda-page .arena-slot-class,.agenda-page .arena-slot-occupied { border-left:4px solid #7b8da8; }
 .agenda-page .arena-slot-blocked { border-left:4px solid #ab8585; }
+.agenda-page .arena-slot-pending,.week-item.is-rental-preview { background:#fffaf0; border:2px dashed #9a7a33; color:#58461f; }
+.week-item-pending { font-weight:800; }
+.week-item:not(.kind-livre) { z-index:1; }
 .agenda-period-note { margin:10px 0 0; color:#625e54; font-size:13px; }
 @media(max-width:700px) {
   .agenda-availability { padding:12px; }

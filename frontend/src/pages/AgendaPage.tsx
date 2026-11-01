@@ -12,6 +12,7 @@ import { AgendaActivityDetails, type AgendaSelection } from './AgendaActivityDet
 import { AgendaDays, agendaReferenceDate, changeAgendaView, useCompactAgenda, type AgendaView, type AgendaPresentation } from './agendaNavigation'
 import { dayAvailability, reservationUrl } from '../features/arena/agenda'
 import { AvailabilityLegend } from './AgendaAvailability'
+import { rentalAgendaPreviews } from '../features/arena/rentalAgendaPreviews'
 
 function shiftDay(date: string, days: number) {
   if (!validDate(date)) return today()
@@ -116,6 +117,16 @@ function AgendaDayListPage({ context = 'general', header }: AgendaPresentation) 
     </button>,
   })
   const entries = rows.map(reservationEntry)
+  const previews = monthly && validSelection && data.dataUpdatedAt && !data.refreshFailed && data.persistenceStatus !== 'error' && data.canRead('rentalGroups') && data.canRead('rentalMonths') && !groupId && (!status || status === 'A confirmar')
+    ? rentalAgendaPreviews(data.rentalGroups, data.rentalMonths, data.reservations, list ? from : date, list ? to : date)
+      .filter(item => courts.some(court => court.id === item.group.courtId) && matches(`${item.group.name} ${item.group.members.find(member => member.id === item.group.organizerId)?.name ?? ''}`))
+    : []
+  for (const preview of previews) entries.push({
+    key: `rental-preview-${preview.group.id}-${preview.date}`, date: preview.date, time: preview.startTime, courtId: preview.group.courtId,
+    node: <button className="arena-slot arena-slot-pending" onClick={() => setSelected({ ...preview, rentalPreview: preview })}>
+      <strong>{preview.startTime}–{preview.endTime}</strong><span><strong>{preview.group.name}</strong><small>{displayDate(preview.date)}{data.courts.length > 1 && ` · ${data.courts.find(court => court.id === preview.group.courtId)?.name ?? 'Quadra'}`}</small></span><Status warning>A confirmar</Status>
+    </button>,
+  })
   if (showLessons && !selectedSchedule.isError) for (const day of days) for (const court of day.courts) {
     if (courtId && court.courtId !== courtId) continue
     court.blocks.forEach((block, index) => {
@@ -136,7 +147,8 @@ function AgendaDayListPage({ context = 'general', header }: AgendaPresentation) 
   entries.sort((a, b) => `${a.date}${a.time}${a.key}`.localeCompare(`${b.date}${b.time}${b.key}`))
   const activeFilters = [data.courts.length > 1 && courtId, status, query, groupId, !focused && activity].filter(Boolean).length
   const clearFilters = filters.href(basePath, { court: '', status: '', q: '', group: '', ...(!focused ? { activity: '' } : {}), page: '', view: list ? 'list' : 'day' })
-  const countLabel = monthly ? entries.length === 1 ? 'encontro' : 'encontros' : school ? entries.length === 1 ? 'aula' : 'aulas' : freeOnly ? entries.length === 1 ? 'horário livre' : 'horários livres' : entries.length === 1 ? 'atividade' : 'atividades'
+  const confirmedCount = entries.length - previews.length
+  const countLabel = monthly ? confirmedCount === 1 ? 'encontro' : 'encontros' : school ? entries.length === 1 ? 'aula' : 'aulas' : freeOnly ? entries.length === 1 ? 'horário livre' : 'horários livres' : entries.length === 1 ? 'atividade' : 'atividades'
   const renderEntries = (items: Entry[]) => <div className="arena-slots">{items.map(entry => <div key={entry.key}>{entry.node}</div>)}</div>
 
   if (!data.canRead('reservations')) return <NoAccess />
@@ -154,7 +166,7 @@ function AgendaDayListPage({ context = 'general', header }: AgendaPresentation) 
       <Disclosure title={`Filtros${activeFilters ? ` · ${activeFilters} ${activeFilters === 1 ? 'ativo' : 'ativos'}` : ''}`}><div className="arena-toolbar">
         {!list && <Field label="Dia" type="date" value={date} onChange={value => filters.set('date', value)} />}
         {!focused && <Field label="Mostrar" value={lessonsOnly ? 'classes' : activity} onChange={setActivity} options={[{ value: '', label: 'Reservas, bloqueios e aulas' }, { value: 'reservations', label: 'Somente reservas' }, { value: 'classes', label: 'Somente aulas' }, { value: 'mensalista', label: 'Mensalistas' }, { value: 'locacao', label: 'Locações' }, { value: 'bloqueio', label: 'Bloqueios' }, { value: 'livre', label: 'Horários livres' }]} />}
-        <Field label="Situação da reserva" value={status} disabled={reservationFiltersDisabled} onChange={value => { if (!reservationFiltersDisabled) filters.set('status', value) }} options={[{ value: '', label: 'Todas' }, 'Confirmada', 'Chegou', 'Concluída', 'Cancelada', 'Bloqueio']} />
+        <Field label="Situação da reserva" value={status} disabled={reservationFiltersDisabled} onChange={value => { if (!reservationFiltersDisabled) filters.set('status', value) }} options={[{ value: '', label: 'Todas' }, ...(monthly ? ['A confirmar'] : []), 'Confirmada', 'Chegou', 'Concluída', 'Cancelada', 'Bloqueio']} />
         <Search filters={filters} placeholder={monthly ? 'Buscar encontro ou responsável…' : school ? 'Buscar turma ou aula…' : 'Buscar reserva, cliente ou aula…'} />
       </div></Disclosure>
       <Disclosure title="Mais opções"><div className="arena-actions">
@@ -170,7 +182,8 @@ function AgendaDayListPage({ context = 'general', header }: AgendaPresentation) 
     {!validSelection ? <p className="arena-message arena-error" role="alert">{list ? 'Escolha datas válidas, em ordem, com até 366 dias no período.' : 'Escolha uma data válida para consultar a agenda.'}</p> : <>
       {!focused && data.canRead('courts') && <AvailabilityLegend />}
       {list && !focused && <Disclosure title="Consultar horários livres"><p>Em Filtros, selecione Horários livres. A disponibilidade considera todas as ocupações.</p></Disclosure>}
-      <div className="arena-list-summary" aria-live="polite"><strong>{!data.dataUpdatedAt ? 'Carregando seleção…' : incomplete ? freeOnly ? 'Disponibilidade a confirmar' : selectedSchedule.isError ? 'Lista parcial · aulas indisponíveis' : 'Lista parcial · conferindo aulas' : `${entries.length} ${countLabel}`}</strong>{!focused && !incomplete && !freeOnly && <span>{rows.length} {rows.length === 1 ? 'reserva/bloqueio' : 'reservas/bloqueios'} · {entries.length - rows.length} {entries.length - rows.length === 1 ? 'aula' : 'aulas'}</span>}</div>
+      <div className="arena-list-summary" aria-live="polite"><strong>{!data.dataUpdatedAt ? 'Carregando seleção…' : incomplete ? freeOnly ? 'Disponibilidade a confirmar' : selectedSchedule.isError ? 'Lista parcial · aulas indisponíveis' : 'Lista parcial · conferindo aulas' : `${confirmedCount} ${countLabel}${previews.length ? ` · ${previews.length} a confirmar` : ''}`}</strong>{!focused && !incomplete && !freeOnly && <span>{rows.length} {rows.length === 1 ? 'reserva/bloqueio' : 'reservas/bloqueios'} · {entries.length - rows.length} {entries.length - rows.length === 1 ? 'aula' : 'aulas'}</span>}</div>
+      {previews.length > 0 && <p className="arena-hint">A confirmar: horário previsto, sem reserva da quadra.</p>}
       {requiresSchedule && selectedSchedule.isError && <p className="arena-message arena-error" role="alert">{freeOnly ? 'A disponibilidade não pôde ser consultada.' : 'As aulas não puderam ser consultadas. A lista está incompleta.'} <button type="button" className="text-button" onClick={() => void selectedSchedule.refetch()}>Tentar novamente</button></p>}
       {(showLessons || freeOnly) && !data.canRead('courts') && <p className="arena-hint">Seu acesso permite consultar reservas. Aulas e disponibilidade exigem acesso às quadras.</p>}
       {list ? entries.length ? <Pagination total={entries.length}>{(start, end) => renderEntries(entries.slice(start, end))}</Pagination> : !incomplete && <Empty>Nenhuma atividade corresponde aos filtros.</Empty> : courts.length ? <div className="arena-schedule">{courts.map(court => {
