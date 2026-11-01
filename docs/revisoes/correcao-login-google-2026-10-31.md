@@ -1,6 +1,6 @@
 # Correção do login Google — 31/10/2026
 
-Correção preparada para revisão, sem publicação. O pedido é eliminar o erro de origem do Google e conferir um novo login real, preservando perfis, vínculos e os demais controles de acesso.
+A correção web da fonte `a858cc28b39a389443fd5bda52413f6e5d581141` foi publicada com autorização específica em 31/10/2026 às 21:41:00 de Brasília. O login real com conta existente, a recarga e sair/entrar novamente foram conferidos em 31/10/2026 às 21:48:41 de Brasília. O [registro da publicação](../operacao/publicacao-login-google-2026-10-31.md) reúne os comprovantes e limites; API, banco de negócio, perfis e cadastro OAuth foram preservados.
 
 ## Diagnóstico e mudança
 
@@ -28,4 +28,4 @@ A promoção deve alterar somente a interface e seu cabeçalho `Referrer-Policy`
 
 O JavaScript pode conservar o mesmo nome/hash, pois seu código não mudou. A conferência deve comparar o HTML e o service worker, a política efetiva e o fluxo do PWA, além do login real; não exigir um novo nome do JavaScript como prova dessa correção. Não limpar dados locais, cookies ou todo o armazenamento do navegador para mascarar atualização incompleta.
 
-Evidências privadas, capturas e registros do ensaio ficam em `LongBeach/evidencias/correcao-login-google-2026-10-31/`. A publicação desta versão depende de aprovação específica.
+Evidências privadas, capturas e registros do ensaio ficam em `LongBeach/evidencias/correcao-login-google-2026-10-31/`. Esta publicação e seu teste final autorizados estão registrados acima; futuras versões exigem autorização específica.
