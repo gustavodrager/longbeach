@@ -1,0 +1,117 @@
+{
+  "backendTreePreserved": "6055b3b2f4fd4ccc1aced2e4a436967c8fc1af13",
+  "cleanup": {
+    "reviewersAndOtherProtectionsPreserved": true,
+    "temporaryPolicyRemoved": 65106749
+  },
+  "frontendTree": "c987971c9c341c8d65fa6e652430f9d43983bfbd",
+  "hosting": {
+    "active_files": 104,
+    "application_files": 102,
+    "byte_count": 3196356,
+    "configuration_preserved": true,
+    "configuration_sha256": "cef1ccb938ce3c635701cae66b8fdac027b14b5834b797a5c2797523feac62c9",
+    "full_active_map_sha256": "2cbf3daeeb50c1f51488f7783c08f547361da67943e31edf32705baae350226f",
+    "previous_release": "sites/parsero-prod-20261022/channels/live/releases/1793497571171000",
+    "previous_version": "sites/parsero-prod-20261022/versions/f98bef7340784eba",
+    "provider_files": {
+      "/__/firebase/init.js": "e7bd33241cf11ab231f58fd0beb480b5462cfc7a69db6d508bacac5700f67345",
+      "/__/firebase/init.json": "0e92e3bcff11f2280adbb22fd5c515dfc4db6275fffe6544dd079a9d36c82ea8"
+    },
+    "published_at": "2026-11-01T11:54:22.385Z",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793534062385000",
+    "tree_sha256": "55f5cca24f1e923316aa6afef01c63539103d5e94c2f55c1444561d37d2c55d8",
+    "version": "sites/parsero-prod-20261022/versions/bab1a38316ddaf21"
+  },
+  "officialArtifact": {
+    "config_digest": "sha256:1cd153d71c668d510871b7afa25e7dd137b9114bf1f54f490d6078959ad93adc",
+    "index_digest": "sha256:35b20030add65589a1180dca09e28a095bc830f0d692fc1dc2a6f4bb05cfcb6a",
+    "provenance_digest": "sha256:81b159234bedb0e9af3144fc21aa2b42b973f70a7226a8e1753b7cd30cff0c41",
+    "runtime_manifest_digest": "sha256:7f327d6a6097f6d97aae6f1dbf627a7aeb5757e7bd32ffa85d2b4851b6e7636b",
+    "sbom_digest": "sha256:76142e9e12699f02d799084202c74d1b873b894693e45010a187546416ea8cfb"
+  },
+  "preservation": {
+    "apiDbIdentitySha256": "56ac21fb8397b946ac9cea25bb00a529794701315b28324990ef5b57f431df2c",
+    "apiSource": "723449af60ef718fc25548d24affb2e41fec2b16",
+    "businessWritesPerformed": false,
+    "configProfilesAndGooglePreserved": true,
+    "migrationsSha256": "05a939753036f9f364dc3d90959aecd56f84b62ec6aef93e84c52f34f2bb5e74",
+    "ordinarySessionsAndAuditNotClaimedUnchanged": true,
+    "runtimeServices": 4,
+    "schemaCount": 31,
+    "transportSchemaVersions": {
+      "bridge": 1,
+      "sqlstore": 16
+    }
+  },
+  "preservedPublishedBase": "f0e999be61b79c933380ec66ae9e09a69bc3311b",
+  "previousReviewedSource": "9de2996d0ba73558c7cebe9bfb55607e987855e3",
+  "receiptSha256": {
+    "api-after.private.json": "9ee41221667ff8c03fc73112cb349c7d648475d5034c2823473314c09c920ef7",
+    "api-before-current-source.private.json": "a086b43a40bffd0fd5ed23816aed843655b4eeef93c34b75a24feda63e0569e5",
+    "api-prepublish.private.json": "13464bcbaa99d0c8a4b2e690664ad38c5418c0b9bc0bc8b53c4409ca52c147ea",
+    "browser-production-result.private.json": "b9f4128f8e8bf99689ae4c31f44bdfa03a4b731e6fdc9e7dbbd7077c01e5dc8b",
+    "completion.private.json": "13f2d6e00bcfc0bfaa8dff9e7433611d25ae4969ab8c61e7c8ca8c350c6893c0",
+    "helpers-offline-artifact.private.json": "b99521c97f7cb62989a57584ba30754da807959a82a915e5a1d5d30480d5076d",
+    "hosting-baseline.private.json": "08b5fe3dde37adbe1e31531431cfeb00ffa36eb39b1f0618f79b834731882182",
+    "hosting-before-live-gates.private.json": "0711ff573e0ee03e0936002429eb3f67e645ad0a5be98b334c2b34c9f2c39b51",
+    "hosting-capture.private.json": "ab2d8100cd01053fb3add52885214569e95d694fd73d6c4471f1b1e1bbfab391",
+    "hosting-file-map.private.json": "c119ac3efeeafefdf9c33b782b45d5659b55422aa425645d7cb7ac356fddb1be",
+    "hosting-finalized-version.private.json": "346c8e11605f4de5ce8849c08fc033607ac63abf5db5998f3b3362ffd9c59220",
+    "hosting-plan.private.json": "480a7659296209a50da64a71bbb614b93a28eeb32d235094c7e3582e2fb92d2a",
+    "hosting-publish.receipt.private.json": "d2946c7c45cd520c9b6b00b7318cf6deb782190cd6124985c062dc529672eeb3",
+    "human-production-authorization.json": "466e2fbb11966a5b20baebbb09973b626df91ebdbfee6761978a8bc13c8e6cca",
+    "independent-publication-review.private.json": "08a11bcf2caf55ff01b1ed9f4413d91132370ce02ae1a0a5570122460a6311e6",
+    "production-branch-policies-before.json": "d98b8c0c09c9283540d240493427caadd29360d2c6680fa294639a1e98a48ebb",
+    "production-build-vars.json": "f1c165f7820e596ef97099f294cf6f71a6332f30f49f4eabdaa6bd6e8d7a90f2",
+    "production-environment-before.private.json": "1a011c9e93770f347c174a160dbd11c48a7e55a28610c39695a497cd119e044f",
+    "production-policy-cleanup-before.private.json": "c01b0b51bf29e9e500cd4ab0b2731faca3264e82efb7b986c4bcf4854624ffea",
+    "production-policy-cleanup.receipt.private.json": "932fdd6d4ac43d43a166bb401154b4d473c19b70b6cde8c8747b45c5f24e620e",
+    "production-reviewed-approvals.private.json": "8e82ec980dd339d7c884ae61abd60076d01cf7a492c70ff2171c158e0cf18d4c",
+    "public-verification-final.private.json": "e1ca4781d635013c399529e986a69e58c93f9fb97ad1fd446430af3699dc9154",
+    "publisher-helpers-artifact-verified.private.json": "dae8d3d35a568b4cdc6becd585bcb8b5b158e57fd569fd777d692df138dff1fb",
+    "review-ci-passed.private.json": "f7de3d16fd0a4e077ce8d5e3d0ecfc4d86095f0ff792368102de1238f9c744f2",
+    "source-integration-ci-window.private.json": "5bde85724b7de98631b16970aee8818269e357e22cdc7710609fdab106cc88dd",
+    "temporary-production-branch-policy.json": "200580bea0bc7407a40d65435f8750162aaa5ef404b62e6079c5e4c6382dc5b3",
+    "web-official-receipt.private.json": "99678ef1e72a28996453c2ff3a6f3d4f281fa9f643888cec0b5aecff8b60b56c"
+  },
+  "review": "https://github.com/gustavodrager/longbeach/pull/61",
+  "schemaVersion": 1,
+  "sourceCommit": "559b980215f6503355db58aecbf2520617780ab7",
+  "verification": {
+    "allProfilesOrMessageDeliveryTested": false,
+    "browser": {
+      "at_utc": "2026-11-01T11:56:40.589Z",
+      "businessWrites": false,
+      "credentialsRecorded": false,
+      "dayVerified": true,
+      "groupMonthAndReturnVerified": true,
+      "lanceLiveVisible": true,
+      "listVerified": true,
+      "mobileScrollWidth": 375,
+      "mobileWidth": 390,
+      "pendingLabelVerified": true,
+      "referrerMetaPreserved": true,
+      "weekVerified": true,
+      "whatsappNavigationPreserved": true
+    },
+    "failures": 0,
+    "files": 102,
+    "privateApi401": 17,
+    "publicGets": 189,
+    "releaseHelperTests": 50,
+    "spaRoutes": 68
+  },
+  "workflow": {
+    "attempt": 1,
+    "backendCiWindowMinutes": {
+      "after": 30,
+      "before": 15,
+      "commandsTestsFiltersAndCoveragePreserved": true
+    },
+    "ciRunId": 41300594382,
+    "publicationJobsPassed": 5,
+    "qualityJobsPassed": 4,
+    "runId": 41301953899
+  }
+}

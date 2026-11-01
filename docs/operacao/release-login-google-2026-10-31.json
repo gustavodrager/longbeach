@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 1,
+  "scope": "web-referrer-correction-and-real-google-login",
+  "sourceCommit": "a858cc28b39a389443fd5bda52413f6e5d581141",
+  "frontendTree": "85b2301b66d4b4e1de1089b79c06b1e09ff85c75",
+  "backendTreePreserved": "17c864fbe20fa56f2b5d3ffb6605ea9a6128f312",
+  "branch": "codex/google-login-20261031",
+  "pullRequest": "https://github.com/gustavodrager/longbeach/pull/60",
+  "workflow": {
+    "runId": 41256272026,
+    "attempt": 1,
+    "url": "https://github.com/gustavodrager/longbeach/actions/runs/41256272026",
+    "allFourJobsPassed": true,
+    "productionOwnerApprovalRecorded": true
+  },
+  "hosting": {
+    "version": "sites/parsero-prod-20261022/versions/ab58168b62a04b31",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793493660013000",
+    "published_at": "2026-11-01T00:41:00.013Z",
+    "previous_version": "sites/parsero-prod-20261022/versions/ca1594cd838ac562",
+    "previous_release": "sites/parsero-prod-20261022/channels/live/releases/1793485481236000",
+    "configuration_sha256": "1a73baa6083d25c29eb7f3d819ebe92e3b59395f6c3e8dadf34c592da2dbe287",
+    "previous_configuration_sha256": "6785ca752aaa3cb069c94d71885f104ad3a1eee764747906daeea355e20e4402",
+    "authorized_configuration_change": {
+      "from": "no-referrer",
+      "header": "Referrer-Policy",
+      "source": "**",
+      "to": "strict-origin-when-cross-origin"
+    },
+    "unrelated_configuration_preserved": true,
+    "application_files": 100,
+    "active_files": 102,
+    "tree_sha256": "e30e255a0f642badcf0bd88d024bc45aec7cbf87e3638be124d4166e38c80508",
+    "byte_count": 3130059,
+    "provider_files": {
+      "/__/firebase/init.js": "e7bd33241cf11ab231f58fd0beb480b5462cfc7a69db6d508bacac5700f67345",
+      "/__/firebase/init.json": "0e92e3bcff11f2280adbb22fd5c515dfc4db6275fffe6544dd079a9d36c82ea8"
+    },
+    "full_active_map_sha256": "5d3623992941f55ce390eac58a0b9241c93cd81c7f6959ce580a60e1b2e55af1"
+  },
+  "documentPolicy": {
+    "changed_artifact_files": [
+      "index.html",
+      "sw.js"
+    ],
+    "html_meta": "strict-origin-when-cross-origin",
+    "index_precache_revision": "a669923c148b571ad6219d14f8bc513c",
+    "index_sha256": "ceed26a6fea3c2f01541f4b3f02d87cff45f695fb6f3fc16eb5943d2d2a2ada8",
+    "javascript_bytes_unchanged": true,
+    "oauth_login_executed": false,
+    "passed": true,
+    "previous_index_precache_revision": "bc3776df236a27afbd8427c79753f535",
+    "previous_index_sha256": "cd5fc73a659ecfcdba9502567ae886caf44dbd175cefe6fca4fce4978e300843",
+    "previous_sw_sha256": "0f94bf584617b846623b5b426e7324f94357ceb87ebe51a817c51f97d9c6dd32",
+    "sw_sha256": "a459e1c3489d2df7a8d455319b7ef29d0dfc444880fe1cf3802e4085e4f4a0e1",
+    "verification_scope": "static-artifact-bytes-and-meta-before-scripts"
+  },
+  "officialArtifact": {
+    "index_digest": "sha256:42bd23c47c83afcf4824c2a773cbd2d42f4bb948cc9ffd8cd60a5c21440d5c90",
+    "runtime_manifest_digest": "sha256:16874a8e0f5568766ae8678daf9e489cf06c08e31640d75bb1b94ce1c863e352",
+    "config_digest": "sha256:624b837589017d82d8b7dc51f0d56b880ce2fd69f03e96addd10b057a1aaa173",
+    "provenance_digest": "sha256:f869cd8519ae8fc1385088c6e5c93da947f62ffc7ea3c0503bfa133ec9013428",
+    "sbom_digest": "sha256:ca03463fbc35fa7b5cac95860b41a81a3058e98b507f8945b7b36127951e291a"
+  },
+  "apiAndDatabase": {
+    "sourceCommit": "66fa521dc2b578fda7182d8d5af81b2f0cb00544",
+    "image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:084d31181f4bc9f184483c49583c053241b9e1f71283b6d4942b93e11168d255",
+    "configDigest": "sha256:b58dd582557be2181dff66d64164ef060a2c5dcd5842b46f1f2b02026a69f3f3",
+    "schemaCount": 30,
+    "latestMigration": "20261029210216_DigitalMenu",
+    "migrationsSha256": "31fcd56f6b4f82fab935f265e6e4d5ef6ddd12a07e113db9247702be9932003d",
+    "beforePrepublishAfterIdentitySha256": "021a5bc22b2f513dd205deb240d2c1aa71b3879bdbe79278649c7760bc99ec5f",
+    "configurationProfilesAndOAuthPreserved": true,
+    "allThreeContainersAndStartTimesPreserved": true,
+    "runtimeOrSchemaDeploymentPerformed": false,
+    "businessDataMutationPerformed": false,
+    "normalAuthenticationSessionsAndAuditAuthorized": true
+  },
+  "validation": {
+    "frontendTests": {
+      "passed": true,
+      "tests": 976,
+      "files": 89
+    },
+    "deploymentTests": {
+      "passed": true,
+      "tests": 49,
+      "newTests": 3
+    },
+    "frontendBuild": {
+      "passed": true,
+      "pwaEntries": 89,
+      "artifactFiles": 100,
+      "localEntry": "assets/index-BRFtTxvM.js"
+    },
+    "apiBuild": {
+      "passed": true,
+      "warnings": 0,
+      "errors": 0
+    },
+    "releaseToolTests": 105,
+    "publicGetRequests": 181,
+    "publicFailures": 0,
+    "filesVerifiedByHash": 100,
+    "spaRoutes": 65,
+    "staticAnalyzers": [
+      "logos",
+      "entrance",
+      "auth_screens",
+      "menus_and_homes",
+      "operation_screens",
+      "daily_courts",
+      "management_screens",
+      "general_clean_screens",
+      "agendas_and_customers_screens",
+      "google_document_policy"
+    ],
+    "browserOfficialEntry": "assets/index-CD3qKXss.js",
+    "javascriptEntryChangeRequired": false,
+    "anonymousPrivatePagesRedirectToLogin": [
+      "/administracao/professores",
+      "/bar/caixa",
+      "/bar/cardapio",
+      "/clientes",
+      "/escola/agenda",
+      "/financeiro/despesas",
+      "/manutencao",
+      "/mensalistas/agenda",
+      "/minha-area/bar",
+      "/minha-area/perfil",
+      "/professor/turmas"
+    ],
+    "mobileViewport": {
+      "width": 390,
+      "scrollWidth": 390,
+      "horizontalOverflow": false
+    },
+    "realGoogleLogin": {
+      "completedAtUtc": "2026-11-01T00:48:41.383Z",
+      "existingAccountOnly": true,
+      "firstDestination": "/",
+      "initialLogin": true,
+      "reload": true,
+      "logout": true,
+      "anonymousDeniedAfterLogout": true,
+      "reSignIn": true,
+      "secondReload": true,
+      "googleOriginErrorAfterFix": false,
+      "credentialsRecorded": false,
+      "businessOrRoleChanges": false
+    },
+    "localPreviewUsedSeparateGoogleClient": true,
+    "firstAccessCompletionTested": false,
+    "allProfilesOrUsersIsolationTested": false
+  },
+  "cleanup": {
+    "temporaryPolicyRemoved": 65071485,
+    "reviewersAndProtectionsPreserved": true,
+    "newInfrastructureResources": false,
+    "sshCredentialImportOrRenewal": false
+  },
+  "receiptSha256": {
+    "human-production-authorization.json": "7e9f5ffd8e4b915ae6ba61ede6d904c102cc54799be06679f6c138a84cc3dd6d",
+    "production-reviewed-approvals.private.json": "f6a5cc79bbcc835f472e658aa3cd78b44f9d89fda2eb3b5e67685aea03bb385b",
+    "production-build-vars.json": "f009b2221de19ae2df141aa747409093c5d23741ae056a0957ee3f23560959d8",
+    "review-ci-passed.private.json": "10b8be3bf3bb8390325c859161ba420e6cfc5dc9d01f62e7f0805f3ce06046ec",
+    "publisher-helpers-final-verified.private.json": "ed0bffd80ea61a1cfab3362aa454125bd8f00e0b87a913dfddb3d40880617215",
+    "helpers-offline-final.private.json": "0108a2b63b65f98ee33dbadd0cf435bfbac09b2b69011d233495bd065aafcb93",
+    "independent-publication-review.private.json": "488d0cbe5d9cd89420e0484abbd5061e153862d9a85fce8dd5a82755eb9be520",
+    "registry-web-gate.private.json": "4cd30c031f6f112573d0070ffd4cb2cfd32737900f0afb06d090d257caa7471a",
+    "registry-web-source-proof.private.json": "9a8d7c9db7f122297343b5380f2d86d1b28ea6eb7e978f7abca692f55ec444b9",
+    "registry-web-preparation-receipt.private.json": "30c35dcd4f0e7303329ec1177ab2d75b969d14b4028373ea30877d88841749bb",
+    "web-official-receipt.private.json": "d5650e28c56a70daff767bfa7e111d14573a820eb33305878f4816c4c573ca8f",
+    "api-before.private.json": "be3961a396bad0152f44f91a8240ce94e90be911cb2c2862cf2eccedb0385c79",
+    "api-prepublish.private.json": "59df6d35eedf0b8cdd7a5a074227593e89ee7b342bea2cf246dea72473bac86f",
+    "api-after.private.json": "bd333c37c94d8bf257502abd4a1406fc393bb9ed07297b132e0da7e1826c54da",
+    "hosting-plan.private.json": "4401b284929b5add5f35b6050e313a5093737489a15a2b9cae30ce7431a4293f",
+    "hosting-target-config.private.json": "bd2ed09d3b0150b067d475c76fe60e5506a95e83d6ee6f7d0d8dceed13cd3222",
+    "previous-web-bytes.private.json": "094c3ed0b3513da7f7e408970576e7f48f949dbe87bce352e083fd622fd33513",
+    "hosting-capture.private.json": "a5c541158ea8a73932ecc95d581e585552fb11dfaa4266b4bf36689a580bb871",
+    "hosting-publish.receipt.private.json": "024d11ad3b0a1497b80e42560d3a88d3744b4aa59eb57a5b16801e35c1dde8a8",
+    "hosting-baseline.private.json": "9bcd986b59ba3194c56889c3195fa3580659bb8ce752077ec8a2e1a559fbc70b",
+    "public-verification-final.private.json": "3c70d085003db7ff2ab18b294ca86a74adb536ced108ff4bf66bd7eb23f43c0b",
+    "production-policy-cleanup.receipt.private.json": "12561a4c8fdac21be89ef8d9ed2d6f2f56ac37f5db1112fdd283fe5a3ba01392",
+    "browser-before.private.json": "a4bc6988b99de9cf06cfca021f62e622889559bcb4e0906b70081a05cf777b76",
+    "browser-after.private.json": "d2b73cb33f685415be1d6daa1e1c7cfb58f0dfa5bc9723822a40a5723033b498",
+    "browser-mobile.private.json": "04b6de8a8d735f8bb5b58c320315f06553e6f7c5051b7f7a296ff24cd5823813",
+    "browser-private-guards.private.json": "d65f2d0362dbdccd979a0e3d13214f5c6df140f354d8def61c670cab8eedee2f",
+    "browser-console.private.json": "c6fbaced1a95821a04b0ad9215fae2a9daadf35b8fa1145b3b5dc060819c1dc1",
+    "login-production-result.private.json": "801f2e47fec309c8ed3fa641628ca643cab2b52bf3f69c6703d98dbf11999a08",
+    "completion.private.json": "3ecaa64972c30ec326a7ed3fc9edba017638ad3520e3a2278cb703174636cb27",
+    "../validacao-final.json": "0bd310aa4ec835038587e318e939e498dd176e01a183a2098865e8c56c934909"
+  },
+  "privateEvidenceDirectory": "LongBeach/evidencias/correcao-login-google-2026-10-31/publicacao"
+}

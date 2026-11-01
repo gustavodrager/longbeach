@@ -17,7 +17,7 @@ const attendant: AuthUser = { ...manager, id: 'attendant-test', name: 'Atendente
 const court: Court = { id: 'court-test', name: 'Quadra 1', sport: 'Futevôlei', status: 'Disponível', openingTime: '16:00', closingTime: '23:00', scheduleConfirmed: true }
 const group: RentalGroup = { id: 'group-active', name: 'Grupo de novembro', courtId: court.id, sport: 'Futevôlei', weekDay: 3, startTime: '20:00', endTime: '21:00', startDate: '2026-01-01', endDate: '', status: 'Ativo', capacity: 12, organizerId: 'organizer', backupId: '', members: [{ id: 'organizer', name: 'Responsável atual', phone: '', status: 'Ativo' }], monthlyAmount: 500, dueDay: 10, fifthPolicy: 'Incluído', extraAmount: null, notes: '', version: 1 }
 const paused: RentalGroup = { ...group, id: 'group-paused', name: 'Grupo de outubro pausado', status: 'Pausado', weekDay: 5, startTime: '19:00', endTime: '20:00', members: [...group.members, { id: 'new-member', name: 'Integrante adicionado depois', phone: '', status: 'Ativo' }] }
-const withoutMeetings: RentalGroup = { ...group, id: 'group-not-generated', name: 'Grupo sem encontros gerados' }
+const withoutMeetings: RentalGroup = { ...group, id: 'group-not-generated', name: 'Grupo sem encontros gerados', weekDay: 1, startTime: '20:00', endTime: '22:00' }
 const meeting: Reservation = { id: 'meeting-active', name: group.name, courtId: court.id, date: day, startTime: '20:00', endTime: '21:00', customerName: 'Responsável atual', phone: '', amount: 0, status: 'Confirmada', notes: '', rentalGroupId: group.id, rentalMonth: '2026-11' }
 const rescheduled: Reservation = { ...meeting, id: 'meeting-rescheduled', name: paused.name, rentalGroupId: paused.id, rentalMonth: '2026-10', startTime: '18:00', endTime: '19:00', notes: 'Reposição combinada para novembro.' }
 const ordinary: Reservation = { ...meeting, id: 'ordinary-rental', name: 'Locação avulsa', startTime: '16:00', endTime: '17:00', rentalGroupId: undefined, rentalMonth: undefined }
@@ -97,7 +97,7 @@ it.each([[false, 'week'], [true, 'day']] as const)('abre a agenda de mensalistas
   expectReadOnly(fetchMock)
 })
 
-it.each(['day', 'list'] as const)('mostra apenas encontros gerados na vista %s, mesmo com activity adulterada e grupo já pausado', async view => {
+it.each(['day', 'list'] as const)('mantém encontros confirmados na vista %s, mesmo com activity adulterada e grupo já pausado', async view => {
   const fetchMock = mockApi()
   start(`/mensalistas/agenda?view=${view}&date=${day}&from=${day}&to=${day}&month=2026-11&activity=livre`)
   expect(await screen.findByRole('button', { name: new RegExp(paused.name) })).toHaveTextContent('18:00–19:00')
@@ -112,6 +112,49 @@ it.each(['day', 'list'] as const)('mostra apenas encontros gerados na vista %s, 
   expect(within(panel).getByText('Participantes registrados no mês 10/2026.')).toBeInTheDocument()
   expect(within(panel).getByText('Participante da competência de outubro')).toBeInTheDocument()
   expect(within(panel).queryByText('Integrante adicionado depois')).not.toBeInTheDocument()
+  expectReadOnly(fetchMock)
+})
+
+it.each(['week', 'day', 'list'] as const)('exibe o grupo de segunda sem competência gerada como A confirmar na vista %s', async view => {
+  const fetchMock = mockApi()
+  const monday = '2026-11-02'
+  start(`/mensalistas/agenda?view=${view}&date=${monday}&from=${monday}&to=${monday}`)
+  const preview = await screen.findByRole('button', { name: new RegExp(withoutMeetings.name) })
+  expect(preview).toHaveTextContent('20:00–22:00')
+  expect(preview).toHaveTextContent('A confirmar')
+  expect(preview.getAttribute('aria-label') ?? '').not.toContain('Ocupado')
+  if (view === 'week') {
+    expect(preview).toHaveStyle({ width: '100%' })
+    await userEvent.click(screen.getByText('Resumo da semana'))
+    const summary = screen.getByRole('region', { name: 'Resumo da semana' })
+    expect(within(summary).getByText('Mensalistas').parentElement).toHaveTextContent('2 · 2 h')
+  } else expect(screen.getByText('0 encontros · 1 a confirmar')).toBeInTheDocument()
+  await userEvent.click(preview)
+  const panel = screen.getByRole('dialog', { name: withoutMeetings.name })
+  expect(within(panel).getByText('02/11/2026')).toBeInTheDocument()
+  expect(within(panel).getByText('Mensalista · A confirmar')).toBeInTheDocument()
+  expect(within(panel).queryByRole('link', { name: 'Ver reserva' })).not.toBeInTheDocument()
+  const destination = new URL(within(panel).getByRole('link', { name: 'Ver grupo' }).getAttribute('href')!, 'https://test.invalid')
+  expect(destination.pathname).toBe(`/mensalistas/${withoutMeetings.id}`)
+  expect(destination.searchParams.get('month')).toBe('2026-11')
+  expectReadOnly(fetchMock)
+})
+
+it('permite filtrar previsões sem misturar com reservas confirmadas', async () => {
+  const fetchMock = mockApi()
+  start('/mensalistas/agenda?view=list&from=2026-11-02&to=2026-11-08&status=A+confirmar')
+  expect(await screen.findByRole('button', { name: new RegExp(withoutMeetings.name) })).toHaveTextContent('A confirmar')
+  expect(screen.queryByRole('button', { name: new RegExp(group.name) })).not.toBeInTheDocument()
+  expect(screen.getByText('0 encontros · 1 a confirmar')).toBeInTheDocument()
+  expectReadOnly(fetchMock)
+})
+
+it('mantém a agenda geral baseada nas ocupações registradas', async () => {
+  const fetchMock = mockApi()
+  start('/agenda?view=week&date=2026-11-02')
+  await screen.findByRole('button', { name: /Mensalista.*Grupo de novembro/ })
+  expect(screen.queryByRole('button', { name: new RegExp(withoutMeetings.name) })).not.toBeInTheDocument()
+  expect(screen.queryByText('A confirmar: horário previsto, sem reserva da quadra.')).not.toBeInTheDocument()
   expectReadOnly(fetchMock)
 })
 
