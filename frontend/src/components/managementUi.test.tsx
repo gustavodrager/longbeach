@@ -17,8 +17,10 @@ it('preserva a turma de origem e competência ao trocar seções e editar a fich
 })
 
 it('organiza os grupos da gestão e mantém uma única seção ativa para rotas profundas', () => {
-  expect(managementNavigation.map(x => x.label)).toEqual(['Visão geral','Clientes','Agenda','Mensalistas','Aulas','Financeiro','Bar','Administração'])
+  expect(managementNavigation.map(x => x.label)).toEqual(['Visão geral','Clientes','WhatsApp','Agenda','Mensalistas','Aulas','Financeiro','Bar','Administração'])
   expect(destinationFor('/clientes/pessoa',managementNavigation)?.group.label).toBe('Clientes')
+  expect(destinationFor('/whatsapp/conversas/pessoa',managementNavigation)?.group.label).toBe('WhatsApp')
+  expect(destinationFor('/whatsapp/envios',managementNavigation)?.item.label).toBe('Envios')
   expect(destinationFor('/bar/receitas/produto',managementNavigation)?.destination.label).toBe('Fichas técnicas')
   expect(destinationFor('/escola/matriculas',managementNavigation)?.item.label).toBe('Matrículas')
   expect(destinationFor('/financeiro/historico',managementNavigation)?.destination.label).toBe('Histórico')

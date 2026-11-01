@@ -2,6 +2,8 @@
 
 Aplicação principal da Long Beach Arena: frontend React/TypeScript/Vite, PWA e Capacitor; backend .NET em monólito modular; PostgreSQL e migrations próprios.
 
+A central [WhatsApp](docs/operacao/whatsapp.md) reúne Conversas, Envios e Automação. O transporte [whatsmeow](backend/whatsapp-bridge/README.md) é privado e começa desabilitado; pareamento e ativação seguem operação própria.
+
 ## Estrutura
 
 ```text

@@ -77,7 +77,20 @@ public sealed class BackgroundJobsRegistrationTests
             database.Database.GetDbConnection().DataSource);
     }
 
-    private static HostApplicationBuilder Builder(string? enabled)
+    [Theory]
+    [InlineData("true", "true", true)]
+    [InlineData("true", "false", false)]
+    [InlineData("false", "true", false)]
+    public void Messaging_worker_requires_both_explicit_feature_and_background_jobs(string backgroundJobs, string messaging, bool expected)
+    {
+        using var host=Builder(backgroundJobs,messaging).Build();
+        var hosted=host.Services.GetServices<IHostedService>().ToArray();
+        Assert.Equal(expected,hosted.Any(x=>x is LongBeach.Infrastructure.Messaging.MessagingWorker));
+        if(backgroundJobs=="true")Assert.Equal(HostedServices,hosted.Where(x=>x is not LongBeach.Infrastructure.Messaging.MessagingWorker).Select(x=>x.GetType()));
+        else Assert.Empty(hosted);
+    }
+
+    private static HostApplicationBuilder Builder(string? enabled, string? messagingEnabled = null)
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
@@ -93,6 +106,8 @@ public sealed class BackgroundJobsRegistrationTests
         });
         if (enabled is not null)
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["BackgroundJobs:Enabled"] = enabled });
+        if (messagingEnabled is not null)
+            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["Messaging:Enabled"] = messagingEnabled });
         builder.Services.AddApplication();
         builder.Services.AddInfrastructure(builder.Configuration);
         return builder;

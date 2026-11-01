@@ -1,4 +1,4 @@
-import { apiFetch, getCsrfToken, setAccessToken, setCsrfToken, subscribeSession } from './http'
+import { apiFetch, apiFetchBlob, getCsrfToken, setAccessToken, setCsrfToken, subscribeSession } from './http'
 import type { AuthUser } from '../features/auth/types'
 
 const attendant: AuthUser = { id: 'person', name: 'Pessoa teste', email: 'person@example.invalid', roles: ['Operations'], permissions: ['students:read', 'students:write'] }
@@ -7,6 +7,14 @@ const listeners: (() => void)[] = []
 function observe() { const listener = vi.fn(); listeners.push(subscribeSession(listener)); return listener }
 beforeEach(() => { setAccessToken('old-token'); setCsrfToken('old-csrf') })
 afterEach(() => { listeners.splice(0).forEach(stop => stop()); setAccessToken(null); setCsrfToken(null); vi.restoreAllMocks() })
+
+it('renova a sessão de mídia privada sem tentar interpretar o arquivo como JSON', async () => {
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(json({}, 401)).mockResolvedValueOnce(json({ accessToken: 'new-token', csrfToken: 'new-csrf', user: attendant })).mockResolvedValueOnce(new Response('private PDF', { status: 200, headers: { 'Content-Type': 'application/pdf' } }))
+  const result = await apiFetchBlob('/api/v1/messaging/attachments/fixture')
+  expect(result.type).toBe('application/pdf')
+  expect(await result.text()).toBe('private PDF')
+  expect(new Headers(fetch.mock.calls[2][1]?.headers).get('Authorization')).toBe('Bearer new-token')
+})
 
 it('publica o usuário da renovação e repete somente a requisição que recebeu 401', async () => {
   const session = observe()

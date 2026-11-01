@@ -3,6 +3,7 @@ import type { AuthUser, UserRole } from './types'
 const roles: UserRole[] = ['Manager', 'Teacher', 'Operations', 'Student']
 const labels: Record<UserRole, string> = { Manager: 'Gestor', Teacher: 'Professor', Operations: 'Atendente', Student: 'Cliente' }
 const attendantPermissions = new Set([
+  'messaging:read', 'messaging:operate',
   'customers:read', 'customers:write',
   'bar:catalog:read', 'bar:stock:output', 'bar:stock:read', 'bar:cash:operate', 'bar:sales:read', 'bar:sales:operate',
   'students:read', 'students:write', 'employees:read',

@@ -5,7 +5,7 @@ import { hasPermission, isManagement } from '../auth/access'
 import { useAuth } from '../auth/authContext'
 import type { AuthUser } from '../auth/types'
 
-export type CustomerScope = 'students' | 'projects' | 'bar' | 'reservations'
+export type CustomerScope = 'students' | 'projects' | 'bar' | 'reservations' | 'messaging'
 export type CustomerProfile = 'Aluno' | 'Mensalista' | 'Bar'
 export type CustomerLookup = { id: string; name: string; phoneHint: string; incomplete: boolean }
 export type CustomerSelection = Pick<CustomerLookup, 'id' | 'name'> & Partial<Pick<CustomerLookup, 'phoneHint' | 'incomplete'>>
@@ -29,6 +29,7 @@ export type CustomerBackfillResult = { sources: number; created: number; linked:
 export type CustomerUserChoice = { id: string; name: string; emailHint: string }
 
 const scopePermissions: Record<CustomerScope, { read: string; write: string }> = {
+  messaging: { read: 'messaging:operate', write: 'customers:write' },
   students: { read: 'students:read', write: 'students:write' },
   projects: { read: 'projects:read', write: 'projects:write' },
   reservations: { read: 'projects:read', write: 'projects:write' },

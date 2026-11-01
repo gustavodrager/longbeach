@@ -94,16 +94,16 @@ guard do host antes de iniciar somente PostgreSQL. O preflight exige
 `PG_VERSION=18` já existente. Não iniciar API/Caddy contra banco vazio, usar
 `docker compose down -v` ou apagar dados para corrigir um start.
 
-### Compatibilidade da API com o schema 29
+### Compatibilidade da API com o schema 31
 
-Este preflight acompanha a release `20261029121159_UnifiedCustomers`. Instalar
+Este preflight acompanha a release `20261101002415_MessagingCentral`. Instalar
 sua unit/guard no corte dessa release, com escritores pausados e após o job de
-migration conferido. Não trocar preventivamente o guard de um host no schema 28
+migration conferido. Não trocar preventivamente o guard de um host no schema 30
 e tentar reiniciá-lo: versões sem a prova nova serão recusadas.
 
 A imagem API contém labels constantes versionadas: `com.longbeach.api.customer-registry=v1`,
-`com.longbeach.api.schema.migration-count=29`, `com.longbeach.api.schema.latest=20261029121159_UnifiedCustomers`
-e `com.longbeach.api.schema.migrations-sha256=c9f2d161a72410894b9b9f4af1ad243e305f61e1548f94393deac32aeeb6cf11`.
+`com.longbeach.api.schema.migration-count=31`, `com.longbeach.api.schema.latest=20261101002415_MessagingCentral`
+e `com.longbeach.api.schema.migrations-sha256=05a939753036f9f364dc3d90959aecd56f84b62ec6aef93e84c52f34f2bb5e74`.
 O Dockerfile calcula esse hash dos atributos reais de todas as migrations,
 incluindo as manuais sem Designer, e falha no build se houver divergência. A
 publicação de imagens também executa os testes do contrato. Nenhum build arg,
@@ -113,7 +113,7 @@ O preflight inspeciona a imagem local por digest, confere `RepoDigests` e
 `linux/amd64`; depois identifica o PostgreSQL do Compose por ID, labels, imagem
 e mount de dados. Pelo usuário local `postgres`, sem senha em argumentos,
 consulta apenas o histórico de migrations de `longbeach` em transação READ ONLY.
-Exige o conjunto completo de 29 IDs e o mesmo hash da imagem/guard. API antiga
+Exige o conjunto completo de 31 IDs e o mesmo hash da imagem/guard. API antiga
 sem labels, schema parcial, schema futuro, imagem ausente ou banco inacessível
 são recusados; não há pull, migração automática ou fallback para um estado informado
 manualmente. Os digests de índice e de config OCI podem ser diferentes.
@@ -170,6 +170,72 @@ SO/Docker no host4GiB. São candidatos a teste, não capacidade comprovada. Ensa
 importações e concorrência com os limites reais antes do corte. `max_wal_size=1GB`
 é um alvo de checkpoint, não limite de disco: falhas de archive podem acumular WAL;
 o monitor de backup/disco é obrigatório. Sem réplica, falha do host exige recuperação.
+
+## WhatsApp opcional na mesma VM
+
+`WHATSAPP_ENABLED=false` preserva o conjunto original de serviços. A ativação usa
+`WHATSAPP_ENABLED=true` e `WHATSAPP_BRIDGE_IMAGE` por digest no Artifact Registry do
+mesmo projeto; essas são as únicas opções novas do arquivo público `runtime.env`.
+Segredo, chave de IA e URL autenticada de banco são recusados nesse arquivo.
+`runtime-compose.py` inclui `compose.whatsapp.yaml` e o profile `whatsapp` nos
+starts/reboots autorizados. O passo PostgreSQL continua usando somente o Compose
+base; a parada inclui os quatro serviços e preserva os dados/sessão. Desativar o
+profile também para uma bridge anterior, em vez de deixá-la órfã.
+
+Instalar no bundle revisado `runtime-compose.py`, `whatsapp-secrets.py`,
+`compose.whatsapp.yaml` e `longbeach-whatsapp-secrets.service`, além da unit,
+preflight e healthcheck atualizados. A lista histórica `RUNTIME_FILES` do
+bootstrap antigo não instala esses arquivos: a release deve copiá-los
+explicitamente e instalar a nova unit em `/etc/systemd/system`, com root como
+proprietário e sem escrita por outros. Repetir essa instalação em reconstruções;
+não reaplicar o bootstrap completo de migração para atualizar uma release.
+
+A nova unit de configuração roda depois de `longbeach-secrets.service` e antes do
+gate do runtime. Quando habilitado, lê `/etc/longbeach/whatsapp-bootstrap.json`
+(root:root 0600), com referência numérica, sem segredo:
+
+```json
+{"schemaVersion":1,"projectId":"parsero-prod-20261022","secretId":"longbeach-whatsapp-config","version":"1","messagingEnabled":false,"aiEnabled":false}
+```
+
+O Secret Manager guarda o JSON completo definido pela bridge, inclusive URL do
+login exclusivo e segredo compartilhado; usar a identidade da VM com acesso
+somente a esse secret e às versões admitidas. Não criar arquivo de chave. O
+render recusa redirects e referências `latest`, mantém os campos existentes da
+API e mescla somente as opções Messaging autorizadas. Grava de forma atômica
+`/run/longbeach/whatsapp-bridge.json` (root:65532 0640) e a configuração API
+(root:1654 0640). Somente o arquivo específico da bridge é montado nela; o banco
+administrativo e o JSON da API continuam ausentes do transporte. O ambiente do
+container contém apenas o caminho do arquivo e o limite de memória, sem segredo
+ou URL de banco visíveis em `docker inspect`.
+
+`messagingEnabled=false` com transporte habilitado é uma configuração válida para
+parear sem despachar a fila. Habilitar o worker requer também `WORKERS_ENABLED`
+e seus dois gates de corte. IA permanece desligada nesse manifesto inicial.
+As configurações de bot e lembretes no banco começam desligadas. Conferir a fila
+manual antes de habilitar seu processamento.
+
+Aplicar a migration EF 30→31 com o migrador da aplicação e, separadamente, executar
+`whatsapp-bridge migrate` com o migrador do transporte. O schema
+`whatsapp_transport` pertence ao migrador, nunca ao runtime. O login
+`longbeach_whatsapp_runtime` herda somente o grupo NOLOGIN
+`longbeach_whatsapp_bridge`: sem privilégios administrativos, CREATE de schema,
+propriedade de tabelas ou leitura/DML das tabelas de negócio em `public`.
+Revogar as permissões temporárias de migração após a conferência.
+
+O gate completo confere por digest a imagem Linux/amd64, UID65532 e labels
+`com.longbeach.whatsapp.transport=v1`, `com.longbeach.whatsapp.schema=whatsapp_transport`,
+`com.longbeach.whatsapp.schema.version=1` e `com.longbeach.whatsapp.sqlstore.version=16`.
+Consulta as versões e os privilégios reais em transação READ ONLY e recusa mais
+de um serviço ativo da bridge. O próprio transporte também mantém lock exclusivo
+da conta no PostgreSQL. O healthcheck inclui a bridge quando habilitada, mas
+saúde de processo não comprova pareamento ou conexão: conferir esses estados na
+central antes de qualquer envio autorizado. A porta 8091 não é publicada, e a
+bridge permanece nas sub-redes já bloqueadas para metadata HTTP/HTTPS.
+
+Não fazer Down ou apagar sessão/histórico ao interromper a função. Desligar o
+worker e o profile pela operação controlada, mantendo a API compatível com
+schema31; retorno da interface não altera o banco.
 
 ## Verificação local
 

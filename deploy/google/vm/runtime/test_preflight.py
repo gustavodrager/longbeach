@@ -158,7 +158,7 @@ class FakeDocker:
         self.image = {"Id": "sha256:" + "d" * 64, "Os": "linux", "Architecture": "amd64",
                       "RepoDigests": [environment()["API_IMAGE"]], "Config": {"Labels": {
                           preflight.LABEL_CAPABILITY: "v1", preflight.LABEL_SCHEMA_HASH: preflight.API_SCHEMA_SHA256,
-                          preflight.LABEL_SCHEMA_COUNT: "30", preflight.LABEL_SCHEMA_LATEST: preflight.API_SCHEMA_LATEST}}}
+                          preflight.LABEL_SCHEMA_COUNT: "31", preflight.LABEL_SCHEMA_LATEST: preflight.API_SCHEMA_LATEST}}}
         self.postgres = {"Id": self.container, "State": {"Running": True},
                          "Config": {"Image": environment()["POSTGRES_BACKUP_IMAGE"], "User": "999:999", "Labels": {
                              "com.docker.compose.project": "longbeach", "com.docker.compose.service": "postgres",
@@ -188,7 +188,7 @@ class ApiSchemaGateTests(unittest.TestCase):
     def test_current_immutable_image_matches_actual_schema_without_pulls_starts_or_credentials(self):
         fake = FakeDocker()
         proof = preflight.check_api_schema(environment(), fake)
-        self.assertEqual(proof["migration_count"], 30)
+        self.assertEqual(proof["migration_count"], 31)
         self.assertTrue(proof["image_digest_verified"])
         # Config ID and index digest are different legitimate OCI objects.
         self.assertNotEqual(fake.image["Id"], environment()["API_IMAGE"].split('@')[1])
@@ -318,14 +318,14 @@ class ApiSchemaGateTests(unittest.TestCase):
 
     def test_build_labels_and_gate_hash_the_actual_migration_attributes_including_handwritten_files(self):
         ids = source_migrations()
-        self.assertEqual(len(ids), 30)
-        self.assertEqual(len(set(ids)), 30)
+        self.assertEqual(len(ids), 31)
+        self.assertEqual(len(set(ids)), 31)
         self.assertIn("20261001000100_InitialCreate", ids)
         expected = hashlib.sha256(("\n".join(ids) + "\n").encode()).hexdigest()
         self.assertEqual(expected, preflight.API_SCHEMA_SHA256)
         dockerfile = (REPO / "deploy/api.Dockerfile").read_text()
         self.assertIn('com.longbeach.api.customer-registry="v1"', dockerfile)
-        self.assertIn('com.longbeach.api.schema.migration-count="30"', dockerfile)
+        self.assertIn('com.longbeach.api.schema.migration-count="31"', dockerfile)
         self.assertIn('com.longbeach.api.schema.latest="' + ids[-1] + '"', dockerfile)
         self.assertIn('com.longbeach.api.schema.migrations-sha256="' + expected + '"', dockerfile)
         self.assertIn('test "$migration_sha256" = "' + expected + '"', dockerfile)
@@ -354,14 +354,16 @@ class ApiSchemaGateTests(unittest.TestCase):
         before = [line for line in lines if line.startswith("ExecStartPre=")]
         self.assertEqual(len(before), 3)
         self.assertTrue(before[0].endswith("preflight.py --host-only"))
-        self.assertIn("--no-deps postgres", before[1])
+        self.assertTrue(before[1].endswith("runtime-compose.py postgres"))
         self.assertNotIn(" api", before[1])
         self.assertNotIn(" caddy", before[1])
         self.assertTrue(before[2].endswith("preflight.py"))
         start = next(line for line in lines if line.startswith("ExecStart="))
-        self.assertIn("--pull never", start)
+        self.assertTrue(start.endswith("runtime-compose.py start"))
         self.assertGreater(lines.index(start), lines.index(before[2]))
         self.assertIn("PartOf=docker.service", lines)
+        self.assertIn("Requires=longbeach-whatsapp-secrets.service", lines)
+        self.assertTrue(any(line.endswith("runtime-compose.py stop") for line in lines if line.startswith("ExecStop=")))
         for line in lines:
             if line.startswith(("ExecStartPre=", "ExecStart=", "ExecStop=")) and "/usr/bin/docker " in line:
                 self.assertIn("/usr/bin/docker --host unix:///var/run/docker.sock compose", line)

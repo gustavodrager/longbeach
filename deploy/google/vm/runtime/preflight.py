@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,7 @@ import re
 import stat
 import subprocess
 import sys
+from urllib.parse import parse_qs, urlsplit
 
 ENV_FILE = Path("/etc/longbeach/runtime.env")
 DATA_ROOT = Path("/var/lib/longbeach")
@@ -19,9 +21,9 @@ RUNTIME_ROOT = Path("/opt/longbeach/runtime")
 API_HOST = "api.longbeach.quebranunca.com.br"
 WEB_ORIGIN = "https://longbeach.quebranunca.com.br"
 # This proof is versioned with the API source; no runtime environment override is accepted.
-API_SCHEMA_LATEST = "20261029210216_DigitalMenu"
-API_SCHEMA_COUNT = 30
-API_SCHEMA_SHA256 = "31fcd56f6b4f82fab935f265e6e4d5ef6ddd12a07e113db9247702be9932003d"
+API_SCHEMA_LATEST = "20261101002415_MessagingCentral"
+API_SCHEMA_COUNT = 31
+API_SCHEMA_SHA256 = "05a939753036f9f364dc3d90959aecd56f84b62ec6aef93e84c52f34f2bb5e74"
 LABEL_CAPABILITY = "com.longbeach.api.customer-registry"
 LABEL_SCHEMA_HASH = "com.longbeach.api.schema.migrations-sha256"
 LABEL_SCHEMA_COUNT = "com.longbeach.api.schema.migration-count"
@@ -40,7 +42,32 @@ ALLOWED_SETTINGS = {
     "API_IMAGE", "POSTGRES_BACKUP_IMAGE", "API_DOMAIN", "WEB_ORIGIN", "DATA_DISK_UUID",
     "CADDY_CONFIG", "WORKERS_ENABLED", "VM_PRODUCTION_CUTOVER_CONFIRMED",
     "SOURCE_WORKERS_STOPPED_CONFIRMED",
+    "WHATSAPP_ENABLED", "WHATSAPP_BRIDGE_IMAGE",
 }
+BRIDGE_CONFIG = SECRET_ROOT / "whatsapp-bridge.json"
+BRIDGE_SCHEMA = "whatsapp_transport"
+BRIDGE_LOGIN = "longbeach_whatsapp_runtime"
+BRIDGE_ROLE = "longbeach_whatsapp_bridge"
+BRIDGE_SCHEMA_QUERY = """BEGIN READ ONLY;
+SET LOCAL statement_timeout = '5s';
+SELECT json_build_object(
+ 'database', current_database(), 'read_only', current_setting('transaction_read_only'),
+ 'bridge_version', (SELECT version FROM whatsapp_transport.bridge_version),
+ 'sqlstore_version', (SELECT version FROM whatsapp_transport.whatsmeow_version),
+ 'required_tables', NOT EXISTS (SELECT 1 FROM unnest(ARRAY['bridge_operations','bridge_events','bridge_account_state','whatsmeow_device','whatsmeow_retry_buffer','whatsmeow_lid_map']) t(name) WHERE to_regclass('whatsapp_transport.' || t.name) IS NULL),
+ 'login_safe', COALESCE((SELECT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls FROM pg_roles WHERE rolname='longbeach_whatsapp_runtime'), false),
+ 'role_safe', COALESCE((SELECT NOT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls FROM pg_roles WHERE rolname='longbeach_whatsapp_bridge'), false),
+ 'membership', pg_has_role('longbeach_whatsapp_runtime','longbeach_whatsapp_bridge','MEMBER'),
+ 'no_other_membership', NOT EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname NOT IN ('longbeach_whatsapp_runtime','longbeach_whatsapp_bridge','pg_database_owner') AND pg_has_role('longbeach_whatsapp_runtime',r.oid,'MEMBER')),
+ 'schema_owner_safe', COALESCE((SELECT pg_get_userbyid(nspowner) NOT IN ('longbeach_whatsapp_runtime','longbeach_whatsapp_bridge') FROM pg_namespace WHERE nspname='whatsapp_transport'), false),
+ 'schema_usage', has_schema_privilege('longbeach_whatsapp_runtime','whatsapp_transport','USAGE'),
+ 'no_schema_ddl', NOT has_schema_privilege('longbeach_whatsapp_runtime','whatsapp_transport','CREATE'),
+ 'no_public_ddl', NOT has_schema_privilege('longbeach_whatsapp_runtime','public','CREATE'),
+ 'no_business_access', NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m','f') AND has_table_privilege('longbeach_whatsapp_runtime',c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')),
+ 'transport_dml', NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='whatsapp_transport' AND c.relkind IN ('r','p') AND (NOT has_table_privilege('longbeach_whatsapp_runtime',c.oid,'SELECT') OR NOT has_table_privilege('longbeach_whatsapp_runtime',c.oid,'INSERT') OR NOT has_table_privilege('longbeach_whatsapp_runtime',c.oid,'UPDATE') OR NOT has_table_privilege('longbeach_whatsapp_runtime',c.oid,'DELETE'))),
+ 'no_table_ownership', NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('public','whatsapp_transport') AND pg_get_userbyid(c.relowner) IN ('longbeach_whatsapp_runtime','longbeach_whatsapp_bridge')));
+COMMIT;
+"""
 
 
 class Refused(RuntimeError):
@@ -97,7 +124,7 @@ def check_settings(values: dict[str, str]) -> None:
     require(values.get("WEB_ORIGIN") == WEB_ORIGIN, "web_origin_changed")
     require(bool(re.fullmatch(r"[a-fA-F0-9-]{16,64}", values.get("DATA_DISK_UUID", ""))),
             "invalid_data_disk_uuid")
-    for name in ("WORKERS_ENABLED", "VM_PRODUCTION_CUTOVER_CONFIRMED", "SOURCE_WORKERS_STOPPED_CONFIRMED"):
+    for name in ("WORKERS_ENABLED", "VM_PRODUCTION_CUTOVER_CONFIRMED", "SOURCE_WORKERS_STOPPED_CONFIRMED", "WHATSAPP_ENABLED"):
         require(values.get(name, "false") in ("true", "false"), "invalid_gate:" + name)
     if values.get("WORKERS_ENABLED", "false") == "true":
         require(values.get("VM_PRODUCTION_CUTOVER_CONFIRMED") == "true" and
@@ -105,6 +132,8 @@ def check_settings(values: dict[str, str]) -> None:
     require(values.get("CADDY_CONFIG") in {
         str(RUNTIME_ROOT / "Caddyfile.certificate"), str(RUNTIME_ROOT / "Caddyfile.automatic")
     }, "unreviewed_caddy_configuration")
+    if values.get("WHATSAPP_ENABLED", "false") == "true":
+        require(pinned(values.get("WHATSAPP_BRIDGE_IMAGE", "")) and "/whatsapp@sha256:" in values["WHATSAPP_BRIDGE_IMAGE"], "whatsapp_image_not_pinned")
 
 
 def flattened(value: object, prefix: str = "") -> dict[str, object]:
@@ -212,6 +241,46 @@ def boolean(value: object, expected: bool) -> bool:
     return value is expected or (isinstance(value, str) and value.lower() == str(expected).lower())
 
 
+def check_whatsapp_config(settings: dict[str, str], application: object, bridge: object | None = None) -> None:
+    config = flattened(application)
+    enabled = settings.get("WHATSAPP_ENABLED", "false") == "true"
+    worker = config.get("messaging:enabled", False)
+    require(boolean(worker, False) or boolean(worker, True), "invalid_messaging_worker_flag")
+    if not enabled:
+        require(boolean(worker, False), "messaging_worker_without_transport")
+        return
+    require(isinstance(bridge, dict), "whatsapp_configuration_missing")
+    require(bridge.get("enabled") is True, "whatsapp_transport_disabled")
+    require(bridge.get("address") == "0.0.0.0:8091", "whatsapp_address_not_private")
+    require(bridge.get("schema") == BRIDGE_SCHEMA and bridge.get("runtimeRole") == BRIDGE_ROLE
+            and bridge.get("accountId") == "arena", "whatsapp_identity_changed")
+    require(bridge.get("backendUrl") == "http://api:8080/api/v1/messaging/bridge/events"
+            and bridge.get("backendHost") == API_HOST, "whatsapp_backend_not_private")
+    require(config.get("messaging:bridgeurl") == "http://whatsapp-bridge:8091", "whatsapp_api_target_invalid")
+    secret = bridge.get("secret")
+    app_secret = config.get("messaging:bridgesecret")
+    require(isinstance(secret, str) and len(secret.encode()) >= 32 and isinstance(app_secret, str)
+            and hmac.compare_digest(secret.encode(), app_secret.encode()), "whatsapp_shared_secret_mismatch")
+    try:
+        url = urlsplit(bridge.get("databaseUrl", ""))
+        query = parse_qs(url.query, strict_parsing=True)
+        valid = (url.scheme in ("postgres", "postgresql") and url.hostname == "postgres" and url.port in (None, 5432)
+                 and url.path == "/longbeach" and url.username == BRIDGE_LOGIN and bool(url.password)
+                 and not url.fragment and query == {"sslmode": ["disable"]})
+    except (ValueError, TypeError):
+        valid = False
+    require(valid, "whatsapp_database_not_isolated")
+    if boolean(worker, True):
+        require(settings.get("WORKERS_ENABLED") == "true", "messaging_worker_background_jobs_disabled")
+
+
+def compose_command(settings: dict[str, str], *, with_whatsapp: bool = True) -> list[str]:
+    result = ["compose", "--project-directory", str(RUNTIME_ROOT), "--env-file", str(ENV_FILE), "-f", str(RUNTIME_ROOT / "compose.yaml")]
+    if with_whatsapp and settings.get("WHATSAPP_ENABLED", "false") == "true":
+        result += ["-f", str(RUNTIME_ROOT / "compose.whatsapp.yaml"), "--profile", "whatsapp"]
+    return result
+
+
 def docker_read(arguments: list[str], *, input: str | None = None) -> str:
     result = subprocess.run(DOCKER + arguments, input=input, capture_output=True, text=True, timeout=15,
                             env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "HOME": "/root", "LANG": "C"})
@@ -287,7 +356,31 @@ def check_api_schema(settings: dict[str, str], run=None) -> dict[str, object]:
     require(migration_hash(applied) == API_SCHEMA_SHA256 and max(applied) == API_SCHEMA_LATEST,
             "api_schema_database_mismatch")
     return {"migration_count": API_SCHEMA_COUNT, "latest_migration": API_SCHEMA_LATEST,
-            "migrations_sha256": API_SCHEMA_SHA256, "image_digest_verified": True}
+            "migrations_sha256": API_SCHEMA_SHA256, "image_digest_verified": True, "postgres_container": container}
+
+
+def check_whatsapp_schema(settings: dict[str, str], postgres: str, run=None) -> dict[str, object]:
+    run = run or docker_read
+    image = settings["WHATSAPP_BRIDGE_IMAGE"]
+    require(pinned(image), "whatsapp_image_not_pinned")
+    candidate = inspect_image(image, run)
+    labels = candidate.get("Config", {}).get("Labels") or {}
+    require(image in candidate.get("RepoDigests", []) and candidate.get("Os") == "linux" and candidate.get("Architecture") == "amd64"
+            and candidate.get("Config", {}).get("User") == "65532:65532", "whatsapp_image_identity_invalid")
+    for key, value in {"com.longbeach.whatsapp.transport": "v1", "com.longbeach.whatsapp.schema": BRIDGE_SCHEMA,
+                       "com.longbeach.whatsapp.schema.version": "1", "com.longbeach.whatsapp.sqlstore.version": "16"}.items():
+        require(labels.get(key) == value, "whatsapp_image_compatibility_unproven")
+    require(bool(re.fullmatch(r"[a-f0-9]{64}", postgres)), "whatsapp_postgres_identity_invalid")
+    running = run(["ps", "--quiet", "--filter", "label=com.docker.compose.project=longbeach", "--filter", "label=com.docker.compose.service=whatsapp-bridge"]).splitlines()
+    require(len(running) <= 1, "whatsapp_multiple_active_services")
+    raw = run(["exec", "--user", "999:999", "-i", postgres, "psql", "--no-psqlrc", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "longbeach"], input=BRIDGE_SCHEMA_QUERY)
+    proof = json.loads(raw)
+    require(isinstance(proof, dict) and proof.get("database") == "longbeach" and proof.get("read_only") == "on"
+            and proof.get("bridge_version") == 1 and proof.get("sqlstore_version") == 16, "whatsapp_schema_version_mismatch")
+    for key in ("required_tables", "login_safe", "role_safe", "membership", "no_other_membership", "schema_owner_safe", "schema_usage",
+                "no_schema_ddl", "no_public_ddl", "no_business_access", "transport_dml", "no_table_ownership"):
+        require(proof.get(key) is True, "whatsapp_database_privilege_invalid:" + key)
+    return {"bridge_version": 1, "sqlstore_version": 16, "runtime_isolation_verified": True, "image_digest_verified": True}
 
 
 def check_host() -> dict[str, str]:
@@ -323,6 +416,11 @@ def check_host() -> dict[str, str]:
     secure_file(Path("/etc/longbeach/backup/pgbackrest.conf"), 999, 0o640)
     config = json.loads((SECRET_ROOT / "appsettings.Production.json").read_text(encoding="utf-8"), object_pairs_hook=json_object)
     check_application_config(config)
+    bridge = None
+    if settings.get("WHATSAPP_ENABLED", "false") == "true":
+        secure_file(BRIDGE_CONFIG, 65532, 0o640)
+        bridge = json.loads(BRIDGE_CONFIG.read_text(encoding="utf-8"), object_pairs_hook=json_object)
+    check_whatsapp_config(settings, config, bridge)
     require(len((SECRET_ROOT / "postgres-admin-password").read_text().strip()) >= 32, "admin_password_too_short")
     tls = SECRET_ROOT / "tls"
     info = tls.lstat()
@@ -352,8 +450,9 @@ def main() -> None:
         print(json.dumps({"status": "host_ready", "api_start_permitted": False}))
         return
     proof = check_api_schema(settings)
+    bridge_proof = check_whatsapp_schema(settings, proof["postgres_container"]) if settings.get("WHATSAPP_ENABLED", "false") == "true" else None
     print(json.dumps({"status": "ready", "mode": "runtime_only", "api_start_permitted": True,
-                      "api_schema": proof, "workers_enabled": settings.get("WORKERS_ENABLED", "false") == "true"}))
+                      "api_schema": proof, "whatsapp_schema": bridge_proof, "workers_enabled": settings.get("WORKERS_ENABLED", "false") == "true"}))
 
 
 if __name__ == "__main__":

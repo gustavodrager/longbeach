@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "scope": "api-whatsapp-transport-frontend",
+  "sourceCommit": "723449af60ef718fc25548d24affb2e41fec2b16",
+  "branch": "codex/whatsapp-central-20261031",
+  "publicationStatus": "published-pairing-not-confirmed",
+  "workflow": {
+    "runId": 41260455561,
+    "attempt": 1,
+    "url": "https://github.com/gustavodrager/longbeach/actions/runs/41260455561",
+    "allFiveJobsPassed": true,
+    "jobs": [
+      {
+        "name": "Quality gate / Frontend React/PWA",
+        "conclusion": "success"
+      },
+      {
+        "name": "Quality gate / Backend .NET / PostgreSQL 18",
+        "conclusion": "success"
+      },
+      {
+        "name": "Quality gate / WhatsApp transport / Go",
+        "conclusion": "success"
+      },
+      {
+        "name": "Quality gate / Backend .NET / PostgreSQL 17",
+        "conclusion": "success"
+      },
+      {
+        "name": "Publish immutable OCI images",
+        "conclusion": "success"
+      }
+    ],
+    "productionOwnerApprovalRecorded": true
+  },
+  "officialArtifacts": {
+    "api": {
+      "indexDigest": "sha256:669fde2222b4b0100bf3e88ef2e1d2bf8117469bc16f51d1bb702a04482cafd4",
+      "runtimeDigest": "sha256:e37a129476ec3dffe2ffe7f9761cadf3a5b775852ad12a12f5b08eb2d03b75ce",
+      "configDigest": "sha256:6a904288ad88cb51d04724e35d00de201719a4682ac4745e9e7470e97004dbac",
+      "provenanceDigest": "sha256:09b909721aa86636e708ddfaaaa198bdd27e2ac41402758dcd4cf8312a645dc4",
+      "sbomDigest": "sha256:f2f82f5a4c7fd8160f5c6d618c6a0a19132c15281f40f47a9afdb68bae9e2f3a",
+      "targetImage": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:669fde2222b4b0100bf3e88ef2e1d2bf8117469bc16f51d1bb702a04482cafd4"
+    },
+    "web": {
+      "indexDigest": "sha256:e025caadfc9fa2c524c04c20fbc99756b0e677a8dd60441a7fc29e42b67b7d6b",
+      "runtimeDigest": "sha256:1e24d2af446e29013b13253338a1a2a24312e58c5a6e04f8a603a404f414607a",
+      "configDigest": "sha256:044956a50091ce0562b8f1904ff951b027b6390ca0140d7758f5a8cea4c1e31a",
+      "provenanceDigest": "sha256:e6d5975e1a284b5cb13719312fd8440abbacd074e5345251000d815ce3c4cdbc",
+      "sbomDigest": "sha256:6984abc1c13ea4e1a841db7c9673f05573b3509c06d37d8e62e6f07d9ac8981a"
+    },
+    "whatsapp": {
+      "indexDigest": "sha256:f90e8790c93f1ed8800037b491d164f61d86e06061520f9972dfbe6cfc4411ec",
+      "runtimeDigest": "sha256:9a57ce7cf4cfd3652197394d6aa7b653f6168b351241ca985d291082f1569bc0",
+      "configDigest": "sha256:2b60ed397627fc570d4f2746ef3fc3cc3b2a973706061b70b890ab60520f0541",
+      "provenanceDigest": "sha256:949d7cd664add090fa0424955f68e7cdba8bd3583f7e78b80010a7d096bc77e2",
+      "sbomDigest": "sha256:3de4c37f98ebdb769487418888c94cceca45b46ca56066dca471a99e5697d2e0",
+      "targetImage": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/whatsapp@sha256:f90e8790c93f1ed8800037b491d164f61d86e06061520f9972dfbe6cfc4411ec"
+    }
+  },
+  "vm": {
+    "project": "parsero-prod-20261022",
+    "zone": "southamerica-east1-a",
+    "instance": "longbeach-economy",
+    "promotedAtUtc": "2026-11-01T01:41:40.906947+00:00",
+    "planCanonicalSha256": "5efd04bfe82fb2d8707787a6808c828c4927aa7916b509552ff338046c8ee0a6",
+    "services": {
+      "api": {
+        "configDigest": "sha256:6a904288ad88cb51d04724e35d00de201719a4682ac4745e9e7470e97004dbac",
+        "health": "healthy",
+        "id": "d35ebd54751ca2119f0903d5f22a6213ff40745e025782825a900911388fb0ef",
+        "image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:669fde2222b4b0100bf3e88ef2e1d2bf8117469bc16f51d1bb702a04482cafd4",
+        "startedAt": "2026-11-01T01:41:07.059663878Z",
+        "status": "running"
+      },
+      "caddy": {
+        "configDigest": "sha256:3067cc4e02c091399edbd5d65f85a3ff4d511574aecadb47f280c3761e68852e",
+        "health": "healthy",
+        "id": "b37e0fdf616d883bee02ba1af8178307a3dce41def1f464ec847b3e22656a5dd",
+        "image": "docker.io/library/caddy:2.11.7@sha256:504a44d7d74bd2bc28a66afc4774912fc21223ca8a67734af1c54ab2f999b489",
+        "startedAt": "2026-10-26T17:20:38.71505664Z",
+        "status": "running"
+      },
+      "postgres": {
+        "configDigest": "sha256:bd82dacceb0e5aa20ab8e1bd4a7eb622c178133d60a4866d6a6bb04114912857",
+        "health": "healthy",
+        "id": "b0069d4ecfa2b0e6908c244a3245e16490708f24ebeeeea79fce02e726623179",
+        "image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/postgres-backup@sha256:2d748056402630cacff841717b9eae7bbea2cbf6fdeda060c301e0c343d73866",
+        "startedAt": "2026-10-26T12:44:55.227444093Z",
+        "status": "running"
+      },
+      "whatsapp-bridge": {
+        "configDigest": "sha256:2b60ed397627fc570d4f2746ef3fc3cc3b2a973706061b70b890ab60520f0541",
+        "health": "healthy",
+        "id": "153e40b4bc8617777d37a3d04c10b013e4a971eaf9e7a8f7bcfb31c9a0c2d61f",
+        "image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/whatsapp@sha256:f90e8790c93f1ed8800037b491d164f61d86e06061520f9972dfbe6cfc4411ec",
+        "startedAt": "2026-11-01T01:41:07.006582324Z",
+        "status": "running"
+      }
+    },
+    "postgresAndCaddyIdsAndStartTimesPreserved": true,
+    "backupTimersPreserved": true
+  },
+  "database": {
+    "previousMigrationCount": 30,
+    "migrationCount": 31,
+    "latestMigration": "20261101002415_MessagingCentral",
+    "migrationsSha256": "05a939753036f9f364dc3d90959aecd56f84b62ec6aef93e84c52f34f2bb5e74",
+    "jobSqlSha256": "0f27cd95f23666cb9e665c680a2fb304398fcfc7b0914fb6f8f90bd747c4c1e9",
+    "transactionalMigration": true,
+    "previousTablesComparedByRowsAndHash": 67,
+    "previousSequencesComparedByValueAndState": 1,
+    "oldMigrationHistoryEntriesPreserved": 30,
+    "newMessagingTablesEmptyBeforeApiStart": 8,
+    "newMessagingTablesOwnedByMigrator": 8,
+    "runtimeDmlVerified": true,
+    "runtimeDdlDenied": true,
+    "transport": {
+      "bridge_version": 1,
+      "image_digest_verified": true,
+      "runtime_isolation_verified": true,
+      "sqlstore_version": 16
+    }
+  },
+  "backupVerification": {
+    "format": "PostgreSQL custom archive (pg_dump --format=custom)",
+    "sha256": "8f541ae60bfbd9ccd6b7bab506e02981c1278448c0c88a38154e78e25999927c",
+    "sha256RecheckedBeforeMigration": true,
+    "archiveListCheckPassed": true,
+    "privateCopyKeptOnVm": true,
+    "mode": "0600",
+    "productionRestorePerformedByThisOperation": false,
+    "migrationRehearsalSyntheticOnly": true,
+    "ciUsedSyntheticDatabases": true
+  },
+  "featureStateAtPublication": {
+    "transportEnabled": true,
+    "backgroundJobsEnabled": true,
+    "existingBackgroundJobsAndCutoverGatesPreserved": true,
+    "messagingEnabled": false,
+    "aiEnabled": false,
+    "botEnabled": false,
+    "classRemindersEnabled": false,
+    "rentalRemindersEnabled": false,
+    "pairingStatus": "not-confirmed",
+    "realMessagesSentByThisOperation": false
+  },
+  "privateConfiguration": {
+    "apiConfiguration": "private JSON, read-only container mount",
+    "bridgeConfiguration": "private JSON, root:65532 mode 0640, read-only container mount",
+    "bridgeContainerUser": "65532:65532",
+    "secretsInRuntimeEnvironmentFile": false,
+    "secretsInContainerEnvironmentOrArguments": false,
+    "runtimeLoginSeparateFromMigrator": true,
+    "publicSecretReference": {
+      "projectId": "parsero-prod-20261022",
+      "secretId": "longbeach-whatsapp-config",
+      "version": "1"
+    }
+  },
+  "hosting": {
+    "site": "parsero-prod-20261022",
+    "version": "sites/parsero-prod-20261022/versions/f98bef7340784eba",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793497571171000",
+    "publishedAtUtc": "2026-11-01T01:46:15.536070+00:00",
+    "applicationFiles": 103,
+    "activeFiles": 105,
+    "managedFiles": 2,
+    "managedFilesPreserved": true,
+    "managedFileSha256": {
+      "/__/firebase/init.js": "e7bd33241cf11ab231f58fd0beb480b5462cfc7a69db6d508bacac5700f67345",
+      "/__/firebase/init.json": "0e92e3bcff11f2280adbb22fd5c515dfc4db6275fffe6544dd079a9d36c82ea8"
+    },
+    "applicationBytes": 3192287,
+    "fullActiveMapSha256": "00332439ae0d504333f38916b4ee0cd33503786495c585f8f02cc71240ffaa9a",
+    "configurationSha256": "cef1ccb938ce3c635701cae66b8fdac027b14b5834b797a5c2797523feac62c9",
+    "previousConfigurationSha256": "1a73baa6083d25c29eb7f3d819ebe92e3b59395f6c3e8dadf34c592da2dbe287",
+    "onlyConfigurationChange": "CSP media-src 'self' blob:",
+    "unrelatedConfigurationPreserved": true
+  },
+  "cleanup": {
+    "temporaryPolicyRemoved": 65073774,
+    "reviewersAndProtectionsPreserved": true
+  },
+  "verificationLimits": {
+    "pairingConfirmed": false,
+    "realMessagingFlowTested": false,
+    "productionBackupFullyRestored": false,
+    "historicalReceiptsReusedAsCurrentAuthorization": false
+  },
+  "privateEvidenceDirectory": "LongBeach/evidencias/whatsapp-2026-10-31/publicacao",
+  "receiptSha256": {
+    "artifacts-admitted.json": "623d1a3f8a0dc1187d8cd942da70293ff577f16e18849b31a95d41e549954725",
+    "official-run.json": "f656ce0722a5fefcd856c1caea598eb75030d7ff3e9d3c7a7824adcdc9f5a34b",
+    "official-jobs.json": "7a6558b936c8d24235a2cd96b438985e84f0144a016fd3aeae21b14945499f86",
+    "official-approvals.json": "d99f809c4a7b540e9c8b4951c9c67975436a9b9e24269d8dfacf62681cf35314",
+    "vm-plan.json": "1d62bff28bfd7cdfd71d2c2b804b941010cb7c8fdd9145e989b36154eb0e0aff",
+    "vm-stage-once.result.private.json": "319acfab080b3f9a80cee150f72b438117f31c7a155f7bbb64d285a64bdf23d8",
+    "vm-freeze-backup-once.result.private.json": "9d6e4c7a00f6cf5f50fcc843593359d59a856dbe18990d4484b508e1ecaecc8d",
+    "vm-promote-once.result.private.json": "cbcd2e047d66d5c83b4f606e03f047533cd0589c8d39c69a6a64994f5441f601",
+    "web-publish.receipt.private.json": "b504ba10fc3b4f832e79a5b3a9c349bb1f4f941ac0f3807b0d17f47647f28c31",
+    "production-policy-cleanup.json": "529d76785fedf8478f230319fec62e025c7c35e18c82cd638ea27d675c9afd88",
+    "api-sql-rehearsal.json": "0ab19d2937085994ccbcace80c03cb872c95c5e6b9715cf396c60a00fc1d283b"
+  }
+}

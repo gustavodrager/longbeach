@@ -28,6 +28,7 @@ public sealed class LongBeachDbContext(
         StockModel.Configure(modelBuilder);
         MaterialStockModel.Configure(modelBuilder);
         CustomerModel.Configure(modelBuilder);
+        MessagingModel.Configure(modelBuilder);
         CashModel.Configure(modelBuilder);
         SalesModel.Configure(modelBuilder);
         PurchaseModel.Configure(modelBuilder);
@@ -68,11 +69,17 @@ public sealed class LongBeachDbContext(
     {
         ChangeTracker.DetectChanges();
         foreach (var entry in ChangeTracker.Entries())
+        {
+            if (entry.Entity.GetType().Namespace == "LongBeach.Domain.Messaging"
+                && (entry.State == EntityState.Deleted && entry.Entity is not LongBeach.Domain.Messaging.MessagingFaq
+                    || entry.State == EntityState.Modified && entry.Entity is LongBeach.Domain.Messaging.MessagingAttachment or LongBeach.Domain.Messaging.MessagingOperation))
+                throw new LongBeach.Domain.Messaging.MessagingRuleException("O histórico de comunicação está preservado. Use os estados de atendimento ou cancelamento.");
             if (entry.Entity is LongBeach.Domain.Customers.CustomerSourceChange or LongBeach.Domain.Customers.CustomerOperation
                     && entry.State is EntityState.Modified or EntityState.Deleted
                 || entry.Entity is LongBeach.Domain.Customers.Customer or LongBeach.Domain.Customers.CustomerSourceLink or LongBeach.Domain.Customers.CustomerMerge
                     && entry.State == EntityState.Deleted)
                 throw new LongBeach.Domain.Customers.CustomerRuleException("Histórico de cliente preservado. Use a manutenção cadastral ou o desfazer da unificação.");
+        }
     }
     private void ProtectMaterialLedger()
     {

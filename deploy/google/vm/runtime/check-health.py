@@ -3,6 +3,7 @@
 import json
 import subprocess
 import sys
+import preflight
 
 DOCKER = ["/usr/bin/docker", "--host", "unix:///var/run/docker.sock"]
 
@@ -18,7 +19,13 @@ def main():
         print(json.dumps({"status": "skipped", "reason": "runtime_unit_inactive"}))
         return 0
     states = {}
-    for service in ("postgres", "api", "caddy"):
+    preflight.secure_file(preflight.ENV_FILE, 0, 0o600)
+    settings = preflight.read_environment(preflight.ENV_FILE)
+    preflight.check_settings(settings)
+    services = ["postgres", "api", "caddy"]
+    if settings.get("WHATSAPP_ENABLED", "false") == "true":
+        services.append("whatsapp-bridge")
+    for service in services:
         ids = run(DOCKER + ["ps", "--all", "--quiet", "--filter", "label=com.docker.compose.project=longbeach",
                    "--filter", "label=com.docker.compose.service=" + service]).splitlines()
         if len(ids) != 1:
@@ -36,6 +43,6 @@ def main():
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except (OSError, ValueError, subprocess.SubprocessError):
+    except (preflight.Refused, OSError, ValueError, subprocess.SubprocessError):
         print(json.dumps({"status": "attention", "reason": "health_inspection_failed"}), file=sys.stderr)
         sys.exit(1)
