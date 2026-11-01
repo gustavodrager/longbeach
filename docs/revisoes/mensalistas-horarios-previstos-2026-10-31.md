@@ -1,6 +1,6 @@
 # Mensalistas: horários previstos na agenda — 31/10/2026
 
-Implementação preparada para revisão, sem publicação em produção.
+A interface da fonte `559b980215f6503355db58aecbf2520617780ab7` foi publicada com autorização específica em 01/11/2026 às 08:54:22 de Brasília. O [registro da publicação](../operacao/publicacao-mensalistas-previstos-2026-11-01.md) reúne os comprovantes e limites; API, banco, perfis, Google e a Central WhatsApp já publicada foram preservados.
 
 ## Problema e comportamento
 
@@ -25,4 +25,4 @@ Somente interface. Sem alterações de API, contratos HTTP, banco, migrations, p
 - TypeScript, build Vite/PWA e build da solução .NET aprovados; .NET sem avisos ou erros. Os builds locais foram feitos no checkout compartilhado, que contém alterações de outra tarefa; não constituem um artefato autorizado para publicação desta revisão.
 - Revisão independente dos limites da mudança e verificação visual local com dados fictícios. Os registros da prévia ficam em `LongBeach/evidencias/mensalistas-previstos-2026-10-31/` e não devem ser usados como dados de produção.
 
-A publicação exige aprovação específica da versão e um artefato gerado da branch desta correção, sem incorporar alterações da outra tarefa.
+A publicação usou o artefato oficial da fonte integrada à versão WhatsApp já publicada. Esta autorização não cobre futuras versões.
