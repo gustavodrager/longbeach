@@ -31,6 +31,8 @@ O [ADR-021](../adr/ADR-021-conta-individual-clientes.md) registra as decisões e
 
 A primeira suíte completa de integração executou 593 casos: 590 passaram e três expectativas antigas falharam. Duas comparavam exatamente as opções de autenticação anteriores; a outra usava a migration penúltima para testar o bloqueio de remoção do histórico de comunicação. Essas expectativas foram atualizadas para as novas opções e para a migration anterior à comunicação. Os 35 casos afetados passaram na repetição; 17 testes finais de autorização passaram, incluindo dois casos novos da flag de senha local. O comprovante privado agrega resultados por identificador de teste, preserva a primeira execução e registra a aprovação final dos 595 cenários. Isso não representa uma única execução completa sem falhas iniciais.
 
+Na revisão final, os textos de abertura de comanda que ainda diziam aceitar somente Google foram corrigidos para contemplar usuário e senha. Os 88 testes afetados do atendimento passaram, junto de TypeScript e novo build/PWA; a suíte completa anterior de 1.111 testes foi preservada como evidência, sem repetição desnecessária.
+
 Os testes abrangem cadastro transacional, colisões, conta sem Google no bar, convite expirado/revogado/reemitido/usado ou consumido simultaneamente, manutenção de identidade, recuperação com bloqueio/troca de perfil, sessão antiga e versões concorrentes. Também verificam responsáveis após unificação, revogação com cobrança e reserva vinculadas, grants restritos e atualização 31→32 preservando os valores anteriores de usuário, cliente e refresh token. O downgrade foi recusado após alterações de credenciais, desabilitação da senha local, autorização revogada e desafio já consumido.
 
 ## Prévia no navegador

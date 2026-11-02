@@ -67,14 +67,14 @@ export function OpenTabForm() {
         <fieldset disabled={locked}>
           <legend>Acesso à área do cliente</legend>
           <label className="ux-check"><input type="radio" name="tab-kind" checked={kind === 'visitor'} onChange={() => { setKind('visitor'); setConfirmed(false) }} />Sem responsável financeiro vinculado</label>
-          <label className="ux-check"><input type="radio" name="tab-kind" checked={kind === 'customer'} onChange={() => { setKind('customer'); setConfirmed(false) }} />Vincular responsável com Google</label>
+          <label className="ux-check"><input type="radio" name="tab-kind" checked={kind === 'customer'} onChange={() => { setKind('customer'); setConfirmed(false) }} />Vincular responsável com conta</label>
         </fieldset>
         {kind === 'customer' && <section aria-label="Escolher responsável">
-          <label className="ux-field">Buscar responsável<input value={search} maxLength={320} disabled={locked} placeholder="Nome ou e-mail completo" onChange={event => { setSearch(event.target.value); setSubmittedSearch(''); setCustomer(null); setConfirmed(false) }} /></label>
+          <label className="ux-field">Buscar responsável<input value={search} maxLength={320} disabled={locked} placeholder="Nome, usuário ou e-mail completo" onChange={event => { setSearch(event.target.value); setSubmittedSearch(''); setCustomer(null); setConfirmed(false) }} /></label>
 
-          <p className="ux-note">Busque pelo nome (3 letras) ou e-mail completo. Somente contas Google.</p>
+          <p className="ux-note">Busque por nome, usuário ou e-mail completo.</p>
           {submittedSearch && <><LoadState query={customers} />{!customers.isError && customers.data?.map(person => <label className="ux-check" key={person.id}><input type="radio" name="tab-customer" value={person.id} checked={customer?.id === person.id} disabled={locked} onChange={() => { setCustomer(person); setConfirmed(false) }} />{person.name} · {person.emailHint}</label>)}
-            {!customers.isError && customers.data?.length === 0 && <p role="status">Nenhum cliente encontrado. Confira o e-mail completo ou abra como visitante.</p>}
+            {!customers.isError && customers.data?.length === 0 && <p role="status">Nenhuma conta encontrada. Confira a busca ou abra sem responsável.</p>}
             {customers.data?.length === 20 && <p>Mostrando até 20 pessoas. Refine a busca para identificar o responsável.</p>}
           </>}
           {customer && <label className="ux-check"><input type="checkbox" checked={confirmed} disabled={locked} onChange={event => setConfirmed(event.target.checked)} />Confirmo que {customer.name} é o responsável e poderá ver o consumo e os pagamentos desta comanda na sua área.</label>}
