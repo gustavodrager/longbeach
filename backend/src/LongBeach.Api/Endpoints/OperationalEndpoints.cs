@@ -80,6 +80,16 @@ public static class OperationalEndpoints
                 grouping => grouping.Select(row => ParsePayload(row.Payload)).ToArray());
             if (records.Any(row => row.Id == id && row.Kind != kind)) return Results.Conflict(new { message = "Este identificador já pertence a outra área." });
             var record = records.SingleOrDefault(row => row.Id == id && row.Kind == kind);
+            if (kind == "classes" && record is null)
+            {
+                // Stale operational forms, including legacy version-zero forms, must
+                // never recreate a class after its removal.
+                var deletions = await db.AuditLogs.AsNoTracking()
+                    .Where(row => row.Resource == nameof(OperationalRecord) && row.ResourceId == id.ToString() && row.Action == "Deleted")
+                    .Select(row => row.MetadataJson).ToListAsync(ct);
+                if (deletions.Any(json => OperationalValidation.Text(ParsePayload(json), "Kind") == "classes"))
+                    return Results.Conflict(new { message = "Esta turma foi excluída. Atualize a página; para cadastrar outra turma, use Nova turma." });
+            }
             if (kind == "financeEntries" && (LongBeach.Application.Finance.ExpenseRules.Reserved(body) ||
                 record is not null && LongBeach.Application.Finance.ExpenseRules.Managed(ParsePayload(record.Payload))))
                 return Results.Conflict(new { message = "Este lançamento é controlado em Despesas e pagamentos. Abra essa área para consultar ou registrar pagamentos." });
@@ -145,6 +155,30 @@ public static class OperationalEndpoints
             await transaction.CommitAsync(ct);
             return Results.Content(VisiblePayload(json, kind, http, publicDemo), "application/json", statusCode: record is null ? 201 : 200);
         }).RequireRateLimiting("public-demo-write");
+
+        group.MapDelete("/{id:guid}", async (string kind, Guid id, int? version, HttpContext http, LongBeachDbContext db, CancellationToken ct) =>
+        {
+            if (kind != "classes") return Results.NotFound();
+            if (!Allowed(http, kind, true, publicDemo) || !ProfileAccess.IsManagement(http.User.FindAll(ClaimTypes.Role).Select(row => row.Value)))
+                return Denied(http);
+            if (version is null or < 0) return Results.BadRequest(new { message = "Informe a versão da turma antes de excluir." });
+
+            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+            await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(724031904)", ct);
+            var records = await db.OperationalRecords.ToListAsync(ct);
+            var record = records.SingleOrDefault(row => row.Id == id && row.Kind == "classes");
+            if (record is null) return Results.NotFound(new { message = "Turma não encontrada. Atualize a página." });
+            var lesson = ParsePayload(record.Payload);
+            if (OperationalValidation.Version(lesson) != version)
+                return Results.Conflict(new { message = "Esta turma mudou depois que você a abriu. Atualize os dados antes de excluir." });
+            var error = ClassDeletionRules.Validate(id, lesson, records.Select(row => ParsePayload(row.Payload)));
+            if (error is not null) return Results.Conflict(new { message = error });
+
+            db.OperationalRecords.Remove(record);
+            await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            return Results.NoContent();
+        }).RequireAuthorization("Management").RequireRateLimiting("public-demo-write");
 
         return endpoints;
     }
