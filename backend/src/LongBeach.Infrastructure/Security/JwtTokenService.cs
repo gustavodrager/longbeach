@@ -14,6 +14,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
 
     public IssuedTokenPair Issue(TokenPrincipal principal, DateTimeOffset now)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(principal.CredentialVersion);
         var accessExpiresAt = now.AddMinutes(_options.AccessTokenMinutes);
         if (principal.RequiresFirstAccess)
         {
@@ -35,7 +36,9 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
                 ClaimValueTypes.Integer64),
             new(ClaimTypes.NameIdentifier, principal.UserId.ToString()),
             new(ClaimTypes.Name, principal.Name),
-            new("permissions_version", "1")
+            new("permissions_version", "1"),
+            new("credential_version", principal.CredentialVersion.ToString(System.Globalization.CultureInfo.InvariantCulture), ClaimValueTypes.Integer32),
+            new("local_password_enabled", principal.LocalPasswordEnabled ? "true" : "false")
         };
 
         if (principal.GoogleLinked) claims.Add(new("google_linked", "true"));

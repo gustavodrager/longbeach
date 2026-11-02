@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using LongBeach.Application.Abstractions;
 using LongBeach.Domain.Identity;
@@ -11,14 +12,20 @@ public sealed class CurrentSessionValidator(IUserRepository users, TimeProvider 
     {
         if (!Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? principal.FindFirstValue("sub"), out var id))
             return null;
+        var credentialClaims = principal.FindAll("credential_version").ToArray();
+        var credentialVersion = 0; // Sessions issued before credential versioning belong to version zero.
+        if (credentialClaims.Length > 1 || credentialClaims.Length == 1 &&
+            !int.TryParse(credentialClaims[0].Value, NumberStyles.None, CultureInfo.InvariantCulture, out credentialVersion))
+            return null;
         var user = await users.FindForAuthorizationAsync(id, ct);
         if (user is null || !user.IsActive || !user.InitialAccessIsValidAt(clock.GetUtcNow()) ||
+            user.CredentialVersion != credentialVersion ||
             !ProfileAccess.HasValidProfile(user.GetRoleNames()) ||
             principal.HasClaim("requires_first_access", "true") != user.RequiresFirstAccess)
             return null;
 
         var copy = principal.Clone();
-        string[] replaced = [ClaimTypes.Role, "permission", ClaimTypes.Name, ClaimTypes.NameIdentifier, "email", "username", "google_linked"];
+        string[] replaced = [ClaimTypes.Role, "permission", ClaimTypes.Name, ClaimTypes.NameIdentifier, "email", "username", "google_linked", "local_password_enabled"];
         foreach (var identity in copy.Identities)
             foreach (var claim in identity.Claims.Where(c => replaced.Contains(c.Type)).ToArray()) identity.RemoveClaim(claim);
         var target = (ClaimsIdentity)copy.Identity!;
@@ -27,6 +34,7 @@ public sealed class CurrentSessionValidator(IUserRepository users, TimeProvider 
         target.AddClaim(new("email", user.Email.EndsWith("@unlinked.longbeach.invalid", StringComparison.Ordinal) ? "" : user.Email));
         if (user.Username is not null) target.AddClaim(new("username", user.Username));
         if (user.GoogleSubject is not null) target.AddClaim(new("google_linked", "true"));
+        target.AddClaim(new("local_password_enabled", user.LocalPasswordEnabled ? "true" : "false"));
         if (!user.RequiresFirstAccess)
         {
             target.AddClaims(user.GetRoleNames().Select(role => new Claim(ClaimTypes.Role, role)));

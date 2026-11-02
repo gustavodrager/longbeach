@@ -12,6 +12,13 @@ let refreshRequest: Promise<RefreshedSession | null> | null = null
 let sessionVersion = 0
 let identityRequest: { version: number; request: Promise<void> } | null = null
 const sessionListeners = new Set<(user: AuthUser | null) => void>()
+const sessionVersionListeners = new Set<() => void>()
+
+export const getSessionVersion = () => sessionVersion
+export function subscribeSessionVersion(listener: () => void) {
+  sessionVersionListeners.add(listener)
+  return () => { sessionVersionListeners.delete(listener) }
+}
 
 export function subscribeSession(listener: (user: AuthUser | null) => void) {
   sessionListeners.add(listener)
@@ -22,7 +29,7 @@ function notifySession(user: AuthUser | null) {
   sessionListeners.forEach(listener => listener(user))
 }
 
-function expireSession() {
+export function expireSession() {
   setAccessToken(null)
   setCsrfToken(null)
   notifySession(null)
@@ -41,6 +48,7 @@ export class ApiError extends Error {
 export function setAccessToken(token: string | null) {
   accessToken = token
   sessionVersion++
+  sessionVersionListeners.forEach(listener => listener())
 }
 
 export function getCsrfToken() {

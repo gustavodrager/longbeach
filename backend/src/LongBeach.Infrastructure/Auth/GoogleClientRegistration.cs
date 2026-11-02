@@ -34,8 +34,11 @@ public sealed class GoogleClientRegistration(LongBeachDbContext db, IPasswordHas
         if (displayName.Length > 160) displayName = displayName[..160];
         var user = User.Create(displayName, email, passwords.Hash(Convert.ToBase64String(RandomNumberGenerator.GetBytes(48))));
         user.LinkGoogle(subject, email);
+        user.DisableLocalPassword(user.PasswordHash);
         user.AssignRole(role);
         db.Users.Add(user);
+        await new LongBeach.Infrastructure.Customers.CustomerService(db, TimeProvider.System).EnsureSourceAsync(
+            new("users", user.Id, null, displayName, "", email, AllowIncomplete: true), cancellationToken);
         try
         {
             // The standard save interceptor audits creation and the role assignment.

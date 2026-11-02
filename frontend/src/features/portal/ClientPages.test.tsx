@@ -9,7 +9,7 @@ import { CopyPix } from '../../components/CopyPix'
 import type { PortalRequest } from './api'
 const user:AuthUser={id:'portal-user',name:'Cliente teste',email:'client@example.invalid',roles:['Student'],permissions:[]}
 const clients:QueryClient[]=[]
-function mount(content:React.ReactNode,path='/minha-area',currentUser=user) { const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);const auth:AuthContextValue={user:currentUser,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{},completeFirstAccessWithGoogle:async()=>{}};return render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}>{content}</MemoryRouter></AuthContext.Provider></QueryClientProvider>) }
+function mount(content:React.ReactNode,path='/minha-area',currentUser=user,overrides:Partial<AuthContextValue>={}) { const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client);const auth:AuthContextValue={user:currentUser,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{},completeFirstAccessWithGoogle:async()=>{},...overrides};return render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}>{content}</MemoryRouter></AuthContext.Provider></QueryClientProvider>) }
 function json(body:unknown,status=200){return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}})}
 const profile={name:'Cliente teste',email:user.email,phone:'11988887777',reminders:true,links:[]}
 const ownCustomer={id:'own-client',name:'Nome canônico',phone:'11977776666',email:null,status:'Ativo',version:4,origin:'Google',incomplete:false,userId:user.id,profiles:[],mergedIntoId:null}
@@ -78,6 +78,15 @@ it('cadastro próprio novo pede telefone e não associa aluno ou responsável po
 it('perfil legado incompleto mantém telefone vazio e permite preferência',async()=>{
  const old={...ownCustomer,phone:'',incomplete:true};const writes:Record<string,unknown>[]=[];vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{if(init?.method==='PUT')writes.push(JSON.parse(String(init.body)));return json(String(input).endsWith('/customer')?old:profile)})
  mount(<PortalProfile/>);const phone=await screen.findByLabelText('Telefone com DDD');expect(phone).not.toBeRequired();expect(phone).toHaveValue('');fireEvent.click(screen.getByRole('button',{name:'Salvar perfil'}));await screen.findByText('Perfil atualizado.');expect(writes[0]).toMatchObject({phone:'',expectedVersion:4})
+})
+it('cadastro Google novo exige telefone antes de concluir e reaproveita a mesma ficha',async()=>{
+ const writes:{url:string;body:Record<string,unknown>}[]=[];const complete=vi.fn();const incomplete={...ownCustomer,phone:'',incomplete:true}
+ vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{const url=String(input);if(init?.method==='PUT'){const body=JSON.parse(String(init.body));writes.push({url,body});return json(url.endsWith('/customer')?{...incomplete,phone:body.phone,incomplete:false,version:5}:profile)}return json(url.endsWith('/customer')?incomplete:profile)})
+ mount(<PortalProfile/>,'/minha-area/perfil',{...user,needsCustomerProfile:true},{completeCustomerProfile:complete})
+ expect(await screen.findByRole('heading',{name:'Complete seu cadastro'})).toBeVisible();const phone=await screen.findByLabelText('Telefone com DDD');expect(phone).toBeRequired()
+ fireEvent.click(screen.getByRole('button',{name:'Salvar perfil'}));expect(writes).toHaveLength(0);expect(complete).not.toHaveBeenCalled()
+ fireEvent.change(phone,{target:{value:'11999998888'}});fireEvent.click(screen.getByRole('button',{name:'Salvar perfil'}));await screen.findByText('Perfil atualizado.')
+ expect(writes[0]).toMatchObject({url:'/api/v1/me/customer',body:{name:ownCustomer.name,phone:'11999998888',expectedVersion:4}});expect(writes[0].body).not.toHaveProperty('userId');expect(complete).toHaveBeenCalledOnce()
 })
 it('perfil incerto repete corpo e versão após remontar sem salvar preferências antes da confirmação',async()=>{
  const attempts:Record<string,unknown>[]=[];const reminders:unknown[]=[];vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{const url=String(input);if(init?.method==='PUT'&&url.endsWith('/customer')){attempts.push(JSON.parse(String(init.body)));return attempts.length===1?json({message:'Resposta interrompida'},503):json(ownCustomer)}if(init?.method==='PUT')reminders.push(JSON.parse(String(init.body)));return json(url.endsWith('/customer')?ownCustomer:profile)})

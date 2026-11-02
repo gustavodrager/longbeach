@@ -137,7 +137,9 @@ public sealed class GoogleClientRegistrationTests
             using var bar = factory.CreateClient();
             bar.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header(SystemRoles.Manager);
             var search = "/api/v1/bar/tabs/customers?search=" + Uri.EscapeDataString(email);
-            Assert.Empty((await bar.GetFromJsonAsync<TabCustomer[]>(search))!);
+            var responsibleBefore = Assert.Single((await bar.GetFromJsonAsync<TabCustomer[]>(search))!);
+            Assert.Equal(user.Id, responsibleBefore.Id);
+            Assert.Equal("existing-hash", user.PasswordHash);
 
             var response = await SignIn(client, Credential(subject, email));
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -150,6 +152,7 @@ public sealed class GoogleClientRegistrationTests
             Assert.True((await client.GetFromJsonAsync<UserSummary>("/api/v1/auth/me"))!.GoogleLinked);
             var responsible = Assert.Single((await bar.GetFromJsonAsync<TabCustomer[]>(search))!);
             Assert.Equal(user.Id, responsible.Id);
+            Assert.Equal(responsibleBefore.Id, responsible.Id);
             Assert.DoesNotContain(email, responsible.EmailHint);
             await db.Entry(user).ReloadAsync();
             Assert.Equal(subject, user.GoogleSubject);

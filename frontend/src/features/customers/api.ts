@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, apiFetch } from '../../lib/http'
 import { hasPermission, isManagement } from '../auth/access'
@@ -111,6 +111,7 @@ export function useCustomerCommand() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [conflict, setConflict] = useState(false)
+  const resetError = useCallback(() => { failure.current = undefined; setError(''); setConflict(false) }, [])
   const failure = useRef<unknown>(undefined)
   useEffect(() => { lock.current = null; failure.current = undefined; setBusy(false); setError(''); setConflict(false) }, [owner])
   const cache = useQueryClient()
@@ -133,5 +134,5 @@ export function useCustomerCommand() {
       if (active()) setBusy(false)
     }
   }
-  return { busy, error, conflict, run, failureStatus: () => failure.current instanceof ApiError ? failure.current.status : 0 }
+  return { busy, error, conflict, resetError, run, failureStatus: () => failure.current instanceof ApiError ? failure.current.status : 0 }
 }

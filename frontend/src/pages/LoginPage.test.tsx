@@ -77,7 +77,7 @@ it('mantém o retorno público disponível enquanto consulta as opções de aces
 
 it('falha nas opções não anuncia Google ou cadastro e permite recuperar a consulta', async () => {
   google(); const fetch = vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('offline')).mockResolvedValue(options()); mount()
-  expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível consultar o acesso Google.')
+  expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível consultar as opções de acesso.')
   expect(screen.queryByRole('button', { name: 'Continuar com Google' })).not.toBeInTheDocument()
   expect(screen.queryByRole('link', { name: 'Criar conta' })).not.toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Voltar à entrada' })).toBeInTheDocument()
@@ -124,7 +124,7 @@ it('conta vinculada orienta segurança no Google sem pedir senha local', () => {
 it.each([null, ''])('Google indisponível (%s) não libera cadastro nem oferece senha local', async googleClientId => {
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ googleClientId, clientRegistrationEnabled: true }))
   mount()
-  expect(await screen.findByRole('alert')).toHaveTextContent('O acesso com Google está indisponível.')
+  expect(await screen.findByRole('alert')).toHaveTextContent('O acesso está indisponível.')
   expect(screen.queryByRole('button', { name: 'Continuar com Google' })).not.toBeInTheDocument()
   expect(screen.queryByRole('link', { name: 'Criar conta' })).not.toBeInTheDocument()
   expect(screen.queryByLabelText('Senha')).not.toBeInTheDocument()
@@ -170,7 +170,7 @@ it('homologação exige autorização da API e identifica dados e pagamentos de 
   fireEvent.click(screen.getByRole('button', { name: 'Entrar na homologação' }))
   await waitFor(() => expect(signIn).toHaveBeenCalledExactlyOnceWith({ email: 'reviewer@example.invalid', password: 'synthetic-password-for-unit-test' }))
   expect(signInWithGoogle).not.toHaveBeenCalled()
-  expect(screen.queryByText('O acesso com Google está indisponível.')).not.toBeInTheDocument()
+  expect(screen.queryByText('O acesso está indisponível.')).not.toBeInTheDocument()
   expect(screen.getByLabelText('Senha de teste')).toHaveValue('')
 })
 
@@ -194,14 +194,18 @@ it('homologação bloqueia envio concorrente e limpa a senha após uma falha', a
   expect(submit).toBeEnabled()
 })
 
-it('cadastro explícito usa somente Google e informa a criação da conta antes de continuar', async () => {
-  google(); vi.spyOn(globalThis, 'fetch').mockResolvedValue(options()); signInWithGoogle.mockResolvedValue(undefined)
+it('cadastro Google captura nome e telefone antes de criar a conta e entrar', async () => {
+  google(); vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => init?.method === 'POST' ? new Response(null, { status: 204 }) : options()); signInWithGoogle.mockResolvedValue(undefined)
   mount(<LoginPage />, null, '/login?cadastro=cliente')
   expect(await screen.findByRole('heading', { name: 'Criar conta' })).toBeInTheDocument()
   expect(screen.getByText('Ao continuar, criaremos sua conta de cliente.')).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: 'Continuar com Google' }))
-  await waitFor(() => expect(signInWithGoogle).toHaveBeenCalledExactlyOnceWith('test-credential'))
-  expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  expect(await screen.findByRole('alert')).toHaveTextContent('Informe seu nome.')
+  expect(signInWithGoogle).not.toHaveBeenCalled()
+  fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Pessoa Fictícia' } })
+  fireEvent.change(screen.getByLabelText('Telefone com DDD'), { target: { value: '11988887777' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Continuar com Google' }))
+  await waitFor(() => expect(signInWithGoogle).toHaveBeenCalledExactlyOnceWith('test-credential', { name: 'Pessoa Fictícia', phone: '11988887777' }))
   expect(screen.getByRole('link', { name: 'Já tenho conta' })).toHaveAttribute('href', '/login')
 })
 
@@ -253,4 +257,57 @@ it('retorna à rota interna com parâmetros após restaurar uma sessão', async 
   const router = mount(<LoginPage />, user, '/login', { from: { pathname: '/agenda', search: '?date=2026-10-30', hash: '#reserva' } })
   await screen.findByRole('heading', { name: 'Destino após o acesso' })
   expect(router.state.location.pathname + router.state.location.search + router.state.location.hash).toBe('/agenda?date=2026-10-30#reserva')
+})
+
+it('oferece usuário e senha em produção com Google indisponível quando a API autoriza', async () => {
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ googleClientId: null, clientRegistrationEnabled: false, localLoginEnabled: true, localRegistrationEnabled: true }))
+  signIn.mockResolvedValue(undefined); mount()
+  fireEvent.change(await screen.findByLabelText('Usuário ou e-mail'), { target: { value: 'pessoa.ficticia' } })
+  fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'SenhaFicticia2!Segura' } })
+  fireEvent.click(screen.getByRole('button', { name: /^Entrar$/ }))
+  await waitFor(() => expect(signIn).toHaveBeenCalledExactlyOnceWith({ email: 'pessoa.ficticia', password: 'SenhaFicticia2!Segura' }))
+  expect(screen.queryByText(/homologação/i)).not.toBeInTheDocument(); expect(signInWithGoogle).not.toHaveBeenCalled()
+  expect(screen.getByLabelText('Senha')).toHaveValue('')
+})
+
+it('cadastro local exige contato, confirmação e envia somente o perfil público implícito', async () => {
+  const writes: { url: string; body: unknown }[] = []
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+    if (init?.method === 'POST') { writes.push({ url: String(url), body: JSON.parse(String(init.body)) }); return new Response(null, { status: 204 }) }
+    return json({ googleClientId: null, clientRegistrationEnabled: false, localLoginEnabled: true, localRegistrationEnabled: true })
+  })
+  mount(<LoginPage />, null, '/login?cadastro=cliente')
+  fireEvent.change(await screen.findByLabelText('Nome'), { target: { value: 'Pessoa Fictícia' } })
+  fireEvent.change(screen.getByLabelText('Telefone com DDD'), { target: { value: '(11) 98888-7777' } })
+  fireEvent.change(screen.getByLabelText('Usuário'), { target: { value: 'pessoa.ficticia' } })
+  fireEvent.change(screen.getByLabelText('Criar senha'), { target: { value: 'SenhaFicticia2!Segura' } })
+  fireEvent.change(screen.getByLabelText('Confirmar senha'), { target: { value: 'OutraSenha2!Segura' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Criar conta' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('A confirmação não corresponde'); expect(writes).toEqual([])
+  fireEvent.change(screen.getByLabelText('Confirmar senha'), { target: { value: 'SenhaFicticia2!Segura' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Criar conta' }))
+  expect(await screen.findByText('Conta criada. Entre com seu usuário e sua senha.')).toBeVisible()
+  expect(writes).toEqual([{ url: '/api/v1/auth/register', body: { name: 'Pessoa Fictícia', phone: '11988887777', email: null, username: 'pessoa.ficticia', password: 'SenhaFicticia2!Segura' } }])
+  expect(screen.getByLabelText('Usuário ou e-mail')).toHaveValue('pessoa.ficticia')
+  expect(signIn).not.toHaveBeenCalled(); expect(signInWithGoogle).not.toHaveBeenCalled()
+})
+
+it('recusa cadastro local mantém dados e não apresenta conta criada', async () => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => init?.method === 'POST' ? new Response(JSON.stringify({ message: 'Não foi possível usar esse acesso. Procure a equipe.' }), { status: 409 }) : json({ googleClientId: null, clientRegistrationEnabled: false, localRegistrationEnabled: true }))
+  mount(<LoginPage />, null, '/login?cadastro=cliente')
+  fireEvent.change(await screen.findByLabelText('Nome'), { target: { value: 'Pessoa Fictícia' } }); fireEvent.change(screen.getByLabelText('Telefone com DDD'), { target: { value: '11988887777' } })
+  fireEvent.change(screen.getByLabelText('Usuário'), { target: { value: 'pessoa.ficticia' } }); fireEvent.change(screen.getByLabelText('Criar senha'), { target: { value: 'SenhaFicticia2!Segura' } }); fireEvent.change(screen.getByLabelText('Confirmar senha'), { target: { value: 'SenhaFicticia2!Segura' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Criar conta' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível usar esse acesso')
+  expect(screen.getByLabelText('Nome')).toHaveValue('Pessoa Fictícia'); expect(screen.queryByText(/Conta criada/)).not.toBeInTheDocument()
+  expect(signIn).not.toHaveBeenCalled()
+})
+
+it('falha de senha em produção não cria sessão e limpa somente a senha', async () => {
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ googleClientId: null, clientRegistrationEnabled: false, localLoginEnabled: true }))
+  signIn.mockRejectedValue(new Error('401')); mount()
+  fireEvent.change(await screen.findByLabelText('Usuário ou e-mail'), { target: { value: 'pessoa.ficticia' } }); fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'SenhaIncorreta2!' } })
+  fireEvent.click(screen.getByRole('button', { name: /^Entrar$/ }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Confira seu usuário e sua senha.')
+  expect(screen.getByLabelText('Usuário ou e-mail')).toHaveValue('pessoa.ficticia'); expect(screen.getByLabelText('Senha')).toHaveValue('')
 })

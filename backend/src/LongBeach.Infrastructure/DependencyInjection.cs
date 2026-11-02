@@ -82,6 +82,8 @@ public static class DependencyInjection
         services.AddScoped<LongBeach.Application.Operations.IGradeImport, LongBeach.Infrastructure.Operations.GradeImportService>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<LongBeach.Application.Auth.IGoogleClientRegistration, LongBeach.Infrastructure.Auth.GoogleClientRegistration>();
+        services.AddScoped<LongBeach.Application.Auth.IClientAccess, LongBeach.Infrastructure.Auth.ClientAccessService>();
+        services.AddScoped<LongBeach.Application.Customers.ICustomerGuardians, LongBeach.Infrastructure.Customers.CustomerGuardianService>();
         services.Configure<Microsoft.AspNetCore.Identity.PasswordHasherOptions>(options =>
             options.IterationCount = 210_000);
         services.AddSingleton<IPasswordHasher, AspNetIdentityPasswordHasher>();

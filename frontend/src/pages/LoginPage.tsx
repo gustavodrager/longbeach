@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getSignInOptions } from '../features/auth/authApi'
+import { getSignInOptions, registerClient } from '../features/auth/authApi'
 import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { Logo } from '../components/Logo'
 import { useAuth } from '../features/auth/authContext'
-
 import { GoogleSignInButton } from '../features/auth/GoogleSignInButton'
+import { CredentialFields, credentialsProblem, type CredentialsDraft } from '../features/auth/CredentialFields'
 import { loginDestination } from '../features/auth/loginDestination'
 import './auth-entry.css'
 
@@ -13,63 +13,106 @@ export function LoginPage() {
   const { user, isBootstrapping, signInWithGoogle, signIn } = useAuth()
   const location = useLocation()
   const [params] = useSearchParams()
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [draft, setDraft] = useState<CredentialsDraft>({ username: '', password: '', confirmation: '' })
+  const [method, setMethod] = useState<'google' | 'local'>('google')
+  const [created, setCreated] = useState(false)
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const lock = useRef(false)
   const options = useQuery({ queryKey: ['sign-in-options'], queryFn: getSignInOptions, retry: false, staleTime: 0 })
   const googleClientId = !options.isError ? options.data?.googleClientId : null
-  const registrationEnabled = Boolean(googleClientId && options.data?.clientRegistrationEnabled)
+  const googleRegistration = Boolean(googleClientId && options.data?.clientRegistrationEnabled)
+  const localRegistration = !options.isError && options.data?.localRegistrationEnabled === true
+  const registrationEnabled = googleRegistration || localRegistration
   const registrationRequested = params.get('cadastro') === 'cliente'
-  const registering = registrationRequested && registrationEnabled
+  const registering = registrationRequested && registrationEnabled && !created
   const homologation = !options.isError && options.data?.homologationLoginEnabled === true
+  const localLogin = !options.isError && (options.data?.localLoginEnabled === true || homologation)
+  const localSelected = registering && (method === 'local' || !googleRegistration)
   if (user) return <Navigate to={loginDestination(user, location.state?.from)} replace />
 
+  const contactProblem = () => !name.trim() ? 'Informe seu nome.' : !/^\d{10,15}$/.test(phone) ? 'Informe um telefone válido com DDD.' : null
+  async function run(work: () => Promise<void>, fallback: string) {
+    if (lock.current || isBootstrapping) return
+    lock.current = true; setError(''); setIsSubmitting(true)
+    try { await work() }
+    catch (cause) { setError(cause instanceof Error ? cause.message : fallback) }
+    finally { lock.current = false; setIsSubmitting(false) }
+  }
   async function handleGoogle(credential: string) {
-    setError(''); setIsSubmitting(true)
-    try { await signInWithGoogle(credential) }
-    catch (error) { setError(error instanceof Error ? error.message : 'Não foi possível entrar com o Google. Tente novamente.') }
-    finally { setIsSubmitting(false) }
+    if (registering) {
+      const problem = contactProblem()
+      if (problem) { setError(problem); return }
+      if (!googleRegistration) return
+    }
+    await run(async () => {
+      if (registering) await signInWithGoogle(credential, { name: name.trim(), phone })
+      else await signInWithGoogle(credential)
+    }, 'Não foi possível entrar com o Google. Tente novamente.')
+  }
+  async function handleLocal(event: FormEvent) {
+    event.preventDefault()
+    if (!localLogin) return
+    await run(async () => {
+      try { await signIn({ email: identifier.trim(), password }) }
+      catch { throw new Error(homologation ? 'Não foi possível entrar. Confira o acesso de teste fornecido pela Long Beach.' : 'Não foi possível entrar. Confira seu usuário e sua senha.') }
+      finally { setPassword('') }
+    }, 'Não foi possível entrar.')
+  }
+  async function handleRegistration(event: FormEvent) {
+    event.preventDefault()
+    if (!localRegistration) return
+    const problem = contactProblem() ?? credentialsProblem(draft)
+    if (problem) { setError(problem); return }
+    await run(async () => {
+      await registerClient({ name: name.trim(), phone, email: email.trim() || null, username: draft.username.trim(), password: draft.password })
+      setIdentifier(draft.username.trim()); setDraft({ username: '', password: '', confirmation: '' }); setCreated(true)
+    }, 'Não foi possível criar a conta.')
   }
 
-  async function handleHomologation() {
-    setError(''); setIsSubmitting(true)
-    try { await signIn({ email, password }) }
-    catch { setError('Não foi possível entrar. Confira o acesso de teste fornecido pela Long Beach.') }
-    finally { setPassword(''); setIsSubmitting(false) }
-  }
-
-  return (
-    <main className="auth-entry-page">
-      <section className="auth-entry-panel" aria-labelledby="login-title">
-        <div className="auth-entry-brand"><Logo showTagline={false} /></div>
-        <div className="auth-entry-heading">
-          <h1 id="login-title">{registering ? 'Criar conta' : homologation ? 'Entrar na homologação' : 'Entrar'}</h1>
-        </div>
-
-        {homologation && <p className="auth-entry-test">Ambiente de teste: dados fictícios e pagamentos Sandbox.</p>}
-        {googleClientId && <div className="auth-entry-google"><GoogleSignInButton clientId={googleClientId} onCredential={credential => void handleGoogle(credential)} onError={setError} disabled={isSubmitting || isBootstrapping} /></div>}
-        {registrationEnabled && <p className="auth-entry-note">{registering ? 'Ao continuar, criaremos sua conta de cliente.' : 'Se ainda não tiver cadastro, criaremos sua conta de cliente.'}</p>}
-        {registrationRequested && options.isSuccess && !registrationEnabled && <p className="auth-entry-status" role="status">O cadastro online está indisponível. Fale com a equipe.</p>}
-        {options.isPending && <p className="auth-entry-status" role="status">Carregando opções de acesso…</p>}
-        {options.isError && <p className="auth-entry-status" role="alert">Não foi possível consultar o acesso Google. <button className="text-button" type="button" onClick={() => void options.refetch()}>Tentar novamente</button></p>}
-        {homologation && <form className="auth-entry-form" onSubmit={event => { event.preventDefault(); void handleHomologation() }}>
-          <label htmlFor="homolog-email">E-mail de teste<input id="homolog-email" type="email" autoComplete="username" required value={email} onChange={event => setEmail(event.target.value)} /></label>
-          <label htmlFor="homolog-password">Senha de teste<input id="homolog-password" type="password" autoComplete="current-password" required value={password} onChange={event => setPassword(event.target.value)} /></label>
-          <button className="primary-button" type="submit" disabled={isSubmitting || isBootstrapping}>Entrar na homologação</button>
-        </form>}
-        {options.isSuccess && !googleClientId && !homologation && <p className="auth-entry-status" role="alert">O acesso com Google está indisponível. <button className="text-button" type="button" onClick={() => void options.refetch()}>Tentar novamente</button></p>}
-        {isSubmitting && <p className="auth-entry-status" role="status">{homologation ? 'Entrando…' : 'Entrando com Google…'}</p>}
-        {error && <p className="form-error" role="alert">{error}</p>}
-        {registrationEnabled && <nav className="auth-entry-actions" aria-label="Opções de conta">{registering
-          ? <Link className="auth-entry-secondary" to="/login" state={location.state}>Já tenho conta</Link>
-          : <Link className="auth-entry-secondary" to="/login?cadastro=cliente" state={location.state}>Criar conta</Link>}</nav>}
-        {!homologation && <details className="auth-entry-help"><summary>Precisa de ajuda?</summary>
-          <p>Use a conta Google vinculada ao seu cadastro. <a href="https://accounts.google.com/signin/recovery" target="_blank" rel="noreferrer">Recuperar conta Google</a>.</p>
-          <p>Para conferir seu acesso ou vincular aulas, reservas e pagamentos, fale com a equipe.</p>
-        </details>}
-        <Link className="auth-entry-back" to="/visitante" state={location.state}>Voltar à entrada</Link>
-      </section>
-    </main>
-  )
+  return <main className="auth-entry-page"><section className="auth-entry-panel" aria-labelledby="login-title">
+    <div className="auth-entry-brand"><Logo showTagline={false} /></div>
+    <div className="auth-entry-heading"><h1 id="login-title">{registering ? 'Criar conta' : homologation ? 'Entrar na homologação' : 'Entrar'}</h1></div>
+    {homologation && <p className="auth-entry-test">Ambiente de teste: dados fictícios e pagamentos Sandbox.</p>}
+    {created && <p className="auth-entry-status" role="status">Conta criada. Entre com seu usuário e sua senha.</p>}
+    {registering && <div className="auth-entry-form">
+      <label>Nome<input required autoComplete="name" maxLength={240} value={name} onChange={event => setName(event.target.value)} disabled={isSubmitting} /></label>
+      <label>Telefone com DDD<input required type="tel" autoComplete="tel-national" inputMode="tel" maxLength={15} value={phone} onChange={event => setPhone(event.target.value.replace(/\D/g, ''))} disabled={isSubmitting} /></label>
+    </div>}
+    {googleClientId && !localSelected && <div className="auth-entry-google"><GoogleSignInButton clientId={googleClientId} onCredential={credential => void handleGoogle(credential)} onError={setError} disabled={isSubmitting || isBootstrapping} /></div>}
+    {googleRegistration && !localSelected && !created && <p className="auth-entry-note">{registering ? 'Ao continuar, criaremos sua conta de cliente.' : 'Se ainda não tiver cadastro, criaremos sua conta de cliente.'}</p>}
+    {registering && localRegistration && !localSelected && <button className="auth-entry-secondary" type="button" disabled={isSubmitting} onClick={() => { setMethod('local'); setError('') }}>Usar usuário e senha</button>}
+    {registering && localSelected && <form className="auth-entry-form" onSubmit={event => void handleRegistration(event)}>
+      <label>E-mail de contato (opcional)<input type="email" autoComplete="email" maxLength={240} value={email} onChange={event => setEmail(event.target.value)} disabled={isSubmitting} /></label>
+      <CredentialFields value={draft} onChange={setDraft} disabled={isSubmitting} />
+      <button className="primary-button" type="submit" disabled={isSubmitting || isBootstrapping}>Criar conta</button>
+      {googleRegistration && <button className="text-button" type="button" disabled={isSubmitting} onClick={() => { setMethod('google'); setError('') }}>Usar Google</button>}
+    </form>}
+    {!registering && localLogin && <details className="auth-entry-password" open={!googleClientId || created || undefined}>
+      <summary>{homologation ? 'Acesso de teste' : 'Entrar com usuário e senha'}</summary>
+      <form className="auth-entry-form" onSubmit={event => void handleLocal(event)}>
+        <label>{homologation ? 'E-mail de teste' : 'Usuário ou e-mail'}<input type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} required maxLength={240} value={identifier} onChange={event => setIdentifier(event.target.value)} disabled={isSubmitting} /></label>
+        <label>{homologation ? 'Senha de teste' : 'Senha'}<input type="password" autoComplete="current-password" required maxLength={256} value={password} onChange={event => setPassword(event.target.value)} disabled={isSubmitting} /></label>
+        <button className="primary-button" type="submit" disabled={isSubmitting || isBootstrapping}>{homologation ? 'Entrar na homologação' : 'Entrar'}</button>
+      </form>
+    </details>}
+    {registrationRequested && options.isSuccess && !registrationEnabled && <p className="auth-entry-status" role="status">O cadastro online está indisponível. Fale com a equipe.</p>}
+    {options.isPending && <p className="auth-entry-status" role="status">Carregando opções de acesso…</p>}
+    {options.isError && <p className="auth-entry-status" role="alert">Não foi possível consultar as opções de acesso. <button className="text-button" type="button" onClick={() => void options.refetch()}>Tentar novamente</button></p>}
+    {!registering && options.isSuccess && !googleClientId && !localLogin && <p className="auth-entry-status" role="alert">O acesso está indisponível. <button className="text-button" type="button" onClick={() => void options.refetch()}>Tentar novamente</button></p>}
+    {isSubmitting && <p className="auth-entry-status" role="status">{registering ? 'Criando conta…' : homologation || localLogin ? 'Entrando…' : 'Entrando com Google…'}</p>}
+    {error && <p className="form-error" role="alert">{error}</p>}
+    {registrationEnabled && <nav className="auth-entry-actions" aria-label="Opções de conta">{registering ? <Link className="auth-entry-secondary" to="/login" state={location.state}>Já tenho conta</Link> : <Link className="auth-entry-secondary" to="/login?cadastro=cliente" state={location.state} onClick={() => setCreated(false)}>Criar conta</Link>}</nav>}
+    {!homologation && <details className="auth-entry-help"><summary>Precisa de ajuda?</summary>
+      {googleClientId && <p><a href="https://accounts.google.com/signin/recovery" target="_blank" rel="noreferrer">Recuperar conta Google</a>.</p>}
+      <p>Esqueceu o usuário ou a senha? Peça à equipe um link de recuperação após confirmar sua identidade.</p>
+      <p>Para vincular aulas, reservas e pagamentos, fale com a equipe.</p>
+    </details>}
+    <Link className="auth-entry-back" to="/visitante" state={location.state}>Voltar à entrada</Link>
+  </section></main>
 }

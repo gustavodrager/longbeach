@@ -11,6 +11,7 @@ using LongBeach.Domain.Operations;
 using LongBeach.Infrastructure.Persistence;
 using LongBeach.Infrastructure.Customers;
 using LongBeach.Domain.Customers;
+using LongBeach.Domain.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
@@ -39,8 +40,16 @@ public sealed class ClientPortalService(LongBeachDbContext db, TimeProvider time
         if(existing is null) { var row=new OperationalRecord(id,kind,name,Serialize(value)); db.Add(row); records.Add(row); }
         else existing.Update(name,Serialize(value));
     }
-    private async Task<HashSet<(string Kind, Guid Id)>> Links(Guid user, List<OperationalRecord> records, CancellationToken ct)
+    private sealed record PortalAccess(HashSet<(string Kind, Guid Id)> Links, HashSet<Guid> DeniedReservations);
+    private async Task<HashSet<(string Kind, Guid Id)>> Links(Guid user, List<OperationalRecord> records, CancellationToken ct) =>
+        (await Access(user, records, ct)).Links;
+
+    private async Task<PortalAccess> Access(Guid user, List<OperationalRecord> records, CancellationToken ct)
     {
+        // Arena commands already hold 904. Taking the customer lock next keeps
+        // a guardian revocation serialized with a new request or rating.
+        if (db.Database.CurrentTransaction is not null)
+            await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(724031907)", ct);
         var result=records.Where(r=>r.Kind=="portalLinks" && Id(Data(r),"userId")==user)
             .Select(r=>(Text(Data(r),"kind"),Id(Data(r),"sourceId"))).ToHashSet();
         foreach(var account in await db.Set<BillingAccount>().AsNoTracking().Where(a=>a.UserId==user).ToListAsync(ct))
@@ -52,7 +61,35 @@ public sealed class ClientPortalService(LongBeachDbContext db, TimeProvider time
             if(kind=="rentalMonths") { var month=records.SingleOrDefault(r=>r.Id==id&&r.Kind==kind);if(month is not null)result.Add(("rentalGroups",Id(Data(month),"rentalGroupId"))); }
             if(kind=="reservations")result.Add((kind,id));
         }
-        return result;
+        var scope = await CustomerGuardianScope.Load(db, ct);
+        var deniedReservations = new HashSet<Guid>();
+        if (scope.Records.Count == 0) return new(result, deniedReservations);
+        var sources = await db.Set<CustomerSourceLink>().AsNoTracking()
+            .Where(row => row.CustomerId != null && (row.Kind == "students" || row.Kind == "reservations"))
+            .Select(row => new { row.Kind, row.SourceId, CustomerId = row.CustomerId!.Value }).ToArrayAsync(ct);
+        var controlled = sources.Where(row => scope.Controlled(row.CustomerId))
+            .Select(row => (Key: (row.Kind, row.SourceId), row.CustomerId)).ToList();
+        // Old payloads are sufficient to deny a stale grant, but only the
+        // customer registry's source links can add a new student permission.
+        controlled.AddRange(records.Where(row => row.Kind is "students" or "reservations")
+            .Select(row => (Key: (row.Kind, row.Id), CustomerId: Id(Data(row), "customerId")))
+            .Where(row => scope.Controlled(row.CustomerId)));
+        var guardianAccount = await db.Users.AsNoTracking().Include(row => row.UserRoles).ThenInclude(row => row.Role)
+            .SingleOrDefaultAsync(row => row.Id == user, ct);
+        var eligible = guardianAccount is not null && guardianAccount.IsActive && !guardianAccount.RequiresFirstAccess
+            && ProfileAccess.HasValidProfile(guardianAccount.UserRoles.Select(link => link.Role.Name));
+        foreach (var group in controlled.GroupBy(row => row.Key))
+        {
+            var granted = eligible && group.All(row => scope.Granted(row.CustomerId, user));
+            if (!granted)
+            {
+                result.Remove(group.Key);
+                if (group.Key.Item1 == "reservations") deniedReservations.Add(group.Key.Item2);
+            }
+            else if (group.Key.Item1 == "students" && sources.Any(row => row.Kind == "students" && row.SourceId == group.Key.Item2))
+                result.Add(group.Key);
+        }
+        return new(result, deniedReservations);
     }
     public async Task<PortalProfile> Profile(Guid user,CancellationToken ct)
     {
@@ -131,7 +168,7 @@ public sealed class ClientPortalService(LongBeachDbContext db, TimeProvider time
     }
     private async Task<List<PortalAppointment>> BuildAgenda(Guid user,List<OperationalRecord> rows,CancellationToken ct)
     {
-        var links=await Links(user,rows,ct);var result=new List<PortalAppointment>();
+        var access=await Access(user,rows,ct);var links=access.Links;var result=new List<PortalAppointment>();
         var requests=rows.Where(r=>r.Kind=="portalRequests").Select(ReadRequest).Where(r=>r.UserId==user&&r.Status=="Confirmed").ToArray();
         var linkedReservations=requests.Where(r=>r.ReservationId.HasValue).Select(r=>r.ReservationId!.Value).ToHashSet();
         var exceptions=rows.Where(r=>r.Kind=="portalExceptions"&&Id(Data(r),"userId")==user).Select(Data).ToDictionary(p=>Text(p,"key"));
@@ -149,6 +186,7 @@ public sealed class ClientPortalService(LongBeachDbContext db, TimeProvider time
         }
         foreach(var r in rows.Where(r=>r.Kind=="reservations"))
         {
+            if (access.DeniedReservations.Contains(r.Id)) continue;
             var p=Data(r);if(!links.Contains(("reservations",r.Id))&&!links.Contains(("rentalGroups",Id(p,"rentalGroupId")))&&!linkedReservations.Contains(r.Id))continue;
             Add($"reservation:{r.Id}",r,p,"Reserva",Text(p,"date"),r.Name,Text(p,"status"));
         }

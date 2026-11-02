@@ -5,7 +5,7 @@ import { Navigate } from 'react-router-dom'
 import { Logo } from '../components/Logo'
 import { useAuth } from '../features/auth/authContext'
 import { GoogleSignInButton } from '../features/auth/GoogleSignInButton'
-import { passwordRequirementError } from './AccountPage'
+import { passwordRequirementError } from '../features/auth/passwordRequirements'
 import './auth-entry.css'
 
 export function FirstAccessPage() {

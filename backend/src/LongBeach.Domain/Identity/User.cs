@@ -23,6 +23,8 @@ public sealed class User : Entity
     public string Email { get; private set; } = string.Empty;
     public string NormalizedEmail { get; private set; } = string.Empty;
     public string PasswordHash { get; private set; } = string.Empty;
+    public bool LocalPasswordEnabled { get; private set; } = true;
+    public int CredentialVersion { get; private set; }
     public bool IsActive { get; private set; }
     public string? Username { get; private set; }
     public string? NormalizedUsername { get; private set; }
@@ -45,16 +47,22 @@ public sealed class User : Entity
 
     public static User CreateForFirstAccess(string name, string username, string passwordHash, DateTimeOffset expiresAt)
     {
-        username = username.Trim().ToLowerInvariant();
-        if (!System.Text.RegularExpressions.Regex.IsMatch(username, "^[a-z][a-z0-9._-]{2,63}$"))
-            throw new ArgumentException("Use a username of 3 to 64 letters, digits, dots, underscores or hyphens.");
         // Reserved, non-deliverable address until the person links a verified Google account.
         var user = Create(name, $"{Guid.NewGuid():N}@unlinked.longbeach.invalid", passwordHash);
-        user.Username = username;
-        user.NormalizedUsername = NormalizeEmail(username);
+        user.SetUsername(username);
         user.RequiresFirstAccess = true;
         user.InitialAccessExpiresAtUtc = expiresAt;
         return user;
+    }
+
+    public void SetUsername(string username)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(username);
+        username = username.Trim().ToLowerInvariant();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(username, "^[a-z][a-z0-9._-]{2,63}$"))
+            throw new ArgumentException("Use a username of 3 to 64 letters, digits, dots, underscores or hyphens.", nameof(username));
+        Username = username;
+        NormalizedUsername = NormalizeEmail(username);
     }
 
     public bool InitialAccessIsValidAt(DateTimeOffset now) =>
@@ -84,7 +92,7 @@ public sealed class User : Entity
             !Email.EndsWith("@unlinked.longbeach.invalid", StringComparison.Ordinal) || email.Length > 320)
             throw new InvalidOperationException("Only an unlinked pending account can receive authorized Google access.");
         Email = email.Trim(); NormalizedEmail = NormalizeEmail(email);
-        PasswordHash = passwordHash;
+        DisableLocalPassword(passwordHash);
         CompleteFirstAccess();
     }
 
@@ -92,6 +100,25 @@ public sealed class User : Entity
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
         PasswordHash = passwordHash;
+    }
+
+    public void SetLocalPassword(string passwordHash)
+    {
+        ChangePasswordHash(passwordHash);
+        LocalPasswordEnabled = true;
+    }
+
+    public void DisableLocalPassword(string replacementHash)
+    {
+        ChangePasswordHash(replacementHash);
+        LocalPasswordEnabled = false;
+    }
+
+    public void InvalidateCredentials(DateTimeOffset revokedAtUtc, string? revokedByIp, string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        CredentialVersion = checked(CredentialVersion + 1);
+        RevokeAllRefreshTokens(revokedAtUtc, revokedByIp, reason);
     }
 
     public void Deactivate() => IsActive = false;

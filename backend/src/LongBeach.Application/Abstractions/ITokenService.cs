@@ -9,7 +9,9 @@ public sealed record TokenPrincipal(
     bool RequiresFirstAccess = false,
     string? Username = null,
     DateTimeOffset? InitialAccessExpiresAtUtc = null,
-    bool GoogleLinked = false);
+    bool GoogleLinked = false,
+    int CredentialVersion = 0,
+    bool LocalPasswordEnabled = true);
 
 public sealed record IssuedTokenPair(
     string AccessToken,

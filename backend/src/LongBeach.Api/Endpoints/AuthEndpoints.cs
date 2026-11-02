@@ -24,6 +24,8 @@ public static class AuthEndpoints
             {
                 GoogleClientId = enabled ? configuration["Authentication:Google:ClientId"] : null,
                 ClientRegistrationEnabled = enabled && configuration.GetValue<bool>("Authentication:Google:ClientRegistrationEnabled"),
+                LocalLoginEnabled = configuration.GetValue("Authentication:Local:Enabled", true),
+                LocalRegistrationEnabled = configuration.GetValue("Authentication:Local:Enabled", true) && configuration.GetValue("Authentication:Local:ClientRegistrationEnabled", false),
                 HomologationLoginEnabled = LongBeach.Infrastructure.Bootstrap.PagBankHomologation.Enabled(configuration, environment)
             });
         }).AllowAnonymous();
@@ -100,6 +102,7 @@ public static class AuthEndpoints
         IAuthService authService,
         CancellationToken cancellationToken)
     {
+        if (!configuration.GetValue("Authentication:Local:Enabled", true)) return Results.StatusCode(403);
         var errors = ValidateLogin(request);
         if (errors.Count > 0)
         {
@@ -246,7 +249,8 @@ public static class AuthEndpoints
             principal.FindAll("permission").Select(claim => claim.Value).Distinct().ToArray(),
             principal.FindFirstValue("requires_first_access") == "true",
             principal.FindFirstValue("username"),
-            principal.FindFirstValue("google_linked") == "true"));
+            principal.FindFirstValue("google_linked") == "true",
+            principal.FindFirstValue("local_password_enabled") != "false"));
     }
 
     private static Dictionary<string, string[]> ValidateLogin(LoginRequest request)

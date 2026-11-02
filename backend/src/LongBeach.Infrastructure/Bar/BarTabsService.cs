@@ -72,10 +72,11 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         if (text.Length > 320) throw new BarRuleException("Busca muito longa.");
         var pattern = "%" + text.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
         var normalized = User.NormalizeEmail(text);
-        var users = await db.Users.AsNoTracking().Where(x => x.IsActive && x.GoogleSubject != null && !x.RequiresFirstAccess)
-            .Where(x => text.Contains("@") ? x.NormalizedEmail == normalized : EF.Functions.ILike(x.Name, pattern))
-            .OrderBy(x => x.Name).ThenBy(x => x.Id).Take(20).Select(x => new { x.Id, x.Name, x.Email }).ToListAsync(ct);
-        return users.Select(x => new TabCustomer(x.Id, x.Name, x.Email[..1] + "***@" + x.Email.Split('@').Last())).ToArray();
+        var users = await db.Users.AsNoTracking().Where(x => x.IsActive && !x.RequiresFirstAccess)
+            .Where(x => text.Contains("@") ? x.NormalizedEmail == normalized : EF.Functions.ILike(x.Name, pattern)
+                || x.Username != null && EF.Functions.ILike(x.Username, pattern))
+            .OrderBy(x => x.Name).ThenBy(x => x.Id).Take(20).Select(x => new { x.Id, x.Name, x.Email, x.Username }).ToListAsync(ct);
+        return users.Select(x => new TabCustomer(x.Id, x.Name, CustomerAccountHints.For(x.Email, x.Username))).ToArray();
     }
     public Task<TabResponse> Open(OpenTabInput input, Guid actor, CancellationToken ct) => Run(input.OperationId,
         input.CustomerId is not null ? Hash(new { action = "open", input, actor }) : input.Notes is not null
@@ -88,8 +89,8 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         if (input.ResponsibleUserId is Guid userId)
         {
             if (input.Mode != "Tab") throw new BarRuleException("Identifique o responsável ao abrir uma comanda.");
-            responsible = await db.Users.SingleOrDefaultAsync(x => x.Id == userId && x.IsActive && x.GoogleSubject != null && !x.RequiresFirstAccess, ct)
-                ?? throw new BarRuleException("Escolha um cliente ativo que já entrou com o Google.");
+            responsible = await db.Users.SingleOrDefaultAsync(x => x.Id == userId && x.IsActive && !x.RequiresFirstAccess, ct)
+                ?? throw new BarRuleException("Escolha uma conta ativa com o primeiro acesso concluído.");
         }
         var tab = new BarTab(input.LocationId, actor, string.IsNullOrWhiteSpace(input.Name) ? responsible?.Name[..Math.Min(80, responsible.Name.Length)] : input.Name, input.Mode, input.Notes);
         if (input.CustomerId is Guid customerId)

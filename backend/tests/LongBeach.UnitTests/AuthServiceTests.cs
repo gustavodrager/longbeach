@@ -28,7 +28,9 @@ public sealed class AuthServiceTests
         Assert.True(session.Response.User.GoogleLinked);
         Assert.Equal("access-token", session.Response.AccessToken);
         Assert.Equal(Now.AddHours(8), session.RefreshTokenExpiresAtUtc);
-        Assert.Single(user.RefreshTokens);
+        Assert.Equal(1, Assert.Single(user.RefreshTokens).CredentialVersion);
+        Assert.Equal(1, user.CredentialVersion);
+        Assert.True(session.Response.User.LocalPasswordEnabled);
         Assert.Equal(1, repository.SaveCount);
     }
 
@@ -157,6 +159,8 @@ public sealed class AuthServiceTests
             "change-ip");
 
         Assert.Equal("hash:NewPassword2026!", user.PasswordHash);
+        Assert.Equal(1, user.CredentialVersion);
+        Assert.True(user.LocalPasswordEnabled);
         Assert.All(user.RefreshTokens, token =>
         {
             Assert.Equal(Now, token.RevokedAtUtc);
@@ -228,6 +232,128 @@ public sealed class AuthServiceTests
         Assert.Equal(0, repository.SaveCount);
     }
 
+    [Fact]
+    public async Task Local_login_uses_the_normalized_username_and_reports_the_enabled_method()
+    {
+        var user = ActiveUser("Cliente", "contact@unlinked.longbeach.invalid", "hash:CurrentPassword1!");
+        user.SetUsername(" Cliente.Exemplo ");
+        var service = new AuthService(new FakeUserRepository(user), new FakePasswordHasher(), new FakeTokenService(), new FixedTimeProvider(Now));
+
+        var session = await service.LoginAsync(" CLIENTE.EXEMPLO ", "CurrentPassword1!", null);
+
+        Assert.Equal(user.Id, session.Response.User.Id);
+        Assert.Equal("cliente.exemplo", session.Response.User.Username);
+        Assert.Empty(session.Response.User.Email);
+        Assert.True(session.Response.User.LocalPasswordEnabled);
+        Assert.False(session.Response.User.GoogleLinked);
+        Assert.Equal(0, Assert.Single(user.RefreshTokens).CredentialVersion);
+    }
+
+    [Fact]
+    public async Task Disabled_local_method_uses_the_dummy_hash_and_cannot_change_its_random_password()
+    {
+        var user = ActiveUser("Google account", "google@example.test", "hash:old");
+        user.DisableLocalPassword("hash:KnownReplacement1!");
+        var repository = new FakeUserRepository(user);
+        var hasher = new FakePasswordHasher();
+        var service = new AuthService(repository, hasher, new FakeTokenService(), new FixedTimeProvider(Now));
+
+        await Assert.ThrowsAsync<AuthenticationFailedException>(() => service.LoginAsync(user.Email, "KnownReplacement1!", null));
+        await Assert.ThrowsAsync<CurrentPasswordInvalidException>(() =>
+            service.ChangePasswordAsync(user.Id, "KnownReplacement1!", "NewPassword2026!", null));
+
+        Assert.Equal(new[] { hasher.DummyHash, hasher.DummyHash }, hasher.VerifiedHashes);
+        Assert.False(user.LocalPasswordEnabled);
+        Assert.Equal("hash:KnownReplacement1!", user.PasswordHash);
+        Assert.Equal(0, user.CredentialVersion);
+        Assert.Empty(user.RefreshTokens);
+        Assert.Equal(0, repository.SaveCount);
+    }
+
+    [Fact]
+    public async Task Automatic_password_rehash_preserves_the_credential_version_and_current_sessions()
+    {
+        var user = ActiveUser("Cliente", "client@example.test", "rehash:CurrentPassword1!");
+        var current = RefreshToken.Create(Guid.NewGuid(), user.Id, Guid.NewGuid(), "hash:old", "csrf:old", Now.AddDays(1), null);
+        user.AddRefreshToken(current);
+        var service = new AuthService(new FakeUserRepository(user), new FakePasswordHasher(), new FakeTokenService(), new FixedTimeProvider(Now));
+
+        var session = await service.LoginAsync(user.Email, "CurrentPassword1!", null);
+
+        Assert.Equal("hash:CurrentPassword1!", user.PasswordHash);
+        Assert.Equal(0, user.CredentialVersion);
+        Assert.Null(current.RevokedAtUtc);
+        Assert.True(session.Response.User.LocalPasswordEnabled);
+        Assert.All(user.RefreshTokens, token => Assert.Equal(0, token.CredentialVersion));
+    }
+
+    [Fact]
+    public async Task A_stale_refresh_saved_after_credential_invalidation_cannot_restore_access()
+    {
+        var user = ActiveUser("Cliente", "client@example.test", "valid-hash");
+        user.InvalidateCredentials(Now, null, "Account recovered");
+        var stale = RefreshToken.Create(Guid.NewGuid(), user.Id, Guid.NewGuid(), "hash:late", "csrf:late", Now.AddDays(1), null);
+        user.AddRefreshToken(stale);
+        var repository = new FakeUserRepository(user);
+        var service = new AuthService(repository, new FakePasswordHasher(), new FakeTokenService(), new FixedTimeProvider(Now));
+
+        await Assert.ThrowsAsync<InvalidRefreshTokenException>(() => service.RefreshAsync("late", null, false, null));
+
+        Assert.Null(stale.RevokedAtUtc); // Rejected by version, even though it escaped the earlier revocation batch.
+        Assert.Equal(0, repository.SaveCount);
+        Assert.Single(user.RefreshTokens);
+    }
+
+    [Fact]
+    public async Task Current_refresh_rotates_with_the_same_credential_version()
+    {
+        var user = ActiveUser("Cliente", "client@example.test", "valid-hash");
+        user.InvalidateCredentials(Now, null, "Account recovered");
+        var current = RefreshToken.Create(Guid.NewGuid(), user.Id, Guid.NewGuid(), "hash:current", "csrf:current", Now.AddDays(1), null,
+            credentialVersion: user.CredentialVersion);
+        user.AddRefreshToken(current);
+        var tokens = new FakeTokenService();
+        var service = new AuthService(new FakeUserRepository(user), new FakePasswordHasher(), tokens, new FixedTimeProvider(Now));
+
+        await service.RefreshAsync("current", null, false, null);
+
+        Assert.Equal(1, tokens.LastPrincipal!.CredentialVersion);
+        Assert.Equal(1, Assert.Single(user.RefreshTokens, token => token.Id != current.Id).CredentialVersion);
+    }
+
+    [Fact]
+    public async Task A_rotating_refresh_cannot_adopt_a_reset_version_after_its_access_token_was_minted()
+    {
+        var user = ActiveUser("Cliente", "client@example.test", "valid-hash");
+        user.AddRefreshToken(RefreshToken.Create(Guid.NewGuid(), user.Id, Guid.NewGuid(), "hash:old", "csrf:old", Now.AddDays(1), null));
+        var tokens = new FakeTokenService { OnIssue = () => user.InvalidateCredentials(Now, null, "Account recovered during rotation") };
+        var service = new AuthService(new FakeUserRepository(user), new FakePasswordHasher(), tokens, new FixedTimeProvider(Now));
+
+        var racedSession = await service.RefreshAsync("old", null, false, null);
+
+        Assert.Equal(1, user.CredentialVersion);
+        var late = Assert.Single(user.RefreshTokens, token => token.TokenHash == "hash:new");
+        Assert.Equal(0, late.CredentialVersion);
+        Assert.Null(late.RevokedAtUtc);
+        await Assert.ThrowsAsync<InvalidRefreshTokenException>(() => service.RefreshAsync(racedSession.RefreshToken, null, false, null));
+    }
+
+    [Fact]
+    public async Task Returning_google_login_keeps_the_same_version_and_enabled_local_method()
+    {
+        var user = ActiveUser("Cliente", "client@example.test", "hash:CurrentPassword1!");
+        var service = new AuthService(new FakeUserRepository(user), new FakePasswordHasher(), new FakeTokenService(), new FixedTimeProvider(Now));
+
+        var first = await service.LoginWithGoogleAsync(user.Email, null, subject: "google-client", allowEmailMatch: true);
+        var returning = await service.LoginWithGoogleAsync(user.Email, null, subject: "google-client");
+        var local = await service.LoginAsync(user.Email, "CurrentPassword1!", null);
+
+        Assert.Equal(first.Response.User.Id, returning.Response.User.Id);
+        Assert.Equal(first.Response.User.Id, local.Response.User.Id);
+        Assert.Equal(1, user.CredentialVersion);
+        Assert.True(returning.Response.User.LocalPasswordEnabled);
+    }
+
     private static User ActiveUser(string name, string email, string passwordHash)
     {
         var user = User.Create(name, email, passwordHash);
@@ -254,18 +380,27 @@ public sealed class AuthServiceTests
 
     private sealed class FakePasswordHasher : IPasswordHasher
     {
+        public List<string> VerifiedHashes { get; } = [];
         public string DummyHash => "hash:dummy";
         public string Hash(string password) => $"hash:{password}";
-        public PasswordHashVerificationResult Verify(string password, string encodedHash) =>
-            encodedHash == "valid-hash" || encodedHash == $"hash:{password}"
+        public PasswordHashVerificationResult Verify(string password, string encodedHash)
+        {
+            VerifiedHashes.Add(encodedHash);
+            if (encodedHash == $"rehash:{password}") return PasswordHashVerificationResult.SuccessRehashNeeded;
+            return encodedHash == "valid-hash" || encodedHash == $"hash:{password}"
                 ? PasswordHashVerificationResult.Success
                 : PasswordHashVerificationResult.Failed;
+        }
     }
 
     private sealed class FakeTokenService : ITokenService
     {
+        public TokenPrincipal? LastPrincipal { get; private set; }
+        public Action? OnIssue { get; init; }
         public IssuedTokenPair Issue(TokenPrincipal principal, DateTimeOffset now)
         {
+            LastPrincipal = principal;
+            OnIssue?.Invoke();
             var id = Guid.NewGuid();
             return new IssuedTokenPair(
                 "access-token",

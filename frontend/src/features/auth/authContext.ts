@@ -5,10 +5,11 @@ export type AuthContextValue = {
   user: AuthUser | null
   isBootstrapping: boolean
   signIn: (credentials: LoginCredentials) => Promise<void>
-  signInWithGoogle: (credential: string) => Promise<void>
+  signInWithGoogle: (credential: string, registration?: { name: string; phone: string }) => Promise<void>
   signOut: () => Promise<void>
   changePassword: (passwords: PasswordChange) => Promise<void>
   completeFirstAccessWithGoogle: (credential: string) => Promise<void>
+  completeCustomerProfile?: () => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
