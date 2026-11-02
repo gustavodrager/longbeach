@@ -39,7 +39,7 @@ Nenhuma turma real foi excluída. A remoção efetiva, os bloqueios por históri
 
 ## Preservação e encerramento
 
-A API permaneceu saudável. PostgreSQL, Caddy e transporte WhatsApp conservaram os mesmos contêineres, imagens, horários de início e redes. Foram preservados o catálogo do banco, as 31 migrations, os vínculos de usuários e perfis, os parâmetros de autenticação e Google e os limites do transporte. A alteração do arquivo de ambiente ficou restrita à referência da imagem da API. A publicação não executou migration, seed ou alteração de dados de negócio; a atividade normal de sessões, auditoria e tarefas do sistema continua possível.
+A API permaneceu saudável. PostgreSQL, Caddy e transporte WhatsApp conservaram os mesmos contêineres, imagens, horários de início e redes. Foram preservados o catálogo de permissões do banco, as 31 migrations, os vínculos de usuários e perfis, os parâmetros de autenticação e Google e os limites do transporte. A alteração do arquivo de ambiente ficou restrita à referência da imagem da API. A publicação não executou migration, seed ou alteração de dados de negócio; a atividade normal de sessões, auditoria e tarefas do sistema continua possível.
 
 A reserva temporária da implantação foi arquivada e encerrada. A política temporária de branch `65233163` foi removida; as políticas anteriores, os revisores e as demais proteções foram conferidos após a remoção. As referências da API e do Hosting anteriores foram retidas para eventual retorno controlado; nenhum retorno foi executado.
 
