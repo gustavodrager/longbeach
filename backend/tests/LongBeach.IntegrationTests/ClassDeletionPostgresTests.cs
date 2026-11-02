@@ -2,17 +2,34 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using LongBeach.Application.Abstractions;
 using LongBeach.Domain.Identity;
 using LongBeach.Domain.Operations;
 using LongBeach.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LongBeach.IntegrationTests;
 
 public sealed class ClassDeletionPostgresTests
 {
+    // These cases intentionally exercise legacy/incomplete records. Keep every
+    // fixture in its own disposable schema so other domains never read them.
+    private static WebApplicationFactory<Program> Factory(IsolatedMaterialDatabase isolated) =>
+        new LongBeachWebApplicationFactory().WithWebHostBuilder(builder => builder
+            .ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:LongBeach"] = isolated.Connection,
+                ["BackgroundJobs:Enabled"] = "false"
+            }))
+            .ConfigureServices(services =>
+            {
+                services.AddDbContext<LongBeachDbContext>(options => options.UseNpgsql(isolated.Connection));
+                services.AddScoped<IUserRepository>(provider => new TestSessionUserRepository(new UserRepository(provider.GetRequiredService<LongBeachDbContext>())));
+            }));
+
     private static async Task<JsonObject> CreateClass(HttpClient client)
     {
         var courtId = Guid.NewGuid(); var teacherId = Guid.NewGuid(); var id = Guid.NewGuid();
@@ -53,8 +70,8 @@ public sealed class ClassDeletionPostgresTests
     [InlineData(true)]
     public async Task Empty_class_deletion_updates_both_schedules_audits_once_and_retires_its_id(bool legacyVersionZero)
     {
-        await using var factory = OperationalPostgresTests.Factory(); using var client = factory.CreateClient();
-        await OperationalPostgresTests.Migrate(factory);
+        await using var isolated = await IsolatedMaterialDatabase.Create();
+        await using var factory = Factory(isolated); using var client = factory.CreateClient();
         var actor = Guid.NewGuid(); client.DefaultRequestHeaders.Authorization = new("Bearer", ProfileAuthorizationTests.Token(actor, ["Manager"]));
         var lesson = await CreateClass(client); var id = Guid.Parse(lesson["id"]!.GetValue<string>());
         if (legacyVersionZero)
@@ -89,8 +106,9 @@ public sealed class ClassDeletionPostgresTests
     [PostgresFact]
     public async Task Stale_version_preserves_class_and_schedule_without_a_delete_audit()
     {
-        await using var factory = OperationalPostgresTests.Factory(); using var client = factory.CreateClient();
-        await OperationalPostgresTests.Migrate(factory); client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
+        await using var isolated = await IsolatedMaterialDatabase.Create();
+        await using var factory = Factory(isolated); using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
         var lesson = await CreateClass(client); var id = Guid.Parse(lesson["id"]!.GetValue<string>()); var path = $"/api/v1/operations/classes/{id}";
         lesson["name"] = "Turma corrigida";
         Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync(path, lesson)).StatusCode);
@@ -110,8 +128,9 @@ public sealed class ClassDeletionPostgresTests
     [InlineData("portalRequests", "classId", "Closed")]
     public async Task Any_linked_history_blocks_deletion_without_changing_or_deleting_records(string kind, string field, string status)
     {
-        await using var factory = OperationalPostgresTests.Factory(); using var client = factory.CreateClient();
-        await OperationalPostgresTests.Migrate(factory); client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
+        await using var isolated = await IsolatedMaterialDatabase.Create();
+        await using var factory = Factory(isolated); using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
         var lesson = await CreateClass(client); var id = Guid.Parse(lesson["id"]!.GetValue<string>()); var linked = Guid.NewGuid();
         // Seed legacy relations directly: even cancelled, closed or imported data is history.
         var body = new JsonObject { [field] = id.ToString("N").ToUpperInvariant(), ["status"] = status };
@@ -128,8 +147,9 @@ public sealed class ClassDeletionPostgresTests
     [PostgresFact]
     public async Task Legacy_roster_cannot_be_deleted_even_without_enrollment_records()
     {
-        await using var factory = OperationalPostgresTests.Factory(); using var client = factory.CreateClient();
-        await OperationalPostgresTests.Migrate(factory); client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
+        await using var isolated = await IsolatedMaterialDatabase.Create();
+        await using var factory = Factory(isolated); using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
         var lesson = await CreateClass(client); var id = Guid.Parse(lesson["id"]!.GetValue<string>());
         lesson["studentIds"] = new JsonArray(Guid.NewGuid().ToString());
         await using (var scope = factory.Services.CreateAsyncScope())
@@ -144,8 +164,9 @@ public sealed class ClassDeletionPostgresTests
     [PostgresFact]
     public async Task Concurrent_enrollment_and_delete_never_leave_a_student_in_a_missing_class()
     {
-        await using var factory = OperationalPostgresTests.Factory(); using var client = factory.CreateClient();
-        await OperationalPostgresTests.Migrate(factory); client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
+        await using var isolated = await IsolatedMaterialDatabase.Create();
+        await using var factory = Factory(isolated); using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
         var lesson = await CreateClass(client); var id = Guid.Parse(lesson["id"]!.GetValue<string>()); var student = Guid.NewGuid(); var enrollment = Guid.NewGuid();
         await AddRecord(factory, student, "students", new JsonObject { ["monthlyAmount"] = 0, ["version"] = 1 });
         var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -163,8 +184,9 @@ public sealed class ClassDeletionPostgresTests
     [PostgresFact]
     public async Task Persisted_role_change_and_blocking_restrict_delete_on_the_same_token()
     {
-        await using var factory = OperationalPostgresTests.Factory(); using var client = factory.CreateClient();
-        await OperationalPostgresTests.Migrate(factory); client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
+        await using var isolated = await IsolatedMaterialDatabase.Create();
+        await using var factory = Factory(isolated); using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = OperationalPostgresTests.Header("Manager");
         var lesson = await CreateClass(client); var id = Guid.Parse(lesson["id"]!.GetValue<string>());
         await using var scope = factory.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
         async Task<Role> Role(string name) => await db.Roles.SingleOrDefaultAsync(row => row.Name == name) ?? new Role(name);
