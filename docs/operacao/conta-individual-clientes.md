@@ -1,6 +1,8 @@
 # Conta individual de clientes
 
-Estado em 02/11/2026: implementação local. Este documento não registra implantação, alteração de flags ou conferência de contas de produção. A decisão está no [ADR-021](../adr/ADR-021-conta-individual-clientes.md).
+Estado em 02/11/2026: publicado na revisão [#64](https://github.com/gustavodrager/longbeach/pull/64), com API, interface e schema 32 conferidos. O [registro da publicação](publicacao-contas-clientes-2026-11-02.md) identifica os artefatos, a restauração ensaiada e as verificações. A decisão está no [ADR-021](../adr/ADR-021-conta-individual-clientes.md).
+
+O autocadastro público por usuário e senha permanece **fechado**. O inventário encontrou 48 cadastros, sendo 46 incompletos e 47 sem conta vinculada; essas quantidades podem se sobrepor. A gestão deve conferir cada pessoa antes de emitir convite ou associar uma conta. A publicação não criou contas em massa nem alterou as opções existentes do Google.
 
 ## Conferir os cadastros
 
@@ -70,14 +72,16 @@ Convites e recuperação usam segredos aleatórios de 256 bits. O servidor persi
 
 A interface consulta as opções do servidor. A ausência da segunda flag não autoriza habilitá-la durante uma publicação. Sua habilitação depende da conferência de contas e de aprovação específica. As opções e o cadastro OAuth do Google permanecem independentes.
 
-A migration preparada é `20261102163528_ClientIndividualAccess`, elevando o schema de 31 para 32 migrations. O hash esperado nas fontes do Dockerfile e do preflight é `e68bb0b2cacc3f30bd53bbda0ce192f7803708bef66e2fdfeb800f29016884a0`.
+A migration publicada é `20261102163528_ClientIndividualAccess`, elevando o schema de 31 para 32 migrations. O hash conferido no banco, no Dockerfile e no preflight instalado é `e68bb0b2cacc3f30bd53bbda0ce192f7803708bef66e2fdfeb800f29016884a0`.
 
 Ela acrescenta `client_access_challenges` e `customer_guardian_access`, com referências restritivas, índices únicos e histórico preservado. Acrescenta também as versões de credenciais de usuários e refresh tokens, inicialmente zero, e o indicador de senha local, inicialmente habilitado para preservar o legado. Não cria contas nem autorizações em massa. Novas contas Google deste fluxo começam com senha local desabilitada.
 
 Os grants novos permitem ao runtime ler, inserir e atualizar. Exclusão, truncamento e privilégios adicionais são retirados; `PUBLIC` e os papéis do transporte WhatsApp não recebem acesso às tabelas novas. A aplicação também rejeita exclusão física de desafios e autorizações.
 
-A implantação futura precisa de plano próprio para API, interface, banco e contrato do preflight instalado. Antes da execução, identificar os artefatos e a autorização, conferir backup recuperável e ensaiar a migration localmente. Coordenar os escritores, executar a migration uma única vez por job controlado e conferir schema, grants, contas existentes e credenciais antes de liberar a nova API e interface. Não usar migration ou seed automático no início de cada réplica.
+A publicação de 02/11/2026 pausou os escritores da API e do transporte WhatsApp, preservando PostgreSQL e proxy. Uma cópia real foi restaurada localmente com PostgreSQL 18, sem rede, API, workers ou seed; foram conferidas 95 tabelas e duas sequências. O mesmo job SQL controlado de 31 para 32 foi aplicado uma única vez em produção, com o papel de migrator, guardas transacionais e o preflight do schema 32 instalado antes da nova API. Os hashes dos registros anteriores, vínculos, permissões e configurações foram conferidos antes de reabrir os escritores.
+
+Publicações futuras continuam exigindo autorização, artefatos identificados e plano compatível com o banco e o preflight instalado. Não usar migration ou seed automático no início de cada réplica.
 
 Depois do uso, não executar `Down` para apagar desafios, responsáveis ou versões de credenciais. O guard de downgrade recusa esse apagamento. Um retorno de aplicação também precisa ser conferido quanto à compatibilidade com os métodos e sessões novos; não restaurar uma cópia antiga sobre dados ativos como atalho.
 
-Nenhuma dessas ações hospedadas foi realizada nesta etapa. O inventário real e o relatório final de validação serão registrados na operação correspondente.
+O login Google normal de um Gestor existente e a atualização do PWA foram conferidos no sistema publicado. Não foram criadas, recuperadas ou convidadas contas reais para teste; senha local, consumo de convites e recuperação foram exercitados em ambientes isolados. A liberação do autocadastro local continua dependendo de conferência e autorização específica, conforme o [manifesto desta publicação](release-contas-clientes-2026-11-02.json).

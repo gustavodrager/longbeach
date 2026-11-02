@@ -1,6 +1,6 @@
 # ADR-021 — Conta individual e acesso de responsáveis
 
-Data: 02/11/2026. Estado: implementação local; implantação e conferência das contas reais dependem de operação aprovada.
+Data: 02/11/2026. Estado: implementado e publicado com API, interface e schema 32 após autorização. O inventário real foi executado; a conferência individual das fichas e a habilitação do autocadastro local permanecem pendentes. Veja o [registro da publicação](../operacao/publicacao-contas-clientes-2026-11-02.md).
 
 Complementa os ADRs [018 — Cadastro único de clientes](ADR-018-cadastro-unico-clientes.md) e [019 — Quatro perfis exclusivos](ADR-019-quatro-perfis-exclusivos.md).
 
@@ -36,7 +36,7 @@ A associação de uma conta própria de adulto não concede automaticamente agen
 
 ## Flags e conferência anterior à implantação
 
-`Authentication:Local:Enabled` tem padrão `true`, permitindo login local junto do Google. `Authentication:Local:ClientRegistrationEnabled` tem padrão `false` quando ausente. Habilitar autocadastro local exige conferência das contas e autorização; esta implementação não altera a configuração hospedada.
+`Authentication:Local:Enabled` tem padrão `true`, permitindo login local junto do Google. `Authentication:Local:ClientRegistrationEnabled` tem padrão `false` quando ausente. Habilitar autocadastro local exige conferência das contas e autorização. Na publicação de 02/11/2026, as flags de autenticação e a configuração do Google foram preservadas: login local habilitado e autocadastro local fechado.
 
 `GET /api/v1/customers/access-review` é uma leitura restrita ao Gestor, com `users:manage` e `customers:write`. Aponta contatos compartilhados, cadastros incompletos ou pendentes, contas Cliente sem cadastro e vínculos de responsáveis que precisam de revisão. O relatório não infere dependência, não associa contas e não corrige registros em massa.
 
@@ -46,4 +46,4 @@ A migration `20261102163528_ClientIndividualAccess`, a 32ª, acrescenta desafios
 
 As tabelas novas concedem ao runtime somente `SELECT`, `INSERT` e `UPDATE`; não concedem exclusão ou privilégios a `PUBLIC` e ao transporte WhatsApp. As relações preservam seus registros por chaves restritivas e guardas da aplicação. O downgrade recusa apagar desafios, autorizações ou credenciais que já estejam em uso.
 
-Dockerfile e preflight acompanham o contrato de 32 migrations, hash `e68bb0b2cacc3f30bd53bbda0ce192f7803708bef66e2fdfeb800f29016884a0`. A mudança exige um plano próprio de implantação de API, interface e banco, com job único de migration, artefatos identificados e aprovação. Não houve ação em produção nem inventário real das contas nesta etapa. O [procedimento operacional](../operacao/conta-individual-clientes.md) orienta a conferência e os limites de retorno.
+Dockerfile e preflight acompanham o contrato de 32 migrations, hash `e68bb0b2cacc3f30bd53bbda0ce192f7803708bef66e2fdfeb800f29016884a0`. A implantação aprovada de 02/11/2026 executou o job único após backup, restauração local da cópia real e conferência dos artefatos. O inventário apontou fichas e acessos pendentes, sem criar, associar ou promover pessoas automaticamente. A preservação e o encerramento estão no [registro da publicação](../operacao/publicacao-contas-clientes-2026-11-02.md). O [procedimento operacional](../operacao/conta-individual-clientes.md) orienta a conferência individual e os limites de retorno.

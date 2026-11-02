@@ -50,6 +50,12 @@ O Google real esteve desativado na prévia. Os testes do servidor verificam Goog
 
 ## Implantação
 
-**Não publicado.** A entrega exige API, interface e migration do banco. A conferência das pessoas reais ainda não foi executada. O relatório administrativo somente leitura `GET /api/v1/customers/access-review` foi preparado para apontar vínculos ausentes, contatos compartilhados, cadastros incompletos e responsáveis a conferir, sem associar ou promover contas automaticamente.
+Publicado em 02/11/2026 após a autorização **“publicar”**, com API, interface e atualização aditiva do banco de 31 para 32 migrations. A versão executável publicada é `d4ea11a4a84e007be387dc671ac8fbdef6cc3ff4`; as alterações posteriores deste relatório são documentação. O [registro da publicação](../operacao/publicacao-contas-clientes-2026-11-02.md) contém os artefatos e comprovantes.
 
-A publicação e a habilitação do autocadastro local dependem de autorização específica, conferência e plano de implantação. Não foram alterados o cadastro OAuth, flags hospedadas, banco, permissões ou serviços de produção. Os dois arquivos locais anteriores de outra operação foram preservados.
+A CI completa da revisão e os cinco jobs de Production passaram. A cópia real foi restaurada localmente e a atualização foi ensaiada antes da execução única em produção. Foram preservadas as 95 tabelas anteriores, duas sequências, histórico, vínculos, perfis e configuração do Google. O ambiente local de restauração foi removido.
+
+O inventário real encontrou 48 fichas, 47 sem conta e 46 com telefone pendente, além de um grupo de nomes semelhantes que exige conferência humana. Não houve criação de contas em massa, associação por semelhança, promoção ou emissão de convites de teste. O **autocadastro público local permanece desabilitado**; a entrada local e o acesso individual por convite estão disponíveis. A conferência de identidade e dos responsáveis permanece com a gestão.
+
+Na versão publicada, o aviso do PWA carregou os arquivos novos; a sessão existente, a área pessoal, a consulta dos métodos e uma nova entrada normal pelo Google foram conferidas. O formulário local apareceu e os links sem segredo foram recusados. Cadastro, ativação válida, recuperação, senha e autorizações de dependentes foram exercitados em ambientes isolados; não foram criadas ou recuperadas contas reais para esses testes.
+
+A reserva da atualização foi encerrada e a liberação temporária da branch foi removida, preservando os revisores e as demais proteções. Os dois arquivos locais anteriores de outra operação foram preservados. A configuração OAuth e as flags de autenticação hospedadas permaneceram iguais às observadas antes da publicação.
