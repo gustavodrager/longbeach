@@ -221,6 +221,7 @@ app.MapFinancialHistoryEndpoints();
 app.MapExpenseEndpoints();
 app.MapExpenseAttachmentEndpoints();
 app.MapAuthEndpoints(builder.Configuration.GetValue<bool>("Authentication:Google:Enabled"));
+app.MapClientAccessEndpoints(builder.Configuration.GetValue<bool>("Authentication:Google:Enabled"));
 var publicOperationalDemo = !app.Environment.IsProduction() && app.Configuration.GetValue("DemoMode:PublicOperationalData", false);
 app.MapRentalGroupsEndpoints();
 app.MapOperationalEndpoints(publicOperationalDemo);
@@ -263,7 +264,7 @@ static void ConfigureAuthentication(IServiceCollection services, IConfiguration 
             {
                 OnMessageReceived = context =>
                 {
-                    if (context.Request.Path == "/api/v1/auth/first-access/google")
+                    if (context.Request.Path == "/api/v1/auth/first-access/google" || context.Request.Path == "/api/v1/me/auth-methods" || context.Request.Path == "/api/v1/me/auth-methods/")
                     {
                         var credential = context.Request.Headers["X-Google-Id-Token"].ToString();
                         if (string.IsNullOrWhiteSpace(credential)) context.NoResult();

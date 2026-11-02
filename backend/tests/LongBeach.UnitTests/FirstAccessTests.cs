@@ -38,6 +38,8 @@ public sealed class FirstAccessTests
         var user = Pending(); var service = Service(user); var old = await service.LoginAsync("test.owner", Initial, null);
         await service.ChangePasswordAsync(user.Id, Initial, "PermanentPassword2!", null);
         Assert.False(user.RequiresFirstAccess);
+        Assert.Equal(1, user.CredentialVersion);
+        Assert.True(user.LocalPasswordEnabled);
         await Assert.ThrowsAsync<AuthenticationFailedException>(() => service.LoginAsync("test.owner", Initial, null));
         await Assert.ThrowsAsync<InvalidRefreshTokenException>(() => service.RefreshAsync(old.RefreshToken, null, false, null));
         var completed = await service.LoginAsync("test.owner", "PermanentPassword2!", null);
@@ -49,6 +51,13 @@ public sealed class FirstAccessTests
         var user = Pending(); var service = Service(user);
         var session = await service.CompleteFirstAccessWithGoogleAsync(user.Id, "google-subject", "person@example.test", null);
         Assert.False(session.Response.User.RequiresFirstAccess); Assert.Contains("Manager", session.Response.User.Roles);
+        Assert.False(user.LocalPasswordEnabled);
+        Assert.False(session.Response.User.LocalPasswordEnabled);
+        Assert.Equal(1, user.CredentialVersion);
+        Assert.Equal(1, Assert.Single(user.RefreshTokens).CredentialVersion);
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(session.Response.AccessToken);
+        Assert.Contains(jwt.Claims, c => c.Type == "credential_version" && c.Value == "1");
+        Assert.Contains(jwt.Claims, c => c.Type == "local_password_enabled" && c.Value == "false");
         await Assert.ThrowsAsync<AuthenticationFailedException>(() => service.LoginAsync("test.owner", Initial, null));
         var next = await service.LoginWithGoogleAsync("changed@example.test", null, subject: "google-subject", allowEmailMatch: false);
         Assert.Equal(user.Id, next.Response.User.Id);

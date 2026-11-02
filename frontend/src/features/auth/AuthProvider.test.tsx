@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { apiFetch, setAccessToken, setCsrfToken } from '../../lib/http'
@@ -6,6 +6,7 @@ import { AuthProvider } from './AuthProvider'
 import { useAuth } from './authContext'
 import { hasPermission } from './access'
 import type { AuthUser } from './types'
+import { loginDestination } from './loginDestination'
 
 const manager: AuthUser = { id: 'person', name: 'Pessoa teste', email: 'person@example.invalid', roles: ['Manager'], permissions: ['finance:read'] }
 const attendant: AuthUser = { ...manager, roles: ['Operations'], permissions: ['students:read', 'students:write'] }
@@ -89,4 +90,55 @@ it('mantém rascunho e sessão em indisponibilidade temporária da renovação',
   expect(screen.getByText('Manager')).toBeInTheDocument()
   expect(client.getQueryData(['private-data'])).toEqual({ total: 100 })
   expect(screen.getByLabelText('Rascunho')).toHaveValue('Registro ainda em edição')
+})
+
+function GoogleProfileProbe() {
+  const { user, signInWithGoogle, signOut } = useAuth()
+  return <><button onClick={() => void signInWithGoogle('synthetic-google').catch(() => undefined)}>Entrar Google</button><button onClick={() => void signInWithGoogle('synthetic-google', { name: 'Pessoa Fictícia', phone: '11988887777' }).catch(() => undefined)}>Cadastrar Google</button><button onClick={() => void signOut()}>Sair Google</button><p>{user ? loginDestination(user, null) : 'Sem acesso'}</p></>
+}
+it.each([{ incomplete: true, failed: false, destination: '/minha-area/perfil' }, { incomplete: false, failed: false, destination: '/minha-area' }, { incomplete: false, failed: true, destination: '/minha-area' }])('Google orienta completar contato sem inferir vínculos: %j', async ({ incomplete, failed, destination }) => {
+  const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async url => {
+    if (String(url).endsWith('/auth/google')) return json({ accessToken: 'synthetic-session', csrfToken: 'synthetic-csrf', user: { ...manager, roles: ['Student'] } })
+    if (String(url).endsWith('/me/customer')) { if (failed) throw new Error('offline'); return json({ incomplete }) }
+    throw new Error('Unexpected request')
+  })
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }); clients.push(client)
+  render(<QueryClientProvider client={client}><AuthProvider demoMode><GoogleProfileProbe /></AuthProvider></QueryClientProvider>)
+  fireEvent.click(screen.getByRole('button', { name: 'Entrar Google' }))
+  expect(await screen.findByText(destination)).toBeInTheDocument()
+  expect(fetch.mock.calls.filter(([url]) => String(url).endsWith('/me/customer'))).toHaveLength(1)
+  expect(fetch.mock.calls.some(([, init]) => init?.method && !String(init.method).match(/^(GET|POST)$/))).toBe(false)
+})
+
+it('sair durante a consulta do cadastro Google impede que a resposta restaure o usuário',async()=>{
+ let finish!:(value:Response)=>void
+ vi.spyOn(globalThis,'fetch').mockImplementation(async url=>String(url).endsWith('/auth/google')?json({accessToken:'synthetic-session',csrfToken:'synthetic-csrf',user:{...manager,roles:['Student']}}):String(url).endsWith('/auth/logout')?new Response(null,{status:204}):new Promise<Response>(resolve=>{finish=resolve}))
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client)
+ render(<QueryClientProvider client={client}><AuthProvider demoMode><GoogleProfileProbe/></AuthProvider></QueryClientProvider>)
+ fireEvent.click(screen.getByRole('button',{name:'Entrar Google'}));await waitFor(()=>expect(finish).toBeDefined())
+ fireEvent.click(screen.getByRole('button',{name:'Sair Google'}));await act(async()=>finish(json({incomplete:true})))
+ expect(screen.getByText('Sem acesso')).toBeInTheDocument();expect(screen.queryByText('/minha-area/perfil')).not.toBeInTheDocument()
+})
+
+it('cliente Google legado sem ficha é conduzido a completar o próprio cadastro',async()=>{
+ const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async url=>String(url).endsWith('/auth/google')?json({accessToken:'synthetic-session',csrfToken:'synthetic-csrf',user:{...manager,roles:['Student']}}):json(null))
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client)
+ render(<QueryClientProvider client={client}><AuthProvider demoMode><GoogleProfileProbe/></AuthProvider></QueryClientProvider>);fireEvent.click(screen.getByRole('button',{name:'Entrar Google'}))
+ expect(await screen.findByText('/minha-area/perfil')).toBeInTheDocument();expect(fetch.mock.calls.filter(([url])=>String(url).endsWith('/me/customer'))).toHaveLength(1)
+})
+
+it.each([{role:'Manager',destination:'/'},{role:'Teacher',destination:'/professor'},{role:'Operations',destination:'/atendimento/vender'}])('Google mantém a equipe $role no trabalho sem exigir cadastro de cliente',async({role,destination})=>{
+ const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(json({accessToken:'synthetic-staff-session',csrfToken:'synthetic-staff-csrf',user:{...manager,roles:[role],permissions:['bar:sales:operate']}}))
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client)
+ render(<QueryClientProvider client={client}><AuthProvider demoMode><GoogleProfileProbe/></AuthProvider></QueryClientProvider>);fireEvent.click(screen.getByRole('button',{name:'Entrar Google'}))
+ expect(await screen.findByText(destination)).toBeInTheDocument();expect(fetch.mock.calls.every(([url])=>String(url).endsWith('/auth/google'))).toBe(true)
+})
+
+it('conclusão antiga do cadastro Google não inicia login depois de sair',async()=>{
+ let finish!:(value:Response)=>void
+ const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async url=>String(url).endsWith('/auth/logout')?new Response(null,{status:204}):new Promise<Response>(resolve=>{finish=resolve}))
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client)
+ render(<QueryClientProvider client={client}><AuthProvider demoMode><GoogleProfileProbe/></AuthProvider></QueryClientProvider>);fireEvent.click(screen.getByRole('button',{name:'Cadastrar Google'}));await waitFor(()=>expect(finish).toBeDefined())
+ fireEvent.click(screen.getByRole('button',{name:'Sair Google'}));await act(async()=>finish(new Response(null,{status:204})))
+ expect(screen.getByText('Sem acesso')).toBeInTheDocument();expect(fetch.mock.calls.some(([url])=>String(url).endsWith('/auth/google'))).toBe(false)
 })

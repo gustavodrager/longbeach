@@ -97,6 +97,7 @@ const PrototypeApp = lazy(() => import('./features/prototype/PrototypeApp').then
 const ClientPage = lazy(() => import('./features/attendance/ClientPage').then(module => ({ default: module.ClientPage })))
 const CustomersPage = lazy(() => import('./features/customers/CustomerPages').then(module => ({ default: module.CustomersPage })))
 const CustomerDetailsPage = lazy(() => import('./features/customers/CustomerPages').then(module => ({ default: module.CustomerDetailsPage })))
+const ActivateAccessPage = lazy(() => import('./pages/ActivateAccessPage').then(module => ({ default: module.ActivateAccessPage })))
 const MessagingPage = lazy(() => import('./features/messaging/MessagingPage').then(module => ({ default: module.MessagingPage })))
 
 export function App() {
@@ -205,6 +206,8 @@ function OperationalRoutes() {
     <Route path="login" element={demoMode ? <Navigate to="/" replace /> : <LoginPage />} />
     <Route path="visitante" element={<VisitorPage />} />
     <Route path="primeiro-acesso" element={demoMode ? <Navigate to="/" replace /> : <FirstAccessPage />} />
+    <Route path="ativar" element={demoMode ? <Navigate to="/" replace /> : <Suspense fallback={<main role="status">Conferindo acesso…</main>}><ActivateAccessPage key="activation" /></Suspense>} />
+    <Route path="recuperar-acesso" element={demoMode ? <Navigate to="/" replace /> : <Suspense fallback={<main role="status">Conferindo acesso…</main>}><ActivateAccessPage key="recovery" recovery /></Suspense>} />
     {demoMode ? application : <Route element={<AuthGuard />}>{application}<Route path="professor" element={<Suspense fallback={<main role="status">Abrindo aulas…</main>}><TeacherLayout /></Suspense>}><Route index element={<TeacherHome />} /><Route path="turmas" element={<TeacherClasses />} /><Route path="presencas" element={<TeacherClasses attendance />} /><Route path="turmas/:classId" element={<TeacherRoster />} /></Route><Route path="minha-area" element={<Suspense fallback={<main role="status">Abrindo sua área…</main>}><ClientLayout /></Suspense>}><Route index element={<PortalHome />} /><Route path="agenda" element={<PortalAgenda />} /><Route path="solicitar" element={<PortalRequestForm />} /><Route path="ajuda" element={<PortalRequestForm help />} /><Route path="bar" element={<PortalBar />} /><Route path="pagamentos" element={<BillingPage />} /><Route path="perfil" element={<PortalProfile />} /><Route path="seguranca" element={<AccountPage />} /></Route></Route>}
     <Route path="*" element={<MissingDestination />} />
   </Routes></DemoDataProvider></AuthProvider>

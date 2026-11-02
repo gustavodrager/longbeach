@@ -35,7 +35,7 @@ public sealed class GoogleAccessAuthorizer(LongBeachDbContext db, IPasswordHashe
         { await tx.CommitAsync(ct); return false; }
         // Pending username accounts only. An already activated identity cannot be silently replaced.
         user.PrepareGoogleAccess(email, hasher.Hash(Convert.ToBase64String(RandomNumberGenerator.GetBytes(48))));
-        user.RevokeAllRefreshTokens(clock.GetUtcNow(), null, "Google access authorized for existing account");
+        user.InvalidateCredentials(clock.GetUtcNow(), null, "Google access authorized for existing account");
         db.AuditLogs.Add(AuditLog.Create(null, "GoogleAccessAuthorized", "User", user.Id.ToString(),
             System.Text.Json.JsonSerializer.Serialize(new { ExistingRole = role, TemporaryCredentialRevoked = true }),
             null, "Explicit operator command", Guid.NewGuid().ToString("N"), clock.GetUtcNow()));

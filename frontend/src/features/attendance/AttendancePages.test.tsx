@@ -577,7 +577,7 @@ it('abre comanda coletiva com responsável confirmado e mostra o vínculo no det
  const bodies:Record<string,unknown>[]=[];const tab=makeTab();
  server({tab,pixEnabled:false,customers:[{id:'customer-a',name:'Cliente Teste',emailHint:'c***@example.com'}],post:async(_,body)=>{bodies.push(body);tab.name=String(body.name);tab.responsible={id:'customer-a',name:'Cliente Teste'};return json(tab)}})
  mount('/atendimento/comandas');fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));
- fireEvent.click(screen.getByLabelText('Vincular responsável com Google'));fireEvent.change(screen.getByLabelText('Buscar responsável'),{target:{value:'Cliente'}});
+ fireEvent.click(screen.getByLabelText('Vincular responsável com conta'));fireEvent.change(screen.getByLabelText('Buscar responsável'),{target:{value:'Cliente'}});
  fireEvent.click(await screen.findByLabelText('Cliente Teste · c***@example.com'));
  expect(screen.getByRole('button',{name:'Abrir comanda vinculada'})).toBeDisabled();
  fireEvent.click(screen.getByLabelText(/Confirmo que Cliente Teste/));
@@ -603,7 +603,7 @@ it('preserva a abertura incerta após remontar e repete a mesma operação',asyn
 
 it('mudar a busca remove o responsável e exige nova seleção',async()=>{
  server({tab:makeTab(),pixEnabled:false,customers:[{id:'customer-a',name:'Cliente Teste',emailHint:'c***@example.com'}]});mount('/atendimento/comandas');
- fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));fireEvent.click(screen.getByLabelText('Vincular responsável com Google'));
+ fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));fireEvent.click(screen.getByLabelText('Vincular responsável com conta'));
  fireEvent.change(screen.getByLabelText('Buscar responsável'),{target:{value:'Cliente'}});
  fireEvent.click(await screen.findByLabelText('Cliente Teste · c***@example.com'));fireEvent.click(screen.getByLabelText(/Confirmo que Cliente Teste/));
  fireEvent.change(screen.getByLabelText('Buscar responsável'),{target:{value:'Outro'}});

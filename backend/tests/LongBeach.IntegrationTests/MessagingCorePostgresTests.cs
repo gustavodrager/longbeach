@@ -106,7 +106,7 @@ public sealed class MessagingCorePostgresTests
     public async Task Rollback_refuses_to_destroy_existing_communication_history()
     {
         await using var isolated=await IsolatedBarDatabase.Create();var f=await Seed(isolated.Context);await f.Service.IngestAsync(new("preserved-event","message",Chat,"preserved-message",Text:"Histórico preservado"),default);
-        var previous=(await isolated.Context.Database.GetAppliedMigrationsAsync()).Reverse().Skip(1).First();
+        const string previous = "20261029210216_DigitalMenu";
         var error=await Assert.ThrowsAsync<Npgsql.PostgresException>(()=>isolated.Context.GetService<IMigrator>().MigrateAsync(previous));Assert.Equal("P0001",error.SqlState);
         Assert.Equal(1,await isolated.Context.Set<MessagingMessage>().CountAsync());
     }

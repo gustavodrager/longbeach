@@ -4,6 +4,7 @@ import type { AuthUser } from './types'
 /** Return only to an internal destination, keeping reservation and QR context. */
 export function loginDestination(user: AuthUser, from: unknown): string {
   if (user.requiresFirstAccess) return '/primeiro-acesso'
+  if (user.needsCustomerProfile) return '/minha-area/perfil'
   const home = workHome(user)
   if (!from || typeof from !== 'object') return home
   const { pathname, search, hash } = from as { pathname?: unknown; search?: unknown; hash?: unknown }

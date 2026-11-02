@@ -37,6 +37,7 @@ public sealed class RefreshToken : Entity
     public string? RevocationReason { get; private set; }
     public int Version { get; private set; }
     public bool FirstAccessOnly { get; private set; }
+    public int CredentialVersion { get; private set; }
 
     public bool IsActiveAt(DateTimeOffset now) => RevokedAtUtc is null && ExpiresAtUtc > now;
 
@@ -48,8 +49,16 @@ public sealed class RefreshToken : Entity
         string csrfTokenHash,
         DateTimeOffset expiresAtUtc,
         string? createdByIp,
-        bool firstAccessOnly = false) =>
-        new(id, userId, familyId, tokenHash, csrfTokenHash, expiresAtUtc, createdByIp) { FirstAccessOnly = firstAccessOnly };
+        bool firstAccessOnly = false,
+        int credentialVersion = 0)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(credentialVersion);
+        return new(id, userId, familyId, tokenHash, csrfTokenHash, expiresAtUtc, createdByIp)
+        {
+            FirstAccessOnly = firstAccessOnly,
+            CredentialVersion = credentialVersion
+        };
+    }
 
     public void Revoke(
         DateTimeOffset revokedAtUtc,

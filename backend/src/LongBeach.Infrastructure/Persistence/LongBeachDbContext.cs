@@ -28,6 +28,7 @@ public sealed class LongBeachDbContext(
         StockModel.Configure(modelBuilder);
         MaterialStockModel.Configure(modelBuilder);
         CustomerModel.Configure(modelBuilder);
+        ClientAccessModel.Configure(modelBuilder);
         MessagingModel.Configure(modelBuilder);
         CashModel.Configure(modelBuilder);
         SalesModel.Configure(modelBuilder);
@@ -79,6 +80,9 @@ public sealed class LongBeachDbContext(
                 || entry.Entity is LongBeach.Domain.Customers.Customer or LongBeach.Domain.Customers.CustomerSourceLink or LongBeach.Domain.Customers.CustomerMerge
                     && entry.State == EntityState.Deleted)
                 throw new LongBeach.Domain.Customers.CustomerRuleException("Histórico de cliente preservado. Use a manutenção cadastral ou o desfazer da unificação.");
+            if (entry.Entity is LongBeach.Domain.Identity.ClientAccessChallenge or LongBeach.Domain.Customers.CustomerGuardianAccess
+                && entry.State == EntityState.Deleted)
+                throw new LongBeach.Domain.Customers.CustomerRuleException("Histórico de acesso preservado. Revogue o convite ou a autorização.");
         }
     }
     private void ProtectMaterialLedger()

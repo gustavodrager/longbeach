@@ -32,5 +32,8 @@
 .auth-entry-form .primary-button:hover { background: #eeb42f; }
 .auth-entry-status .text-button { min-height: 48px; padding: .25rem .5rem; border: 0; color: var(--ink); font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
 .auth-entry-page .form-error { margin: 0; line-height: 1.5; text-align: left; }
+.auth-entry-panel > button.auth-entry-secondary { background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
+.auth-entry-form fieldset { min-width: 0; margin: 0; padding: 0; border: 0; display: grid; gap: 1rem; }
+.auth-entry-page button:disabled { opacity: .6; cursor: wait; }
 .auth-entry-page :is(a,button,input,summary):focus-visible { outline: 3px solid #8a6412; outline-offset: 4px; }
 @media (max-width: 640px) { .auth-entry-brand .brand-logo { width: 190px; } .auth-entry-heading h1 { font-size: 28px; } }

@@ -183,19 +183,24 @@ public sealed class BarTabsPostgresTests
     }
 
     [PostgresFact]
-    public async Task Customer_lookup_masks_email_and_rejects_inactive_or_unlinked_identity_without_orphan_tab()
+    public async Task Customer_lookup_accepts_password_accounts_and_rejects_inactive_or_pending_access_without_orphan_tab()
     {
         await using var f = await Fixture.Create(); var marker = "Busca" + Guid.NewGuid().ToString("N");
         var active = LongBeach.Domain.Identity.User.Create(marker + new string('a', 120), $"{Guid.NewGuid():N}@example.com", "test-only"); active.LinkGoogle(Guid.NewGuid().ToString(), active.Email);
         var inactive = LongBeach.Domain.Identity.User.Create(marker + " inativo", $"{Guid.NewGuid():N}@example.com", "test-only"); inactive.LinkGoogle(Guid.NewGuid().ToString(), inactive.Email); inactive.Deactivate();
-        var unlinked = LongBeach.Domain.Identity.User.Create(marker + " pendente", $"{Guid.NewGuid():N}@example.com", "test-only");
-        f.Db.AddRange(active, inactive, unlinked); await f.Db.SaveChangesAsync();
+        var password = LongBeach.Domain.Identity.User.CreateForFirstAccess(marker + " senha", "local" + Guid.NewGuid().ToString("N"), "test-only", DateTimeOffset.UtcNow.AddDays(1));
+        password.CompleteFirstAccess();
+        var pending = LongBeach.Domain.Identity.User.CreateForFirstAccess(marker + " pendente", "pendente" + Guid.NewGuid().ToString("N"), "test-only", DateTimeOffset.UtcNow.AddDays(1));
+        f.Db.AddRange(active, inactive, password, pending); await f.Db.SaveChangesAsync();
         Assert.Empty(await f.Tabs.Customers("", default)); Assert.Empty(await f.Tabs.Customers("ab", default));
-        Assert.Equal(active.Id, Assert.Single(await f.Tabs.Customers(marker, default)).Id);
+        var matches = await f.Tabs.Customers(marker, default);
+        Assert.Equal(2, matches.Count); Assert.Contains(matches, row => row.Id == active.Id); Assert.Contains(matches, row => row.Id == password.Id);
+        Assert.Equal("Usuário: " + password.Username, matches.Single(row => row.Id == password.Id).EmailHint);
+        Assert.Equal(password.Id, Assert.Single(await f.Tabs.Customers(password.Username, default)).Id);
         Assert.NotEqual(active.Email, Assert.Single(await f.Tabs.Customers(active.Email.ToUpperInvariant(), default)).EmailHint);
         Assert.Empty(await f.Tabs.Customers("%@example.com", default));
         var before = await f.Db.Set<BarTab>().CountAsync(x => x.LocationId == f.Location.Id);
-        foreach (var id in new[] { inactive.Id, unlinked.Id, Guid.NewGuid(), Guid.Empty })
+        foreach (var id in new[] { inactive.Id, pending.Id, Guid.NewGuid(), Guid.Empty })
             await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Open(new(Guid.NewGuid(), f.Location.Id, ResponsibleUserId: id), f.Actor, default));
         Assert.Equal(before, await f.Db.Set<BarTab>().CountAsync(x => x.LocationId == f.Location.Id));
         var visitor = await f.Tabs.Open(new(Guid.NewGuid(), f.Location.Id, "Visitante"), f.Actor, default);
@@ -203,6 +208,8 @@ public sealed class BarTabsPostgresTests
         Assert.False(await f.Db.Set<LongBeach.Domain.Billing.BillingAccount>().AnyAsync(x => x.SourceId == visitor.Id));
         var personal = await f.Tabs.Open(new(Guid.NewGuid(), f.Location.Id, ResponsibleUserId: active.Id), f.Actor, default);
         Assert.Equal(active.Name[..80], personal.Name);
+        var passwordTab = await f.Tabs.Open(new(Guid.NewGuid(), f.Location.Id, ResponsibleUserId: password.Id), f.Actor, default);
+        Assert.Equal(password.Id, passwordTab.Responsible!.Id); Assert.Null(password.GoogleSubject);
     }
     [PostgresFact]
     public async Task Closed_tab_remains_read_only_until_expiry_and_explicit_revocation_still_wins()

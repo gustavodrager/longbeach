@@ -42,6 +42,12 @@ it('visitante consulta a entrada pública sem ganhar identidade ou acesso privad
   expect(fetch.mock.calls.every(([url, init]) => String(url).endsWith('/auth/options') && !init?.method)).toBe(true)
 })
 
+it('cadastro local disponível não depende do Google', async () => {
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ googleClientId: null, clientRegistrationEnabled: false, localRegistrationEnabled: true }))
+  mount(); expect(await screen.findByRole('link', { name: 'Criar conta' })).toHaveAttribute('href', '/login?cadastro=cliente')
+  expect(signIn).not.toHaveBeenCalled(); expect(signInWithGoogle).not.toHaveBeenCalled()
+})
+
 it.each([
   { googleClientId: 'google-client', clientRegistrationEnabled: false },
   { googleClientId: null, clientRegistrationEnabled: true },

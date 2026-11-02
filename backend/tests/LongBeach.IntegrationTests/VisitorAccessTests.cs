@@ -36,9 +36,11 @@ public sealed class VisitorAccessTests
         Assert.Equal("no-store", options.Headers.CacheControl?.ToString());
         Assert.False(options.Headers.Contains("Set-Cookie"));
         var publicOptions = await options.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(new[] { "clientRegistrationEnabled", "googleClientId", "homologationLoginEnabled" }, publicOptions.EnumerateObject().Select(p => p.Name).Order().ToArray());
+        Assert.Equal(new[] { "clientRegistrationEnabled", "googleClientId", "homologationLoginEnabled", "localLoginEnabled", "localRegistrationEnabled" }, publicOptions.EnumerateObject().Select(p => p.Name).Order().ToArray());
         Assert.True(publicOptions.GetProperty("clientRegistrationEnabled").GetBoolean());
         Assert.False(publicOptions.GetProperty("homologationLoginEnabled").GetBoolean());
+        Assert.True(publicOptions.GetProperty("localLoginEnabled").GetBoolean());
+        Assert.False(publicOptions.GetProperty("localRegistrationEnabled").GetBoolean());
         Assert.Equal(0, registration.Calls);
         Assert.Equal(new[] { "Manager", "Operations", "Student", "Teacher" }, SystemRoles.All.Order().ToArray());
         Assert.False(SystemRoles.IsValid("Visitor"));

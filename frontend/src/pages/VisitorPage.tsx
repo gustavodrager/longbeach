@@ -10,7 +10,7 @@ export function VisitorPage() {
   const { user } = useAuth()
   const location = useLocation()
   const options = useQuery({ queryKey: ['sign-in-options'], queryFn: getSignInOptions, retry: false, staleTime: 0, enabled: !user })
-  const canRegister = !user && !options.isError && Boolean(options.data?.googleClientId && options.data.clientRegistrationEnabled)
+  const canRegister = !user && !options.isError && Boolean(options.data?.localRegistrationEnabled || (options.data?.googleClientId && options.data.clientRegistrationEnabled))
   const needsFirstAccess = Boolean(user?.requiresFirstAccess)
   const hasWorkspace = hasWorkArea(user)
   const primaryDestination = !user ? '/login' : needsFirstAccess ? '/primeiro-acesso' : workHome(user)

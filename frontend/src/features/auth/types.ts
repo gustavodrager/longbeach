@@ -7,7 +7,9 @@ export type AuthUser = {
   roles: UserRole[]
   permissions: string[]
   googleLinked?: boolean
+  localPasswordEnabled?: boolean
   requiresFirstAccess?: boolean
+  needsCustomerProfile?: boolean
   username?: string | null
 }
 

@@ -15,7 +15,7 @@ function jsonResponse(body: unknown, status = 200) {
 
 function withOperationalReads(authHandler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
-    if (String(input).endsWith('/api/v1/auth/options')) return Promise.resolve(jsonResponse({ googleClientId: 'test-client', clientRegistrationEnabled: true }))
+    if (String(input).endsWith('/api/v1/auth/options')) return Promise.resolve(jsonResponse({ googleClientId: 'test-client', clientRegistrationEnabled: true, localLoginEnabled: true }))
     if (String(input).split('?')[0].endsWith('/api/v1/expenses/paid-summary') && (!init?.method || init.method === 'GET')) return Promise.resolve(jsonResponse({ amount: 0, records: 0 }))
     if (String(input).endsWith('/api/v1/financial-history/current-position') && !init?.method) {
       const empty = { amountCents: 0, records: 0, overdueCents: 0, overdueRecords: 0, confirmedPaymentsCents: 0 }
@@ -231,11 +231,13 @@ describe('autenticação e shell', () => {
 
   it('visitante cadastra cliente pelo Google e chega à área pessoal sem privilégios internos', async () => {
     const client = { id: 'new-client', name: 'Cliente de teste', email: 'client@example.invalid', roles: ['Student'], permissions: [] }
-    const requests = vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+    const requests = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const path = String(input)
       if (path.endsWith('/auth/refresh')) return jsonResponse({}, 401)
       if (path.endsWith('/auth/options')) return jsonResponse({ googleClientId: 'test-client', clientRegistrationEnabled: true })
+      if (path.endsWith('/auth/google/register')) { expect(JSON.parse(String(init?.body))).toEqual({ name: client.name, phone: '11988887777' }); return new Response(null, { status: 204 }) }
       if (path.endsWith('/auth/google')) return jsonResponse({ accessToken: 'client-token', csrfToken: 'client-csrf', user: client })
+      if (path.endsWith('/me/customer')) return jsonResponse({ incomplete: false, phone: '11988887777' })
       if (path.endsWith('/me/portal/profile')) return jsonResponse({ name: client.name, email: client.email, phone: '', reminders: false, links: [] })
       return jsonResponse([])
     })
@@ -244,6 +246,8 @@ describe('autenticação e shell', () => {
     const user = userEvent.setup()
     await user.click(await screen.findByRole('link', { name: 'Criar conta' }))
     expect(await screen.findByRole('heading', { name: 'Criar conta' })).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Nome'), client.name)
+    await user.type(screen.getByLabelText('Telefone com DDD'), '11988887777')
     await user.click(await screen.findByRole('button', { name: 'Entrar com Google' }))
     expect(await screen.findByRole('heading', { name: 'Minha área' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/minha-area')
@@ -300,11 +304,10 @@ describe('autenticação e shell', () => {
       )
       .mockResolvedValueOnce(jsonResponse(authenticatedUser))
       .mockResolvedValueOnce(
-        jsonResponse({
-          message: 'Password changed successfully. Sign in again with the new password.',
-          requiresReauthentication: true,
-        }),
+        jsonResponse({ username: 'gustavo.teste', googleLinked: false, localPasswordEnabled: true }),
       )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
     withOperationalReads(authFetch)
 
     window.history.replaceState({}, '', '/')
@@ -315,25 +318,28 @@ describe('autenticação e shell', () => {
     await user.click(screen.getByText('Conta', { exact: true }))
     await user.click(screen.getByRole('link', { name: 'Segurança' }))
     expect(await screen.findByRole('heading', { name: 'Segurança' })).toBeInTheDocument()
+    await user.click(await screen.findByText('Alterar senha'))
 
     await user.type(screen.getByLabelText('Senha atual'), 'AtualSenha2026!')
     await user.type(screen.getByLabelText('Nova senha'), 'NovaSenha2026!')
     await user.type(screen.getByLabelText('Confirmar nova senha'), 'NovaSenha2026!')
-    await user.click(screen.getByRole('button', { name: 'Alterar senha' }))
+    await user.click(screen.getByRole('button', { name: 'Salvar com a senha atual' }))
 
     expect(await screen.findByRole('heading', { name: 'Entrar' })).toBeInTheDocument()
-    expect(screen.queryByLabelText('Senha')).not.toBeInTheDocument()
-    await waitFor(() => expect(authFetch).toHaveBeenCalledTimes(3))
+    expect(await screen.findByLabelText('Senha')).toHaveValue('')
+    await waitFor(() => expect(authFetch).toHaveBeenCalledTimes(5))
 
-    const changeRequest = authFetch.mock.calls[2]
-    expect(changeRequest[0]).toBe('/api/v1/auth/change-password')
-    expect(changeRequest[1]).toEqual(expect.objectContaining({ method: 'POST' }))
+    const changeRequest = authFetch.mock.calls[3]
+    expect(changeRequest[0]).toBe('/api/v1/me/auth-methods')
+    expect(changeRequest[1]).toEqual(expect.objectContaining({ method: 'PUT' }))
     expect((changeRequest[1]?.headers as Headers).get('Authorization')).toBe(
       'Bearer access-token-atual',
     )
     expect(JSON.parse(changeRequest[1]?.body as string)).toEqual({
       currentPassword: 'AtualSenha2026!',
       newPassword: 'NovaSenha2026!',
+      username: 'gustavo.teste',
+      action: 'password',
     })
     expect(getCsrfToken()).toBeNull()
   })

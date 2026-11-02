@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { restoreSession, subscribeSession } from '../../lib/http'
-import { changePassword, completeFirstAccessWithGoogle, getCurrentUser, login, loginWithGoogle, logout } from './authApi'
+import { apiFetch, restoreSession, subscribeSession } from '../../lib/http'
+import { changePassword, completeFirstAccessWithGoogle, getCurrentUser, login, loginWithGoogle, logout, registerGoogleClient } from './authApi'
 import { AuthContext } from './authContext'
 import type { AuthUser, LoginCredentials, PasswordChange } from './types'
 
@@ -13,7 +13,9 @@ export function AuthProvider({ children, demoMode = false }: AuthProviderProps) 
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isBootstrapping, setIsBootstrapping] = useState(!demoMode)
   const currentUser = useRef<AuthUser | null>(null)
+  const sessionEpoch = useRef(0)
   const updateSession = useCallback((next: AuthUser | null) => {
+    sessionEpoch.current++
     if (accessScope(currentUser.current) !== accessScope(next)) queryClient.clear()
     currentUser.current = next
     setUser(next)
@@ -54,26 +56,46 @@ export function AuthProvider({ children, demoMode = false }: AuthProviderProps) 
       user,
       isBootstrapping,
       signIn: async (credentials: LoginCredentials) => {
+        const started = ++sessionEpoch.current
         const authenticatedUser = await login(credentials)
-        updateSession(authenticatedUser)
+        if (sessionEpoch.current === started) updateSession(authenticatedUser)
       },
-      signInWithGoogle: async (credential: string) => {
+      signInWithGoogle: async (credential: string, registration?: { name: string; phone: string }) => {
+        const started = ++sessionEpoch.current
+        if (registration) {
+          await registerGoogleClient(registration, credential)
+          if (sessionEpoch.current !== started) return
+        }
         const authenticatedUser = await loginWithGoogle(credential)
-        updateSession(authenticatedUser)
+        if (authenticatedUser.roles.length === 1 && authenticatedUser.roles[0] === 'Student') {
+          try {
+            const customer = await apiFetch<{ incomplete: boolean } | null>('/api/v1/me/customer')
+            if (!customer || customer.incomplete) authenticatedUser.needsCustomerProfile = true
+          } catch { /* The login remains valid; a failed lookup never creates or links a customer. */ }
+        }
+        if (sessionEpoch.current === started) updateSession(authenticatedUser)
       },
       signOut: async () => {
+        const started = ++sessionEpoch.current
         try {
           await logout()
         } finally {
-          updateSession(null)
+          if (sessionEpoch.current === started) updateSession(null)
         }
       },
       completeFirstAccessWithGoogle: async (credential: string) => {
+        const started = ++sessionEpoch.current
         const authenticatedUser = await completeFirstAccessWithGoogle(credential)
-        updateSession(authenticatedUser)
+        if (sessionEpoch.current === started) updateSession(authenticatedUser)
+      },
+      completeCustomerProfile: () => {
+        const current = currentUser.current
+        if (current?.needsCustomerProfile) updateSession({ ...current, needsCustomerProfile: false })
       },
       changePassword: async (passwords: PasswordChange) => {
+        const started = ++sessionEpoch.current
         await changePassword(passwords)
+        if (sessionEpoch.current !== started) return
         try {
           sessionStorage.setItem('lb_password_changed', '1')
         } catch {

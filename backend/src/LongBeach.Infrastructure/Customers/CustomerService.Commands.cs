@@ -71,10 +71,13 @@ public sealed partial class CustomerService
     {
         var customer = await Canonical(id, ct) ?? throw new CustomerRuleException("Cliente não encontrado.", 404);
         Version(customer, input.ExpectedVersion);
+        var family = await Family(customer.Id, ct);
+        Require(!await db.Set<CustomerGuardianAccess>().AnyAsync(row => family.Contains(row.CustomerId), ct),
+            "Este cadastro é um dependente. Gerencie os responsáveis autorizados, sem associar uma conta própria.", 409);
         if (input.UserId is Guid user)
         {
             Require(customer.Status == "Ativo", "Ative o cliente antes de associar a conta.");
-            Require(user != Guid.Empty && await db.Users.AnyAsync(x => x.Id == user && x.IsActive, ct), "Escolha uma conta de acesso ativa.");
+            Require(user != Guid.Empty && await db.Users.AnyAsync(x => x.Id == user && x.IsActive && !x.RequiresFirstAccess, ct), "Escolha uma conta ativa com o primeiro acesso concluído.");
             var assigned = await db.Set<Customer>().SingleOrDefaultAsync(x => x.UserId == user, ct);
             Require(assigned is null || assigned.Id == customer.Id, "Esta conta já pertence a outro cliente. Confira a unificação administrativa.", 409);
             var source = await SourceLink("users", user, null, ct);
@@ -92,12 +95,21 @@ public sealed partial class CustomerService
         Require(search.Length <= 240, "Reduza o texto da busca.");
         var pattern = "%" + search.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
         var assigned = db.Set<Customer>().Where(x => x.Id != customer.Id && x.UserId != null).Select(x => x.UserId);
-        var users = await db.Users.AsNoTracking().Where(x => x.IsActive && x.GoogleSubject != null && !assigned.Contains(x.Id)
-            && (EF.Functions.ILike(x.Name, pattern) || EF.Functions.ILike(x.Email, pattern)))
+        var users = await db.Users.AsNoTracking().Where(x => x.IsActive && !x.RequiresFirstAccess && !assigned.Contains(x.Id)
+            && (EF.Functions.ILike(x.Name, pattern) || EF.Functions.ILike(x.Email, pattern)
+                || x.Username != null && EF.Functions.ILike(x.Username, pattern)))
             .OrderBy(x => x.Name).ThenBy(x => x.Id).Take(20).ToArrayAsync(ct);
-        return users.Select(x => new CustomerUserCandidate(x.Id, x.Name, x.Email.Contains('@') ? x.Email[..1] + "•••@" + x.Email.Split('@')[1] : "Não informado")).ToArray();
+        return users.Select(x => new CustomerUserCandidate(x.Id, x.Name, CustomerAccountHints.For(x.Email, x.Username))).ToArray();
     }
     private static string NormalName(string value) => string.Join(' ', value.Normalize(NormalizationForm.FormD).Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark).ToArray().AsSpan().ToString().ToUpperInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    private async Task<bool> GuardianMergeAllowed(HashSet<Guid> sourceIds, HashSet<Guid> targetIds, CancellationToken ct)
+    {
+        var sourceControlled = await db.Set<CustomerGuardianAccess>().AnyAsync(row => sourceIds.Contains(row.CustomerId), ct);
+        var targetControlled = await db.Set<CustomerGuardianAccess>().AnyAsync(row => targetIds.Contains(row.CustomerId), ct);
+        var sourceOwnAccount = await db.Set<Customer>().AnyAsync(row => sourceIds.Contains(row.Id) && row.UserId != null, ct);
+        var targetOwnAccount = await db.Set<Customer>().AnyAsync(row => targetIds.Contains(row.Id) && row.UserId != null, ct);
+        return !(sourceControlled && targetControlled || sourceControlled && targetOwnAccount || targetControlled && sourceOwnAccount);
+    }
     public async Task<IReadOnlyList<CustomerDuplicate>> Duplicates(CancellationToken ct)
     {
         var customers = await db.Set<Customer>().AsNoTracking().Where(x => x.MergedIntoId == null).OrderBy(x => x.Name).ThenBy(x => x.Id).ToArrayAsync(ct);
@@ -137,6 +149,11 @@ public sealed partial class CustomerService
         if (source.UserId is not null && target.UserId is not null && source.UserId != target.UserId) { allowed = false; warnings.Add("Contas de acesso distintas impedem esta unificação."); }
         if (source.Name != target.Name || source.Phone != target.Phone || source.Email != target.Email) warnings.Add("Os contatos diferem. Os dados do destino serão preservados; os de origem continuam no histórico.");
         var sourceIds = await Family(source.Id, ct); var targetIds = await Family(target.Id, ct);
+        if (!await GuardianMergeAllowed(sourceIds, targetIds, ct))
+        {
+            allowed = false;
+            warnings.Add("A unificação mistura responsáveis autorizados ou uma conta própria. Confira os acessos dos cadastros antes de unificar.");
+        }
         var links = await db.Set<CustomerSourceLink>().AsNoTracking().Where(x => x.CustomerId != null && (sourceIds.Contains(x.CustomerId.Value) || targetIds.Contains(x.CustomerId.Value)))
             .OrderBy(x => x.Id).Select(x => new { x.Id, x.CustomerId, x.Version }).ToArrayAsync(ct);
         if (links.Any(x => sourceIds.Contains(x.CustomerId!.Value)) && links.Any(x => targetIds.Contains(x.CustomerId!.Value))
@@ -154,6 +171,8 @@ public sealed partial class CustomerService
         Require(preview.CanMerge && preview.PreviewToken == input.PreviewToken && preview.SourceVersion == input.SourceVersion && preview.TargetVersion == input.TargetVersion,
             "A conferência da unificação mudou ou está bloqueada. Confira novamente.", 409);
         var source = (await Raw(input.SourceId, ct))!; var target = (await Raw(input.TargetId, ct))!;
+        Require(await GuardianMergeAllowed(await Family(source.Id, ct), await Family(target.Id, ct), ct),
+            "A unificação mistura responsáveis autorizados ou uma conta própria. Confira os acessos antes de continuar.", 409);
         var transferred = source.UserId is not null && target.UserId is null ? source.UserId : null;
         var merge = new CustomerMerge(source.Id, target.Id, transferred, Customer.Text(input.Reason, 500, "Motivo da unificação"));
         if (transferred is not null)
