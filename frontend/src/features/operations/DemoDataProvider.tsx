@@ -1,4 +1,4 @@
-import { hasPermission } from '../auth/access'
+import { hasPermission, isManagement } from '../auth/access'
 import type { RentalGroup, RentalMonth, RentalAttendance } from '../arena/rentals'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { apiFetch, ApiError } from '../../lib/http'
@@ -68,6 +68,8 @@ type Operations = OperationalData & {
   saveReservation: (value: New<Reservation>, id?: string) => Promise<string>
   saveRecurringReservations: (value: RecurringReservationInput) => Promise<RecurringReservationResponse>
   saveClass: (value: New<ArenaClass>, id?: string) => Promise<string>
+  canDeleteClass: boolean
+  deleteClass: (id: string, version: number) => Promise<void>
   saveEnrollment: (value: New<Enrollment>, id?: string) => Promise<string>
   savePresence: (value: New<Presence>, id?: string) => Promise<string>
   saveFinanceEntry: (value: New<FinanceEntry>, id?: string) => Promise<string>
@@ -120,6 +122,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
   const can = useCallback((kind: OperationalKind, operation: 'read' | 'write') => demoMode || hasPermission(user, operationalPermissions[kind][operation]), [demoMode, user])
   const canRead = useCallback((kind: OperationalKind) => can(kind, 'read'), [can])
   const canWrite = useCallback((kind: OperationalKind) => can(kind, 'write'), [can])
+  const canDeleteClass = enabled && !demoMode && remote && isManagement(user) && canWrite('classes')
   const canReadMaterialHistory = enabled && (demoMode && !remote || Boolean(user) && hasPermission(user, 'inventory:read'))
   const canMoveMaterials = canReadMaterialHistory && (demoMode && !remote || hasPermission(user, 'inventory:write'))
   const canAdjustMaterials = canMoveMaterials && (demoMode && !remote || hasPermission(user, 'inventory:adjust'))
@@ -223,6 +226,24 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
       throw error
     } finally { if (ownerRef.current === requestOwner && sessionEpoch.current === requestEpoch) { pending.current.delete(key); setSaving(pending.current.size > 0) } }
   }, [enabled, demoMode, user, canRead, canWrite, remote, persistenceStatus, owner])
+  const deleteClass = useCallback(async (id: string, version: number): Promise<void> => {
+    if (!canDeleteClass || ownerRef.current !== owner) throw new ApiError(403, 'Somente gestores podem excluir turmas.')
+    if (persistenceRef.current !== 'connected' || refreshFailed || navigator.onLine === false) throw new ApiError(503, 'Atualize os dados antes de excluir a turma.')
+    if (!Number.isInteger(version) || version < 0) throw new ApiError(400, 'Confira a versão da turma antes de excluir.')
+    const key = `classes:${id}`, requestOwner = owner, requestEpoch = sessionEpoch.current
+    if (pending.current.has(key)) throw new ApiError(425, 'Aguarde a confirmação da alteração desta turma.')
+    pending.current.add(key); mutationEpoch.current += 1; activeLoad.current = null; setSaving(true)
+    try {
+      await apiFetch<void>(`/api/v1/operations/classes/${encodeURIComponent(id)}?version=${version}`, { method: 'DELETE' })
+      if (ownerRef.current !== requestOwner || sessionEpoch.current !== requestEpoch) throw new Error('A sessão mudou. Atualize os dados antes de continuar.')
+      const next = { ...dataRef.current, classes: dataRef.current.classes.filter(row => row.id !== id) }
+      dataRef.current = next; setData(next); setScheduleRevision(value => value + 1)
+      setPersistenceMessage('Turma excluída.')
+    } catch (error) {
+      if (ownerRef.current === requestOwner && sessionEpoch.current === requestEpoch) setPersistenceMessage(error instanceof Error ? error.message : 'Não foi possível excluir a turma.')
+      throw error
+    } finally { if (ownerRef.current === requestOwner && sessionEpoch.current === requestEpoch) { pending.current.delete(key); setSaving(pending.current.size > 0) } }
+  }, [canDeleteClass, refreshFailed, owner])
   const saveRecurringReservations = useCallback(async (input: RecurringReservationInput): Promise<RecurringReservationResponse> => {
     if (!enabled || (!demoMode && !user) || !canWrite('reservations')) throw new ApiError(403, 'Você não tem permissão para criar reservas recorrentes.')
     if (remote && persistenceRef.current !== 'connected') throw new ApiError(503, 'Atualize os dados antes de salvar. O formulário permanece aberto.')
@@ -372,9 +393,9 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
     saveCourt: (v,id) => save('courts',v,id), saveReservation: (v,id) => save('reservations',v,id),
     saveRecurringReservations,
     materialSessionKey: `${owner}:${sessionEpoch.current}`, canReadMaterialHistory, canMoveMaterials, canAdjustMaterials, materialAttempt, acknowledgeMaterialMovement, moveMaterial, refreshMaterial, materialHistory,
-    saveClass: (v,id) => save('classes',v,id), saveEnrollment: (v,id) => save('enrollments',v,id),
+    saveClass: (v,id) => save('classes',v,id), canDeleteClass, deleteClass, saveEnrollment: (v,id) => save('enrollments',v,id),
     savePresence: (v,id) => save('presences',v,id), saveFinanceEntry: (v,id) => save('financeEntries',v,id), saveMaintenance: (v,id) => save('maintenance',v,id),
-  }), [data, remote, demoMode, persistenceStatus, persistenceMessage, saving, scheduleRevision, dataUpdatedAt, refreshFailed, canRead, canWrite, reload, save, saveRecurringReservations, owner, canReadMaterialHistory, canMoveMaterials, canAdjustMaterials, materialAttempt, acknowledgeMaterialMovement, moveMaterial, refreshMaterial, materialHistory, materialRevision])
+  }), [data, remote, demoMode, persistenceStatus, persistenceMessage, saving, scheduleRevision, dataUpdatedAt, refreshFailed, canRead, canWrite, reload, save, canDeleteClass, deleteClass, saveRecurringReservations, owner, canReadMaterialHistory, canMoveMaterials, canAdjustMaterials, materialAttempt, acknowledgeMaterialMovement, moveMaterial, refreshMaterial, materialHistory, materialRevision])
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
 export function useOptionalOperations() { return useContext(Context) }

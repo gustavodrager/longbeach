@@ -1,0 +1,117 @@
+{
+  "api": {
+    "config_digest": "sha256:141db791eeb324860aec3c0b3c92ff03e337ea508d3f0e6bf1d325303fbf17ec",
+    "health": "healthy",
+    "image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:759d0f8dc33f8fdde799a6305cd26f95d25286fbbbe7d49242745db381b9bc29",
+    "migrations_sha256": "05a939753036f9f364dc3d90959aecd56f84b62ec6aef93e84c52f34f2bb5e74",
+    "preserved_invariants_verified": true,
+    "release_lease_exists": false,
+    "runtime_identity_sha256": "9e2b96872c08f05b467b9ab53181074c8e3113be039bfc779d813c42da52556d",
+    "schema_count": 31,
+    "started_at_utc": "2026-11-02T15:12:22.864092341Z"
+  },
+  "authorization": "publicar, after delivery of PR63 with API and frontend scope",
+  "branch": "codex/excluir-turma-20261102",
+  "ci": {
+    "quality_jobs_passed": 4,
+    "run_id": 41460920105
+  },
+  "frontend": {
+    "active_files": 105,
+    "application_files": 103,
+    "byte_count": 3200129,
+    "configuration_sha256": "cef1ccb938ce3c635701cae66b8fdac027b14b5834b797a5c2797523feac62c9",
+    "full_active_map_sha256": "43cee6649869f55c90c99d86cf837bdbd6dfd0186c8fdc83f9e8b96e9fb7e036",
+    "oci_index_digest": "sha256:68b7d560769b3c7521ce926341b9ddbdb5e418b2d9a2d8f30e65262decf159a9",
+    "previous_release": "sites/parsero-prod-20261022/channels/live/releases/1793534062385000",
+    "previous_version": "sites/parsero-prod-20261022/versions/bab1a38316ddaf21",
+    "provider_files": {
+      "/__/firebase/init.js": "e7bd33241cf11ab231f58fd0beb480b5462cfc7a69db6d508bacac5700f67345",
+      "/__/firebase/init.json": "0e92e3bcff11f2280adbb22fd5c515dfc4db6275fffe6544dd079a9d36c82ea8"
+    },
+    "published_at_utc": "2026-11-02T15:18:42.983Z",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793632722983000",
+    "tree_sha256": "ebd22ceb0936a9daa76a24acf5c814cccba164973e90ce3aa88ee7f650a1d270",
+    "version": "sites/parsero-prod-20261022/versions/f1842243895fa0e9"
+  },
+  "limitations": [
+    "No authenticated production class deletion",
+    "Other roles and historical-link conflicts exercised by isolated automated tests",
+    "Normal session/audit/worker writes may occur"
+  ],
+  "preservation": {
+    "business_data_mutation_by_deploy": false,
+    "google_configuration_changed": false,
+    "migrations_run": false,
+    "original_environment_protections_restored": true,
+    "postgres_caddy_whatsapp_containers_preserved": true,
+    "profile_bindings_changed": false,
+    "protected_local_files_sha256": {
+      "docs/operacao/publicacao-clientes-2026-10-29.md": "6e0d445f5057b373c47b61dcd895bb21773ba52c6ae2df61bc0ac491fe790cf5",
+      "docs/operacao/release-google-vm.json": "750e608d5f2c42e59b38d88e6d5aea50e85dc84bb0eb80d676f3ec6e9221b337"
+    },
+    "runtime_env_change": "API_IMAGE only",
+    "seed_or_profile_commands_run": false,
+    "temporary_policy_removed": 65233163
+  },
+  "private_evidence_directory": "evidencias/exclusao-turmas-2026-11-02/publicacao-6efa2a7",
+  "private_evidence_sha256": {
+    "api-access-verification.private.json": "e3e9cffd3daf14871adf42d1025eb4fed271bcec62d9ff0f1570a0d6bad5ba44",
+    "api-after.private.json": "6ecf00a0e45d947d04d949557835afff0f8acfd3c39696da79f359e5ce68129e",
+    "api-before.private.json": "c3aa8bae75644637277952c5b4604e1e499670d411d4eb60da25d2e8fc3cd30c",
+    "api-final.private.json": "9d6c6ba6595e05bc3c331763dab839581c1b0f50ed3ae4248630fdbd2e973807",
+    "approval-gate.json": "31f3e50b731145f2ba8cd453eda53e7fb235524156b765f94768701a3a23f0b3",
+    "browser-publication-verification.private.json": "04b2465e50ff357d6a480c59a8bfc61617b28650c72ee271a4dc0f2e41e15615",
+    "excluir-turma-publicada.png": "c7d1b7ef742e8c582a65f55918c29d665f456ae6c5190bf27d1fca55e71dc107",
+    "existing-delete-privileges.private.json": "1fb41cb48961e1f8f7ad7fc7934c6415400f9fa0eccf65a7e79f111c49c0333a",
+    "github-gates-close.private.json": "8a8d604862f405aeefdc985e2d25cdc72d2bd1bd9053d0b902e3bae70309685f",
+    "hosting-capture.private.json": "2a8f688ee3a944f019b6ddf8bc8b91407b9641a3f495fe6de400d2c091fbfd5c",
+    "hosting-plan.private.json": "5a7f76d63b1ff10876d45b13ac705da372addae864740715eb06f25ebf6513d1",
+    "hosting-publish.receipt.private.json": "f59694e2f7cea1d0ad71d1f1da1e4bb4cc60076066c601bb2120d5f9b8451833",
+    "human-production-authorization.json": "3eced52a4d3fafc5c34871122739106c99111f3f6b80f9a5632ae74e01c0f8b9",
+    "independent-final-audit.private.json": "13beffcb466aca6bc75ec3b4f6a2b8732b5c8119746c77f0b0f92ec025092c80",
+    "plan.json": "6257641ccff3a6c8eced92b7a6dab5d552f429b702f4aa0e0511c02270cf17e9",
+    "production-protections-restored.private.json": "33da11d1024eb860d25c237e57855d3c7ba20c99a2346e50bf2e8b21cab3d06a",
+    "public-verification.private.json": "3ca4ecd6c9b21459f9c907779d6ad2e79a39da6973ab5380583b1f57c5190525",
+    "vm-api-close.receipt.private.json": "ef38e00acc19138a5bfcf2d2b5e3294bada0bee0610cc5d35d7b1b1f5d8d5830",
+    "vm-api-prepare.receipt.private.json": "032e1b0f614da37933b3f60bc291a74257f95f668ee43205c59bbb3fced57249",
+    "vm-api-promote.receipt.private.json": "13264ffcfb05c76db62d39e99756f4f1261cc72f6bae1fba6bb98274c0ab90e2",
+    "vm-api-stage.receipt.private.json": "83e227612756658c9bcb9a361861e1709abb6a53b11b6c82a25534864afe5ae4",
+    "vm-api-verify.receipt.private.json": "296851e58f6492b1c5071af56c3d80e93b47fc8056a3bb8ac5a035dcbf2563b1",
+    "web-official-receipt.private.json": "7927726363be0029c5d203bdced842bd67548ebd8a72bb773a525dc63a3540a4"
+  },
+  "production": {
+    "attempt": 1,
+    "environment_approval_recorded": true,
+    "image_publish_job_passed": true,
+    "quality_jobs_passed": 4,
+    "run_id": 41463946003
+  },
+  "recorded_at_utc": "2026-11-02T15:28:45.427377+00:00",
+  "review": "https://github.com/gustavodrager/longbeach/pull/63",
+  "runtime_review_source": "e409125fa44b29dc4764b185e803a2c0ee7a5c54",
+  "runtime_trees_identical_to_review": {
+    ".github/workflows": "d0ec37feb2142de6f51cc8b9f33c3b4fb06155e4",
+    "backend/src": "ac576841cb20fce97116bc85fcaedcf53d57c9ab",
+    "deploy": "b6ef3aeb961f6e2a8b6886502f44200f96b8960e",
+    "frontend": "89a8092bb9db0cbdab49dfa35734b808d044ad9c"
+  },
+  "source_commit": "6efa2a7b4b182086effaafb60e62ee4f8c20e152",
+  "status": "published_and_verified",
+  "validation": {
+    "anonymous_invalid_delete_status": 401,
+    "application_files_verified": 103,
+    "authenticated_delete_submitted": false,
+    "console_errors": 0,
+    "cors_preflight_status": 204,
+    "delete_dialog_and_cancel_passed": true,
+    "independent_evidence_review_passed": true,
+    "normal_google_signin_existing_manager_passed": true,
+    "production_class_cards_unchanged": true,
+    "production_class_count_before_and_after": 9,
+    "public_failures": 0,
+    "public_get_requests": 190,
+    "pwa_new_entry_activated": true,
+    "pwa_requested_login_again": true
+  }
+}
