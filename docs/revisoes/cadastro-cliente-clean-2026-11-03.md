@@ -1,6 +1,8 @@
 # Cadastro e atividades dos clientes — 03/11/2026
 
-Estado: implementação e conferência local. Produção não alterada.
+Estado ao concluir a conferência local: implementação validada; produção ainda não alterada naquele momento.
+
+Estado atual: fonte `89951e5282280c0382855f72eabfdb101f592f4e` publicada em 03/11/2026, com API e interface verificadas e proteções restauradas. O [registro da publicação](../operacao/publicacao-cadastro-cliente-clean-2026-11-03.md) contém versões, validação e limites. O histórico local abaixo foi preservado.
 
 ## Fluxo revisado
 
@@ -41,4 +43,4 @@ O banco descartável usou PostgreSQL 18.6 em loopback, separado dos outros banco
 
 Esta mudança exige interface e API. Não acrescenta migration, não altera perfis, concessões ou configuração do Google. O cadastro público local de produção permanece fechado conforme a conferência pendente do ADR-021; a prévia habilita esse fluxo somente no banco fictício.
 
-Não houve criação de usuários, convites, cobranças, alteração de credenciais, migração ou publicação em produção nesta revisão.
+Durante a conferência local registrada acima, não houve criação de usuários, convites, cobranças, alteração de credenciais, migração ou publicação em produção.
