@@ -143,13 +143,14 @@ it('aceita código do país até 15 dígitos e nomes de 240 caracteres sem reduz
   await waitFor(() => expect(fetch).toHaveBeenCalledOnce()); expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toMatchObject({ name: 'N'.repeat(240), phone: '5511988887777' })
 })
 
-it('mantém a busca acessível no modo compacto e explica o acesso antes do novo cadastro', () => {
+it('mantém a busca acessível e o cadastro compacto sem explicações genéricas', () => {
   mount(<CustomerPicker compact scope="bar" value={null} onChange={vi.fn()} />)
   expect(screen.getByRole('searchbox', { name: 'Buscar cliente' })).toHaveAttribute('aria-describedby')
   expect(screen.getByText('Digite ao menos 3 caracteres.')).toBeInTheDocument()
   expect(screen.queryByText('O cadastro é independente do login e do acesso aos pagamentos.')).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: '+ Cadastrar cliente' }))
-  expect(screen.getByText('O cadastro é independente do login e do acesso aos pagamentos.')).toBeVisible()
+  expect(screen.queryByText('O cadastro é independente do login e do acesso aos pagamentos.')).not.toBeInTheDocument()
+  expect(screen.queryByText(/identificação de possíveis duplicados/)).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Cadastrar e selecionar' }))
   expect(screen.getByRole('alert')).toHaveTextContent('Informe o nome e um telefone')
 })

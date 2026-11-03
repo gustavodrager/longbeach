@@ -248,6 +248,8 @@ describe('autenticação e shell', () => {
     expect(await screen.findByRole('heading', { name: 'Criar conta' })).toBeInTheDocument()
     await user.type(screen.getByLabelText('Nome'), client.name)
     await user.type(screen.getByLabelText('Telefone com DDD'), '11988887777')
+    expect(screen.queryByRole('button', { name: 'Entrar com Google' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Continuar' }))
     await user.click(await screen.findByRole('button', { name: 'Entrar com Google' }))
     expect(await screen.findByRole('heading', { name: 'Minha área' })).toBeInTheDocument()
     expect(window.location.pathname).toBe('/minha-area')

@@ -19,7 +19,7 @@ export function AgendaActivityDetails({ selected, onClose, returnLabel = 'Agenda
   const title = selected.isClass ? lesson?.name ?? 'Aula' : group?.name ?? reservation?.name ?? (preview ? 'Horário previsto' : 'Horário ocupado')
   return <ModalPanel title={title} onClose={onClose} className="agenda-detail-panel">
     <div className="agenda-detail-content">
-      <p className="agenda-detail-kind">{preview ? 'Mensalista · A confirmar' : selected.isClass ? 'Aula' : reservation?.status === 'Bloqueio' ? 'Bloqueio' : reservation?.activityKind === 'Trial' ? 'Aula experimental' : reservation?.rentalGroupId ? 'Mensalista' : 'Locação'}</p>
+      <p className="agenda-detail-kind">{preview ? 'Mensalista · A confirmar' : selected.isClass ? 'Aula' : reservation?.status === 'Bloqueio' ? 'Bloqueio' : reservation?.activityKind === 'Trial' ? 'Aula experimental' : reservation?.activityKind === 'SingleLesson' ? 'Aula avulsa' : reservation?.rentalGroupId ? 'Mensalista' : 'Locação'}</p>
       <DetailList items={[["Data", displayDate(selected.date)], ["Horário", `${selected.startTime}–${selected.endTime}`]]} />
       {preview ? group ? <>
         <p>Horário previsto. Confirme os encontros do mês para reservar a quadra.</p>
@@ -33,7 +33,7 @@ export function AgendaActivityDetails({ selected, onClose, returnLabel = 'Agenda
         <ContextLink className="primary-link" state={{ returnLabel }} to={`/escola/turmas/${lesson.id}`}>Ver turma</ContextLink>
       </> : <p>Detalhes da aula indisponíveis para seu acesso.</p> : reservation ? <>
         <DetailList items={[["Situação", reservation.status], ["Responsável", group ? group.members.find(row => row.id === group.organizerId)?.name ?? 'Não informado' : reservation.customerName || 'Não informado']]} />
-        {reservation.activityKind === 'Trial' && <DetailList items={[["Professor", data.canRead('team') ? data.team.find(row=>row.id===reservation.teacherId)?.name??'Não informado' : 'Acesso restrito'], ["Tipo de encontro", "Aula experimental individual"]]} />}
+        {(reservation.activityKind === 'Trial' || reservation.activityKind === 'SingleLesson') && <DetailList items={[["Professor", data.canRead('team') ? data.team.find(row=>row.id===reservation.teacherId)?.name??'Não informado' : 'Acesso restrito'], ["Tipo de encontro", reservation.activityKind === 'SingleLesson' ? "Aula avulsa individual" : "Aula experimental individual"]]} />}
         {reservation.rentalGroupId && <>
           <h3>Participantes</h3>
           {!data.canRead('rentalGroups') || !group ? <p>Detalhes do grupo indisponíveis para seu acesso.</p> : <><p className="arena-hint">{month ? `Participantes registrados no mês ${month.month.slice(5)}/${month.month.slice(0, 4)}.` : 'Participantes atuais do grupo; mês não disponível.'}</p>{participants?.length ? <ul>{participants.map(row => <li key={row.id}>{row.name}</li>)}</ul> : <p>Nenhum participante registrado.</p>}</>}

@@ -89,10 +89,27 @@ public static class OperationalValidation
                 if (kind == "reservations")
                 {
                     if (!Date(body, "date", out var date) || !Money(body, "amount") || !Status(body, "Confirmada", "Chegou", "Concluída", "Cancelada", "Bloqueio")) return "Confira a data, o valor e o estado da reserva.";
+                    if (body.TryGetProperty("activityKind", out var activityValue) && activityValue.ValueKind is not (JsonValueKind.String or JsonValueKind.Null))
+                        return "Escolha um tipo de atividade válido.";
+                    var activity = Text(body, "activityKind");
+                    if (activity is not ("" or "Trial" or "SingleLesson")) return "Escolha um tipo de atividade válido.";
+                    if (activity == "SingleLesson")
+                    {
+                        if (Id(body, "customerId") == Guid.Empty) return "Escolha um cliente cadastrado para a aula avulsa.";
+                        if (Text(body, "rentalGroupId") != "" || Text(body, "rentalMonth") != "" || Text(body, "groupId") != "" || Text(body, "status") == "Bloqueio")
+                            return "A aula avulsa deve ter uma data própria, sem vínculo de mensalista ou bloqueio.";
+                        if (Id(body, "teacherId") == Guid.Empty || !Exists("team", "teacherId")) return "Escolha um professor cadastrado para a aula avulsa.";
+                        if (Text(body, "status") != "Cancelada" && !Rows("team").Any(row => Id(row) == Id(body, "teacherId") && Text(row, "status") == "Ativo"))
+                            return "Escolha um professor ativo para a aula avulsa.";
+                    }
                     if (Text(body, "status") == "Cancelada") break;
                     if (date > today && Status(body, "Chegou", "Concluída")) return "A chegada ou conclusão só pode ser registrada na data da reserva ou depois dela.";
                     if (Text(court, "status") != "Disponível") return "Esta quadra está em manutenção.";
                     if (others.Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "date") == Text(body, "date") && Text(row, "status") != "Cancelada" && Overlaps(row, body)) || Rows("classes").Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "status") == "Ativa" && ClassStartedOn(row, date) && Number(row, "weekDay") == (int)date.DayOfWeek && Overlaps(row, body))) return "Este horário já está ocupado por uma reserva ou aula nesta quadra.";
+                    if (activity == "SingleLesson" &&
+                        (others.Any(row => Id(row, "teacherId") == Id(body, "teacherId") && Text(row, "date") == Text(body, "date") && Text(row, "status") != "Cancelada" && Overlaps(row, body)) ||
+                         Rows("classes").Any(row => Id(row, "teacherId") == Id(body, "teacherId") && Text(row, "status") == "Ativa" && ClassStartedOn(row, date) && Number(row, "weekDay") == (int)date.DayOfWeek && Overlaps(row, body))))
+                        return "O professor já tem uma atividade neste horário.";
                 }
                 else
                 {
@@ -108,6 +125,9 @@ public static class OperationalValidation
                     if (Text(body, "status") != "Ativa") break;
                     if (Text(court, "status") != "Disponível") return "Esta quadra está em manutenção.";
                     if (others.Any(row => Id(row, "courtId") == Id(body, "courtId") && Number(row, "weekDay") == weekday && Text(row, "status") == "Ativa" && Overlaps(row, body)) || Rows("reservations").Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "status") != "Cancelada" && Date(row, "date", out var day) && day >= today && ClassStartedOn(body, day) && (int)day.DayOfWeek == weekday && Overlaps(row, body))) return "A aula conflita com uma reserva ou turma nesta quadra.";
+                    if (Rows("reservations").Any(row => Text(row, "activityKind") == "SingleLesson" && Id(row, "teacherId") == Id(body, "teacherId") &&
+                        Text(row, "status") != "Cancelada" && Date(row, "date", out var lessonDay) && lessonDay >= today && ClassStartedOn(body, lessonDay) && (int)lessonDay.DayOfWeek == weekday && Overlaps(row, body)))
+                        return "O professor já tem uma aula avulsa neste horário.";
                 }
                 break;
             case "enrollments":

@@ -577,8 +577,13 @@ it('abre comanda coletiva com responsável confirmado e mostra o vínculo no det
  const bodies:Record<string,unknown>[]=[];const tab=makeTab();
  server({tab,pixEnabled:false,customers:[{id:'customer-a',name:'Cliente Teste',emailHint:'c***@example.com'}],post:async(_,body)=>{bodies.push(body);tab.name=String(body.name);tab.responsible={id:'customer-a',name:'Cliente Teste'};return json(tab)}})
  mount('/atendimento/comandas');fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));
+ expect(screen.getByLabelText('Vincular responsável com conta')).not.toBeVisible();
+ fireEvent.click(screen.getByText('Acesso à comanda (opcional)',{selector:'summary'}));
  fireEvent.click(screen.getByLabelText('Vincular responsável com conta'));fireEvent.change(screen.getByLabelText('Buscar responsável'),{target:{value:'Cliente'}});
  fireEvent.click(await screen.findByLabelText('Cliente Teste · c***@example.com'));
+ const access=screen.getByText('Acesso à comanda · Cliente Teste',{selector:'summary'});fireEvent.click(access);
+ expect(access.closest('details')).not.toHaveAttribute('open');expect(screen.getByLabelText('Buscar responsável')).not.toBeVisible();
+ expect(screen.getByLabelText(/Confirmo que Cliente Teste responde pelo total/)).toBeVisible();
  expect(screen.getByRole('button',{name:'Abrir comanda vinculada'})).toBeDisabled();
  fireEvent.click(screen.getByLabelText(/Confirmo que Cliente Teste/));
  fireEvent.change(screen.getByLabelText('Nome da pessoa ou do grupo (opcional)'),{target:{value:'Turma de quinta'}});
@@ -603,7 +608,7 @@ it('preserva a abertura incerta após remontar e repete a mesma operação',asyn
 
 it('mudar a busca remove o responsável e exige nova seleção',async()=>{
  server({tab:makeTab(),pixEnabled:false,customers:[{id:'customer-a',name:'Cliente Teste',emailHint:'c***@example.com'}]});mount('/atendimento/comandas');
- fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));fireEvent.click(screen.getByLabelText('Vincular responsável com conta'));
+ fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));fireEvent.click(screen.getByText('Acesso à comanda (opcional)',{selector:'summary'}));fireEvent.click(screen.getByLabelText('Vincular responsável com conta'));
  fireEvent.change(screen.getByLabelText('Buscar responsável'),{target:{value:'Cliente'}});
  fireEvent.click(await screen.findByLabelText('Cliente Teste · c***@example.com'));fireEvent.click(screen.getByLabelText(/Confirmo que Cliente Teste/));
  fireEvent.change(screen.getByLabelText('Buscar responsável'),{target:{value:'Outro'}});
@@ -887,7 +892,8 @@ async function chooseIdentified(label:string){
 }
 it('identificação cadastral opcional abre comanda sem criar responsável financeiro',async()=>{
  const bodies:Record<string,unknown>[]=[];const state:Server={tab:makeTab(),pixEnabled:false,customerLookups:[identified],post:(_,body)=>{bodies.push(body);state.tab.customer=identified;return json(state.tab)}}
- server(state);mount('/atendimento/comandas');fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));await chooseIdentified('Buscar cliente identificado')
+ const calls=server(state);mount('/atendimento/comandas');fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));await chooseIdentified('Buscar cliente identificado')
+ expect(screen.getByText('Acesso à comanda (opcional)',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');expect(calls.mock.calls.some(([url])=>String(url).includes('/tabs/customers?'))).toBe(false)
  fireEvent.click(screen.getByRole('button',{name:'Abrir sem vínculo financeiro'}));await screen.findByRole('heading',{name:'Comanda 104'});expect(bodies).toHaveLength(1);expect(bodies[0]).toMatchObject({customerId:identified.id,mode:'Tab'});expect(bodies[0]).not.toHaveProperty('responsibleUserId');expect(screen.getByText('Sem responsável vinculado à área do cliente.')).toBeInTheDocument();expect(screen.getByText(/Telefone pendente no cadastro anterior/)).toBeInTheDocument()
 })
 it('venda avulsa preserva cliente e operação incerta após remontar sem vincular Google',async()=>{

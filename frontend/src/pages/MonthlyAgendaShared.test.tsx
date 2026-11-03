@@ -190,18 +190,21 @@ it('reutiliza as três vistas escolares com aulas e experimentais existentes sem
   expect(within(panel).getByRole('link', { name: 'Ver reserva' })).toBeInTheDocument()
 })
 
-it('o filtro classes da agenda geral mantém apenas os blocos de turma e conserva a apresentação completa', async () => {
+it('o filtro classes da agenda geral inclui turmas, experimentais e aulas avulsas sem incluir locações ou mensalistas', async () => {
   seed()
   const snapshot = JSON.parse(localStorage.getItem('longbeach-os-demo-v1')!)
   snapshot.reservations.push({ ...recurring, id: 'trial', name: 'Aula experimental individual', groupId: undefined, activityKind: 'Trial', startTime: '16:00', endTime: '16:30' })
+  snapshot.reservations.push({ ...recurring, id: 'single', name: 'Aula avulsa individual', groupId: undefined, activityKind: 'SingleLesson', teacherId: 'teacher-single', customerId: 'customer-single', startTime: '16:30', endTime: '17:00' })
   localStorage.setItem('longbeach-os-demo-v1', JSON.stringify(snapshot))
   start('/agenda?view=day&date=2026-10-09&activity=classes')
-  expect(await screen.findByText('1 atividade')).toBeInTheDocument()
+  expect(await screen.findByText('3 atividades')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: /Aula de sexta/ })).toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: /Aula experimental individual/ })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /Aula experimental individual/ })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /Aula avulsa individual/ })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /Encontro mensal|Recorrência avulsa|Bloqueio registrado/ })).not.toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Atividades do dia' })).toBeInTheDocument()
   expect(screen.getByLabelText('Disponibilidade dos horários')).toBeInTheDocument()
-  expect(screen.getByText('0 reservas/bloqueios · 1 aula')).toBeInTheDocument()
+  expect(screen.getByText('0 reservas/bloqueios · 3 aulas')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Limpar filtros' })).toBeInTheDocument()
 })
 

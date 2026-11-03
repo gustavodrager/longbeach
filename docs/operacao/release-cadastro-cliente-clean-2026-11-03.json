@@ -1,0 +1,113 @@
+{
+  "api": {
+    "access_schema_acl_verified": true,
+    "config_digest": "sha256:9d405c1789aa7dfcfe9e52396273447eccb6316b73f51a611ae0bf9ac80e8fcb",
+    "health": "healthy",
+    "image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:0634ea85311ce294ae1876c532ffd6c00174228fe4501254c874d62e03612875",
+    "latest_migration": "20261102163528_ClientIndividualAccess",
+    "migrations_sha256": "e68bb0b2cacc3f30bd53bbda0ce192f7803708bef66e2fdfeb800f29016884a0",
+    "schema_count": 32,
+    "started_at_utc": "2026-11-03T20:57:42.518531746Z"
+  },
+  "authorization": {
+    "environment_approval_recorded": true,
+    "human_answer": "Pode publicar a revisão #65 quando todos os testes passarem, atualizando a interface e a API e mantendo banco, perfis e configuração do Google como estão.",
+    "scope": [
+      "api",
+      "frontend"
+    ]
+  },
+  "branch": "codex/cadastro-cliente-clean-20261103",
+  "ci": {
+    "attempt": 1,
+    "conclusion": "success",
+    "quality_jobs_passed": 4,
+    "run_id": 41636394016
+  },
+  "documentation_follow_up_only": true,
+  "frontend": {
+    "active_files": 108,
+    "application_files": 106,
+    "entry_asset": "/assets/index-BpFX4Y74.js",
+    "oci_index_digest": "sha256:d6bc4b7aaa66daf8de6dc0bca73565841a10816dde213039855f8016cb237ac6",
+    "published_at_utc": "2026-11-03T21:09:59.362Z",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793740199362000",
+    "tree_sha256": "6a8f1bca608a595dee1633454ff931d5dc0a3bb391fa69c31c00ed7b5c354469",
+    "version": "sites/parsero-prod-20261022/versions/7a7dcbb424c5c1e5"
+  },
+  "limitations": [
+    "Authenticated customer creation and editing were exercised in the isolated local preview and automated tests, without repeating them against live records.",
+    "Google sign-in and preservation of an existing production session were not retested in this publication.",
+    "Local public registration remains disabled; this publication does not authorize enabling it.",
+    "Preservation checks cover schema, ACL, profiles, configuration and admitted runtime invariants; normal application session, audit and business writes may continue."
+  ],
+  "preservation": {
+    "deployment_database_writes": false,
+    "existing_google_registration_flag_preserved": true,
+    "google_configuration_changed": false,
+    "hosting_configuration_and_provider_files_preserved": true,
+    "local_login_enabled": true,
+    "local_public_registration_enabled": false,
+    "migrations_or_seeds_run": false,
+    "original_environment_protections_and_policies_restored": true,
+    "postgres_caddy_whatsapp_containers_images_started_at_networks_preserved": true,
+    "profile_bindings_changed": false,
+    "release_lease_archived_and_removed": true,
+    "runtime_environment_change": "API_IMAGE only",
+    "schema_changed": false,
+    "temporary_policy_removed": 65396596,
+    "whatsapp_bridge_restarted": false
+  },
+  "private_evidence_directory": "evidencias/cadastro-cliente-clean-2026-11-03/publicacao-89951e5",
+  "production": {
+    "attempt": 1,
+    "conclusion": "success",
+    "quality_jobs_passed": 4,
+    "run_id": 41698947603,
+    "total_jobs_passed": 5
+  },
+  "recorded_after_final_verification_at_utc": "2026-11-03T21:14:02.618008+00:00",
+  "review": "https://github.com/gustavodrager/longbeach/pull/65",
+  "rollback": {
+    "automatic_rollback_performed": false,
+    "database_down_or_restore_performed": false,
+    "previous_api_image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:914f602b2feb0e764fa4ba11696990a0cced8eaf9885db7d830fc1c02953c570",
+    "previous_artifacts_and_runtime_configuration_retained": true,
+    "previous_hosting_release": "sites/parsero-prod-20261022/channels/live/releases/1793650820490000",
+    "previous_hosting_version": "sites/parsero-prod-20261022/versions/9386ee9c4c395192"
+  },
+  "source_commit": "89951e5282280c0382855f72eabfdb101f592f4e",
+  "status": "published_and_verified",
+  "validation": {
+    "application_files_verified": 106,
+    "backend_integration_tests_passed_per_matrix_job": 599,
+    "backend_unit_tests_passed_per_matrix_job": 662,
+    "existing_session_preservation_verified": false,
+    "frontend_test_files": 97,
+    "frontend_tests_passed": 1154,
+    "mobile_continue_visible": true,
+    "mobile_overflow": false,
+    "mobile_viewport": [
+      390,
+      844
+    ],
+    "operational_helper_offline_tests_passed": 191,
+    "postgres_majors_tested": [
+      17,
+      18
+    ],
+    "private_routes_unauthenticated_401": 23,
+    "production_accounts_created": 0,
+    "production_application_credentials_entered": false,
+    "production_authenticated_forms_retested": false,
+    "production_business_actions_for_testing": false,
+    "production_google_login_retested": false,
+    "public_failures": 0,
+    "public_get_requests": 203,
+    "pwa_notice_observed": true,
+    "pwa_update_used_in_separate_browser": true,
+    "required_name_validation_focus_verified": true,
+    "tab_from_name_to_phone_verified": true,
+    "tls_certificate_and_hostname_verified": true
+  }
+}

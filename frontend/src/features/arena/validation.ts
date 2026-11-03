@@ -40,7 +40,17 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
       const lesson = record as ArenaClass
       if (!validWeekDay(lesson.weekDay) || lesson.startDate && !validDate(lesson.startDate)) return 'Confira o dia da semana e a data de início da turma.'
     }
-    if (kind === 'reservations' && !validDate((record as Reservation).date)) return 'Informe uma data válida para a reserva.'
+    if (kind === 'reservations') {
+      const reservation = record as Reservation
+      if (!validDate(reservation.date)) return 'Informe uma data válida para a reserva.'
+      if (reservation.activityKind === 'SingleLesson') {
+        if (!reservation.customerId) return 'Selecione o cliente da aula avulsa.'
+        if (!data.team.some(row => row.id === reservation.teacherId && (reservation.status === 'Cancelada' || row.status === 'Ativo'))) return reservation.status === 'Cancelada' ? 'Escolha um professor cadastrado.' : 'Escolha um professor ativo para a aula avulsa.'
+        if (reservation.rentalGroupId || reservation.groupId || reservation.status === 'Bloqueio') return 'A aula avulsa deve ser um encontro individual, sem grupo mensalista ou bloqueio.'
+      }
+      const previous = data.reservations.find(row => row.id === reservation.id)
+      if (previous && previous.activityKind !== reservation.activityKind && (previous.activityKind === 'Trial' || previous.rentalGroupId || previous.groupId || !previous.activityKind && previous.teacherId)) return 'O tipo deste encontro não pode ser alterado.'
+    }
     if (!validTime(record.startTime) || !validTime(record.endTime, true) || record.startTime >= record.endTime || record.startTime < court.openingTime || record.endTime > court.closingTime) return 'O horário deve ficar dentro do funcionamento da quadra, com término depois do início.'
     if (record.status !== 'Cancelada' && record.status !== 'Pausada' && record.status !== 'Encerrada') {
       if (court.status !== 'Disponível') return 'Esta quadra está em manutenção.'

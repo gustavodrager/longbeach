@@ -43,15 +43,28 @@ it('mantém busca visível e filtros recolhidos sem perder os filtros ativos ao 
   const summary = screen.getByText('Filtros', { selector: 'summary' })
   expect(summary.closest('details')).not.toHaveAttribute('open')
   expect(within(summary).getByText('3')).toBeVisible()
-  expect(screen.getByLabelText('Vínculo')).not.toBeVisible()
+  expect(screen.getByLabelText('Atividade')).not.toBeVisible()
   fireEvent.click(summary)
-  expect(screen.getByLabelText('Vínculo')).toBeVisible()
+  expect(screen.getByLabelText('Atividade')).toBeVisible()
   fireEvent.change(screen.getByLabelText('Telefone'), { target: { value: 'false' } })
   await waitFor(() => expect(router.state.location.search).toBe('?q=Pessoa&profile=Aluno&status=Inativo&incomplete=false'))
   await waitFor(() => expect(fetch.mock.calls.some(([url]) => String(url).includes('incomplete=false') && String(url).includes('status=Inativo'))).toBe(true))
   fireEvent.click(summary)
   expect(summary.closest('details')).not.toHaveAttribute('open')
   expect(router.state.location.search).toContain('incomplete=false')
+})
+
+it.each([['Avulso', 'Avulso'], ['SomenteBar', 'Somente bar']])('filtra %s sem alterar as atividades acumuladas na ficha', async (profile, label) => {
+  const person = { ...customer, profiles: profile === 'SomenteBar' ? ['Bar'] : ['Aluno', 'Mensalista', 'Avulso', 'Bar'] }
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ items: [person], total: 1, page: 1, pageSize: 20 }))
+  const router = mount('/clientes?page=2')
+  const row = await screen.findByRole('link', { name: /Pessoa Teste/ })
+  for (const activity of person.profiles) expect(within(row).getByText(activity)).toBeVisible()
+  fireEvent.click(screen.getByText('Filtros', { selector: 'summary' }))
+  expect(screen.getByRole('option', { name: label })).toHaveValue(profile)
+  fireEvent.change(screen.getByLabelText('Atividade'), { target: { value: profile } })
+  await waitFor(() => expect(router.state.location.search).toBe(`?profile=${profile}`))
+  await waitFor(() => expect(fetch.mock.calls.some(([url]) => String(url).includes(`profile=${profile}`))).toBe(true))
 })
 
 it('mantém a situação Inativo junto do telefone pendente sem presumir que o cliente está ativo', async () => {
@@ -73,6 +86,26 @@ it('novo cadastro exige contato e só navega após confirmação, bloqueando dup
   fireEvent.change(within(dialog).getByLabelText('Nome'), { target: { value: customer.name } }); fireEvent.click(within(dialog).getByRole('button', { name: 'Salvar cliente' })); expect(bodies).toHaveLength(0)
   fireEvent.change(within(dialog).getByLabelText('Telefone com DDD'), { target: { value: '(11) 98888-7777' } }); const save = within(dialog).getByRole('button', { name: 'Salvar cliente' }); fireEvent.click(save); fireEvent.click(save)
   expect(bodies).toHaveLength(1); expect(router.state.location.pathname).toBe('/clientes/novo'); finish?.(json(customer)); await waitFor(() => expect(router.state.location.pathname).toBe('/clientes/one'))
+})
+
+it('cadastro começa com nome e telefone e preserva e-mail opcional ao recolher Mais dados', async () => {
+  const bodies: Record<string, unknown>[] = []
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => { if (init?.method === 'POST') { bodies.push(JSON.parse(String(init.body))); return json(customer) } return json(customer) })
+  const router = mount('/clientes/novo'); const dialog = screen.getByRole('dialog', { name: 'Novo cliente' })
+  const more = within(dialog).getByText('Mais dados', { selector: 'summary' })
+  const email = within(dialog).getByLabelText('E-mail de contato (opcional)')
+  expect(more.closest('details')).not.toHaveAttribute('open'); expect(email).not.toBeVisible()
+  fireEvent.click(more); expect(email).toBeVisible(); fireEvent.change(email, { target: { value: 'contato@example.invalid' } }); fireEvent.click(more)
+  fireEvent.change(within(dialog).getByLabelText('Nome'), { target: { value: customer.name } }); fireEvent.change(within(dialog).getByLabelText('Telefone com DDD'), { target: { value: customer.phone } }); fireEvent.click(within(dialog).getByRole('button', { name: 'Salvar cliente' }))
+  await waitFor(() => expect(router.state.location.pathname).toBe('/clientes/one'))
+  expect(bodies).toHaveLength(1); expect(bodies[0]).toMatchObject({ email: 'contato@example.invalid' })
+})
+
+it('edição deixa o e-mail já preenchido visível sem expandir Mais dados', async () => {
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ ...customer, email: 'contato@example.invalid' }))
+  mount('/clientes/one?acao=editar'); const dialog = await screen.findByRole('dialog', { name: 'Editar cliente' })
+  expect(within(dialog).getByLabelText('E-mail de contato (opcional)')).toBeVisible()
+  expect(within(dialog).getByLabelText('E-mail de contato (opcional)')).toHaveValue('contato@example.invalid')
 })
 
 it('legado sem telefone continua pendente e edição não inventa contato ou login', async () => {
@@ -107,8 +140,27 @@ it('rota inexistente/erro não oferece criar ou editar pessoa presumida', async 
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ message: 'Não encontrado' }, 404)); mount('/clientes/missing?acao=editar'); expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível abrir esta ficha'); expect(screen.queryByRole('dialog')).not.toBeInTheDocument(); expect(screen.queryByRole('button', { name: 'Editar cadastro' })).not.toBeInTheDocument()
 })
 
-it('perfis e conta pessoal são informativos sem conceder acesso financeiro', async () => {
-  vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ ...customer, userId: 'account-fixture' })); mount('/clientes/one'); await screen.findByRole('heading', { name: customer.name }); fireEvent.click(screen.getByRole('button', { name: 'Vínculos e acesso' })); expect(screen.getByText(/Conta de acesso vinculada/)).toBeInTheDocument(); expect(screen.queryByRole('link', { name: /pagamentos/i })).not.toBeInTheDocument(); expect(screen.queryByText('account-fixture')).not.toBeInTheDocument()
+it('atividades ficam separadas de acesso e não concedem acesso financeiro', async () => {
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ ...customer, userId: 'account-fixture' })); mount('/clientes/one'); await screen.findByRole('heading', { name: customer.name }); fireEvent.click(screen.getByRole('button', { name: 'Atividades' })); expect(screen.getByText('Aluno')).toBeVisible(); expect(screen.getByText('Bar')).toBeVisible(); expect(screen.queryByText('Conta de acesso', { selector: 'summary' })).not.toBeInTheDocument(); expect(screen.queryByRole('link', { name: /pagamentos/i })).not.toBeInTheDocument(); expect(screen.queryByText('account-fixture')).not.toBeInTheDocument()
+})
+
+it('opções administrativas ficam recolhidas e preservam a revisão ao alternar a ficha e a edição', async () => {
+  const manager: AuthUser = { ...actor, roles: ['Manager'], permissions: ['customers:read', 'customers:write', 'customers:merge'] }
+  const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async url => String(url).endsWith('/merges') || String(url).endsWith('/links') ? json([]) : json(customer))
+  mount('/clientes/one', manager); await screen.findByRole('heading', { name: customer.name })
+  const summary = screen.getByText('Opções administrativas', { selector: 'summary' })
+  expect(summary.closest('details')).not.toHaveAttribute('open'); expect(screen.getByText('Revisão do cadastro')).not.toBeVisible()
+  fireEvent.click(summary); fireEvent.click(screen.getByRole('button', { name: 'Consultar histórico de unificações' })); await screen.findByText('Nenhuma unificação registrada nesta família de cadastros.')
+  fireEvent.click(summary); fireEvent.click(screen.getByRole('button', { name: 'Atividades' })); fireEvent.click(screen.getByRole('button', { name: 'Editar cadastro' })); const dialog = await screen.findByRole('dialog', { name: 'Editar cliente' }); fireEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' })); fireEvent.click(summary)
+  expect(screen.getByRole('button', { name: 'Atualizar histórico de unificações' })).toBeVisible()
+  expect(fetch.mock.calls.filter(([url]) => String(url).endsWith('/merges'))).toHaveLength(1)
+})
+
+it('não oferece opções administrativas a atendente mesmo com permissão isolada de unificar', async () => {
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(customer))
+  mount('/clientes/one', { ...actor, permissions: [...actor.permissions, 'customers:merge'] }); await screen.findByRole('heading', { name: customer.name })
+  expect(screen.queryByText('Opções administrativas', { selector: 'summary' })).not.toBeInTheDocument()
+  expect(fetch.mock.calls.every(([url]) => !String(url).includes('/merges'))).toBe(true)
 })
 
 it('troca de conta descarta rascunho e confirmação da sessão anterior sem enviar', async () => {
@@ -133,5 +185,5 @@ it('novo cadastro incerto recupera a mesma criação após recarregar a página'
 })
 
 it.each([['students', 'Escola'], ['projects', 'Mensalistas'], ['rentalMembers', 'Mensalistas'], ['barTabs', 'Bar'], ['reservations', 'Reservas'], ['users', 'Área do cliente'], ['directory', 'Cadastro da equipe'], ['legacy-unknown', 'Cadastro anterior']])('origem %s mostra nome compreensível sem atribuir vínculo por origem', async (origin, label) => {
-  vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ ...customer, origin, profiles: [] })); mount('/clientes/one'); await screen.findByRole('heading', { name: customer.name }); expect(screen.getByText('Origem do cadastro').nextElementSibling).toHaveTextContent(label); expect(screen.queryByText(origin, { exact: true })).not.toBeInTheDocument(); fireEvent.click(screen.getByRole('button', { name: 'Vínculos e acesso' })); expect(screen.getByText('Nenhum vínculo de aluno, mensalista ou Bar informado.')).toBeInTheDocument()
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ ...customer, origin, profiles: [] })); mount('/clientes/one'); await screen.findByRole('heading', { name: customer.name }); const originSummary = screen.getByText('Origem do cadastro', { selector: 'summary' }); expect(originSummary.closest('details')).not.toHaveAttribute('open'); fireEvent.click(originSummary); expect(screen.getByText(label, { exact: true })).toBeVisible(); expect(screen.queryByText(origin, { exact: true })).not.toBeInTheDocument(); fireEvent.click(screen.getByRole('button', { name: 'Atividades' })); expect(screen.getByText('Nenhuma atividade disponível para o seu acesso.')).toBeVisible(); expect(screen.queryByText(/Nenhum vínculo/)).not.toBeInTheDocument()
 })

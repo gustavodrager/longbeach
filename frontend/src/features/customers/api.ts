@@ -6,7 +6,7 @@ import { useAuth } from '../auth/authContext'
 import type { AuthUser } from '../auth/types'
 
 export type CustomerScope = 'students' | 'projects' | 'bar' | 'reservations' | 'messaging'
-export type CustomerProfile = 'Aluno' | 'Mensalista' | 'Bar'
+export type CustomerProfile = 'Aluno' | 'Mensalista' | 'Avulso' | 'Bar' | 'SomenteBar'
 export type CustomerLookup = { id: string; name: string; phoneHint: string; incomplete: boolean }
 export type CustomerSelection = Pick<CustomerLookup, 'id' | 'name'> & Partial<Pick<CustomerLookup, 'phoneHint' | 'incomplete'>>
 export type Customer = {
