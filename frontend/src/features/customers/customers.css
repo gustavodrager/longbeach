@@ -20,3 +20,12 @@ form.customer-editor .arena-form-group > legend { position:absolute; width:1px; 
 .customer-issued-access input { width:100%; min-width:0; }
 .customer-guardian-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; margin-block:16px; }
 .customer-account-access :is(button,input,summary):focus-visible { outline:3px solid var(--focus); outline-offset:3px; }
+.customer-page-clean section[hidden] { display:none; }
+.customer-access-options { margin-block:16px; }
+.customer-access-options .customer-account-access > h3 { display:none; }
+.customer-access-options .management-disclosure { margin:0; }
+.customer-access-options .customer-user-association { margin-top:16px; }
+.customer-access-options .customer-user-association > summary { min-height:48px; align-content:center; cursor:pointer; font-weight:700; }
+.customer-activity-links p { margin-block:12px; }
+.customer-activity-links a { display:inline-block; padding-block:8px; overflow-wrap:anywhere; }
+form.customer-editor > fieldset > .management-disclosure { margin-block:16px; }

@@ -8,6 +8,8 @@
 .auth-entry-google .google-signin-button { width: 100%; min-height: 48px; }
 .auth-entry-note,.auth-entry-status,.auth-entry-account { margin: 0; color: var(--muted); font-size: .875rem; line-height: 1.5; overflow-wrap: anywhere; }
 .auth-entry-account { margin-top: .75rem; }
+.auth-entry-contact { display: grid; gap: .25rem; justify-items: center; }
+.auth-entry-contact .text-button { min-height: 48px; padding: .5rem .75rem; color: var(--ink); }
 .auth-entry-test { margin: 0; padding: .75rem; border: 1px solid var(--gold); border-radius: 10px; background: #fff4d7; color: var(--ink); font-size: .875rem; line-height: 1.5; }
 .auth-entry-actions { display: grid; gap: .75rem; }
 .auth-entry-secondary,.auth-entry-back,.auth-entry-exit { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: .75rem 1rem; border: 1px solid transparent; border-radius: 10px; color: var(--ink); font-size: 1rem; line-height: 1.35; font-weight: 700; text-decoration: none; }

@@ -59,3 +59,28 @@ it('permite lista vazia ou restrita sem ignorar estrutura inválida nem horário
     expect(check('courts', { ...court, operatingDays }, data())).toMatch(/dias informados/)
   }
 })
+
+it('aula avulsa exige cliente explícito e professor ativo, sem matrícula', () => {
+  const single: Reservation = { ...reservation, activityKind: 'SingleLesson', customerId: 'customer', teacherId: 'teacher' }
+  expect(check('reservations', single, data())).toBeNull()
+  expect(check('reservations', { ...single, customerId: null }, data())).toMatch(/Selecione o cliente/)
+  expect(check('reservations', { ...single, teacherId: '' }, data())).toMatch(/professor ativo/)
+  const snapshot = data(); snapshot.team[0] = { ...snapshot.team[0]!, status: 'Inativo' }
+  expect(check('reservations', single, snapshot)).toMatch(/professor ativo/)
+})
+
+it('cancela aula avulsa existente com professor inativo preservando a identificação', () => {
+  const single: Reservation = { ...reservation, activityKind: 'SingleLesson', customerId: 'customer', teacherId: 'teacher' }
+  const snapshot = data(); snapshot.reservations = [single]; snapshot.team[0] = { ...snapshot.team[0]!, status: 'Inativo' }
+  expect(check('reservations', { ...single, status: 'Cancelada' }, snapshot)).toBeNull()
+  expect(check('reservations', { ...single, status: 'Cancelada', teacherId: '' }, snapshot)).toMatch(/professor cadastrado/)
+})
+
+it.each([{ rentalGroupId: 'monthly' }, { groupId: 'weekly' }, { status: 'Bloqueio' }])('aula avulsa não aceita contexto de grupo ou bloqueio: %j', patch => {
+  expect(check('reservations', { ...reservation, activityKind: 'SingleLesson', customerId: 'customer', teacherId: 'teacher', ...patch }, data())).toMatch(/encontro individual/)
+})
+
+it.each([{ activityKind: 'Trial', teacherId: 'teacher' }, { teacherId: 'teacher' }, { rentalGroupId: 'monthly' }, { groupId: 'weekly' }])('preserva o tipo de encontros vinculados existentes: %j', previous => {
+  const snapshot = data(); snapshot.reservations = [{ ...reservation, ...previous } as Reservation]
+  expect(check('reservations', { ...reservation, activityKind: 'SingleLesson', customerId: 'customer', teacherId: 'teacher' }, snapshot)).toMatch(/tipo deste encontro/)
+})

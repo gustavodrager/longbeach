@@ -49,8 +49,27 @@ it('início conserva compromisso, resposta, comanda e valores do próprio client
 it('falha no início mantém alerta e tentativa sem indicar agenda ou saldo vazios',async()=>{
  vi.spyOn(globalThis,'fetch').mockResolvedValue(json({message:'Falha temporária'},503));mount(<PortalHome/>)
  expect(await screen.findAllByRole('alert')).toHaveLength(3)
- expect(screen.queryByText('Nenhum compromisso agendado')).not.toBeInTheDocument();expect(screen.queryByText('Nenhum valor disponível para pagar.')).not.toBeInTheDocument();expect(screen.queryByText('Nenhuma solicitação pendente.')).not.toBeInTheDocument()
+ expect(screen.queryByText('Nenhum compromisso nos próximos 60 dias.')).not.toBeInTheDocument();expect(screen.queryByText('Nenhum valor disponível para pagar.')).not.toBeInTheDocument();expect(screen.queryByText('Nenhuma solicitação pendente.')).not.toBeInTheDocument()
  expect(screen.getAllByRole('button',{name:'Tentar novamente'})).toHaveLength(3)
+})
+it('cliente do bar sem aulas ou reservas mantém comanda e ajuda discreta sem alerta cadastral',async()=>{
+ const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
+  const url=String(input)
+  if(url.endsWith('/profile'))return json(profile)
+  if(url.endsWith('/billing/accounts'))return json([{id:'bar-only',kind:'Bar',state:'Open',payable:0,pending:0}])
+  return json([])
+ })
+ mount(<PortalHome/>)
+ expect(await screen.findByRole('link',{name:'Ver comanda'})).toHaveAttribute('href','/minha-area/bar')
+ expect(screen.getByText('Nenhum compromisso nos próximos 60 dias.')).toBeVisible()
+ expect(screen.queryByText('Cadastro sem vínculos')).not.toBeInTheDocument()
+ expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+ const help=screen.getByText('Não encontrou uma aula ou reserva?',{selector:'summary'})
+ expect(help.closest('details')).not.toHaveAttribute('open')
+ expect(screen.getByRole('link',{name:'Falar com a equipe',hidden:true})).not.toBeVisible()
+ fireEvent.click(help)
+ expect(screen.getByRole('link',{name:'Falar com a equipe'})).toHaveAttribute('href','/minha-area/ajuda')
+ expect(fetch.mock.calls.every(([url,init])=>String(url).startsWith('/api/v1/me/')&&!init?.method)).toBe(true)
 })
 it('falha de consulta não vira agenda vazia',async()=>{
  vi.spyOn(globalThis,'fetch').mockResolvedValue(json({message:'Falha temporária'},503));mount(<PortalAgenda/>);expect(await screen.findAllByRole('alert')).not.toHaveLength(0);expect(screen.queryByText('Nenhum compromisso nos próximos 60 dias')).not.toBeInTheDocument()
@@ -73,7 +92,8 @@ it('preferência de lembrete é salva sem mudar e-mail ou identidade',async()=>{
 it('cadastro próprio novo pede telefone e não associa aluno ou responsável por contato',async()=>{
  const writes:Record<string,unknown>[]=[];vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{if(init?.method==='PUT'){const body=JSON.parse(String(init.body));writes.push(body);return json(String(input).endsWith('/customer')?{...ownCustomer,name:body.name,phone:body.phone,version:1}:profile)}return json(String(input).endsWith('/customer')?null:profile)})
  mount(<PortalProfile/>);const phone=await screen.findByLabelText('Telefone com DDD');expect(phone).toBeRequired();fireEvent.change(phone,{target:{value:''}});fireEvent.click(screen.getByRole('button',{name:'Salvar perfil'}));expect(writes).toHaveLength(0)
- fireEvent.change(phone,{target:{value:'11999998888'}});fireEvent.click(screen.getByRole('button',{name:'Salvar perfil'}));await screen.findByText('Perfil atualizado.');expect(writes[0]).toEqual({operationId:expect.any(String),name:profile.name,phone:'11999998888'});expect(screen.getByText(/não substitui o cadastro de um aluno dependente/)).toBeInTheDocument()
+ fireEvent.change(phone,{target:{value:'11999998888'}});fireEvent.click(screen.getByRole('button',{name:'Salvar perfil'}));await screen.findByText('Perfil atualizado.');expect(writes[0]).toEqual({operationId:expect.any(String),name:profile.name,phone:'11999998888'});expect(screen.queryByText(/não substitui o cadastro de um aluno dependente/)).not.toBeInTheDocument()
+ const activities=screen.getByText('Atividades vinculadas',{selector:'summary'});expect(activities.closest('details')).not.toHaveAttribute('open');expect(screen.getByText('Nenhuma aula ou reserva vinculada.')).not.toBeVisible();fireEvent.click(activities);expect(screen.getByText('Nenhuma aula ou reserva vinculada.')).toBeVisible();expect(screen.getByRole('link',{name:'Solicitar correção de cadastro'})).toHaveAttribute('href','/minha-area/ajuda')
 })
 it('perfil legado incompleto mantém telefone vazio e permite preferência',async()=>{
  const old={...ownCustomer,phone:'',incomplete:true};const writes:Record<string,unknown>[]=[];vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{if(init?.method==='PUT')writes.push(JSON.parse(String(init.body)));return json(String(input).endsWith('/customer')?old:profile)})
@@ -157,6 +177,18 @@ it('agenda mantém quadra, professor, situação e opções do compromisso e ava
  await screen.findByText('Obrigado por avaliar sua visita.')
  expect(writes).toEqual([{appointmentKey:'own-past',score:5}])
  expect(fetch.mock.calls.every(([url])=>String(url).startsWith('/api/v1/me/portal/'))).toBe(true)
+})
+
+it.each([['SingleLesson','Aula avulsa'],['Trial','Aula experimental']] as const)('agenda identifica %s sem mudar o pedido de remarcação ou oferecer novo cadastro público',async(activityKind,activityLabel)=>{
+ const appointment={key:'Reservation:single-own',sourceId:'single-own',kind:'Reserva',activityKind,title:'Atendimento da cliente',date:'2026-10-10',startTime:'18:00',endTime:'19:00',court:'Quadra 1',teacher:'',status:'Confirmada',instructions:'',canChange:true,canRate:false}
+ const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async input=>json(String(input).endsWith('/agenda')?[appointment]:[]))
+ mount(<PortalAgenda/>,'/minha-area/agenda?atividade=Reservation%3Asingle-own')
+ expect(await screen.findByRole('heading',{name:appointment.title})).toBeVisible()
+ expect(screen.getByText(activityLabel,{selector:'.portal-card-top span'})).toBeVisible()
+ expect(screen.getByRole('link',{name:'Solicitar remarcação'})).toHaveAttribute('href','/minha-area/solicitar?tipo=Reschedule&atividade=Reservation%3Asingle-own')
+ expect(screen.getByRole('link',{name:'Solicitar cancelamento'})).toHaveAttribute('href','/minha-area/solicitar?tipo=Cancellation&atividade=Reservation%3Asingle-own')
+ expect(screen.queryByRole('link',{name:'Solicitar aula avulsa'})).not.toBeInTheDocument()
+ expect(fetch.mock.calls.every(([url,init])=>String(url).startsWith('/api/v1/me/portal/')&&!init?.method)).toBe(true)
 })
 
 it('falha ao atualizar solicitações não apresenta a seleção vazia anterior como confirmada', async () => {

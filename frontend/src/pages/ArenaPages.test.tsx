@@ -771,3 +771,105 @@ it('presenças mantêm data, aluno e situação anunciada nos botões', () => {
   expect(screen.getByRole('button', { name: 'Presente', pressed: true })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Ausente', pressed: false })).toBeInTheDocument()
 })
+
+const singleTeacher = { id: 'teacher-single', name: 'Professora ativa', status: 'Ativo' }
+const singleCustomer = { id: 'customer-single', name: 'Cliente de aula avulsa', phoneHint: '•••• 7777', incomplete: false }
+function singleLessonApi(records: unknown[] = []) {
+  return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+    const path = new URL(String(input), 'https://test.invalid').pathname
+    if (init?.method === 'PUT' && path.includes('/reservations/')) return json({ ...JSON.parse(String(init.body)), version: 2 })
+    if (path.endsWith('/customers/lookup')) return json([singleCustomer])
+    if (path.endsWith('/courts')) return json([court])
+    if (path.endsWith('/team')) return json([singleTeacher, { id: 'teacher-inactive', name: 'Professor inativo', status: 'Inativo' }])
+    if (path.endsWith('/reservations')) return json(records)
+    return json([])
+  })
+}
+it('cria aula avulsa só após escolher cliente e professor ativo, sem criar matrícula', async () => {
+  vi.stubEnv('VITE_DEMO_MODE', 'false'); const fetchMock = singleLessonApi(); start(`/agenda/novo?date=${today()}`, false)
+  const user = userEvent.setup(); await user.type(screen.getByLabelText('Nome da reserva'), 'Aula avulsa de teste'); await user.selectOptions(screen.getByLabelText('Tipo'), 'SingleLesson')
+  const teacher = await screen.findByLabelText('Professor'); await waitFor(() => expect(within(teacher).getByRole('option', { name: 'Professora ativa' })).toBeInTheDocument())
+  expect(within(teacher).queryByRole('option', { name: 'Professor inativo' })).not.toBeInTheDocument(); await user.selectOptions(teacher, singleTeacher.id)
+  await user.click(screen.getByRole('button', { name: 'Salvar reserva' })); expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false)
+  await user.type(screen.getByRole('searchbox'), 'Cliente'); await user.click(await screen.findByRole('button', { name: /Cliente de aula avulsa.*7777/ })); await user.click(screen.getByRole('button', { name: 'Salvar reserva' }))
+  await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true))
+  const write = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT')!
+  expect(JSON.parse(String(write[1]?.body))).toMatchObject({ activityKind: 'SingleLesson', teacherId: singleTeacher.id, customerId: singleCustomer.id, customerName: singleCustomer.name })
+  expect(fetchMock.mock.calls.filter(([, init]) => init?.method && init.method !== 'GET')).toHaveLength(1)
+  expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/enrollments/') || String(input).includes('/students/'))).toBe(false)
+})
+
+it.each([{ activityKind: 'Trial', teacherId: singleTeacher.id }, { teacherId: singleTeacher.id }, { rentalGroupId: 'monthly' }, { groupId: 'weekly' }])('não oferece converter encontro existente especial: %j', async patch => {
+  vi.stubEnv('VITE_DEMO_MODE', 'false'); singleLessonApi([{ ...fridayReservation, ...patch }]); start(`/agenda/${fridayReservation.id}?acao=editar`, false)
+  await screen.findByRole('dialog', { name: 'Editar reserva' }); expect(screen.queryByLabelText('Tipo')).not.toBeInTheDocument()
+})
+
+it('edição de aula avulsa preserva cliente e professor existentes sem buscar ou escolher outra pessoa', async () => {
+  vi.stubEnv('VITE_DEMO_MODE', 'false')
+  const record = { ...fridayReservation, activityKind: 'SingleLesson', teacherId: singleTeacher.id, customerId: singleCustomer.id, customerName: singleCustomer.name }
+  const fetchMock = singleLessonApi([record]); start(`/agenda/${record.id}?acao=editar`, false)
+  const user = userEvent.setup(); await screen.findByRole('dialog', { name: 'Editar reserva' }); await waitFor(() => expect(screen.getByLabelText('Professor')).toHaveValue(singleTeacher.id)); expect(screen.getByText(singleCustomer.name, { selector: 'strong' })).toBeInTheDocument()
+  await user.clear(screen.getByLabelText('Nome da reserva')); await user.type(screen.getByLabelText('Nome da reserva'), 'Nome ajustado'); await user.click(screen.getByRole('button', { name: 'Salvar reserva' }))
+  await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true)); const write = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT')!
+  expect(JSON.parse(String(write[1]?.body))).toMatchObject({ teacherId: singleTeacher.id, customerId: singleCustomer.id, activityKind: 'SingleLesson' })
+})
+
+it('cobranças da aula avulsa usam fonte da reserva sem esconder origens financeiras anteriores', async () => {
+  const record = { ...fridayReservation, activityKind: 'SingleLesson', teacherId: singleTeacher.id, customerId: singleCustomer.id }
+  const charges = ['Escola', 'Locações'].map((origin, index) => ({ id: `charge-${index}`, name: `Cobrança ${origin}`, direction: 'Receber', origin, amount: 100, dueDate: '2020-01-01', status: 'Pendente', paidDate: '', notes: '', sourceId: record.id, sourceKind: 'reservations' }))
+  localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({ courts: [court], reservations: [record], team: [singleTeacher], financeEntries: [...charges, { ...charges[0], id: 'other', name: 'Cobrança de outra reserva', sourceId: 'other' }] })); start(`/agenda/${record.id}`)
+  const link = screen.getByRole('link', { name: 'Ver cobranças da reserva →' }); expect(link).toHaveAttribute('href', `/financeiro?source=${record.id}&sourceKind=reservations&range=all`)
+  await userEvent.click(link); expect(screen.getByRole('link', { name: /Cobrança Escola/ })).toBeInTheDocument(); expect(screen.getByRole('link', { name: /Cobrança Locações/ })).toBeInTheDocument(); expect(screen.queryByRole('link', { name: /Cobrança de outra reserva/ })).not.toBeInTheDocument()
+})
+
+it.each(['day', 'list', 'week'] as const)('filtro Locações em %s separa aulas avulsas e experimentais sem liberar seus horários', async view => {
+  const single = { ...fridayReservation, id: 'single-lesson', name: 'Aula pontual', activityKind: 'SingleLesson', teacherId: singleTeacher.id, customerId: singleCustomer.id, startTime: '20:00', endTime: '21:00' }
+  const trial = { ...single, id: 'trial-lesson', name: 'Aula experimental pontual', activityKind: 'Trial', startTime: '21:00', endTime: '22:00' }
+  localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({ courts: [court], reservations: [fridayReservation, single, trial], team: [singleTeacher] })); start(`/agenda?view=${view}&date=${fridayReservation.date}&from=${fridayReservation.date}&to=${fridayReservation.date}&activity=locacao`)
+  const rental = await screen.findByRole('button', { name: /Locação de sexta/ }); expect(rental).not.toHaveClass('is-muted')
+  if (view === 'week') { expect(screen.getByRole('button', { name: /Aula avulsa.*Aula pontual/ })).toHaveClass('is-muted'); expect(screen.getByRole('button', { name: /Aula experimental.*Aula experimental pontual/ })).toHaveClass('is-muted'); await userEvent.click(screen.getByText('Resumo da semana')); expect(within(screen.getByRole('region', { name: 'Resumo da semana' })).getByText('2 · 2 h')).toBeInTheDocument() }
+  else { expect(screen.queryByRole('button', { name: /Aula pontual|Aula experimental pontual/ })).not.toBeInTheDocument() }
+})
+
+it('aula avulsa oculta professor sem permissão e preserva a identidade atual ao editar', async () => {
+  vi.stubEnv('VITE_DEMO_MODE', 'false')
+  const record = { ...fridayReservation, activityKind: 'SingleLesson', teacherId: singleTeacher.id, customerId: singleCustomer.id, customerName: singleCustomer.name }
+  const user: AuthUser = { ...owner, roles: ['Operations'], permissions: ['projects:read', 'projects:write'] }
+  const fetchMock = singleLessonApi([record]); start(`/agenda/${record.id}?acao=editar`, false, user)
+  await screen.findByRole('dialog', { name: 'Editar reserva' }); await screen.findByLabelText('Professor'); expect(screen.getByLabelText('Professor')).toBeDisabled(); expect(screen.getByLabelText('Professor')).toHaveValue(singleTeacher.id); expect(screen.queryByRole('option', { name: singleTeacher.name })).not.toBeInTheDocument(); expect(screen.queryByLabelText('Valor combinado (R$)')).not.toBeInTheDocument()
+  await userEvent.click(screen.getByRole('button', { name: 'Salvar reserva' })); await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(true)); expect(JSON.parse(String(fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT')![1]?.body))).toMatchObject({ teacherId: singleTeacher.id, customerId: singleCustomer.id })
+  expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith('/team'))).toBe(false)
+})
+
+it.each([
+  ['SingleLesson', 'Escola', 'Aula avulsa'], ['Trial', 'Locações', 'Locação'], [undefined, 'Locações', 'Locação'],
+] as const)('novo lançamento da fonte %s usa origem %s só no formulário, sem criar cobrança automática', async (activityKind, origin, prefix) => {
+  const record = { ...fridayReservation, activityKind, teacherId: singleTeacher.id, customerId: singleCustomer.id }
+  localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({ courts: [court], reservations: [record], team: [singleTeacher], financeEntries: [] })); start(`/financeiro/novo?source=${record.id}&sourceKind=reservations&range=all`)
+  expect(screen.getByLabelText('Origem')).toHaveValue(origin); expect(screen.getByLabelText('Descrição do lançamento')).toHaveValue(`${prefix} · ${record.name}`)
+  expect(JSON.parse(localStorage.getItem('longbeach-os-demo-v1')!).financeEntries).toHaveLength(0)
+  await userEvent.click(screen.getByRole('button', { name: 'Salvar lançamento' })); await screen.findByRole('heading', { name: `${prefix} · ${record.name}` })
+  expect(JSON.parse(localStorage.getItem('longbeach-os-demo-v1')!).financeEntries[0]).toMatchObject({ sourceId: record.id, sourceKind: 'reservations', origin })
+})
+
+it('editar cobrança anterior de aula avulsa mantém origem Locações e não reclassifica o histórico', async () => {
+  const record = { ...fridayReservation, activityKind: 'SingleLesson', teacherId: singleTeacher.id, customerId: singleCustomer.id }
+  const entry = { id: 'prior-single-charge', name: 'Descrição anterior', direction: 'Receber', origin: 'Locações', amount: 100, dueDate: '2020-01-01', status: 'Pendente', paidDate: '', notes: '', sourceId: record.id, sourceKind: 'reservations' }
+  localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({ courts: [court], reservations: [record], financeEntries: [entry] })); start(`/financeiro/${entry.id}?acao=editar&source=${record.id}&sourceKind=reservations`)
+  expect(screen.getByLabelText('Origem')).toHaveValue('Locações'); const user = userEvent.setup(); await user.clear(screen.getByLabelText('Descrição do lançamento')); await user.type(screen.getByLabelText('Descrição do lançamento'), 'Descrição ajustada'); await user.click(screen.getByRole('button', { name: 'Salvar lançamento' })); await screen.findByRole('heading', { name: 'Descrição ajustada' })
+  expect(JSON.parse(localStorage.getItem('longbeach-os-demo-v1')!).financeEntries[0]).toMatchObject({ id: entry.id, origin: 'Locações', sourceId: record.id, sourceKind: 'reservations' })
+})
+
+it.each([false, true])('fonte de aula avulsa carregada depois respeita edição da origem: %s', async changed => {
+  vi.stubEnv('VITE_DEMO_MODE', 'false')
+  let finish: ((response: Response) => void) | undefined
+  const record = { ...fridayReservation, activityKind: 'SingleLesson', teacherId: singleTeacher.id, customerId: singleCustomer.id }
+  const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async input => String(input).endsWith('/reservations') ? new Promise<Response>(resolve => { finish = resolve }) : json([]))
+  start(`/financeiro/novo?source=${record.id}&sourceKind=reservations`, false)
+  const user = userEvent.setup(); await waitFor(() => expect(finish).toBeDefined())
+  if (changed) { await user.selectOptions(screen.getByLabelText('Origem'), 'Bar'); await user.type(screen.getByLabelText('Descrição do lançamento'), 'Descrição escolhida') }
+  await act(async () => { finish!(json([record])) })
+  await waitFor(() => expect(screen.getByLabelText('Valor (R$)')).toHaveValue(record.amount))
+  expect(screen.getByLabelText('Origem')).toHaveValue(changed ? 'Bar' : 'Escola'); expect(screen.getByLabelText('Descrição do lançamento')).toHaveValue(changed ? 'Descrição escolhida' : `Aula avulsa · ${record.name}`)
+  expect(fetchMock.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true)
+})

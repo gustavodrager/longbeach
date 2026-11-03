@@ -2,17 +2,18 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Disclosure, EditorPanel, ContextLink, SectionTabs, useContextSearchParams, useUnsavedChanges } from '../../components/managementUi'
 import { Breadcrumb, DetailList, Field, Group, Heading, Status, useFilters } from '../../pages/arenaUi'
-import { hasPermission } from '../auth/access'
+import { hasPermission, isManagement } from '../auth/access'
 import { useAuth } from '../auth/authContext'
 import { createCustomer, customerPhone, updateCustomer, useCustomer, useCustomerCommand, useCustomers, validCustomerPhone, type Customer, type CustomerCreate, type CustomerProfile } from './api'
 import { useConfirmationGate } from '../attendance/Core'
 import { readCustomerCreation, rememberCustomerCreation } from './confirmation'
 import { CustomerReconciliation } from './CustomerReconciliation'
-import { CustomerLinks } from './CustomerLinks'
+import { CustomerAccessControls, CustomerLinks } from './CustomerLinks'
 import './customers.css'
 import '../../pages/registration-clean.css'
 
-const profiles: CustomerProfile[] = ['Aluno', 'Mensalista', 'Bar']
+const profiles: CustomerProfile[] = ['Aluno', 'Mensalista', 'Avulso', 'Bar', 'SomenteBar']
+const profileLabels: Record<CustomerProfile, string> = { Aluno: 'Aluno', Mensalista: 'Mensalista', Avulso: 'Avulso', Bar: 'Bar', SomenteBar: 'Somente bar' }
 const originLabels: Record<string, string> = { students: 'Escola', projects: 'Mensalistas', rentalmembers: 'Mensalistas', rentalgroups: 'Mensalistas', bar: 'Bar', bartabs: 'Bar', barsales: 'Bar', reservations: 'Reservas', users: 'Área do cliente', google: 'Área do cliente', directory: 'Cadastro da equipe', manual: 'Cadastro da equipe' }
 const originLabel = (value: string) => originLabels[value.toLowerCase()] ?? 'Cadastro anterior'
 export function CustomersPage() {
@@ -29,7 +30,7 @@ export function CustomersPage() {
     <div className="customer-directory-tools">
       <Field label="Buscar cliente" value={filters.query} onChange={value => filters.set('q', value)} placeholder="Nome ou telefone" />
       <Disclosure title="Filtros" count={secondaryFilterCount}><div className="customer-directory-filters">
-        <Field label="Vínculo" value={profile} onChange={value => filters.set('profile', value)} options={[{ value: '', label: 'Todos os clientes' }, ...profiles]} />
+        <Field label="Atividade" value={profile} onChange={value => filters.set('profile', value)} options={[{ value: '', label: 'Todos os clientes' }, ...profiles.map(value => ({ value, label: profileLabels[value] }))]} />
         <Field label="Situação" value={filters.status} onChange={value => filters.set('status', value)} options={[{ value: '', label: 'Todas' }, 'Ativo', 'Inativo']} />
         <Field label="Telefone" value={filters.params.get('incomplete') ?? ''} onChange={value => filters.set('incomplete', value)} options={[{ value: '', label: 'Todos' }, { value: 'true', label: 'Pendente' }, { value: 'false', label: 'Informado' }]} />
       </div></Disclosure>
@@ -45,7 +46,7 @@ export function CustomersPage() {
       {!query.data.items.length && <p>Nenhum cliente nesta seleção. Confira os filtros antes de cadastrar.</p>}
       {query.data.total > query.data.pageSize && <nav className="arena-pagination" aria-label="Páginas dos clientes"><button type="button" className="secondary-link" disabled={page <= 1 || query.isFetching} onClick={() => filters.set('page', String(page - 1))}>Anterior</button><span>{query.data.page} de {Math.max(1, Math.ceil(query.data.total / query.data.pageSize))}</span><button type="button" className="secondary-link" disabled={page * query.data.pageSize >= query.data.total || query.isFetching} onClick={() => filters.set('page', String(page + 1))}>Próxima</button></nav>}
     </>}
-    <CustomerReconciliation />
+    <CustomerAdministration />
   </main>
 }
 
@@ -83,11 +84,19 @@ function CustomerDetails({ id }: { id: string }) {
     </EditorPanel>}
     {customer && !query.isError && <>
       {customer.incomplete && !showForm && <p className="arena-message" role="status">Cadastro antigo com telefone pendente. Os vínculos existentes continuam válidos.</p>}
-      <SectionTabs items={[{ value: 'cadastro', label: 'Cadastro' }, { value: 'vinculos', label: 'Vínculos e acesso' }]} value={section} onChange={setSection} />
-      {section === 'cadastro' ? <section className="operation-card"><h2>Contato e situação</h2><DetailList items={[["Telefone", customer.phone || 'Pendente de preenchimento'], ["E-mail de contato", customer.email], ["Situação", customer.status], ["Origem do cadastro", originLabel(customer.origin)]]} /><Disclosure title="Sobre o cadastro"><p>A origem não cria vínculos de aluno, mensalista ou Bar. O e-mail de contato não altera o usuário nem o Google vinculados ao acesso.</p></Disclosure></section> : <section className="operation-card"><h2>Vínculos e acesso</h2><p>{customer.profiles.length ? customer.profiles.join(' · ') : 'Nenhum vínculo de aluno, mensalista ou Bar informado.'}</p><p>{customer.userId ? 'Conta de acesso vinculada.' : 'Sem conta de acesso vinculada.'} Selecionar este cadastro não libera agenda ou pagamentos.</p><p className="arena-hint">O responsável financeiro pode ser outra pessoa. Unificar cadastros não altera contas, valores ou permissões.</p><CustomerLinks customer={customer} refresh={() => { void query.refetch() }} /></section>}
+      <SectionTabs items={[{ value: 'cadastro', label: 'Cadastro' }, { value: 'atividades', label: 'Atividades' }]} value={section} onChange={setSection} />
+      <section className="operation-card" hidden={section !== 'cadastro'}><h2>Contato</h2><DetailList items={[["Telefone", customer.phone || 'Pendente'], ["E-mail", customer.email], ["Situação", customer.status]]} /><Disclosure title="Origem do cadastro"><p>{originLabel(customer.origin)}</p></Disclosure></section>
+      <section className="operation-card" hidden={section !== 'atividades'}><h2>Atividades</h2>{customer.profiles.length > 0 && <div className="customer-tags">{customer.profiles.map(profile => <span className="status-pill" key={profile}>{profile}</span>)}</div>}<CustomerLinks customer={customer} enabled={section === 'atividades'} /></section>
+      <CustomerAccessControls customer={customer} refresh={() => { void query.refetch() }} />
     </>}
-    {customer && !editing && !query.isError && <CustomerReconciliation customer={customer} />}
+    {customer && <div hidden={editing || query.isError}><CustomerAdministration customer={customer} /></div>}
   </main>
+}
+
+function CustomerAdministration({ customer }: { customer?: Customer }) {
+  const { user } = useAuth()
+  if (!isManagement(user) || !hasPermission(user, 'customers:merge')) return null
+  return <Disclosure title="Opções administrativas"><CustomerReconciliation customer={customer} /></Disclosure>
 }
 
 type CustomerFormProps = { customer?: Customer; busyChanged: (value: boolean) => void; cancel: () => void; saved: (customer: Customer) => void; refresh: () => Promise<Customer | undefined> }
@@ -129,7 +138,8 @@ function CustomerForm({ customer, busyChanged, cancel, saved, refresh }: Custome
   }
   return <form className="customer-editor operation-form" onSubmit={event => void submit(event)}>
     <fieldset disabled={command.busy}>
-      <Group title="Identificação"><label className="operation-field">Nome<input maxLength={240} disabled={Boolean(pending) || invalidPending} required value={name} onChange={event => setName(event.target.value)} /></label><Field label="Telefone com DDD" type="tel" disabled={Boolean(pending) || invalidPending} required={!customer || Boolean(customer.phone)} value={phone} onChange={setPhone} /><Field label="E-mail de contato (opcional)" type="email" disabled={Boolean(pending) || invalidPending} value={email} onChange={setEmail} />{customer && <Field label="Situação do cliente" value={status} onChange={value => setStatus(value as Customer['status'])} options={['Ativo', 'Inativo']} />}</Group>
+      <Group title="Identificação"><label className="operation-field">Nome<input maxLength={240} disabled={Boolean(pending) || invalidPending} required value={name} onChange={event => setName(event.target.value)} /></label><Field label="Telefone com DDD" type="tel" disabled={Boolean(pending) || invalidPending} required={!customer || Boolean(customer.phone)} value={phone} onChange={setPhone} />{customer && <Field label="Situação do cliente" value={status} onChange={value => setStatus(value as Customer['status'])} options={['Ativo', 'Inativo']} />}</Group>
+      <Disclosure title="Mais dados" open={Boolean(email)}><Field label="E-mail de contato (opcional)" type="email" disabled={Boolean(pending) || invalidPending} value={email} onChange={setEmail} /></Disclosure>
       {pending && <p role="status">Há uma criação pendente de confirmação. Os dados e a mesma operação serão recuperados antes de iniciar outro cadastro.</p>}{invalidPending && <p role="alert">A confirmação anterior não pôde ser lida. Peça à gestão para conferir antes de criar outra pessoa.</p>}
       {customer?.incomplete && <p className="arena-hint" role="status">Cadastro antigo com telefone pendente. Você pode manter o contato atual; os vínculos existentes continuam válidos.</p>}
       {validation && <p role="alert">{validation}</p>}{command.error && <p role="alert">{command.error}</p>}

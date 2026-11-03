@@ -6,6 +6,7 @@ import { AuthContext, type AuthContextValue } from '../features/auth/authContext
 import { DemoDataProvider } from '../features/operations/DemoDataProvider'
 import { SchoolAgendaPage } from './SchoolAgendaPage'
 import { ClassDetailsPage, SchoolPage } from './ArenaPages'
+import type { Reservation } from '../features/arena/types'
 
 const date = '2026-11-04'
 const court = { id: 'school-court', name: 'Quadra 1', sport: 'Futevôlei', status: 'Disponível', openingTime: '16:00', closingTime: '22:00', scheduleConfirmed: true }
@@ -15,26 +16,27 @@ const clients: QueryClient[] = []
 const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
 function RouteState() { const location = useLocation(); return <><output data-testid="school-route">{location.pathname}{location.search}</output><output data-testid="school-state">{JSON.stringify(location.state)}</output></> }
 function currentUrl() { return new URL(screen.getByTestId('school-route').textContent!, 'https://test.invalid') }
-function daySchedule(day: string) {
+function daySchedule(day: string, extra: Reservation[] = []) {
+  const additional = extra.filter(row => row.date === day && row.status !== 'Cancelada')
   const occupied = day === date
-  return { date: day, courts: [{ courtId: court.id, openingTime: '16:00', closingTime: '22:00', schedulePending: false, closedForDay: false, closedForMaintenance: false, hasConflict: false, availableMinutes: occupied ? 240 : 360, occupiedMinutes: occupied ? 120 : 0, reservedMinutes: occupied ? 60 : 0, classMinutes: occupied ? 60 : 0,
-    blocks: occupied ? [{ source: 'Aula', sourceId: lesson.id, startTime: '18:00', endTime: '19:00' }, { source: 'Reserva', sourceId: reservation.id, startTime: '19:00', endTime: '20:00' }] : [],
+  return { date: day, courts: [{ courtId: court.id, openingTime: '16:00', closingTime: '22:00', schedulePending: false, closedForDay: false, closedForMaintenance: false, hasConflict: false, availableMinutes: (occupied ? 240 : 360) - additional.length * 60, occupiedMinutes: (occupied ? 120 : 0) + additional.length * 60, reservedMinutes: occupied ? 60 : 0, classMinutes: (occupied ? 60 : 0) + additional.length * 60,
+    blocks: [...(occupied ? [{ source: 'Aula', sourceId: lesson.id, startTime: '18:00', endTime: '19:00' }, { source: 'Reserva', sourceId: reservation.id, startTime: '19:00', endTime: '20:00' }] : []), ...additional.map(row => ({ source: row.activityKind === 'SingleLesson' ? 'Aula avulsa' : 'Aula experimental', sourceId: row.id, startTime: row.startTime, endTime: row.endTime }))],
     freeIntervals: occupied ? [{ startTime: '16:00', endTime: '18:00' }, { startTime: '20:00', endTime: '22:00' }] : [{ startTime: '16:00', endTime: '22:00' }],
   }] }
 }
-function mockApi() {
+function mockApi(extra: Reservation[] = []) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     if (init?.method && init.method !== 'GET') throw new Error('A agenda de aulas não pode gravar dados durante a consulta.')
     const url = new URL(String(input), 'https://test.invalid')
     if (url.pathname.endsWith('/courts/schedule-range')) {
       const from = url.searchParams.get('from')!, to = url.searchParams.get('to')!
       const count = (Date.parse(to + 'T12:00:00Z') - Date.parse(from + 'T12:00:00Z')) / 86_400_000 + 1
-      return json({ from, to, days: Array.from({ length: count }, (_, index) => daySchedule(new Date(Date.parse(from + 'T12:00:00Z') + index * 86_400_000).toISOString().slice(0, 10))) })
+      return json({ from, to, days: Array.from({ length: count }, (_, index) => daySchedule(new Date(Date.parse(from + 'T12:00:00Z') + index * 86_400_000).toISOString().slice(0, 10), extra)) })
     }
-    if (url.pathname.endsWith('/courts/schedule')) return json(daySchedule(url.searchParams.get('date')!))
+    if (url.pathname.endsWith('/courts/schedule')) return json(daySchedule(url.searchParams.get('date')!, extra))
     if (url.pathname.endsWith('/courts')) return json([court])
     if (url.pathname.endsWith('/classes')) return json([lesson])
-    if (url.pathname.endsWith('/reservations')) return json([reservation])
+    if (url.pathname.endsWith('/reservations')) return json([reservation, ...extra])
     if (url.pathname.endsWith('/team')) return json([{ id: 'school-teacher', name: 'Professor de teste', status: 'Ativo' }])
     return json([])
   })
@@ -120,4 +122,14 @@ it('Ver turma conserva o retorno completo e o rótulo Aulas ao voltar da ficha',
   await user.click(back)
   await waitFor(() => expect(screen.getByTestId('school-route')).toHaveTextContent(initial))
   expectReadOnly(fetchMock)
+})
+
+it.each(['day', 'list', 'week'] as const)('Aulas em %s inclui aula avulsa e experimental no dia correto, com professor e cliente preservados', async view => {
+  const single: Reservation = { ...reservation, id: 'single-lesson', activityKind: 'SingleLesson', teacherId: 'school-teacher', customerId: 'single-customer', customerName: 'Cliente da aula avulsa', name: 'Encontro avulso de teste', startTime: '20:00', endTime: '21:00', status: 'Confirmada' }
+  const trial: Reservation = { ...single, id: 'trial-lesson', activityKind: 'Trial', name: 'Experimental de teste', startTime: '21:00', endTime: '22:00' }
+  const fetchMock = mockApi([single, trial]); start(`/escola/agenda?view=${view}&date=${date}&from=${date}&to=${date}`)
+  const button = await screen.findByRole('button', { name: /Encontro avulso de teste/ }); expect(button).not.toHaveClass('is-muted')
+  expect(await screen.findByRole('button', { name: /Experimental de teste/ })).not.toHaveClass('is-muted')
+  if (view !== 'week') { expect(screen.queryByRole('button', { name: /Locação fora de Aulas/ })).not.toBeInTheDocument(); expect(screen.getByText('3 aulas', { exact: true })).toBeInTheDocument() }
+  await userEvent.click(button); const panel = within(screen.getByRole('dialog', { name: single.name })); expect(panel.getByText('Aula avulsa', { exact: true })).toBeInTheDocument(); expect(panel.getByText('Professor de teste')).toBeInTheDocument(); expect(panel.getByText(single.customerName)).toBeInTheDocument(); expect(panel.queryByRole('link', { name: 'Ver turma' })).not.toBeInTheDocument(); expect(panel.getByRole('link', { name: 'Ver reserva' })).toHaveAttribute('href', expect.stringContaining(`/agenda/${single.id}`)); expectReadOnly(fetchMock)
 })

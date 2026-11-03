@@ -131,18 +131,15 @@ public sealed partial class CustomerService(LongBeachDbContext db, TimeProvider 
         for (var i = 0; i < roots.Count; i++) { var added = false; foreach (var row in roots) if (row.MergedIntoId is Guid parent && ids.Contains(parent)) added |= ids.Add(row.Id); if (!added) break; }
         return ids;
     }
-    private async Task<CustomerDto> Dto(Customer value, CancellationToken ct)
-    {
-        var ids = await Family(value.Id, ct);
-        var kinds = await db.Set<CustomerSourceLink>().AsNoTracking().Where(x => x.CustomerId != null && ids.Contains(x.CustomerId.Value)).Select(x => x.Kind).Distinct().ToListAsync(ct);
-        kinds.AddRange(db.Set<CustomerSourceLink>().Local.Where(x => x.CustomerId != null && ids.Contains(x.CustomerId.Value)).Select(x => x.Kind));
-        return new(value.Id, value.Name, value.Phone, value.Email, value.Status, value.Version, value.Origin, value.Incomplete, value.UserId, kinds.Select(Profile).Where(x => x is not null).Select(x => x!).Distinct().Order().ToArray(), value.MergedIntoId);
-    }
+    private async Task<CustomerDto> Dto(Customer value, CancellationToken ct) => Dto(value, await Profiles(ct, value.Id));
+    private static CustomerDto Dto(Customer value, CustomerProfileIndex profiles) =>
+        new(value.Id, value.Name, value.Phone, value.Email, value.Status, value.Version, value.Origin, value.Incomplete, value.UserId,
+            profiles.Labels.TryGetValue(value.Id, out var found) ? found.Order().ToArray() : [], value.MergedIntoId);
     public async Task<CustomerDto> Get(Guid id, CancellationToken ct) => await Dto(await Canonical(id, ct) ?? throw new CustomerRuleException("Cliente não encontrado.", 404), ct);
     public async Task<CustomerPage> List(string? search, string? profile, bool? incomplete, string? status, int page, int pageSize, CancellationToken ct)
     {
         Require(page >= 1 && page <= 1_000_000 && pageSize is >= 1 and <= 100, "Confira a página solicitada.");
-        Require(string.IsNullOrEmpty(profile) || profile is "Aluno" or "Mensalista" or "Bar", "Perfil de cliente inválido.");
+        Require(string.IsNullOrEmpty(profile) || profile is "Aluno" or "Mensalista" or "Avulso" or "Bar" or "SomenteBar", "Perfil de cliente inválido.");
         Require(string.IsNullOrEmpty(status) || status is "Ativo" or "Inativo", "Situação do cliente inválida.");
         var query = db.Set<Customer>().AsNoTracking().Where(x => x.MergedIntoId == null);
         if (!string.IsNullOrWhiteSpace(search))
@@ -165,22 +162,16 @@ public sealed partial class CustomerService(LongBeachDbContext db, TimeProvider 
         }
         if (incomplete is not null) query = query.Where(x => x.Incomplete == incomplete);
         if (!string.IsNullOrEmpty(status)) query = query.Where(x => x.Status == status);
+        var profiles = await Profiles(ct);
         if (!string.IsNullOrEmpty(profile))
         {
-            var all = await db.Set<Customer>().AsNoTracking().Select(x => new { x.Id, x.MergedIntoId }).ToDictionaryAsync(x => x.Id, ct);
-            var links = await db.Set<CustomerSourceLink>().AsNoTracking().Where(x => x.CustomerId != null).Select(x => new { x.CustomerId, x.Kind }).ToListAsync(ct);
-            var ids = new HashSet<Guid>();
-            foreach (var link in links.Where(x => Profile(x.Kind) == profile))
-            {
-                var id = link.CustomerId!.Value; var seen = new HashSet<Guid>();
-                while (all.TryGetValue(id, out var row) && row.MergedIntoId is Guid next && seen.Add(id)) id = next;
-                ids.Add(id);
-            }
+            var ids = profiles.Labels.Where(row => profile == "SomenteBar" ? row.Value.Contains("Bar") && !profiles.SportsCustomers.Contains(row.Key) : row.Value.Contains(profile))
+                .Select(row => row.Key).ToArray();
             query = query.Where(x => ids.Contains(x.Id));
         }
         var total = await query.CountAsync(ct);
         var rows = await query.OrderBy(x => x.Name).ThenBy(x => x.Id).Skip((page - 1) * pageSize).Take(pageSize).ToArrayAsync(ct);
-        var items = new List<CustomerDto>(); foreach (var row in rows) items.Add(await Dto(row, ct));
+        var items = rows.Select(row => Dto(row, profiles)).ToArray();
         return new(items, total, page, pageSize);
     }
     public async Task<IReadOnlyList<CustomerLookup>> Lookup(string? search, CancellationToken ct)

@@ -70,6 +70,9 @@ public static class OperationalEndpoints
             if (!Allowed(http, kind, true, publicDemo)) return Denied(http);
             if (body.ValueKind != JsonValueKind.Object || System.Text.Encoding.UTF8.GetByteCount(body.GetRawText()) > 32_768)
                 return Results.BadRequest(new { message = "O registro deve ser um objeto de até 32 KB." });
+            if (kind == "reservations" && OperationalValidation.Text(body, "activityKind") == "SingleLesson" &&
+                (!Guid.TryParse(OperationalValidation.Text(body, "customerId"), out var lessonCustomerId) || lessonCustomerId == Guid.Empty))
+                return Results.BadRequest(new { message = "Escolha um cliente cadastrado para a aula avulsa." });
 
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
             // Serialize arena writes across replicas: shared capacity and duplicate enrollment
@@ -117,6 +120,20 @@ public static class OperationalEndpoints
             {
                 var metadataError = RecurringReservationBatch.ValidateMetadata(incoming, record?.Payload) ?? RentalGroupRules.ReservationMetadata(incoming, record?.Payload);
                 if (metadataError is not null) return Results.BadRequest(new { message = metadataError });
+                if (record is not null)
+                {
+                    var saved = ParsePayload(record.Payload);
+                    var originalActivity = OperationalValidation.Text(saved, "activityKind");
+                    var originalTeacher = OperationalValidation.Text(saved, "teacherId");
+                    var schoolOrigin = originalActivity == "Trial" || originalActivity != "SingleLesson" && !string.IsNullOrEmpty(originalTeacher) ||
+                        records.Where(row => row.Kind == "portalRequests").Select(row => ParsePayload(row.Payload)).Where(request => request.ValueKind == JsonValueKind.Object).Any(request =>
+                            OperationalValidation.Text(request, "reservationId") == id.ToString() &&
+                            (OperationalValidation.Text(request, "kind") == "Trial" || OperationalValidation.Text(request, "kind") == "Reschedule" &&
+                             OperationalValidation.Text(request, "appointmentKey").StartsWith("class:", StringComparison.Ordinal)));
+                    if (schoolOrigin && ((incoming["activityKind"]?.ToString() ?? "") != originalActivity ||
+                        !string.IsNullOrEmpty(originalTeacher) && string.IsNullOrEmpty(incoming["teacherId"]?.ToString())))
+                        return Results.BadRequest(new { message = "Preserve o tipo e o professor da aula experimental ou remarcada ao editar." });
+                }
             }
             if (kind == "financeEntries" && record is not null)
             {

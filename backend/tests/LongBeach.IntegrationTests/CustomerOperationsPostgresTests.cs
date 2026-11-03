@@ -109,7 +109,7 @@ public sealed class CustomerOperationsPostgresTests
         Assert.Equal(snapshot, (await db.OperationalRecords.AsNoTracking().SingleAsync(x => x.Id == monthId)).Payload);
         Assert.Empty(await db.OperationalRecords.Where(x => x.Kind == "financeEntries").ToListAsync());
         Assert.Empty(await db.Set<LongBeach.Domain.Billing.BillingAccount>().ToListAsync());
-        Assert.Equal(new[] { "Aluno", "Mensalista" }, (await registry.Get(customer.Id, default)).Profiles);
+        Assert.Equal(new[] { "Aluno", "Avulso", "Mensalista" }, (await registry.Get(customer.Id, default)).Profiles);
     }
 
     [PostgresFact]

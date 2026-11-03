@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { AuthContext, type AuthContextValue } from '../auth/authContext'
 import type { AuthUser } from '../auth/types'
-import { CustomerLinks } from './CustomerLinks'
+import { CustomerAccessControls, CustomerLinks } from './CustomerLinks'
 import type { Customer } from './api'
 
 const actor: AuthUser = { id: 'operator-fixture', name: 'Operação fictícia', email: 'operator@example.invalid', roles: ['Operations'], permissions: ['customers:read', 'customers:write', 'students:read'] }
@@ -14,7 +14,7 @@ function json(body: unknown, status = 200) { return new Response(JSON.stringify(
 function mount(user = actor, refresh = vi.fn()) {
   const auth: AuthContextValue = { user, isBootstrapping: false, signIn: async () => {}, signInWithGoogle: async () => {}, signOut: async () => {}, changePassword: async () => {}, completeFirstAccessWithGoogle: async () => {} }
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }); clients.push(client)
-  const router = createMemoryRouter([{ path: '*', element: <AuthContext.Provider value={auth}><CustomerLinks customer={customer} refresh={refresh} /></AuthContext.Provider> }]); routers.push(router)
+  const router = createMemoryRouter([{ path: '*', element: <AuthContext.Provider value={auth}><CustomerLinks customer={customer} /><CustomerAccessControls customer={customer} refresh={refresh} /></AuthContext.Provider> }]); routers.push(router)
   render(<QueryClientProvider client={client}><RouterProvider router={router} /></QueryClientProvider>); return { refresh }
 }
 afterEach(() => { cleanup(); clients.splice(0).forEach(client => client.clear()); routers.splice(0).forEach(router => router.dispose()); vi.restoreAllMocks() })
@@ -35,10 +35,21 @@ it.each([{ ...actor, permissions: [...actor.permissions, 'users:manage'] }, { ..
 
 it('gestão pesquisa conta por nome/e-mail mascarado e confirma associação sem campos UUID', async () => {
   const writes: unknown[] = []; const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => { if (String(url).endsWith('/access')) return json({ status: 'Pending', userId: null, username: null, googleLinked: false, localPasswordEnabled: false, invitationExpiresAtUtc: null }); if (String(url).endsWith('/links')) return json([]); if (init?.method === 'POST') { writes.push(JSON.parse(String(init.body))); return json({ ...customer, userId: 'user-fixture', version: 3 }) } return json([{ id: 'user-fixture', name: 'Conta Pessoa Teste', emailHint: 'p••••@example.invalid' }]) })
-  mount(manager); fireEvent.click(screen.getByText('Associar conta de acesso existente')); const search = screen.getByLabelText('Buscar conta de acesso'); fireEvent.change(search, { target: { value: 'P' } }); expect(fetch.mock.calls.some(([url]) => String(url).includes('user-candidates'))).toBe(false); fireEvent.change(search, { target: { value: 'Pessoa' } }); fireEvent.click(await screen.findByRole('button', { name: 'Conta Pessoa Teste · p••••@example.invalid' })); expect(screen.queryByText('user-fixture')).not.toBeInTheDocument(); expect(screen.getByRole('button', { name: 'Confirmar associação da conta' })).toBeDisabled(); fireEvent.click(screen.getByRole('checkbox', { name: /Conferi a identidade e a associação/ })); fireEvent.click(screen.getByRole('button', { name: 'Confirmar associação da conta' })); await waitFor(() => expect(writes).toEqual([{ userId: 'user-fixture', expectedVersion: 2 }])); expect(screen.getByText(/não concede automaticamente/)).toBeInTheDocument()
+  mount(manager); fireEvent.click(screen.getByText('Conta de acesso', { selector: 'summary' })); fireEvent.click(screen.getByText('Associar conta existente')); const search = screen.getByLabelText('Buscar conta de acesso'); fireEvent.change(search, { target: { value: 'P' } }); expect(fetch.mock.calls.some(([url]) => String(url).includes('user-candidates'))).toBe(false); fireEvent.change(search, { target: { value: 'Pessoa' } }); fireEvent.click(await screen.findByRole('button', { name: 'Conta Pessoa Teste · p••••@example.invalid' })); expect(screen.queryByText('user-fixture')).not.toBeInTheDocument(); expect(screen.getByRole('button', { name: 'Confirmar associação da conta' })).toBeDisabled(); fireEvent.click(screen.getByRole('checkbox', { name: /Conferi a identidade e a associação/ })); fireEvent.click(screen.getByRole('button', { name: 'Confirmar associação da conta' })); await waitFor(() => expect(writes).toEqual([{ userId: 'user-fixture', expectedVersion: 2 }])); expect(screen.getByText(/A associação não altera cobranças nem libera atividades ou comandas/)).toBeInTheDocument()
+})
+
+it('conta começa recolhida e mantém a busca ao recolher e reabrir', async () => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async url => String(url).endsWith('/access') ? json({ status: 'Pending', userId: null, username: null, googleLinked: false, localPasswordEnabled: false, invitationExpiresAtUtc: null }) : json([]))
+  mount(manager)
+  const account = screen.getByText('Conta de acesso', { selector: 'summary' })
+  expect(account.closest('details')).not.toHaveAttribute('open')
+  const association = screen.getByText('Associar conta existente', { selector: 'summary' }); expect(association).not.toBeVisible()
+  fireEvent.click(account); fireEvent.click(association); fireEvent.change(screen.getByLabelText('Buscar conta de acesso'), { target: { value: 'Pessoa' } }); fireEvent.click(account)
+  expect(screen.getByLabelText('Buscar conta de acesso')).not.toBeVisible()
+  fireEvent.click(account); expect(screen.getByLabelText('Buscar conta de acesso')).toHaveValue('Pessoa'); expect(screen.getByLabelText('Buscar conta de acesso')).toBeVisible()
 })
 
 it('conflito de associação mantém escolha e exige atualizar antes de outro envio', async () => {
   const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => String(url).endsWith('/access') ? json({ status: 'Pending', userId: null, username: null, googleLinked: false, localPasswordEnabled: false, invitationExpiresAtUtc: null }) : String(url).endsWith('/links') ? json([]) : init?.method === 'POST' ? json({ message: 'Ficha alterada em outro atendimento' }, 409) : json([{ id: 'user-fixture', name: 'Conta Teste', emailHint: 't••••@example.invalid' }]))
-  const { refresh } = mount(manager); fireEvent.click(screen.getByText('Associar conta de acesso existente')); fireEvent.change(screen.getByLabelText('Buscar conta de acesso'), { target: { value: 'Conta' } }); fireEvent.click(await screen.findByRole('button', { name: /Conta Teste/ })); fireEvent.click(screen.getByRole('checkbox', { name: /Conferi a identidade e a associação/ })); fireEvent.click(screen.getByRole('button', { name: 'Confirmar associação da conta' })); expect(await screen.findByRole('alert')).toHaveTextContent('Atualize a ficha'); expect(screen.getByRole('button', { name: 'Confirmar associação da conta' })).toBeDisabled(); fireEvent.click(screen.getByRole('button', { name: 'Atualizar ficha para nova conferência' })); expect(refresh).toHaveBeenCalledOnce(); expect(fetch.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
+  const { refresh } = mount(manager); fireEvent.click(screen.getByText('Conta de acesso', { selector: 'summary' })); fireEvent.click(screen.getByText('Associar conta existente')); fireEvent.change(screen.getByLabelText('Buscar conta de acesso'), { target: { value: 'Conta' } }); fireEvent.click(await screen.findByRole('button', { name: /Conta Teste/ })); fireEvent.click(screen.getByRole('checkbox', { name: /Conferi a identidade e a associação/ })); fireEvent.click(screen.getByRole('button', { name: 'Confirmar associação da conta' })); expect(await screen.findByRole('alert')).toHaveTextContent('Atualize a ficha'); expect(screen.getByRole('button', { name: 'Confirmar associação da conta' })).toBeDisabled(); fireEvent.click(screen.getByRole('button', { name: 'Atualizar ficha para nova conferência' })); expect(refresh).toHaveBeenCalledOnce(); expect(fetch.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
 })
