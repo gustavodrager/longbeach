@@ -22,7 +22,9 @@ A observação final da API, às **20:40:16 UTC**, confirmou schema 33, quatro s
 
 A auditoria independente final aceitou a publicação técnica em 27 verificações, sem achados bloqueantes. O alias local `outputs/` foi restaurado após preservar 7.159 arquivos e o ledger histórico; essa limpeza não alterou a aplicação nem recursos hospedados.
 
-A sessão anterior do navegador havia expirado. A seleção de uma conta existente foi bloqueada pela revisão automática de aprovação, e a autorização específica continua pendente. Portanto, não se declara login Google real nem validação autenticada da Equipe, Bar ou Professor em produção. Esses cenários passaram no ambiente isolado e nos testes automatizados.
+Após autorização específica, o **login Google de um dono existente** abriu a Equipe, com quatro pessoas, e os quatro tipos de acesso. As configurações de Bar (seis opções) e Professor (quatro opções) foram lidas sem marcar ou salvar alterações. A recarga preservou o login, a Equipe e a entrada oficial `/assets/index-diZKSdf-.js`; a sessão permaneceu autenticada.
+
+Essa conferência não criou ou vinculou pessoas nem alterou acessos, credenciais ou registros de negócio. O login **como Bar ou Professor**, o primeiro acesso e a redefinição de senha continuam cobertos somente pelo ambiente isolado e pelos testes automatizados. O comprovante anterior de sessão expirada e bloqueio automático foi preservado junto da autorização e do novo comprovante; não houve novo deploy.
 
 ## Operação e retorno
 

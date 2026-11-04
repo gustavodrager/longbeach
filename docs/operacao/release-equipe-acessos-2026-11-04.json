@@ -23,6 +23,64 @@
     "source_provenance_verified": true,
     "usable_owner_count_at_final_observation": 4
   },
+  "authenticated_readonly_follow_up": {
+    "access_type_options": [
+      "Atendente",
+      "Bar",
+      "Gestor",
+      "Professor"
+    ],
+    "access_types_or_credentials_changed": false,
+    "at_utc": "2026-11-04T21:17:43.866800+00:00",
+    "authorization_file": "human-google-owner-login-authorization.private.json",
+    "authorization_sha256": "bd0734c5025771589e1c6988c421acbcd5bc2bbb4c551ee6d535794e9a566d33",
+    "bar_or_professor_account_authorization_flows_exercised": false,
+    "business_actions_or_saves_performed": false,
+    "entry_asset_after_reload": "/assets/index-diZKSdf-.js",
+    "new_deployment_performed": false,
+    "normal_authentication_session_and_audit_writes_expected": true,
+    "observed_role_label": "Gestor",
+    "passed": true,
+    "people_created_or_linked": false,
+    "previous_automatic_rejection_resolved_by_explicit_user_authorization": true,
+    "previous_session_expiry_and_automatic_rejection_receipts_preserved": true,
+    "production_first_access_or_password_reset_exercised": false,
+    "proof_file": "google-owner-login-readonly-proof.private.json",
+    "proof_sha256": "e2403b35a99ed7a224ebf446d58319cdc24eed1ddcb7526f30b9424bbee453ce",
+    "read_only_configuration_views": {
+      "Bar": {
+        "other_internal_groups_visible": false,
+        "visible_checked_options": [
+          "Vender",
+          "Comandas",
+          "Operar comandas",
+          "Pedidos",
+          "Receber",
+          "Meu caixa"
+        ]
+      },
+      "Professor": {
+        "other_internal_groups_visible": false,
+        "visible_checked_options": [
+          "Aulas de hoje",
+          "Minhas turmas",
+          "Presenças",
+          "Registrar presença"
+        ]
+      }
+    },
+    "run_id": 41896828016,
+    "scope": "existing-owner-google-login-and-readonly-staff-ui",
+    "screenshots_contain_person_list_or_credentials": false,
+    "screenshots_sha256": {
+      "google-login-equipe-tipo-bar.jpg": "0d26600db8789563447fed396af3e7255c6134cad1958b207b9d3ebf599876cf",
+      "google-login-equipe-tipo-professor.jpg": "5a7595c7617042fe89488404fb773f0e4226c55293df63cd6a6e5fbe6fce44e2"
+    },
+    "session_left_authenticated_at_observation": true,
+    "session_persisted_after_page_reload": true,
+    "source_commit": "b93c7bbe69e8b92321cad3afd70eefb7e1885349",
+    "staff_records_displayed": 4
+  },
   "authorization": {
     "environment_approval_recorded": true,
     "human_answer": "publicar",
@@ -107,6 +165,7 @@
     "auditor_performed_remote_mutations": false,
     "blocking_findings": 0,
     "checks_passed": 27,
+    "historical_receipt_before_authenticated_follow_up": true,
     "passed": true,
     "receipt": "staff-production-final-independent-core-audit.private.json",
     "receipt_sha256": "39745528a670a6d6f4931cf9a1f23027cc781962712058307dcd40bc77bc62de",
@@ -114,8 +173,8 @@
   },
   "limitations": [
     "Public verification covers unauthenticated GETs, exact official files, PWA markers, login flags and 401 protection; it does not prove authenticated menu access.",
-    "The installed PWA update was exercised, but the earlier session had expired. Account selection was blocked by automatic approval review and specific authorization remains pending; no real Google sign-in, owner interface or Bar/Professor production flow is claimed.",
-    "Authenticated account, first-access and scoped Bar/Professor flows were validated in isolated previews and automated tests without production business writes.",
+    "Após autorização específica, o login Google de um dono existente e a leitura de Equipe/Tipos passaram, incluindo recarga da sessão. A sessão expirada e o bloqueio automático anteriores permanecem como evidências históricas.",
+    "Login como Bar/Professor, primeiro acesso e redefinição de senha continuam validados somente em ambiente isolado e por testes automatizados. A conferência autenticada não alterou pessoas, vínculos, acessos, credenciais ou registros de negócio.",
     "Complete legacy data, catalogue and ACL equality was checked while writers were frozen and before reopening. Normal application writes may continue afterward."
   ],
   "local_operational_cleanup": {
@@ -157,8 +216,10 @@
   "receipts_sha256": {
     "api-final.private.json": "bb97f84087e5ca1c4cee8db7d121c3e2ee50f08d79c9f71d2a4e6f9538faccb4",
     "browser-pwa-public-proof.private.json": "ebcf315519db139e19fa6a4cf1ec94f1fb0990f010813159e1221bb24c54ffa4",
+    "google-owner-login-readonly-proof.private.json": "e2403b35a99ed7a224ebf446d58319cdc24eed1ddcb7526f30b9424bbee453ce",
     "hosting-capture.private.json": "0298cabdc56c8b60378f979f02f13329763c50afa0213b4edbd86b37aca1728e",
     "hosting-publish.receipt.private.json": "b25f0f3769055bac494805b313d4975f89a81614baf0a88b94273a0021991e74",
+    "human-google-owner-login-authorization.private.json": "bd0734c5025771589e1c6988c421acbcd5bc2bbb4c551ee6d535794e9a566d33",
     "human-production-authorization.json": "67dd4c6a11b27e85d7b43f3208766e46b94ac971325f4912953eb55e6de90e7b",
     "outputs-alias-completed.private.json": "807d7dd0ce7029d0513c2aceaecc41d0d97a37e35af1a73050b40d7b81c2be09",
     "owners-confirmed.private.json": "3962d8440f1d82d7c496d5d8f0b7af5b8800a0854d0d6a6b952546aeebe37085",
@@ -191,7 +252,7 @@
     "staff-web-official-receipt.private.json": "6652ac105a6b1a1c48679e1e93f0db94363239bc9387694e81e65e0541956ede",
     "staff-web-source-proof.private.json": "1b083a61f71fe457a70d667c245689f552cf1aa71ed631acafaa439c138d697f"
   },
-  "recorded_after_final_verification_at_utc": "2026-11-04T20:44:16.324487+00:00",
+  "recorded_after_final_verification_at_utc": "2026-11-04T21:17:43.866800+00:00",
   "review": "https://github.com/gustavodrager/longbeach/pull/67",
   "rollback": {
     "automatic_rollback_performed": false,
@@ -218,11 +279,18 @@
       18
     ],
     "previous_browser_session_expired": true,
+    "previous_google_account_selection_rejection_resolved_by_user_authorization": true,
     "private_routes_unauthenticated_401": 20,
-    "production_application_login_executed": false,
+    "production_access_type_settings_readonly_verified": true,
+    "production_access_types_or_credentials_changed_for_testing": false,
+    "production_application_login_executed": true,
     "production_authenticated_bar_and_teacher_flows_verified": false,
-    "production_authenticated_owner_ui_verified": false,
-    "production_google_login_verified": false,
+    "production_authenticated_owner_ui_verified": true,
+    "production_authenticated_session_reload_verified": true,
+    "production_business_actions_or_saves_for_testing": false,
+    "production_first_access_or_password_reset_exercised": false,
+    "production_google_login_verified": true,
+    "production_people_created_or_linked_for_testing": false,
     "public_credentials_sent": false,
     "public_failures": 0,
     "public_get_requests": 162,
@@ -233,7 +301,8 @@
     "pwa_notice_observed": true,
     "pwa_update_action": "Atualizar agora",
     "spa_routes_verified": 27,
-    "specific_account_authorization_pending": true,
+    "specific_account_authorization_pending": false,
+    "specific_account_authorization_received": true,
     "tls_certificate_and_hostname_verified": true
   }
 }

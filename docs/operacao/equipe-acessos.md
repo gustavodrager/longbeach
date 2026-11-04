@@ -1,6 +1,6 @@
 # Equipe: preparação e operação de acessos
 
-Estado em 04/11/2026: revisão #67 publicada na fonte `b93c7bbe69e8b92321cad3afd70eefb7e1885349`, com API, interface, migration 33 e quatro donos confirmados na configuração protegida. Nenhuma conta foi criada, vinculada ou teve credenciais/perfil alterados pela publicação. Veja o [registro da publicação e seus limites](publicacao-equipe-acessos-2026-11-04.md) e o [manifesto de comprovantes](release-equipe-acessos-2026-11-04.json). A atualização do PWA foi conferida; a validação autenticada real em produção permanece pendente de autorização específica após a sessão anterior expirar.
+Estado em 04/11/2026: revisão #67 publicada na fonte `b93c7bbe69e8b92321cad3afd70eefb7e1885349`, com API, interface, migration 33 e quatro donos confirmados na configuração protegida. Nenhuma conta foi criada, vinculada ou teve credenciais/perfil alterados pela publicação. Veja o [registro da publicação e seus limites](publicacao-equipe-acessos-2026-11-04.md) e o [manifesto de comprovantes](release-equipe-acessos-2026-11-04.json). O PWA, o login Google e a leitura de Equipe/Tipos foram conferidos com autorização específica; a recarga preservou a sessão. O teste permaneceu em leitura, sem cadastrar pessoas ou alterar acessos e credenciais. Login como Bar/Professor e primeiro acesso não foram exercitados em produção.
 
 ## Antes de nova publicação ou mudança de donos
 

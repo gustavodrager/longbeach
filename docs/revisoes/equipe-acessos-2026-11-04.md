@@ -49,6 +49,8 @@ CI `41888020965` e Production `41896828016`, tentativa 1, aprovados. A publicaç
 
 A interface oficial foi publicada às 20:34:28 UTC: versão Hosting `31bb82f85a094665`, release `1793824468048000`, com 113 arquivos da aplicação e dois arquivos do provedor preservados. Os 162 GETs públicos passaram. O aviso **Atualizar agora** carregou a entrada oficial `/assets/index-diZKSdf-.js`. A observação final confirmou lease ausente; somente a política temporária `65531182` foi removida, preservando revisores e proteções.
 
-A sessão anterior expirou. A revisão automática bloqueou a seleção de uma conta existente, e a autorização específica permanece pendente. Não se afirma login Google real nem validação autenticada de Equipe, Bar ou Professor em produção; os resultados autenticados acima pertencem à prévia isolada e aos testes automatizados.
+Após autorização específica, o login Google de um dono existente e a leitura da Equipe e dos quatro tipos de acesso passaram em produção. Foram vistas as seis opções de Bar e as quatro de Professor; nenhuma marcação ou salvamento foi feito. A recarga preservou a sessão, a Equipe e a entrada oficial. Nenhuma pessoa, vínculo, acesso, credencial ou registro de negócio foi alterado, e não houve outro deploy.
+
+O login como Bar/Professor e o primeiro acesso continuam validados somente em ambiente isolado e por testes automatizados. O bloqueio automático anterior e a sessão expirada permanecem no histórico, junto da autorização posterior e do novo comprovante de leitura.
 
 Não publicar a API anterior depois de ativar tipos restritos. Estes documentos posteriores registram a fonte publicada e não constituem outro deploy. Referências: [manifesto final](../operacao/release-equipe-acessos-2026-11-04.json), [ADR-023](../adr/ADR-023-acesso-individual-equipe.md) e [operação da Equipe](../operacao/equipe-acessos.md).
