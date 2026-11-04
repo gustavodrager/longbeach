@@ -1,6 +1,6 @@
 # Revisão — acesso individual da equipe
 
-Data: 04/11/2026. Estado: implementado e validado localmente; não publicado.
+Data: 04/11/2026. Estado: revisão #67 publicada na fonte `b93c7bbe69e8b92321cad3afd70eefb7e1885349`; API33, interface e configuração dos quatro donos conferidas. [Publicação e comprovantes](../operacao/publicacao-equipe-acessos-2026-11-04.md).
 
 ## Entrega
 
@@ -43,10 +43,12 @@ Fluxo: **Administração → Equipe → cadastro e tipo de acesso → API → Po
 
 Nenhuma senha nova foi digitada pelo agente nos formulários do navegador. A troca obrigatória e seus resultados foram exercitados pelos testes automatizados. A prévia usou apenas contas fictícias e o banco local descartável, sem chamadas de alteração em produção.
 
-## Condições antes de ativar
+## Publicação e limite da validação
 
-Confirmar privadamente as quatro contas dos donos, conferir fichas/contas da equipe e escolher explicitamente os vínculos. O preflight exige quatro IDs distintos existentes, perfil Gestor único e ao menos um dono com acesso utilizável, além do login local habilitado. Não inferir identidade pelo nome ou promover pessoas automaticamente.
+CI `41888020965` e Production `41896828016`, tentativa 1, aprovados. A publicação aplicou a migration aditiva 33 por job único após backup e ensaio isolado do backup real. As 98 tabelas e duas sequências anteriores, seus dados e ACL foram preservados na comparação congelada antes da reabertura. Quatro donos existentes foram confirmados privadamente; nenhum usuário foi criado, vinculado ou teve senha/perfil alterado pela publicação.
 
-A publicação exige autorização específica para a nova versão, envolvendo API, interface, migration 33 e configuração protegida. Google e os quatro perfis base permanecem como estão. Não publicar a API anterior depois de ativar tipos restritos.
+A interface oficial foi publicada às 20:34:28 UTC: versão Hosting `31bb82f85a094665`, release `1793824468048000`, com 113 arquivos da aplicação e dois arquivos do provedor preservados. Os 162 GETs públicos passaram. O aviso **Atualizar agora** carregou a entrada oficial `/assets/index-diZKSdf-.js`. A observação final confirmou lease ausente; somente a política temporária `65531182` foi removida, preservando revisores e proteções.
 
-Referências: [ADR-023](../adr/ADR-023-acesso-individual-equipe.md) e [operação da Equipe](../operacao/equipe-acessos.md).
+A sessão anterior expirou. A revisão automática bloqueou a seleção de uma conta existente, e a autorização específica permanece pendente. Não se afirma login Google real nem validação autenticada de Equipe, Bar ou Professor em produção; os resultados autenticados acima pertencem à prévia isolada e aos testes automatizados.
+
+Não publicar a API anterior depois de ativar tipos restritos. Estes documentos posteriores registram a fonte publicada e não constituem outro deploy. Referências: [manifesto final](../operacao/release-equipe-acessos-2026-11-04.json), [ADR-023](../adr/ADR-023-acesso-individual-equipe.md) e [operação da Equipe](../operacao/equipe-acessos.md).

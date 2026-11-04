@@ -1,8 +1,8 @@
 # Equipe: preparação e operação de acessos
 
-Estado em 04/11/2026: implementação e prévia local. Nenhuma conta real foi criada ou alterada nesta entrega. A publicação envolve interface, API, configuração e a migration 33 e depende de autorização específica.
+Estado em 04/11/2026: revisão #67 publicada na fonte `b93c7bbe69e8b92321cad3afd70eefb7e1885349`, com API, interface, migration 33 e quatro donos confirmados na configuração protegida. Nenhuma conta foi criada, vinculada ou teve credenciais/perfil alterados pela publicação. Veja o [registro da publicação e seus limites](publicacao-equipe-acessos-2026-11-04.md) e o [manifesto de comprovantes](release-equipe-acessos-2026-11-04.json). A atualização do PWA foi conferida; a validação autenticada real em produção permanece pendente de autorização específica após a sessão anterior expirar.
 
-## Antes da publicação
+## Antes de nova publicação ou mudança de donos
 
 1. Conferir privadamente os identificadores das contas de Pedro, Victor, Gustavo e LongBeachArena com os donos. Não usar busca por nome para conceder acesso. Guardar os quatro UserIds confirmados na configuração protegida `StaffAccess:OwnerUserIds`, sem versionar dados reais.
 2. Conferir que as quatro contas existem, têm somente Manager e que pelo menos uma está ativa e com acesso concluído. Conferir métodos de entrada e eventuais vínculos com equipe. O preflight recusa configuração incompleta ou ausência de dono utilizável.
