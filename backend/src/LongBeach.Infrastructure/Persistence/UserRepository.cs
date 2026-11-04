@@ -9,11 +9,14 @@ public sealed class UserRepository(LongBeachDbContext dbContext) : IUserReposito
 {
     public Task<User?> FindForAuthorizationAsync(Guid id, CancellationToken cancellationToken = default) =>
         dbContext.Users.AsNoTracking()
+            .Include(user => user.StaffMembership).ThenInclude(link => link!.AccessType)
             .Include(user => user.UserRoles).ThenInclude(link => link.Role)
             .SingleOrDefaultAsync(user => user.Id == id, cancellationToken);
 
     public Task<User?> FindByUsernameAsync(string normalizedUsername, CancellationToken cancellationToken = default) =>
         IdentityGraph().SingleOrDefaultAsync(user => user.NormalizedUsername == normalizedUsername, cancellationToken);
+    public Task<User?> FindByPhoneLoginAsync(string normalizedPhone, CancellationToken cancellationToken = default) =>
+        IdentityGraph().SingleOrDefaultAsync(user => user.PhoneLogin == normalizedPhone, cancellationToken);
 
     public Task<User?> FindByGoogleSubjectAsync(string subject, CancellationToken cancellationToken = default) =>
         IdentityGraph().SingleOrDefaultAsync(user => user.GoogleSubject == subject, cancellationToken);
@@ -55,6 +58,7 @@ public sealed class UserRepository(LongBeachDbContext dbContext) : IUserReposito
 
     private IQueryable<User> IdentityGraph() =>
         dbContext.Users
+            .Include(user => user.StaffMembership).ThenInclude(link => link!.AccessType)
             .Include(user => user.RefreshTokens)
             .Include(user => user.UserRoles)
                 .ThenInclude(userRole => userRole.Role)

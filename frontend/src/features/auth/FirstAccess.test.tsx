@@ -38,7 +38,7 @@ it('oferece somente Google e envia a credencial verificada', async () => {
   await userEvent.setup().click(await screen.findByRole('button', { name: 'Entrar com Google' }))
   expect(value.signInWithGoogle).toHaveBeenCalledWith('verified-test-credential')
   expect(value.signIn).not.toHaveBeenCalled()
-  expect(screen.queryByLabelText('Usuário ou e-mail')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Telefone, usuário ou e-mail')).not.toBeInTheDocument()
   expect(screen.queryByLabelText('Senha')).not.toBeInTheDocument()
 })
 it('redireciona sessão inicial restaurada antes de mostrar dados da arena', async () => {

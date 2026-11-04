@@ -1,3 +1,4 @@
+using LongBeach.Contracts.Staff;
 namespace LongBeach.Application.Abstractions;
 
 public sealed record TokenPrincipal(
@@ -11,7 +12,11 @@ public sealed record TokenPrincipal(
     DateTimeOffset? InitialAccessExpiresAtUtc = null,
     bool GoogleLinked = false,
     int CredentialVersion = 0,
-    bool LocalPasswordEnabled = true);
+    bool LocalPasswordEnabled = true,
+    bool CanManageStaff = false,
+    string? PhoneLogin = null,
+    bool RequiresLocalPasswordChange = false,
+    StaffAccessSummary? StaffAccess = null);
 
 public sealed record IssuedTokenPair(
     string AccessToken,

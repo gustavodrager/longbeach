@@ -3,11 +3,13 @@ import { ActionPanel, Disclosure, EditorPanel, RecordTable, useContextSearchPara
 import { Empty, Field, Pagination } from '../../pages/arenaUi'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/access'
+import { canOperateStock } from './staffAccess'
 import { type Product, type Balance, useBar, useBarStock, useAction, Notice, QueryNotice, StockNotice, Input, formData } from './BarCore'
 import { StockPage, amount } from './StockUi'
 import { countQuantity, useQuickCount } from './useQuickCount'
 export type StockCount = { id:string; locationId:string; initial:boolean; state:string; createdAtUtc?:string; items:{productId:string;theoretical:number;counted:number|null}[] }
 export function BarCountsPage() {
+  const {user}=useAuth();const canWrite=canOperateStock(user,'bar:stock:manage')
   const counts=useBar<StockCount[]>('/counts');const stock=useBarStock();const catalog=useBar<Product[]>('/catalog');const balances=useBar<Balance[]>('/stock/balances');const a=useAction()
   const [params,setParams]=useContextSearchParams(); const selected=counts.data?.find(c=>c.id===params.get('registro'))
   const open=params.get('acao')==='contagem'
@@ -18,13 +20,13 @@ export function BarCountsPage() {
   const initialUnavailable=counts.data?.some(c=>c.locationId===stock.location?.id&&c.state==='Approved')
   return <StockPage title="Inventário do Bar">
     <QueryNotice query={counts}/><StockNotice stock={stock}/>
-    <ActionPanel title="Nova contagem" action="novo" busy={a.busy} primary><Notice action={a}/><form className="bar-form" onSubmit={async e=>{const f=formData(e);if(!stock.location)return;const result=await a.run<StockCount>('/counts',{locationId:stock.location.id,initial:f.has('initial')});if(result)show(result.id)}}>
+    {canWrite&&<ActionPanel title="Nova contagem" action="novo" busy={a.busy} primary><Notice action={a}/><form className="bar-form" onSubmit={async e=>{const f=formData(e);if(!stock.location)return;const result=await a.run<StockCount>('/counts',{locationId:stock.location.id,initial:f.has('initial')});if(result)show(result.id)}}>
       <StockNotice stock={stock}/><p>Se houver movimentações ou reservas após a abertura, será preciso refazer a contagem antes de aprovar.</p>
       {!initialUnavailable && <label><input type="checkbox" name="initial"/> Primeira contagem física do estoque</label>}
-      <button disabled={a.busy||!stock.ready}>Abrir contagem</button></form></ActionPanel>
+      <button disabled={a.busy||!stock.ready}>Abrir contagem</button></form></ActionPanel>}
     {counts.data && <Pagination total={counts.data.length}>{(start,end)=><>{counts.data.slice(start,end).map(c=>{
       const counted=c.items.filter(i=>i.counted!==null).length;const different=c.items.filter(i=>c.state==='Counting'?(i.counted??0)!==i.theoretical:i.counted!==null&&i.counted!==i.theoretical).length
-      return <section key={c.id} className="operation-card stock-count-card"><div><h2>{c.initial?'Contagem inicial':'Inventário'} · {c.state==='Approved'?'Aprovado':c.state==='Canceled'?'Cancelado':'Em contagem'}</h2><p>{stock.query.data?.find(l=>l.id===c.locationId)?.name??'Local a consultar'}{c.createdAtUtc&&` · ${new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(c.createdAtUtc))}`}</p><p>{counted} de {c.items.length} produtos contados · {different} divergências</p></div><button onClick={()=>show(c.id)}>{c.state==='Counting'?'Continuar contagem':'Ver contagem'}</button></section>
+      return <section key={c.id} className="operation-card stock-count-card"><div><h2>{c.initial?'Contagem inicial':'Inventário'} · {c.state==='Approved'?'Aprovado':c.state==='Canceled'?'Cancelado':'Em contagem'}</h2><p>{stock.query.data?.find(l=>l.id===c.locationId)?.name??'Local a consultar'}{c.createdAtUtc&&` · ${new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}).format(new Date(c.createdAtUtc))}`}</p><p>{counted} de {c.items.length} produtos contados · {different} divergências</p></div><button onClick={()=>show(c.id)}>{c.state==='Counting'&&canWrite?'Continuar contagem':'Ver contagem'}</button></section>
     })}</>}</Pagination>}
     {counts.isSuccess&&!counts.data.length&&<Empty>Nenhum inventário registrado.</Empty>}
     {open && selected && <CountPanel key={selected.id} count={selected} products={[...identities.values()]} catalogReady={catalog.isSuccess&&balances.isSuccess} onClose={close}/>}
@@ -37,7 +39,7 @@ function CountPanel({count,products,catalogReady,onClose}:{count:StockCount;prod
   const initiallyPending=useRef(new Set(count.items.filter(i=>i.counted===null).map(i=>i.productId)))
   const [filterIds,setFilterIds]=useState<Set<string>|null>(null)
   const inputs=useRef(new Map<string,HTMLInputElement>())
-  const productMap=new Map(products.map(p=>[p.id,p]));const editable=count.state==='Counting';const supervise=hasPermission(user,'bar:supervise')
+  const productMap=new Map(products.map(p=>[p.id,p]));const editable=count.state==='Counting'&&canOperateStock(user,'bar:stock:manage');const supervise=editable&&hasPermission(user,'bar:supervise')
   const counted=count.items.filter(i=>i.counted!==null).length;const differences=count.items.filter(i=>i.counted===null?editable&&i.theoretical!==0:i.counted!==i.theoretical)
   const sorted=[...count.items].sort((a,b)=>Number(initiallyPending.current.has(b.productId))-Number(initiallyPending.current.has(a.productId))||(productMap.get(a.productId)?.name??a.productId).localeCompare(productMap.get(b.productId)?.name??b.productId,'pt-BR'))
   const rows=sorted.filter(i=>(productMap.get(i.productId)?.name??i.productId).toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))&&(!filterIds||filterIds.has(i.productId)))

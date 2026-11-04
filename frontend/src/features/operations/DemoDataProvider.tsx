@@ -1,4 +1,5 @@
 import { hasPermission, isManagement } from '../auth/access'
+import { staffKindAllowed, staffKindCanLoad, staffScopeKey } from '../auth/staffScope'
 import type { RentalGroup, RentalMonth, RentalAttendance } from '../arena/rentals'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { apiFetch, ApiError } from '../../lib/http'
@@ -50,7 +51,7 @@ type Operations = OperationalData & {
   customerRegistryEnabled: boolean
   persistenceStatus: 'local' | 'connecting' | 'connected' | 'error'; persistenceMessage: string
   saving: boolean; scheduleRevision: number; dataUpdatedAt: string | null; refreshFailed: boolean
-  canRead: (kind: OperationalKind) => boolean; canWrite: (kind: OperationalKind) => boolean
+  canRead: (kind: OperationalKind) => boolean; canLookup?: (kind: OperationalKind) => boolean; canWrite: (kind: OperationalKind) => boolean
   reload: () => Promise<void>
   saveRentalGroup: (value: New<RentalGroup>, id?: string) => Promise<string>
   saveRentalAttendance: (value: New<RentalAttendance>, id?: string) => Promise<string>
@@ -95,7 +96,7 @@ function readDemoRecurring(): DemoRecurringOperations {
 export function DemoDataProvider({ enabled, demoMode = false, children }: { enabled: boolean; demoMode?: boolean; children: ReactNode }) {
   const { user } = useAuth()
   const remote = enabled && (!demoMode || (import.meta.env.VITE_OPERATIONAL_STORAGE === 'postgres' && Boolean(import.meta.env.VITE_API_URL)))
-  const owner = demoMode && !remote ? 'demo' : user ? `${user.id}:${[...user.roles].sort().join(',')}:${[...user.permissions].sort().join(',')}` : 'signed-out'
+  const owner = demoMode && !remote ? 'demo' : staffScopeKey(user)
   const ownerRef = useRef(owner)
   const sessionEpoch = useRef(0)
   if (ownerRef.current !== owner) { ownerRef.current = owner; sessionEpoch.current += 1 }
@@ -119,7 +120,8 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
   const [persistenceMessage, setPersistenceMessage] = useState('')
   const [dataUpdatedAt, setDataUpdatedAt] = useState<string | null>(demoMode && !remote ? new Date().toISOString() : null)
   const [refreshFailed, setRefreshFailed] = useState(false)
-  const can = useCallback((kind: OperationalKind, operation: 'read' | 'write') => demoMode || hasPermission(user, operationalPermissions[kind][operation]), [demoMode, user])
+  const can = useCallback((kind: OperationalKind, operation: 'read' | 'write') => demoMode || hasPermission(user, operationalPermissions[kind][operation]) && staffKindAllowed(user,kind,operation==='write'), [demoMode, user])
+  const canLoad = useCallback((kind: OperationalKind) => demoMode || hasPermission(user, operationalPermissions[kind].read) && staffKindCanLoad(user,kind), [demoMode,user])
   const canRead = useCallback((kind: OperationalKind) => can(kind, 'read'), [can])
   const canWrite = useCallback((kind: OperationalKind) => can(kind, 'write'), [can])
   const canDeleteClass = enabled && !demoMode && remote && isManagement(user) && canWrite('classes')
@@ -139,7 +141,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
     }
     const isCurrent = () => ownerRef.current === requestOwner && sessionEpoch.current === requestEpoch && loadEpoch.current === requestLoad && mutationEpoch.current === requestMutation
     try {
-      const allowedKinds = kinds.filter(canRead).filter(kind => !demoMode || ['students', 'team', 'inventory', 'projects'].includes(kind))
+      const allowedKinds = kinds.filter(canLoad).filter(kind => !demoMode || ['students', 'team', 'inventory', 'projects'].includes(kind))
       const entries = await Promise.all(allowedKinds.map(async kind => [kind, await apiFetch<OperationalData[typeof kind]>(`/api/v1/operations/${kind}`)] as const))
       if (!isCurrent()) return
       const next = { ...empty(), ...Object.fromEntries(entries) }
@@ -155,7 +157,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
     } finally {
       if (activeLoad.current?.load === requestLoad) activeLoad.current = null
     }
-  }, [enabled, remote, demoMode, user, owner, canRead])
+  }, [enabled, remote, demoMode, user, owner, canLoad])
   const reload = useCallback(() => load(), [load])
   useEffect(() => {
     const next = remote ? empty() : enabled && demoMode ? readDemo() : empty()
@@ -385,7 +387,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
     return history
   }, [enabled, canRead, remote, user, owner])
   const value = useMemo<Operations>(() => ({
-    ...(dataEpoch.current === sessionEpoch.current ? data : empty()), persistenceStatus, persistenceMessage, saving, scheduleRevision, dataUpdatedAt, refreshFailed, canRead, canWrite, reload,
+    ...(dataEpoch.current === sessionEpoch.current ? data : empty()), persistenceStatus, persistenceMessage, saving, scheduleRevision, dataUpdatedAt, refreshFailed, canRead, canLookup: canLoad, canWrite, reload,
     customerRegistryEnabled: remote && !demoMode,
     saveRentalGroup: (v,id) => save('rentalGroups',v,id), saveRentalAttendance: (v,id) => save('rentalAttendances',v,id),
     saveStudent: (v,id) => save('students',v,id), saveTeamMember: (v,id) => save('team',v,id),
@@ -395,7 +397,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
     materialSessionKey: `${owner}:${sessionEpoch.current}`, canReadMaterialHistory, canMoveMaterials, canAdjustMaterials, materialAttempt, acknowledgeMaterialMovement, moveMaterial, refreshMaterial, materialHistory,
     saveClass: (v,id) => save('classes',v,id), canDeleteClass, deleteClass, saveEnrollment: (v,id) => save('enrollments',v,id),
     savePresence: (v,id) => save('presences',v,id), saveFinanceEntry: (v,id) => save('financeEntries',v,id), saveMaintenance: (v,id) => save('maintenance',v,id),
-  }), [data, remote, demoMode, persistenceStatus, persistenceMessage, saving, scheduleRevision, dataUpdatedAt, refreshFailed, canRead, canWrite, reload, save, canDeleteClass, deleteClass, saveRecurringReservations, owner, canReadMaterialHistory, canMoveMaterials, canAdjustMaterials, materialAttempt, acknowledgeMaterialMovement, moveMaterial, refreshMaterial, materialHistory, materialRevision])
+  }), [data, remote, demoMode, persistenceStatus, persistenceMessage, saving, scheduleRevision, dataUpdatedAt, refreshFailed, canRead, canLoad, canWrite, reload, save, canDeleteClass, deleteClass, saveRecurringReservations, owner, canReadMaterialHistory, canMoveMaterials, canAdjustMaterials, materialAttempt, acknowledgeMaterialMovement, moveMaterial, refreshMaterial, materialHistory, materialRevision])
   return <Context.Provider value={value}>{children}</Context.Provider>
 }
 export function useOptionalOperations() { return useContext(Context) }

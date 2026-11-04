@@ -1,5 +1,5 @@
 import { LegacyDestination, BarDestination, MissingDestination } from './components/RouteDestinations'
-import { hasPermission, isManagement, workHome } from './features/auth/access'
+import { canManageStaff, hasPermission, workHome } from './features/auth/access'
 const BillingPage = lazy(() => import("./features/billing/BillingPages").then(m => ({ default: m.BillingPage })))
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -62,6 +62,7 @@ const TabsPage = lazy(() => import('./features/attendance/AttendancePages').then
 const TabDetailsPage = lazy(() => import('./features/attendance/AttendancePages').then(module => ({ default: module.TabDetailsPage })))
 const OrdersPage = lazy(() => import('./features/attendance/AttendancePages').then(module => ({ default: module.OrdersPage })))
 const ReceivePage = lazy(() => import('./features/attendance/PaymentPages').then(module => ({ default: module.ReceivePage })))
+const ReceiveHomePage = lazy(() => import('./features/attendance/ReceiveHomePage').then(module => ({ default: module.ReceiveHomePage })))
 const OnlinePaymentRecoveryPage = lazy(() => import('./features/attendance/OnlinePaymentRecoveryPage').then(module => ({ default: module.OnlinePaymentRecoveryPage })))
 const ReceiptPage = lazy(() => import('./features/attendance/PaymentPages').then(module => ({ default: module.ReceiptPage })))
 const BarOverviewPage = lazy(() => import('./features/attendance/ReportPages').then(module => ({ default: module.BarOverviewPage })))
@@ -118,7 +119,7 @@ function Permission({ permission, demoMode = false, children }: { permission: st
   const { user } = useAuth()
   return demoMode || (Array.isArray(permission) ? permission.some(value => hasPermission(user,value)) : hasPermission(user, permission)) ? children : <section className="operation-page"><h1>Acesso restrito</h1><p role="alert">Peça à gestão para conferir sua permissão para esta área.</p></section>
 }
-function ManagementOnly({ children }: { children: ReactNode }) { const { user } = useAuth(); return isManagement(user) ? children : <section><h1>Acesso restrito</h1><p>Esta área é exclusiva da gestão.</p></section> }
+function StaffOwnerOnly({ children }: { children: ReactNode }) { const { user } = useAuth(); return canManageStaff(user) ? children : <section className="operation-page"><h1>Acesso restrito</h1><p>Somente os donos podem administrar os acessos da equipe.</p></section> }
 function HomePage({ demoMode }: { demoMode: boolean }) {
   const { user } = useAuth()
   const home = workHome(user)
@@ -130,7 +131,7 @@ function OperationalRoutes() {
   const bar = (permission: string | string[], page: ReactNode) => <Permission permission={permission}>{page}</Permission>
   const application = <Route element={<Suspense fallback={<main className="session-loading" role="status">Abrindo sua área…</main>}><AppShell demoMode={demoMode} /></Suspense>}>
     <Route index element={<HomePage demoMode={demoMode} />} />
-    {!demoMode && <Route path="administracao/professores" element={<ManagementOnly><TeacherAccess /></ManagementOnly>} />}
+    {!demoMode && <Route path="administracao/professores" element={<StaffOwnerOnly><TeacherAccess /></StaffOwnerOnly>} />}
     <Route path="conta" element={<AccountPage />} />
     {!demoMode && <Route path="solicitacoes-clientes" element={<RequestManagement />} />}
     {!demoMode && <Route path="minhas-contas" element={<LegacyDestination to="/minha-area/pagamentos" />} />}
@@ -177,6 +178,7 @@ function OperationalRoutes() {
       <Route path="atendimento/comandas" element={bar('bar:sales:read', <TabsPage />)} />
       <Route path="atendimento/comandas/:tabId" element={bar('bar:sales:read', <TabDetailsPage />)} />
       <Route path="atendimento/pedidos" element={bar('bar:sales:operate', <OrdersPage />)} />
+      <Route path="atendimento/receber" element={bar('bar:sales:operate', <ReceiveHomePage />)} />
       <Route path="atendimento/receber/:tabId" element={bar('bar:sales:operate', <ReceivePage />)} />
       <Route path="atendimento/pagamento-online/:tabId/:paymentId" element={bar('bar:sales:operate', <OnlinePaymentRecoveryPage />)} />
       <Route path="atendimento/comprovante/:tabId/:paymentId" element={bar('bar:sales:read', <ReceiptPage />)} />
@@ -208,7 +210,7 @@ function OperationalRoutes() {
     <Route path="primeiro-acesso" element={demoMode ? <Navigate to="/" replace /> : <FirstAccessPage />} />
     <Route path="ativar" element={demoMode ? <Navigate to="/" replace /> : <Suspense fallback={<main role="status">Conferindo acesso…</main>}><ActivateAccessPage key="activation" /></Suspense>} />
     <Route path="recuperar-acesso" element={demoMode ? <Navigate to="/" replace /> : <Suspense fallback={<main role="status">Conferindo acesso…</main>}><ActivateAccessPage key="recovery" recovery /></Suspense>} />
-    {demoMode ? application : <Route element={<AuthGuard />}>{application}<Route path="professor" element={<Suspense fallback={<main role="status">Abrindo aulas…</main>}><TeacherLayout /></Suspense>}><Route index element={<TeacherHome />} /><Route path="turmas" element={<TeacherClasses />} /><Route path="presencas" element={<TeacherClasses attendance />} /><Route path="turmas/:classId" element={<TeacherRoster />} /></Route><Route path="minha-area" element={<Suspense fallback={<main role="status">Abrindo sua área…</main>}><ClientLayout /></Suspense>}><Route index element={<PortalHome />} /><Route path="agenda" element={<PortalAgenda />} /><Route path="solicitar" element={<PortalRequestForm />} /><Route path="ajuda" element={<PortalRequestForm help />} /><Route path="bar" element={<PortalBar />} /><Route path="pagamentos" element={<BillingPage />} /><Route path="perfil" element={<PortalProfile />} /><Route path="seguranca" element={<AccountPage />} /></Route></Route>}
+    {demoMode ? application : <Route element={<AuthGuard />}>{application}<Route path="professor" element={<Suspense fallback={<main role="status">Abrindo aulas…</main>}><TeacherLayout /></Suspense>}><Route index element={<TeacherHome />} /><Route path="turmas" element={<TeacherClasses />} /><Route path="presencas" element={<TeacherClasses attendance />} /><Route path="turmas/:classId" element={<TeacherRoster />} /><Route path="conta" element={<AccountPage />} /></Route><Route path="minha-area" element={<Suspense fallback={<main role="status">Abrindo sua área…</main>}><ClientLayout /></Suspense>}><Route index element={<PortalHome />} /><Route path="agenda" element={<PortalAgenda />} /><Route path="solicitar" element={<PortalRequestForm />} /><Route path="ajuda" element={<PortalRequestForm help />} /><Route path="bar" element={<PortalBar />} /><Route path="pagamentos" element={<BillingPage />} /><Route path="perfil" element={<PortalProfile />} /><Route path="seguranca" element={<AccountPage />} /></Route></Route>}
     <Route path="*" element={<MissingDestination />} />
   </Routes></DemoDataProvider></AuthProvider>
 }

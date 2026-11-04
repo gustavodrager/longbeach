@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../../lib/http'
+import { staffScopeKey } from '../auth/staffScope'
 import { useAuth } from '../auth/authContext'
 import { useOperations } from '../operations/DemoDataProvider'
 import type { CourtSchedule, CourtScheduleBlock, CourtScheduleRange } from './types'
@@ -8,13 +9,13 @@ const minute = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.sli
 export function useCourtSchedule(date: string, enabled = true) {
   const { user } = useAuth()
   const data = useOperations()
-  const accessScope = user ? `${user.id}:${[...user.roles].sort().join(',')}:${[...user.permissions].sort().join(',')}` : 'demo'
+  const accessScope = staffScopeKey(user)
   const demoMode = import.meta.env.VITE_DEMO_MODE === 'true' && import.meta.env.VITE_OPERATIONAL_STORAGE !== 'postgres'
   return useQuery<CourtSchedule>({
     queryKey: ['arena', 'court-schedule', accessScope, date, data.dataUpdatedAt, data.scheduleRevision],
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
-    enabled: enabled && data.canRead('courts') && /^\d{4}-\d{2}-\d{2}$/.test(date) && Boolean(data.dataUpdatedAt),
+    enabled: enabled && (data.canLookup?.('courts') ?? data.canRead('courts')) && /^\d{4}-\d{2}-\d{2}$/.test(date) && Boolean(data.dataUpdatedAt),
     queryFn: async () => {
       if (!demoMode) return apiFetch<CourtSchedule>(`/api/v1/operations/courts/schedule?date=${encodeURIComponent(date)}`)
       return demoSchedule(date, data)
@@ -48,11 +49,11 @@ function demoSchedule(date: string, data: ReturnType<typeof useOperations>): Cou
 export function useCourtScheduleRange(from: string, to: string, enabled: boolean) {
   const { user } = useAuth()
   const data = useOperations()
-  const accessScope = user ? `${user.id}:${[...user.roles].sort().join(',')}:${[...user.permissions].sort().join(',')}` : 'demo'
+  const accessScope = staffScopeKey(user)
   const demoMode = import.meta.env.VITE_DEMO_MODE === 'true' && import.meta.env.VITE_OPERATIONAL_STORAGE !== 'postgres'
   return useQuery<CourtScheduleRange>({
     queryKey: ['arena', 'court-schedule-range', accessScope, from, to, data.dataUpdatedAt, data.scheduleRevision],
-    enabled: enabled && data.canRead('courts') && Boolean(data.dataUpdatedAt),
+    enabled: enabled && (data.canLookup?.('courts') ?? data.canRead('courts')) && Boolean(data.dataUpdatedAt),
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
     queryFn: async () => {

@@ -1,3 +1,4 @@
+using LongBeach.Contracts.Staff;
 namespace LongBeach.Contracts.Auth;
 
 public sealed record AuthResponse(
@@ -22,4 +23,8 @@ public sealed record UserSummary(
     bool RequiresFirstAccess = false,
     string? Username = null,
     bool GoogleLinked = false,
-    bool LocalPasswordEnabled = true);
+    bool LocalPasswordEnabled = true,
+    bool CanManageStaff = false,
+    string? PhoneLogin = null,
+    bool RequiresLocalPasswordChange = false,
+    StaffAccessSummary? StaffAccess = null);

@@ -1,9 +1,11 @@
+import { AuthContext, type AuthContextValue } from '../auth/authContext'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { MenuEditorPage } from './MenuEditorPage'
 import { loadMenu, loadMenuCatalog, saveMenu, publishMenu } from './menuApi'
 vi.mock('./menuApi', () => ({ loadMenu: vi.fn(), loadMenuCatalog: vi.fn(), saveMenu: vi.fn(), publishMenu: vi.fn() }))
+const auth:AuthContextValue={user:{id:'manager-fixture',name:'Gestor teste',email:'manager@example.invalid',roles:['Manager'],permissions:[]},isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{},completeFirstAccessWithGoogle:async()=>{}}
 const draft = { title: 'CARDÁPIO', pages: [{ id: 'p', title: 'Bebidas', durationSeconds: 10, visible: true, items: [{ id: 'i', name: 'Água', description: '', visible: true, productIds: ['a'] }] }] }
 beforeEach(() => {
   vi.mocked(loadMenu).mockResolvedValue({ version: 1, draft, published: null })
@@ -12,7 +14,7 @@ beforeEach(() => {
 it('exige salvar alterações antes de publicar e mantém chamadas separadas', async () => {
   vi.mocked(saveMenu).mockImplementation(async (version, next) => ({ version: version + 1, draft: next, published: null }))
   vi.mocked(publishMenu).mockResolvedValue({ version: 3, draft, published: null })
-  render(<MemoryRouter><MenuEditorPage /></MemoryRouter>)
+  render(<AuthContext.Provider value={auth}><MemoryRouter><MenuEditorPage /></MemoryRouter></AuthContext.Provider>)
   await screen.findByText('Versão de edição: 1 · Ainda sem publicação')
   fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Novo título' } })
   expect(screen.getByText('Publicar versão salva')).toBeDisabled()
@@ -25,7 +27,7 @@ it('exige salvar alterações antes de publicar e mantém chamadas separadas', a
 })
 it('bloqueia publicação e mostra produtos com preço pendente', async () => {
   vi.mocked(loadMenuCatalog).mockResolvedValue([{ id: 'a', name: 'Água', salePrice: 0, active: true }])
-  render(<MemoryRouter><MenuEditorPage /></MemoryRouter>)
+  render(<AuthContext.Provider value={auth}><MemoryRouter><MenuEditorPage /></MemoryRouter></AuthContext.Provider>)
   expect(within(await screen.findByRole('region', { name: 'Pendências de publicação' })).getByText(/Há produto sem preço de venda válido/)).toBeVisible()
   expect(screen.getByText('Publicar versão salva')).toBeDisabled()
 })
@@ -33,7 +35,7 @@ it('bloqueia publicação e mostra produtos com preço pendente', async () => {
 it('mantém pendências de páginas recolhidas visíveis antes da publicação', async () => {
   vi.mocked(loadMenu).mockResolvedValue({ version: 1, published: null, draft: { ...draft, pages: [...draft.pages, { ...draft.pages[0], id: 'second', title: 'Lanches', items: [{ ...draft.pages[0].items[0], id: 'second-item', name: 'Suco', productIds: ['b'] }] }] } })
   vi.mocked(loadMenuCatalog).mockResolvedValue([{ id: 'a', name: 'Água', salePrice: 5, active: true }, { id: 'b', name: 'Suco', salePrice: 0, active: true }])
-  render(<MemoryRouter><MenuEditorPage /></MemoryRouter>)
+  render(<AuthContext.Provider value={auth}><MemoryRouter><MenuEditorPage /></MemoryRouter></AuthContext.Provider>)
   expect(within(await screen.findByRole('region', { name: 'Pendências de publicação' })).getByText(/Há produto sem preço de venda válido/)).toBeVisible()
   const page = screen.getByText('Lanches', { selector: 'summary strong' }).closest('details')!
   expect(page).not.toHaveAttribute('open')
@@ -43,7 +45,7 @@ it('mantém pendências de páginas recolhidas visíveis antes da publicação',
 })
 
 it('abre a página e o item recolhidos para focar um campo inválido', async () => {
-  render(<MemoryRouter><MenuEditorPage /></MemoryRouter>)
+  render(<AuthContext.Provider value={auth}><MemoryRouter><MenuEditorPage /></MemoryRouter></AuthContext.Provider>)
   const page = (await screen.findByText('Bebidas', { selector: 'summary strong' })).closest('details')!
   const item = within(page).getByText('Água', { selector: 'summary strong' }).closest('details')!
   page.open = false

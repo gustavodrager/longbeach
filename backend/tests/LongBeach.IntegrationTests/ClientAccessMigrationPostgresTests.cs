@@ -38,7 +38,7 @@ public sealed class ClientAccessMigrationPostgresTests
         var refreshBefore = await db.Database.SqlQueryRaw<string>("SELECT to_jsonb(t)::text AS \"Value\" FROM refresh_tokens t").SingleAsync();
         var customerBefore = await db.Database.SqlQueryRaw<string>("SELECT to_jsonb(c)::text AS \"Value\" FROM customers c").SingleAsync();
         await db.GetService<IMigrator>().MigrateAsync();
-        Assert.Equal(userBefore, await db.Database.SqlQueryRaw<string>("SELECT (to_jsonb(u)-'CredentialVersion'-'LocalPasswordEnabled')::text AS \"Value\" FROM users u").SingleAsync());
+        Assert.Equal(userBefore, await db.Database.SqlQueryRaw<string>("SELECT (to_jsonb(u)-'CredentialVersion'-'LocalPasswordEnabled'-'PhoneLogin'-'RequiresLocalPasswordChange')::text AS \"Value\" FROM users u").SingleAsync());
         Assert.Equal(refreshBefore, await db.Database.SqlQueryRaw<string>("SELECT (to_jsonb(t)-'CredentialVersion')::text AS \"Value\" FROM refresh_tokens t").SingleAsync());
         Assert.Equal(customerBefore, await db.Database.SqlQueryRaw<string>("SELECT to_jsonb(c)::text AS \"Value\" FROM customers c").SingleAsync());
         var current = await db.Users.SingleAsync(); Assert.True(current.LocalPasswordEnabled); Assert.Equal(0,current.CredentialVersion);
@@ -78,6 +78,7 @@ public sealed class ClientAccessMigrationPostgresTests
         await db.SaveChangesAsync();
         var error = await Assert.ThrowsAsync<PostgresException>(() => db.GetService<IMigrator>().MigrateAsync(Previous));
         Assert.Contains("Preserve credentials", error.MessageText);
+        // Unused staff tables can roll back; migration 32 still protects used client data.
         Assert.Equal(32, (await db.Database.GetAppliedMigrationsAsync()).Count());
         Assert.Equal(1, await db.Users.CountAsync());
     }

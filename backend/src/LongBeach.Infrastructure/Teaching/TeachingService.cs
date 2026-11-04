@@ -79,6 +79,9 @@ public sealed class TeachingService(LongBeachDbContext db, TimeProvider clock) :
     public async Task Link(TeacherLink input,CancellationToken ct)
     {
         await using var tx=await db.Database.BeginTransactionAsync(ct);await Lock(ct);
+        var managed=await db.Set<StaffMembership>().Include(m=>m.AccessType).Where(m=>m.UserId==input.UserId||input.TeamId.HasValue&&m.TeamId==input.TeamId.Value).ToListAsync(ct);
+        if(managed.Any(m=>m.UserId!=input.UserId||m.TeamId!=input.TeamId||m.AccessType.Role!=SystemRoles.Teacher||!m.Enabled))
+            throw new BarRuleException("Altere o vínculo e a situação deste professor pelo cadastro de acesso da equipe.");
         var access=await Access(ct);
         if(!access.Users.Any(u=>u.Id==input.UserId) || input.TeamId.HasValue&&!access.Team.Any(t=>t.Id==input.TeamId)) throw new BarRuleException("Escolha uma conta de professor ativa e um cadastro da equipe.");
         if(input.TeamId.HasValue&&access.Links.Any(l=>l.UserId!=input.UserId&&l.TeamId==input.TeamId)) throw new BarRuleException("Este professor já está vinculado a outra conta.");

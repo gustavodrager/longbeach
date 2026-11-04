@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/authContext'
+import { hasPermission, hasStaffAction, hasStaffMenu } from '../auth/access'
 import { money, useBarData, type Tab, type PageResult } from './api'
 import { readCart, LoadState } from './Core'
 
@@ -10,7 +11,8 @@ export function SaleDestination({ tab, locked, hasDraft }: { tab?: Tab; locked: 
   const [selected, setSelected] = useState<Tab | null>(null)
   const [error, setError] = useState('')
   const navigate = useNavigate(); const { user } = useAuth()
-  const query = useBarData<PageResult<Tab>>(`/tabs?state=Open&search=${encodeURIComponent(search)}&page=1&pageSize=24`, choosing)
+  const canSell = hasPermission(user, 'bar:sales:operate') && hasStaffMenu(user, 'bar.sell') && hasStaffAction(user, 'bar.sell')
+  const query = useBarData<PageResult<Tab>>(`/tabs?state=Open&search=${encodeURIComponent(search)}&page=1&pageSize=24`, canSell && choosing)
   const sourceKey = `lb-cart:${user?.id}:${tab?.id ?? 'sale'}`
   const destinationKey = selected ? `lb-cart:${user?.id}:${selected.id}` : ''
   const destinationPending = (id: string) => {
@@ -18,7 +20,7 @@ export function SaleDestination({ tab, locked, hasDraft }: { tab?: Tab; locked: 
   }
   const existingDraft = selected && (readCart(destinationKey).length > 0 || destinationPending(selected.id))
   function choose(transfer: boolean) {
-    if (!selected || locked || query.isError || selected.state !== 'Open' || (transfer && destinationPending(selected.id))) return
+    if (!canSell || !selected || locked || query.isError || selected.state !== 'Open' || (transfer && destinationPending(selected.id))) return
     try {
       if (transfer && hasDraft) {
         // Recheck at the moment of confirmation; never overwrite another draft.
@@ -29,6 +31,7 @@ export function SaleDestination({ tab, locked, hasDraft }: { tab?: Tab; locked: 
       navigate(`/atendimento/vender?comanda=${selected.id}`)
     } catch { setError('Não foi possível preservar o rascunho neste dispositivo. Nenhum pedido foi enviado.'); }
   }
+  if (!canSell) return null
   return <section className="ux-panel lb-sale-destination" aria-label="Destino do pedido">
     <div><h2>{tab ? `Comanda ${tab.number} · ${tab.name || 'Visitante'}` : 'Venda avulsa'}</h2>
       <p>{tab ? tab.responsible ? `Responsável: ${tab.responsible.name}` : 'Sem responsável vinculado à área do cliente.' : 'Nova comanda sem responsável ao registrar.'}</p>

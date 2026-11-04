@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { apiFetch, ApiError } from '../../lib/http'
 import { useAuth } from '../auth/authContext'
-import { hasPermission } from '../auth/access'
+import { hasPermission, hasStaffAction, hasStaffMenu } from '../auth/access'
 import { CustomerPicker } from '../customers/CustomerPicker'
 import type { CustomerSelection } from '../customers/api'
 import { useConfirmationGate } from './Core'
@@ -31,7 +31,7 @@ function IdentificationForm({ tab, disabled }: { tab: Tab; disabled: boolean }) 
   const cache = useQueryClient()
   const command = useBarCommand()
   const request = useRef(false)
-  const allowed = hasPermission(user, 'bar:sales:operate')
+  const allowed = hasPermission(user, 'bar:sales:operate') && ['bar.sell', 'bar.tabs'].some(menu => hasStaffMenu(user, menu) && hasStaffAction(user, menu))
   const ready = allowed && tab.state === 'Open' && tab.pending === 0 && Number.isInteger(tab.version)
   async function save() {
     if (request.current || disabled || command.busy || !allowed || !pending && !ready) return
@@ -51,7 +51,7 @@ function IdentificationForm({ tab, disabled }: { tab: Tab; disabled: boolean }) 
     <h2>Cliente identificado</h2><p>{tab.customer?.name ?? 'Atendimento sem cliente identificado'}</p>
     {tab.customer?.incomplete && <p className="ux-note">Telefone pendente no cadastro anterior. O atendimento continua disponível.</p>}
     <Feedback {...command} />
-    {editing ? <>
+    {editing && allowed ? <>
       <p className="ux-note">A identificação cadastral não concede acesso à comanda nem altera quem responde pelo pagamento.</p>
       {pending ? <p role="status">A identificação aguarda confirmação. Repita os mesmos dados antes de trocar o cliente.</p> : <CustomerPicker scope="bar" contextKey={`tab-identify:${tab.id}`} label="Cliente da comanda" value={selected} onChange={setSelected} disabled={disabled || command.busy} />}
       <div className="ux-actions"><button type="button" className="ux-button primary" disabled={disabled || command.busy || !allowed || !pending && !ready} onClick={() => void save()}>{pending ? 'Conferir identificação' : 'Salvar identificação'}</button>{!pending && <button type="button" className="ux-button secondary" disabled={command.busy} onClick={() => setEditing(false)}>Voltar</button>}</div>

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { type Balance, type Managed, type Named, money, useAction, Notice } from './BarCore'
 import './product-row.css'
 
-export function ProductRow({item,balance,stockReady,canAdjust,categories,suppliers,editing,onEdit,onClose}:{item:Managed;balance?:Balance;stockReady:boolean;canAdjust:boolean;categories:Named[];suppliers:Named[];editing:boolean;onEdit:()=>void;onClose:()=>void}) {
+export function ProductRow({item,balance,stockReady,canAdjust,canEdit=true,categories,suppliers,editing,onEdit,onClose}:{item:Managed;balance?:Balance;stockReady:boolean;canAdjust:boolean;canEdit?:boolean;categories:Named[];suppliers:Named[];editing:boolean;onEdit:()=>void;onClose:()=>void}) {
  const guard=useUnsavedChanges();const dirty=useRef(false);
  useEffect(()=>{if(!editing)return;const leave=(e:BeforeUnloadEvent)=>{if(dirty.current){e.preventDefault();e.returnValue=''}};window.addEventListener('beforeunload',leave);return()=>window.removeEventListener('beforeunload',leave)},[editing]);
  const p=item.product;const a=useAction();const [draft,setDraft]=useState(()=>({...p,...item,product:undefined,name:p.name,salePrice:String(p.salePrice),averageCost:String(item.averageCost),available:String(balance?.available??0)}));
@@ -22,9 +22,9 @@ export function ProductRow({item,balance,stockReady,canAdjust,categories,supplie
  <td data-label="Preço">{editing?input('salePrice','Preço de venda (R$)'):money(p.salePrice)}</td>
  <td data-label="Custo">{editing?input('averageCost','Custo unitário (R$)'):money(item.averageCost)}</td>
  <td data-label="Disponível" className="product-available">{!ownsStock?'Sem controle':editing&&canAdjust&&stockReady?<>{input('available','Quantidade disponível')}<small>{p.saleUnit}</small></>:stockReady?`${balance?.available??0} ${p.saleUnit}`:'Indisponível'}</td>
- <td data-label="Ação" className="product-actions-cell">{editing?<div className="product-inline-actions"><button className="primary-button" form={id} disabled={a.busy}>{a.busy?'Salvando…':'Salvar'}</button><button disabled={a.busy} onClick={()=>{dirty.current=false;guard.markSaved();onClose()}}>Cancelar</button></div>:<button disabled={canAdjust&&ownsStock&&!stockReady} onClick={begin}>Editar</button>}</td>
+ <td data-label="Ação" className="product-actions-cell">{editing?<div className="product-inline-actions"><button className="primary-button" form={id} disabled={a.busy}>{a.busy?'Salvando…':'Salvar'}</button><button disabled={a.busy} onClick={()=>{dirty.current=false;guard.markSaved();onClose()}}>Cancelar</button></div>:canEdit&&<button disabled={canAdjust&&ownsStock&&!stockReady} onClick={begin}>Editar</button>}</td>
  </tr>{editing&&<tr className="product-inline-details"><td colSpan={5}><form id={id} onSubmit={async e=>{
- e.preventDefault();const original=initial.item;const product={...original.product,...draft,product:undefined,categoryId:draft.categoryId||null,salePrice:number(draft.salePrice),averageCost:number(draft.averageCost),shortName:draft.shortName===original.product.name?draft.name:draft.shortName};
+ e.preventDefault();if(!canEdit)return;const original=initial.item;const product={...original.product,...draft,product:undefined,categoryId:draft.categoryId||null,salePrice:number(draft.salePrice),averageCost:number(draft.averageCost),shortName:draft.shortName===original.product.name?draft.name:draft.shortName};
  const stockChanged=ownsStock&&canAdjust&&stockReady&&number(draft.available)!==(initial.balance?.available??0);
  const result=await a.run('/products/'+p.id+(canAdjust?'/stock':''),canAdjust?{product,available:stockChanged?number(draft.available):null,stockVersion:initial.balance?.version??0,operationId:crypto.randomUUID()}:product,'PUT');if(result!==undefined){dirty.current=false;onClose();}
  }}><Notice action={a}/><p className="arena-hint">Informe o total disponível para venda. O ajuste fica registrado no histórico.</p>

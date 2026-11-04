@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../../lib/http'
 import { useAuth } from '../auth/authContext'
+import { hasPermission, hasStaffAction, hasStaffMenu, workHome } from '../auth/access'
 import { LoadState, useConfirmationGate } from './Core'
 import { Feedback, Icon } from './components'
 import { postBar, useBarCommand, useBarData, type Named, type Tab, type TabCustomer } from './api'
@@ -19,6 +20,8 @@ function restore(value: string): Opening | null {
 
 export function OpenTabForm() {
   const { user } = useAuth()
+  const canSell = hasPermission(user, 'bar:sales:operate') && hasStaffMenu(user, 'bar.sell') && hasStaffAction(user, 'bar.sell')
+  const canOpen = canSell || hasPermission(user, 'bar:sales:operate') && hasStaffMenu(user, 'bar.tabs') && hasStaffAction(user, 'bar.tabs')
   const [saved, setSaved] = useConfirmationGate(`open-tab:${user?.id}`)
   const pending = restore(saved)
   const [opening, setOpening] = useState(Boolean(pending))
@@ -30,32 +33,33 @@ export function OpenTabForm() {
   const [customer, setCustomer] = useState<TabCustomer | null>(null)
   const [confirmed, setConfirmed] = useState(false)
   const [identifiedCustomer, setIdentifiedCustomer] = useState<CustomerSelection | null>(null)
-  const locations = useBarData<Named[]>('/tabs/locations', opening && !pending)
-  const customers = useBarData<TabCustomer[]>(`/tabs/customers?search=${encodeURIComponent(submittedSearch)}`, opening && kind === 'customer' && submittedSearch.length >= 3 && !pending)
+  const locations = useBarData<Named[]>('/tabs/locations', canOpen && opening && !pending)
+  const customers = useBarData<TabCustomer[]>(`/tabs/customers?search=${encodeURIComponent(submittedSearch)}`, canOpen && opening && kind === 'customer' && submittedSearch.length >= 3 && !pending)
   const location = barLocation(locations.data)?.id
   const hasPending = Boolean(pending)
   useEffect(() => {
-    if (!opening || kind !== 'customer' || hasPending) return
+    if (!canOpen || !opening || kind !== 'customer' || hasPending) return
     const timer = window.setTimeout(() => setSubmittedSearch(search.trim()), 300)
     return () => window.clearTimeout(timer)
-  }, [opening, kind, search, hasPending])
+  }, [canOpen, opening, kind, search, hasPending])
   const openingRequest = useRef(false)
   const command = useBarCommand()
   const navigate = useNavigate()
   const locked = command.busy || Boolean(pending)
 
   async function open(addProducts = false) {
-    if (openingRequest.current) return
+    if (openingRequest.current || !canOpen || addProducts && !canSell) return
     if (!pending && (!location || locations.isError || (kind === 'customer' && (!customer || !confirmed)))) return
     openingRequest.current = true
     const input: Opening = pending ?? { addProducts, operationId: crypto.randomUUID(), locationId: location!, name: name.trim() || (kind === 'customer' ? customer!.name.slice(0, 80) : ''), mode: 'Tab', ...(notes.trim() ? { notes: notes.trim() } : {}), ...(identifiedCustomer ? {customerId:identifiedCustomer.id} : {}), ...(kind === 'customer' ? { responsibleUserId: customer!.id } : {}) }
     setSaved(JSON.stringify(input))
     const result = await command.run(() => postBar<Tab>('/tabs', { ...input, addProducts: undefined }))
     openingRequest.current = false
-    if (result.ok) { setSaved(''); navigate(input.addProducts ? `/atendimento/vender?comanda=${result.value.id}` : `/atendimento/comandas/${result.value.id}`) }
+    if (result.ok) { setSaved(''); navigate(input.addProducts && canSell || !hasStaffMenu(user, 'bar.tabs') && canSell ? `/atendimento/vender?comanda=${result.value.id}` : hasStaffMenu(user, 'bar.tabs') ? `/atendimento/comandas/${result.value.id}` : workHome(user)) }
     else if (result.error instanceof ApiError && [400, 422].includes(result.error.status)) setSaved('')
   }
 
+  if (!canOpen) return null
   return <>
     {!opening && <button className="ux-button primary" onClick={() => setOpening(true)}><Icon name="plus" />Abrir comanda</button>}
     <Feedback {...command} />
@@ -87,7 +91,7 @@ export function OpenTabForm() {
         {!locations.isLoading && !locations.isError && !location && <p role="alert">Peça à gestão para conferir o cadastro do local Bar.</p>}
       </>}
       <div className="ux-actions">
-        {!pending && <button type="button" className="ux-button primary" disabled={command.busy || !location || locations.isError || (kind === 'customer' && (!customer || !confirmed))} onClick={() => void open(true)}>Abrir e adicionar produtos</button>}
+        {!pending && canSell && <button type="button" className="ux-button primary" disabled={command.busy || !location || locations.isError || (kind === 'customer' && (!customer || !confirmed))} onClick={() => void open(true)}>Abrir e adicionar produtos</button>}
         <button className="ux-button secondary" disabled={command.busy || (!pending && (!location || locations.isError || (kind === 'customer' && (!customer || !confirmed))))}>{pending ? 'Conferir abertura' : kind === 'customer' ? 'Abrir comanda vinculada' : 'Abrir sem vínculo financeiro'}</button>
         {!pending && <button type="button" className="ux-button secondary" disabled={command.busy} onClick={() => setOpening(false)}>Voltar</button>}
       </div>

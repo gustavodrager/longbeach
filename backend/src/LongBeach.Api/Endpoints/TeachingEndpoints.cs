@@ -13,7 +13,7 @@ public static class TeachingEndpoints
         mine.MapPut("/classes/{classId:guid}/presences",(Guid classId,string date,PresenceInput i,HttpContext h,ITeaching s,CancellationToken ct)=>Run(date,d=>s.SavePresence(Actor(h),classId,d,i,ct)));
         var access=endpoints.MapGroup("/api/v1/teaching/access").RequireAuthorization("Management");
         access.MapGet("",(ITeaching s,CancellationToken ct)=>s.Access(ct));
-        access.MapPut("",async(TeacherLink i,ITeaching s,CancellationToken ct)=>{await s.Link(i,ct);return Results.NoContent();});
+        access.MapPut("",async(TeacherLink i,ITeaching s,CancellationToken ct)=>{await s.Link(i,ct);return Results.NoContent();}).RequireAuthorization(StaffAccessEndpoints.OwnerPolicy);
         return endpoints;
     }
     private static Guid Actor(HttpContext h)=>Guid.Parse(h.User.FindFirstValue(ClaimTypes.NameIdentifier)??h.User.FindFirstValue("sub")!);

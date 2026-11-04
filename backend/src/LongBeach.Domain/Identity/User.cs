@@ -28,6 +28,9 @@ public sealed class User : Entity
     public bool IsActive { get; private set; }
     public string? Username { get; private set; }
     public string? NormalizedUsername { get; private set; }
+    public string? PhoneLogin { get; private set; }
+    public bool RequiresLocalPasswordChange { get; private set; }
+    public StaffMembership? StaffMembership { get; private set; }
     public bool RequiresFirstAccess { get; private set; }
     public DateTimeOffset? InitialAccessExpiresAtUtc { get; private set; }
     public string? GoogleSubject { get; private set; }
@@ -55,6 +58,39 @@ public sealed class User : Entity
         return user;
     }
 
+    public static User CreateForStaffFirstAccess(string name, string? username, string? phoneLogin, string passwordHash, DateTimeOffset expiresAt)
+    {
+        var user = Create(name, $"{Guid.NewGuid():N}@unlinked.longbeach.invalid", passwordHash);
+        if (!string.IsNullOrWhiteSpace(username)) user.SetUsername(username);
+        user.SetPhoneLogin(phoneLogin);
+        if (user.Username is null && user.PhoneLogin is null) throw new ArgumentException("Informe o telefone de acesso ou um usuário.");
+        user.RequireLocalFirstAccess(passwordHash, expiresAt);
+        return user;
+    }
+
+    public static string? NormalizePhoneLogin(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        value = value.Trim();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(value, @"^\+?[0-9() .-]+$")) throw new ArgumentException("Confira o telefone de acesso.");
+        var digits = new string(value.Where(char.IsAsciiDigit).ToArray());
+        if (!value.StartsWith('+') && digits.Length is 10 or 11) digits = "55" + digits;
+        if (digits.Length is < 10 or > 15 || digits.StartsWith('0')) throw new ArgumentException("Informe um telefone válido com DDD.");
+        return "+" + digits;
+    }
+
+    public void SetPhoneLogin(string? value) => PhoneLogin = NormalizePhoneLogin(value);
+    public void AttachStaffMembership(StaffMembership membership)
+    {
+        if (membership.UserId != Id || StaffMembership is not null && StaffMembership.Id != membership.Id)
+            throw new InvalidOperationException("Uma conta só pode estar vinculada a uma pessoa da equipe.");
+        StaffMembership = membership;
+    }
+    public void RequireLocalFirstAccess(string passwordHash, DateTimeOffset expiresAt)
+    {
+        SetLocalPassword(passwordHash); RequiresFirstAccess = true; RequiresLocalPasswordChange = true; InitialAccessExpiresAtUtc = expiresAt;
+    }
+
     public void SetUsername(string username)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(username);
@@ -71,6 +107,7 @@ public sealed class User : Entity
     public void CompleteFirstAccess()
     {
         RequiresFirstAccess = false;
+        RequiresLocalPasswordChange = false;
         InitialAccessExpiresAtUtc = null;
     }
 
@@ -88,7 +125,7 @@ public sealed class User : Entity
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
         ArgumentException.ThrowIfNullOrWhiteSpace(passwordHash);
-        if (!IsActive || !RequiresFirstAccess || GoogleSubject is not null ||
+        if (!IsActive || !RequiresFirstAccess || RequiresLocalPasswordChange || GoogleSubject is not null ||
             !Email.EndsWith("@unlinked.longbeach.invalid", StringComparison.Ordinal) || email.Length > 320)
             throw new InvalidOperationException("Only an unlinked pending account can receive authorized Google access.");
         Email = email.Trim(); NormalizedEmail = NormalizeEmail(email);

@@ -6,7 +6,7 @@ type GradePreview = { batchId: string; sourceName: string; applied: boolean; can
 const labels: Record<string, string> = { team: 'Professor', classes: 'Turma', enrollments: 'Matrícula' }
 const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 
-export function GradeImportReview({ batchId, sourceName, onApplied, kind = 'classes' }: { batchId: string; sourceName: string; kind?: 'classes' | 'rentals'; onApplied: () => Promise<void> }) {
+export function GradeImportReview({ batchId, sourceName, onApplied, kind = 'classes', canApply = true, canApplyItem }: { batchId: string; sourceName: string; kind?: 'classes' | 'rentals'; onApplied: () => Promise<void>; canApply?:boolean; canApplyItem?:(kind:string)=>boolean }) {
   const rentals = kind === 'rentals'
   const endpoint = rentals ? 'rental-groups' : 'class-grade'
   const label = rentals ? 'grupos mensalistas' : 'grade de aulas'
@@ -19,8 +19,9 @@ export function GradeImportReview({ batchId, sourceName, onApplied, kind = 'clas
     catch (failure) { setError(failure instanceof Error ? failure.message : 'Não foi possível conferir a grade.') }
     finally { setBusy(false) }
   }
+  const allowed=canApply&&(!preview||!canApplyItem||preview.items.every(item=>canApplyItem(item.kind)))
   async function apply() {
-    if (!preview?.canApply) return
+    if (!preview?.canApply || !allowed) return
     setBusy(true); setError('')
     try {
       setPreview(await apiFetch<GradePreview>(`/api/v1/imports/${batchId}/${endpoint}/apply`, { method: 'POST', body: JSON.stringify({ confirmationToken: preview.confirmationToken }) }))
@@ -38,7 +39,7 @@ export function GradeImportReview({ batchId, sourceName, onApplied, kind = 'clas
       <div className="table-scroll"><table><thead><tr><th>Cadastro</th><th>Nome</th><th>Horário e acordo</th><th>Conferência</th></tr></thead><tbody>
         {preview.items.map(item => <tr key={item.id}><td>{rentals ? 'Mensalista' : labels[item.kind]}</td><td>{item.name}</td><td>{rentals ? `${days[item.body.weekDay!]} · ${item.body.startTime}–${item.body.endTime} · ${item.body.monthlyAmount == null ? 'A combinar' : item.body.monthlyAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/mês` : item.kind === 'classes' ? `${days[item.body.weekDay!]} · ${item.body.startTime}–${item.body.endTime} · ${item.body.capacity} vagas` : '—'}</td><td>{item.conflict ?? (preview.applied ? 'Aplicado' : 'Pronto para cadastrar')}</td></tr>)}
       </tbody></table></div>
-      {preview.applied ? <p role="status">{rentals ? 'Grupos cadastrados em Mensalistas.' : 'Grade aplicada à Escola e à Agenda.'}</p> : <button className="button-primary" type="button" disabled={busy || !preview.canApply} onClick={() => void apply()}>{rentals ? 'Aplicar grupos conferidos' : 'Aplicar grade conferida'}</button>}
+      {preview.applied ? <p role="status">{rentals ? 'Grupos cadastrados em Mensalistas.' : 'Grade aplicada à Escola e à Agenda.'}</p> : allowed ? <button className="button-primary" type="button" disabled={busy || !preview.canApply} onClick={() => void apply()}>{rentals ? 'Aplicar grupos conferidos' : 'Aplicar grade conferida'}</button> : <p className="arena-hint">Seu acesso permite apenas consultar este lote.</p>}
     </section>}
   </div>
 }

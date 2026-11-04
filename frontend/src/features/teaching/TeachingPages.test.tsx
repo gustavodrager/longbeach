@@ -55,7 +55,7 @@ it('avisa a concessão de acesso e salva apenas o vínculo escolhido pela gestã
  const access={users:[{id:'prof-account',name:'Professora teste'}],team:[{id:'team-prof',name:'Cadastro teste'}],links:[]}
  const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async(_input,init)=>json(init?.method==='PUT'?{}:access))
  const client=new QueryClient({defaultOptions:{queries:{retry:false}}});clients.push(client)
- const auth={user:{...teacher,roles:['Manager']},isBootstrapping:false} as AuthContextValue
+ const auth={user:{...teacher,roles:['Manager'],canManageStaff:true},isBootstrapping:false} as AuthContextValue
  render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter><TeacherAccess/></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
  expect(screen.getByText('Confira a identidade antes de salvar. O vínculo libera as turmas e a chamada desse professor.')).toBeVisible()
  const select=await screen.findByLabelText('Cadastro na equipe')

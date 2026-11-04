@@ -186,6 +186,7 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors("web-client");
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<StaffScopeMiddleware>();
 app.UseAuthorization();
 
 if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Test"))
@@ -210,6 +211,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 
 app.MapClientPortalEndpoints();
 app.MapTeachingEndpoints();
+app.MapStaffAccessEndpoints();
 app.MapBillingEndpoints();
 app.MapC6PixEndpoints();
 app.MapBarEndpoints();
@@ -321,6 +323,9 @@ static void ConfigureAuthorization(IServiceCollection services, IConfiguration c
             .Build();
         options.DefaultPolicy = options.FallbackPolicy;
         options.AddPolicy("Session", policy => policy.RequireAuthenticatedUser());
+        options.AddPolicy(StaffAccessEndpoints.OwnerPolicy, policy => policy.RequireAuthenticatedUser()
+            .RequireAssertion(c => !c.User.HasClaim("requires_first_access", "true"))
+            .RequireClaim("can_manage_staff", "true"));
         options.AddPolicy(AuthorizationPolicyCatalog.Management, policy => policy.RequireAuthenticatedUser().RequireAssertion(c => !c.User.HasClaim("requires_first_access", "true")).RequireRole("Manager"));
         foreach (var permission in AuthorizationPolicyCatalog.Permissions)
         {

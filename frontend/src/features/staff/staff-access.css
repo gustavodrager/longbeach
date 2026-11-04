@@ -1,0 +1,12 @@
+.staff-access-area { border: 0; border-top: 1px solid var(--border, #ded7c9); margin: 1rem 0; padding: 1rem 0 0; }
+.staff-access-area legend { font-weight: 700; padding-right: .75rem; }
+.staff-access-menu { margin: .35rem 0; }
+.staff-access-check { display: flex; gap: .65rem; align-items: center; min-height: 48px; cursor: pointer; }
+.staff-access-check input { width: 20px; height: 20px; flex: 0 0 auto; accent-color: #9b7012; }
+.staff-access-action { padding-left: 1.75rem; font-size: .95rem; }
+.staff-access-types .operation-form, .staff-account-action .operation-form { padding: 0; }
+.staff-access-receipt .editor-body { display: grid; gap: .75rem; }
+.staff-access-receipt input { font-family: inherit; font-size: 1rem; min-height: 48px; width: 100%; }
+.staff-member-editor .operation-form { padding: 0; }
+.staff-pending { border-left: 3px solid #d5a52d; padding-left: 1rem; }
+@media (max-width: 600px) { .staff-team-page .page-heading { align-items: stretch; } .staff-team-page .page-heading .arena-record-actions { flex-wrap: wrap; } .staff-team-page .record-row { flex-wrap: wrap; } .staff-access-action { padding-left: 1rem; } }

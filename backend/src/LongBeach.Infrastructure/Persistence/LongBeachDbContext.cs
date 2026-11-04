@@ -29,6 +29,7 @@ public sealed class LongBeachDbContext(
         MaterialStockModel.Configure(modelBuilder);
         CustomerModel.Configure(modelBuilder);
         ClientAccessModel.Configure(modelBuilder);
+        StaffAccessModel.Configure(modelBuilder);
         MessagingModel.Configure(modelBuilder);
         CashModel.Configure(modelBuilder);
         SalesModel.Configure(modelBuilder);
@@ -69,6 +70,9 @@ public sealed class LongBeachDbContext(
     private void ProtectCustomerHistory()
     {
         ChangeTracker.DetectChanges();
+        if (ChangeTracker.Entries().Any(entry => entry.Entity is StaffAccessOperation && entry.State is EntityState.Modified or EntityState.Deleted
+            || entry.Entity is StaffAccessType or StaffMembership && entry.State == EntityState.Deleted))
+            throw new InvalidOperationException("Histórico de acesso da equipe preservado. Bloqueie o acesso em vez de excluí-lo.");
         foreach (var entry in ChangeTracker.Entries())
         {
             if (entry.Entity.GetType().Namespace == "LongBeach.Domain.Messaging"
