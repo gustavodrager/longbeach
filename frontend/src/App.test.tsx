@@ -106,14 +106,14 @@ describe('autenticação e shell', () => {
     expect(await screen.findByText('Alterações salvas no PostgreSQL.')).toBeInTheDocument()
   })
 
-  it('cadastra material com saldo zero e registra movimentos com motivo e destino na demonstração local', async () => {
+  it('cadastra material sem local e registra movimentos com motivo e destino na demonstração local', async () => {
     vi.stubEnv('VITE_DEMO_MODE', 'true')
     window.history.replaceState({}, '', '/estoque')
     render(<App />)
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: '+ Adicionar item' }))
     await user.type(await screen.findByLabelText('Material ou equipamento'), 'Bola de teste')
-    await user.type(screen.getByLabelText('Onde fica guardado'), 'Depósito')
+    expect(screen.getByLabelText('Onde fica guardado (opcional)')).not.toBeRequired()
     expect(screen.queryByLabelText('Quantidade atual')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Salvar cadastro' }))
     expect(await screen.findByRole('heading', { name: 'Bola de teste' })).toBeInTheDocument()
@@ -138,6 +138,8 @@ describe('autenticação e shell', () => {
     expect(await screen.findByText(/Repor estoque/)).toBeInTheDocument()
     const stored = JSON.parse(localStorage.getItem('longbeach-os-demo-v1') ?? '{}')
     expect(Object.values(stored.__materialOperations)).toHaveLength(2)
+    expect(stored.inventory[0].location).toBe('')
+    expect(Object.values(stored.__materialOperations).every(row => (row as { movement: { location: string } }).movement.location === '')).toBe(true)
   })
 
   it('cadastra uma pessoa da equipe com forma e frequência de pagamento', async () => {

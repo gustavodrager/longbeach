@@ -1,3 +1,4 @@
+import { FormattedInput } from '../../components/FormattedInput'
 import { useRef, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -96,7 +97,7 @@ export function ExpenseForm({ options, onClose, onSaved, purchase }: { options: 
               </>}
             </>}
           </>}
-          {!purchase && <label className="operation-field">Valor devido (R$)<input required inputMode="decimal" value={amount} onChange={event => setAmount(event.target.value)} placeholder="0,00" /></label>}
+          {!purchase && <label className="operation-field">Valor devido (R$)<FormattedInput format="money" required value={amount} onValueChange={setAmount} placeholder="R$ 0,00" /></label>}
           <label className="operation-field">Situação<select value={paidBy} onChange={event => setPaidBy(event.target.value as ExpensePaidBy)}><option value="Pending">A pagar</option><option value="Company">Pago pela empresa</option><option value="Partner">Pago por um sócio</option></select></label>
           {paidBy === 'Pending' && <label className="operation-field">Vencimento<input required type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} /></label>}
           {paidBy === 'Company' && <label className="operation-field">Data do pagamento<input required type="date" max={day} value={paidDate} onChange={event => setPaidDate(event.target.value)} /></label>}

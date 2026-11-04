@@ -9,10 +9,11 @@ it('preserva valores na falha e repete a mesma operação conjunta sem duplicar'
  expect(screen.queryByLabelText('Situação do produto')).not.toBeInTheDocument();
  fireEvent.change(screen.getByLabelText('Quantidade disponível'),{target:{value:'2,125'}});
  fireEvent.change(screen.getByLabelText('Preço de venda (R$)'),{target:{value:'6'}});
+ fireEvent.change(screen.getByLabelText('Custo unitário (R$)'),{target:{value:'2,123456'}});
  fireEvent.click(screen.getByRole('button',{name:'Salvar'}));await screen.findByRole('alert');
  expect(close).not.toHaveBeenCalled();expect(screen.getByLabelText('Quantidade disponível')).toHaveValue('2,125');
  fail=false;fireEvent.click(screen.getByRole('button',{name:'Salvar'}));await waitFor(()=>expect(close).toHaveBeenCalledOnce());
  const bodies=fetch.mock.calls.map(([,init])=>JSON.parse(String(init?.body)));
- expect(bodies[0]).toMatchObject({available:2.125,stockVersion:8,product:{active:false,version:4,salePrice:6,purchaseUnit:'cx',conversionFactor:12}});
+ expect(bodies[0]).toMatchObject({available:2.125,stockVersion:8,product:{active:false,version:4,salePrice:6,averageCost:2.123456,purchaseUnit:'cx',conversionFactor:12}});
  expect(bodies[1].operationId).toBe(bodies[0].operationId);client.clear();
 });

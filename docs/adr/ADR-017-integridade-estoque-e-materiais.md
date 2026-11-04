@@ -22,6 +22,8 @@ O CRUD protege quantidade, unidade e histórico antigo; clientes anteriores não
 
 Unidade estabelecida permanece imutável. Um legado sem unidade só permite escolha explícita quando o saldo é zero e não há histórico JSON nem comprovantes relacionais. Essa verificação ocorre sob a mesma trava. Casos com saldo ou histórico exigem reconciliação, sem valor inferido. Localização e finalidade continuam metadados; a unidade/local de cada comprovante permanecem fotografados.
 
+Revisão de 04/11/2026, implementada e validada localmente: o local de armazenamento passa a ser opcional no cadastro e na movimentação de materiais, inclusive na demonstração local, mantendo o limite de 160 caracteres. A ausência de local não bloqueia a gravação; o novo comprovante registra localização vazia, sem preencher ou alterar os dados e comprovantes anteriores. Unidade, motivo, destino, permissões, integridade do saldo, versão esperada e imutabilidade continuam sujeitos às mesmas regras. Essa revisão é compatível com a coluna existente e não exige migration nem alteração de schema; preserva o histórico da publicação de 27/10 e da 28ª migration descrito neste ADR. A validação local desta revisão não registra uma nova publicação hospedada.
+
 As quantidades aceitam três casas decimais e não permitem saldo negativo. Consumo exige classificação Consumable; equipamentos reutilizáveis/patrimônio não são consumidos. A classificação não implementa empréstimos, bens individuais, transferências entre locais, compras da Arena ou contas a pagar.
 
 ## Acesso e interface

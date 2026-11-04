@@ -40,7 +40,7 @@ export const expenseApi = {
 }
 
 export const expenseMoney = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
-export const expenseMoneyInput = (value: number) => value.toFixed(2).replace('.', ',')
+export const expenseMoneyInput = (value: number) => value.toFixed(2)
 // Financial input accepts Brazilian separators and never rounds a third decimal silently.
 export function parseExpenseMoney(input: string): number | null {
   const text = input.trim().replace(/\s/g, '').replace(/^R\$/, '')

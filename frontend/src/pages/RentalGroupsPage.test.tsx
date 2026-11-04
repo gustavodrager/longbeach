@@ -85,7 +85,7 @@ it('mensalidade criada depois dos encontros preserva competência, origem e venc
   vi.spyOn(globalThis,'fetch').mockImplementation(async(input)=>json(String(input).endsWith('/rentalMonths')?[cycle]:[]))
   start('/financeiro/novo?origin=Locações&sourceKind=rentalMonths&source=cycle-test&month=2026-10')
   await waitFor(()=>expect(screen.getByLabelText('Descrição do lançamento')).toHaveValue('Mensalista · Turma teste · 2026-10'))
-  expect(screen.getByLabelText('Valor (R$)')).toHaveValue(500)
+  expect(screen.getByLabelText('Valor (R$)')).toHaveDisplayValue(/R\$\s*500,00/)
   expect(screen.getByLabelText('Vencimento')).toHaveValue('2026-10-10')
   expect(screen.getByLabelText('Competência da mensalidade')).toHaveValue('2026-10')
 })
@@ -170,17 +170,17 @@ function editableFixture() {
   })
   return {saved,tables, fail:(value:boolean)=>{failure=value}}
 }
-it('edita na listagem sem alterar encontros, cobrança ou integrantes e busca sem acentos',async()=>{
+it.each([['R$ 1.234,56',1234.56],['0,00',0],['',null]])('edita mensalidade %s em reais sem alterar encontros, cobrança ou integrantes',async(input,expectedAmount)=>{
   const fixture=editableFixture()
   fixture.tables.rentalGroups[0].name='Turma João'
   start('/mensalistas?q=joao')
   fireEvent.click(await screen.findByRole('button',{name:'Editar'}))
   fireEvent.change(screen.getByLabelText('Nome do grupo'),{target:{value:'Turma João atualizada'}})
-  fireEvent.change(screen.getByLabelText('Valor mensal (R$)'),{target:{value:'550'}})
+  fireEvent.change(screen.getByLabelText('Valor mensal (R$)'),{target:{value:input}})
   fireEvent.click(screen.getByRole('button',{name:'Salvar grupo'}))
   await screen.findByRole('heading',{name:'Turma João atualizada'})
   expect(fixture.saved).toHaveLength(1)
-  expect(fixture.saved[0]).toMatchObject({kind:'rentalGroups',body:{version:1,monthlyAmount:550,members:group.members}})
+  expect(fixture.saved[0]).toMatchObject({kind:'rentalGroups',body:{version:1,monthlyAmount:expectedAmount,members:group.members}})
   expect(fixture.tables.financeEntries[0].amount).toBe(500)
   expect(fixture.tables.reservations[0].startTime).toBe('20:00')
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

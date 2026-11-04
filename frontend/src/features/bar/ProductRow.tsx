@@ -1,3 +1,4 @@
+import { FormattedInput } from '../../components/FormattedInput'
 import { Link } from 'react-router-dom'
 import { useUnsavedChanges } from '../../components/managementUi'
 import { useEffect, useRef, useState } from 'react'
@@ -13,7 +14,9 @@ export function ProductRow({item,balance,stockReady,canAdjust,categories,supplie
  const change=(key:string,value:unknown)=>{dirty.current=true;guard.setDirty(true);setDraft(d=>({...d,[key]:value}))};
  const begin=()=>{setInitial({item,balance});setDraft({...p,...item,product:undefined,name:p.name,salePrice:String(p.salePrice),averageCost:String(item.averageCost),available:String(balance?.available??0)});onEdit()};
  const number=(value:string)=>Number(value.replace(',','.'));
- const input=(key:'name'|'salePrice'|'averageCost'|'available',label:string)=><input aria-label={label} form={id} required disabled={a.busy} value={draft[key]} inputMode={key==='name'?undefined:'decimal'} onChange={e=>change(key,e.target.value)} pattern={key==='name'?undefined:key==='available'?'[0-9]+([.,][0-9]{1,3})?':key==='salePrice'?'[0-9]+([.,][0-9]{1,2})?':'[0-9]+([.,][0-9]{1,6})?'} />;
+ const input=(key:'name'|'salePrice'|'averageCost'|'available',label:string)=>key==='salePrice'||key==='averageCost'
+  ?<FormattedInput format="money" decimalPlaces={key==='averageCost'?6:2} aria-label={label} form={id} required disabled={a.busy} value={draft[key]} onValueChange={value=>change(key,value)} />
+  :<input aria-label={label} form={id} required disabled={a.busy} value={draft[key]} inputMode={key==='name'?undefined:'decimal'} onChange={e=>change(key,e.target.value)} pattern={key==='available'?'[0-9]+([.,][0-9]{1,3})?':undefined} />;
  return <><tr className={editing?'product-row product-editing':'product-row'}>
  <td data-label="Produto">{editing?input('name','Nome'):<div className="product-name">{p.imageUrl&&!imageFailed?<img className="product-thumbnail" src={p.imageUrl} alt="" width={44} height={44} loading="lazy" onError={()=>setImageFailed(true)}/>:<span className="product-thumbnail product-placeholder" aria-hidden="true">◇</span>}<strong>{p.name}</strong></div>}</td>
  <td data-label="Preço">{editing?input('salePrice','Preço de venda (R$)'):money(p.salePrice)}</td>

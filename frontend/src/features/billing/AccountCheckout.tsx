@@ -1,3 +1,4 @@
+import { FormattedInput } from '../../components/FormattedInput'
 import { useAuth } from '../auth/authContext'
 import { useRef, useState } from 'react'
 import type { Account, Config, Payment, Subscription } from './api'
@@ -16,7 +17,7 @@ export function AccountCheckout({ account, config, base, resume, subscription = 
   const operation = useRef(resume?.operationId ?? subscriptionOperationId ?? crypto.randomUUID())
   const submitting = useRef(false)
   const submittedAmount = useRef<number | undefined>(undefined)
-  const total = account.kind === 'Bar' ? Number(amount.replace(',', '.')) : account.payable
+  const total = account.kind === 'Bar' ? Number(amount) : account.payable
   async function submit() {
     if (submitting.current) return
     submitting.current = true; setBusy(true); setError('')
@@ -39,12 +40,12 @@ export function AccountCheckout({ account, config, base, resume, subscription = 
   return <form className="ux-panel" onSubmit={e => { e.preventDefault(); void submit() }}>
     <h3>{subscription ? 'Autorizar mensalidade automática' : resume ? 'Retomar o mesmo pagamento' : 'Pagar esta conta'}</h3>
     <p>{subscription ? `${money(account.total)} por mês. Primeira cobrança em ${date(account.dueDate)}.` : money(resume?.amount ?? total)}</p>
-    {account.kind === 'Bar' && !resume && <label className="ux-field">Valor a pagar<input required inputMode="decimal" disabled={busy || started} value={amount} onChange={e => setAmount(e.target.value)} /></label>}
+    {account.kind === 'Bar' && !resume && <label className="ux-field">Valor a pagar<FormattedInput format="money" required disabled={busy || started} value={amount} onValueChange={setAmount} /></label>}
     {!subscription && !resume && <label className="ux-field">Forma de pagamento<select disabled={busy || started} value={method} onChange={e => setMethod(e.target.value)}><option value="Pix" disabled={!pixEnabled}>Pix</option><option value="CreditCard" disabled={!config.cardEnabled}>Crédito à vista</option></select></label>}
     <label className="ux-field">Nome do pagador<input required maxLength={150} disabled={busy} value={name} onChange={e => setName(e.target.value)} /></label>
     <label className="ux-field">E-mail<input required type="email" maxLength={subscription ? 60 : 320} disabled={busy} value={email} onChange={e => setEmail(e.target.value)} /></label>
-    <label className="ux-field">CPF ou CNPJ<input required inputMode="numeric" pattern="([0-9]{11}|[0-9]{14})" maxLength={14} disabled={busy} value={taxId} onChange={e => setTaxId(e.target.value.replace(/\D/g, ''))} /></label>
-    {subscription && <label className="ux-field">Telefone com DDD<input required inputMode="tel" pattern="[0-9]{10,11}" maxLength={11} value={phone} disabled={busy} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} /></label>}
+    <label className="ux-field">CPF ou CNPJ<FormattedInput format="document" required pattern="([0-9]{11}|[0-9]{14})" maxLength={14} disabled={busy} value={taxId} onValueChange={setTaxId} /></label>
+    {subscription && <label className="ux-field">Telefone com DDD<FormattedInput format="phone" required pattern="[0-9]{10,11}" maxLength={11} value={phone} disabled={busy} onValueChange={setPhone} /></label>}
     {method === 'CreditCard' && <CardFields value={card} change={setCard} disabled={busy} />}
     {subscription && <label><input type="checkbox" required checked={consent} disabled={busy} onChange={e => setConsent(e.target.checked)} /> Autorizo a cobrança mensal de {money(account.total)} no cartão. Posso cancelar cobranças futuras na minha área.</label>}
     {subscription && <label><input type="checkbox" checked={updateExistingCustomerCard} disabled={busy || started} onChange={e => setUpdateExistingCustomerCard(e.target.checked)} /> Se este CPF ou CNPJ já estiver cadastrado no PagBank, autorizo atualizar o cartão usado nas outras mensalidades automáticas deste mesmo assinante. Esta autorização é opcional.</label>}

@@ -4,6 +4,7 @@ import { apiFetch } from '../../lib/http'
 import { barLocation } from '../attendance/serviceLocation'
 import { useUnsavedChanges } from '../../components/managementUi'
 import { Heading } from '../../pages/arenaUi'
+import { FormattedInput } from '../../components/FormattedInput'
 
 export const root = '/api/v1/bar'
 const stateLabels: Record<string,string> = {Draft:'Rascunho',AwaitingPayment:'Aguardando pagamento',Paid:'Paga',Canceled:'Cancelada',Refunded:'Estornada',Approved:'Aprovado',Pending:'Pendente',Ordered:'Comprada',PartiallyReceived:'Recebida parcialmente',Received:'Recebida',Loss:'Perda',InternalConsumption:'Consumo interno',Sale:'Venda',PurchaseReceived:'Recebimento de compra',InitialCount:'Contagem inicial',InventoryAdjustment:'Ajuste de inventário',TransferOut:'Transferência de saída',TransferIn:'Transferência de entrada',Courtesy:'Cortesia',SaleReturn:'Devolução',Cash:'Dinheiro',CardManual:'Cartão manual',Pix:'Pix',TabDelivery:'Entrega de comanda',TabReturn:'Devolução de comanda',TabPayment:'Pagamento de comanda',TabRefund:'Estorno de comanda',Open:'Aberto',Closed:'Fechado',Reopened:'Reaberto',Declined:'Não confirmado'}
@@ -41,7 +42,10 @@ export function StockNotice({ stock }: { stock: ReturnType<typeof useBarStock> }
   return <><QueryNotice query={stock.query}/>{stock.query.isSuccess && !stock.location && <p role="alert">Estoque do Bar não configurado. Peça à gestão para conferir o cadastro.</p>}</>
 }
 export function Page({ title, children }: { title: string; children: ReactNode }) { return <main className="operation-page arena-page"><Heading title={title} description="" eyebrow="Gestão do bar" />{children}</main> }
-export function Input({ name, label, value, type = 'text', required = true, step, disabled }: { name: string; label: string; value?: string | number; type?: string; required?: boolean; step?: string; disabled?: boolean }) { return <label className="bar-field">{label}<input name={name} defaultValue={value} disabled={disabled} type={type} required={required} min={type === 'number' ? 0 : undefined} step={step} /></label> }
+export function Input({ name, label, value, type = 'text', required = true, step, disabled, decimalPlaces }: { name: string; label: string; value?: string | number; type?: string; required?: boolean; step?: string; disabled?: boolean; decimalPlaces?: number }) {
+  const format = type === 'money' ? 'money' : type === 'tel' ? 'phone' : type === 'document' ? 'document' : null
+  return <label className="bar-field">{label}{format ? <FormattedInput format={format} name={name} defaultValue={value} disabled={disabled} required={required} min={format === 'money' ? 0 : undefined} decimalPlaces={decimalPlaces} /> : <input lang="pt-BR" name={name} defaultValue={value} disabled={disabled} type={type} required={required} min={type === 'number' ? 0 : undefined} step={step} />}</label>
+}
 export function Select({ name, label, items, value }: { name: string; label: string; items: Named[]; value?: string }) { return <label className="bar-field">{label}<select name={name} required defaultValue={value ?? ''}><option value="" disabled>Selecione</option>{items.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label> }
 export const formData = (e: FormEvent<HTMLFormElement>) => { e.preventDefault(); return new FormData(e.currentTarget) }
 export const str = (f: FormData, key: string) => String(f.get(key) ?? '')

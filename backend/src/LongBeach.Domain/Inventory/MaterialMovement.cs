@@ -18,7 +18,7 @@ public sealed class MaterialMovement : Entity
         Reason = Text(reason, 500, "Motivo");
         Destination = Text(destination, 160, "Área ou responsável pelo destino");
         Unit = Text(unit, 20, "Unidade");
-        Location = Text(location, 160, "Local de armazenamento");
+        Location = OptionalText(location, 160, "Local de armazenamento");
         MaterialId = materialId; ActorId = actorId; ExpectedVersion = expectedVersion;
         Kind = kind; RequestedQuantity = requestedQuantity; Before = before;
         Quantity = kind switch { "Count" => requestedQuantity - before, "Receipt" => requestedQuantity, _ => -requestedQuantity };
@@ -41,5 +41,10 @@ public sealed class MaterialMovement : Entity
     {
         var text = value?.Trim() ?? "";
         return text.Length is > 0 && text.Length <= max ? text : throw new InventoryRuleException($"{label}: informe de 1 a {max} caracteres.");
+    }
+    public static string OptionalText(string? value, int max, string label)
+    {
+        var text = value?.Trim() ?? "";
+        return text.Length <= max ? text : throw new InventoryRuleException($"{label}: use no máximo {max} caracteres.");
     }
 }

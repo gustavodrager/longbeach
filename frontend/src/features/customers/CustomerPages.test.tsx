@@ -85,7 +85,7 @@ it('novo cadastro exige contato e só navega após confirmação, bloqueando dup
   expect(within(dialog).queryByText(/Cadastro antigo com telefone pendente/)).not.toBeInTheDocument()
   fireEvent.change(within(dialog).getByLabelText('Nome'), { target: { value: customer.name } }); fireEvent.click(within(dialog).getByRole('button', { name: 'Salvar cliente' })); expect(bodies).toHaveLength(0)
   fireEvent.change(within(dialog).getByLabelText('Telefone com DDD'), { target: { value: '(11) 98888-7777' } }); const save = within(dialog).getByRole('button', { name: 'Salvar cliente' }); fireEvent.click(save); fireEvent.click(save)
-  expect(bodies).toHaveLength(1); expect(router.state.location.pathname).toBe('/clientes/novo'); finish?.(json(customer)); await waitFor(() => expect(router.state.location.pathname).toBe('/clientes/one'))
+  expect(bodies).toHaveLength(1); expect(bodies[0]).toMatchObject({phone:customer.phone}); expect(within(dialog).getByLabelText('Telefone com DDD')).toHaveDisplayValue(/\(11\)\s*98888-7777/); expect(router.state.location.pathname).toBe('/clientes/novo'); finish?.(json(customer)); await waitFor(() => expect(router.state.location.pathname).toBe('/clientes/one'))
 })
 
 it('cadastro começa com nome e telefone e preserva e-mail opcional ao recolher Mais dados', async () => {

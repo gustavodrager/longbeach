@@ -1,3 +1,4 @@
+import { FormattedInput } from '../../components/FormattedInput'
 import { useRef, useState, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -91,7 +92,7 @@ function ExpenseDetailContent({ detail, actor, canWrite, onPaid, refresh, onBusy
     {canWrite && remaining > 0 && row.status !== 'Canceled' && <form className="operation-form" onSubmit={submit}>
       <h3>Registrar {refund ? 'reembolso' : 'pagamento'}</h3>
       {error && <div role="alert" className="expenses-error">{error}{conflict && <button type="button" className="expenses-retry" disabled={busy} onClick={() => void refreshBalance()}>Atualizar saldo</button>}</div>}
-      <fieldset disabled={busy || uncertain || conflict || cancelUncertain}><div className="field-grid"><label className="operation-field">{refund ? 'Valor devolvido (R$)' : 'Valor pago (R$)'}<input inputMode="decimal" required value={amount} onChange={event => setAmount(event.target.value)} /></label><label className="operation-field">Data<input type="date" required max={day} value={paidDate} onChange={event => setPaidDate(event.target.value)} /></label></div>
+      <fieldset disabled={busy || uncertain || conflict || cancelUncertain}><div className="field-grid"><label className="operation-field">{refund ? 'Valor devolvido (R$)' : 'Valor pago (R$)'}<FormattedInput format="money" required value={amount} onValueChange={setAmount} /></label><label className="operation-field">Data<input type="date" required max={day} value={paidDate} onChange={event => setPaidDate(event.target.value)} /></label></div>
         <Disclosure title="Detalhes do pagamento (opcional)"><div className="field-grid"><label className="operation-field">Forma de pagamento<select value={method} onChange={event => setMethod(event.target.value)}><option value="Outro">Não informada</option><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Transferência">Transferência</option><option value="Cartão">Cartão</option></select></label><label className="operation-field">Conta de origem<input maxLength={100} value={account} onChange={event => setAccount(event.target.value)} /></label></div></Disclosure>
       </fieldset>
       <div className="form-actions"><button type="submit" className="primary-button" disabled={busy || conflict || cancelUncertain}>{busy ? 'Confirmando…' : uncertain ? 'Tentar confirmar novamente' : `Confirmar ${refund ? 'reembolso' : 'pagamento'}`}</button></div>

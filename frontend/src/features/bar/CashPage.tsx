@@ -1,3 +1,4 @@
+import { FormattedInput } from '../../components/FormattedInput'
 import { MyCashPage } from '../attendance/CashPage'
 import { hasPermission } from '../auth/access'
 import { TerminalReceipts } from '../attendance/TerminalReceipts'
@@ -50,7 +51,7 @@ function CashEditor({kind,session,stock,onClose}:{kind:string;session?:Session;s
  {session&&<p><strong>{session.register}</strong> · {session.responsible}</p>}
  {kind==='open'&&<><p>Caixa do Bar · Responsável: {user?.name}</p><StockNotice stock={stock}/></>}
  {kind==='close'&&<><QueryNotice query={details}/><TerminalReceipts rows={details.data?.terminalReceipts}/><p>Conte somente o dinheiro físico. Pix e cartão não entram nesta contagem.</p><p>Esperado: <strong>{money(expected)}</strong></p><button type="button" className="secondary-link" onClick={()=>void details.refetch()} disabled={details.isFetching}>Atualizar saldo</button>{details.data?.pendingPayment&&<p role="alert">Há pagamento pendente. Confira a cobrança antes de fechar este caixa.</p>}</>}
- {kind!=='reopen'&&<label className="bar-field">{kind==='open'?'Fundo inicial (R$)':kind==='close'?'Dinheiro contado (R$)':'Valor (R$)'}<input autoFocus inputMode="decimal" required value={value} onChange={e=>setValue(e.target.value)} placeholder="0,00"/></label>}
+ {kind!=='reopen'&&<label className="bar-field">{kind==='open'?'Fundo inicial (R$)':kind==='close'?'Dinheiro contado (R$)':'Valor (R$)'}<FormattedInput format="money" autoFocus required value={value} onValueChange={setValue} placeholder="R$ 0,00"/></label>}
  {value&&invalid&&<p role="alert">Informe um valor válido com até duas casas decimais{['withdraw','expense'].includes(kind)?', sem ultrapassar o saldo disponível':''}.</p>}
  {session&&Number.isFinite(amount)&&kind!=='reopen'&&<p aria-live="polite">{kind==='close'?'Diferença':'Saldo após movimento'}: <strong>{money(kind==='close'?difference:session.expected+(kind==='supply'?amount:-amount))}</strong></p>}
  {kind!=='open'&&<label className="bar-field">{needsReason?'Motivo obrigatório':'Observação (opcional)'}<input required={needsReason} minLength={needsReason?3:undefined} maxLength={500} value={reason} onChange={e=>setReason(e.target.value)}/></label>}

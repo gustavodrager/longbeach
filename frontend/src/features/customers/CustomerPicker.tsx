@@ -1,3 +1,4 @@
+import { FormattedInput } from '../../components/FormattedInput'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useAuth } from '../auth/authContext'
 import { useConfirmationGate } from '../attendance/Core'
@@ -99,7 +100,7 @@ function CustomerPickerContent({ scope, value, onChange, disabled = false, requi
       </> : <div className="customer-inline-create" role="group" aria-label="Novo cliente" onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void save() } }}>
         {pending && <p role="status">A criação de {pending.name} ainda precisa de confirmação. Confira a mesma operação antes de alterar os dados ou cadastrar outra pessoa.{!required && ' Este atendimento pode continuar sem identificar o cliente; a confirmação fica guardada para recuperação.'}</p>}
         <label className="operation-field">Nome do novo cliente<input autoFocus disabled={Boolean(saved)} maxLength={240} autoComplete="name" value={pending?.name ?? name} onChange={event => setName(event.target.value)} /></label>
-        <label className="operation-field">Telefone do novo cliente<input disabled={Boolean(saved)} type="tel" inputMode="tel" autoComplete="tel" maxLength={30} value={pending?.phone ?? phone} onChange={event => setPhone(event.target.value)} /></label>
+        <label className="operation-field">Telefone do novo cliente<FormattedInput format="phone" disabled={Boolean(saved)} autoComplete="tel" maxLength={30} value={pending?.phone ?? phone} onValueChange={setPhone} /></label>
         {validation && <p role="alert">{validation}</p>}
         <div className="form-actions"><button type="button" className="primary-button" disabled={!writable || command.busy || invalidPending} onClick={() => void save()}>{command.busy ? 'Cadastrando…' : pending ? 'Conferir criação pendente' : 'Cadastrar e selecionar'}</button><button type="button" className="secondary-link" disabled={command.busy || Boolean(saved)} onClick={() => setCreating(false)}>Voltar à busca</button></div>
       </div>}

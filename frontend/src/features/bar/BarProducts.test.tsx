@@ -71,8 +71,9 @@ it.each(['c',''])('permite escolher e limpar a categoria em Mais opções (%s)',
  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/bar/produtos?acao=novo']}><BarProductsPage/></MemoryRouter></QueryClientProvider>);
  await screen.findByLabelText('Nome');
  fireEvent.change(screen.getByLabelText('Nome'),{target:{value:'Suco teste'}});
- fireEvent.change(screen.getByLabelText('Preço de venda (R$)'),{target:{value:'8'}});
+ fireEvent.change(screen.getByLabelText('Preço de venda (R$)'),{target:{value:'1.234,56'}});
  fireEvent.click(screen.getByText('Mais opções'));
+ fireEvent.change(screen.getByLabelText('Custo médio por unidade de venda (R$)'),{target:{value:'0,123456'}});
  const category=screen.getByLabelText('Categoria (opcional)');
  expect(category).toBeVisible();
  fireEvent.change(category,{target:{value:'c'}});
@@ -80,7 +81,7 @@ it.each(['c',''])('permite escolher e limpar a categoria em Mais opções (%s)',
  fireEvent.click(screen.getByRole('button',{name:'Salvar produto'}));
  await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
  const write=api.mock.calls.find(([,init])=>init?.method==='POST');
- expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({categoryId:categoryId||null});
+ expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({categoryId:categoryId||null,salePrice:1234.56,averageCost:0.123456});
  client.clear();
 });
 

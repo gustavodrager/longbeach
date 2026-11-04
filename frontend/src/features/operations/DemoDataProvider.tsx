@@ -203,7 +203,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
     if (!remote) {
       if (kind === 'inventory') {
         const material = record as InventoryItem, previous = dataRef.current.inventory.find(row => row.id === id)
-        if (!(material.unit ?? '').trim() || !(material.location ?? '').trim() || !validMaterialQuantity(material.quantity) || !validMaterialQuantity(material.minimum) || (previous ? material.quantity !== previous.quantity || (material.unit ?? '').trim() !== (previous.unit ?? '').trim() && !canCompleteMaterialUnit(previous) || JSON.stringify(material.movements ?? []) !== JSON.stringify(previous.movements ?? []) : material.quantity !== 0 || (material.movements ?? []).length > 0)) {
+        if (!(material.unit ?? '').trim() || (material.location ?? '').trim().length > 160 || !validMaterialQuantity(material.quantity) || !validMaterialQuantity(material.minimum) || (previous ? material.quantity !== previous.quantity || (material.unit ?? '').trim() !== (previous.unit ?? '').trim() && !canCompleteMaterialUnit(previous) || JSON.stringify(material.movements ?? []) !== JSON.stringify(previous.movements ?? []) : material.quantity !== 0 || (material.movements ?? []).length > 0)) {
           pending.current.delete(key); setSaving(pending.current.size > 0); throw new Error('Registre alterações de saldo em Movimentar. Preserve a unidade e os registros anteriores.')
         }
         material.version = (previous?.version ?? 0) + 1
@@ -331,12 +331,12 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
           material = existing
         } else {
           if (input.expectedVersion !== (existing.version ?? 0)) throw new ApiError(409, 'O saldo mudou. Atualize e confira a quantidade.')
-          if (!validMaterialQuantity(input.quantity) || input.kind !== 'Count' && input.quantity <= 0 || !input.reason.trim() || input.reason.trim().length > 500 || !input.destination.trim() || input.destination.trim().length > 160 || !(existing.location ?? '').trim() || !(existing.unit ?? '').trim()) throw new ApiError(400, 'Confira quantidade, motivo, destino, unidade e local do material.')
+          if (!validMaterialQuantity(input.quantity) || input.kind !== 'Count' && input.quantity <= 0 || !input.reason.trim() || input.reason.trim().length > 500 || !input.destination.trim() || input.destination.trim().length > 160 || (existing.location ?? '').trim().length > 160 || !(existing.unit ?? '').trim()) throw new ApiError(400, 'Confira quantidade, motivo, destino, unidade e local do material.')
           if (input.kind === 'Consumption' && existing.nature !== 'Consumable') throw new ApiError(400, 'Consumo exige um material classificado como material de consumo.')
           const after = Math.round((input.kind === 'Count' ? input.quantity : existing.quantity + (input.kind === 'Receipt' ? input.quantity : -input.quantity)) * 1000) / 1000
           if (!validMaterialQuantity(after) || after === existing.quantity) throw new ApiError(400, 'O saldo deve mudar e não pode ficar negativo.')
           material = { ...existing, quantity: after, version: (existing.version ?? 0) + 1 }
-          const movement: MaterialMovementRow = { id: makeId(), materialId: id, kind: input.kind, before: existing.quantity, quantity: Math.round((after - existing.quantity) * 1000) / 1000, after, unit: existing.unit, location: existing.location, reason: input.reason, destination: input.destination, actorId: 'demo', actorName: 'Demonstração local', occurredAt: new Date().toISOString() }
+          const movement: MaterialMovementRow = { id: makeId(), materialId: id, kind: input.kind, before: existing.quantity, quantity: Math.round((after - existing.quantity) * 1000) / 1000, after, unit: existing.unit, location: (existing.location ?? '').trim(), reason: input.reason, destination: input.destination, actorId: 'demo', actorName: 'Demonstração local', occurredAt: new Date().toISOString() }
           const receipts = { ...demoMaterials.current, [input.operationId]: { input: { ...input }, materialId: id, actorId: 'demo', movement } }
           const next = { ...dataRef.current, inventory: dataRef.current.inventory.map(row => row.id === id ? material : row) }
           localStorage.setItem(storageKey, JSON.stringify({ ...next, __recurringOperations: demoRecurring.current, __materialOperations: receipts }))

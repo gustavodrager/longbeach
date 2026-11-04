@@ -18,7 +18,9 @@ public static class MaterialRecordRules
         var quantity = StockQuantity.Validate(Number(incoming, "quantity"), true);
         StockQuantity.Validate(Number(incoming, "minimum"), true);
         var unit = MaterialMovement.Text(Text(incoming, "unit"), 20, "Unidade");
-        MaterialMovement.Text(Text(incoming, "location"), 160, "Local de armazenamento");
+        if (incoming["location"] is not null && (incoming["location"] is not JsonValue location || !location.TryGetValue<string>(out _)))
+            throw new InventoryRuleException("Local de armazenamento deve ser um texto.");
+        MaterialMovement.OptionalText(Text(incoming, "location"), 160, "Local de armazenamento");
         var nature = Text(incoming, "nature");
         if (nature == "") nature = previous is null ? "Consumable" : Text(previous, "nature") is { Length: > 0 } savedNature ? savedNature : "Unclassified";
         if (nature is not ("Consumable" or "Unclassified" or "Reusable" or "Asset"))

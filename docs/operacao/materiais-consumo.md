@@ -2,9 +2,9 @@
 
 O cadastro fica em **Administração → Materiais**. Produtos vendidos pelo Bar continuam no seu estoque próprio.
 
-1. Cadastre nome, finalidade, unidade, local de armazenamento e mínimo. Um material novo começa em zero.
+1. Cadastre nome, finalidade, unidade e mínimo. O local de armazenamento é opcional, com até 160 caracteres. Um material novo começa em zero.
 2. Abra **Movimentar**, escolha Entrada, Consumo, Perda ou Contagem física e informe a quantidade.
-3. Preencha motivo/documento e área ou responsável pelo destino. Confira o saldo projetado antes de confirmar.
+3. Preencha obrigatoriamente motivo/documento e área ou responsável pelo destino. Confira o saldo projetado antes de confirmar.
 4. Abra a ficha para consultar os comprovantes confirmados, com operador, data, antes/depois e justificativa. O histórico anterior aparece separado.
 
 As quantidades aceitam até três casas decimais. Zero é permitido para contagem física. Contagem igual ao saldo atual não cria ajuste. Consumo exige material classificado como consumível. Reutilizáveis e patrimônio permanecem cadastrados, sem fluxo de empréstimo ou controle patrimonial individual nesta etapa.
@@ -13,7 +13,9 @@ As quantidades aceitam até três casas decimais. Zero é permitido para contage
 
 Saldos e histórico anteriores são preservados. A quantidade não é editável pelo formulário de metadados; altere-a por movimentação identificada. A contagem física dos materiais existentes é uma atividade explícita, não uma consequência da atualização.
 
-A unidade existente fica bloqueada. Para um cadastro antigo sem unidade, só é possível completá-la explicitamente quando não há saldo nem histórico antigo/novo; nenhuma unidade é escolhida automaticamente. Cadastros incompletos com uso precisam de reconciliação. Informe o local antes de movimentar; os comprovantes guardam a localização da época, mesmo se o cadastro for editado depois.
+A unidade continua obrigatória e, quando existente, fica bloqueada. Para um cadastro antigo sem unidade, só é possível completá-la explicitamente quando não há saldo nem histórico antigo/novo; nenhuma unidade é escolhida automaticamente. Cadastros sem unidade e com uso precisam de reconciliação.
+
+O local de armazenamento não é obrigatório para salvar o cadastro nem para movimentar o material. Quando informado, os comprovantes guardam a localização da época, mesmo se o cadastro for editado depois. Sem local informado, a localização do novo comprovante fica vazia; nenhum local fictício é preenchido. Cadastros e comprovantes anteriores são preservados. Essa revisão de 04/11/2026 mantém o limite de 160 caracteres e as regras de unidade, motivo/documento e destino.
 
 ## Conexão e concorrência
 

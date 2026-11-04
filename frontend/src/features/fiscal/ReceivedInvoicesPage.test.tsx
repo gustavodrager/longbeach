@@ -36,6 +36,9 @@ async function preview() {
 it('separates preview, import and confirmed purchase; shows conversion and never receives stock', async () => {
   const { fetch, client } = setup()
   await preview()
+  expect(screen.getByText(/12\.345\.678\/0001-95/)).toBeInTheDocument()
+  expect(screen.getByText(/Destinatário: 52\.247\.131\/0001-71 · Emissão: 13\/10\/2026/)).toBeInTheDocument()
+  expect(screen.getByText(data.accessKey)).toBeInTheDocument()
   expect(fetch.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
   expect(screen.getByText(/situação atual na SEFAZ ainda não verificadas/)).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Salvar nota para conferência' }))
