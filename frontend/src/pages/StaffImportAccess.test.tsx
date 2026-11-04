@@ -5,8 +5,8 @@ import type { AuthUser } from '../features/auth/types'
 import { ImportPage } from './ImportPage'
 
 const clients: QueryClient[] = []
-function mount(actions: string[], includeTeam = false) {
-  const user: AuthUser = { id: 'import-reader-fixture', name: 'Consulta teste', email: 'imports@example.invalid', roles: ['Manager'], permissions: ['users:manage'], canManageStaff: false, staffAccess: { typeId: 'gestor', name: 'Gestor teste', role: 'Manager', menus: ['administration', 'classes'], actions, homePath: '/importacoes' } }
+function mount(actions: string[], includeTeam = false, menus = ['administration', 'classes']) {
+  const user: AuthUser = { id: 'import-reader-fixture', name: 'Consulta teste', email: 'imports@example.invalid', roles: ['Manager'], permissions: ['users:manage'], canManageStaff: false, staffAccess: { typeId: 'gestor', name: 'Gestor teste', role: 'Manager', menus, actions, homePath: '/importacoes' } }
   const auth: AuthContextValue = { user, isBootstrapping: false, signIn: async () => {}, signInWithGoogle: async () => {}, signOut: async () => {}, changePassword: async () => {}, completeFirstAccessWithGoogle: async () => {} }
   const api = vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
     const path = String(input)
@@ -38,4 +38,12 @@ it.each([
   await screen.findByText('Turma teste')
   expect(screen.queryByRole('button', { name: 'Aplicar grade conferida' })).not.toBeInTheDocument()
   expect(api.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true)
+})
+
+it('Financeiro em operação não libera envio bancário quando Administração permite somente consultar',async()=>{
+ const api=mount(['finance.operate'],false,['administration','finance'])
+ await screen.findByRole('button',{name:'Conferir grade de aulas: Lote teste'})
+ expect(screen.queryByLabelText('Arquivo OFX ou CSV')).not.toBeInTheDocument()
+ expect(screen.queryByLabelText('Selecionar pacote JSON')).not.toBeInTheDocument()
+ expect(api.mock.calls.every(([,init])=>!init?.method||init.method==='GET')).toBe(true)
 })

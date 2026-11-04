@@ -79,7 +79,7 @@ export function ImportPage() {
   return <main className="dashboard import-page administration-clean">
     <header className="page-heading"><h1>Importações</h1></header>
     {!canRead ? <p role="alert">Esta área está disponível para a gestão.</p> : <>
-      {canWriteFinance&&<BankStatementImport onApplied={load} />}
+      {canImport&&canWriteFinance&&<BankStatementImport onApplied={load} />}
       {canImport&&<Disclosure title="Importar outros arquivos"><section className="import-card"><div><h2>Lote para conferência</h2><p>O envio guarda o lote para conferência. Não confirma status, pagamentos ou saldos.</p><details><summary>Formato do arquivo</summary><p>Selecione um pacote JSON preparado a partir das planilhas. Cada linha mantém a aba e o número original.</p></details></div>
         <label className="button-primary import-picker">{busy ? 'Carregando lote…' : 'Selecionar pacote JSON'}<input aria-label="Selecionar pacote JSON" type="file" accept="application/json,.json" disabled={busy} onChange={(event) => void upload(event)} /></label>
       </section></Disclosure>}

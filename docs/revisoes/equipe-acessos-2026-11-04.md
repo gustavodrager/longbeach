@@ -16,7 +16,7 @@ Data: 04/11/2026. Estado: implementado e validado localmente; não publicado.
 
 | Verificação | Resultado |
 |---|---|
-| Interface | 1.284 testes em 108 arquivos aprovados |
+| Interface | 1.285 testes em 108 arquivos aprovados |
 | Build interface | TypeScript, Vite e PWA aprovados; 102 entradas no precache |
 | Unidade do servidor | 696 aprovados; nenhum ignorado |
 | Integração PostgreSQL 18.6 | 670 testes distintos com último resultado aprovado no consolidado das execuções; nenhum ignorado |
