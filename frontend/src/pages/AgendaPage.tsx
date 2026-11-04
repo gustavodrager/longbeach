@@ -86,7 +86,7 @@ function AgendaDayListPage({ context = 'general', header }: AgendaPresentation) 
   const period = useCourtScheduleRange(from, to, list && validPeriod && (showLessons || freeOnly))
   const selectedSchedule = list ? period : schedule
   const availabilityFailed = selectedSchedule.isError || data.refreshFailed || data.persistenceStatus === 'error'
-  const requiresSchedule = (showLessons || freeOnly) && data.canRead('courts')
+  const requiresSchedule = (showLessons || freeOnly) && (data.canLookup?.('courts') ?? data.canRead('courts'))
   const days = list ? period.data?.days ?? [] : schedule.data ? [schedule.data] : []
   const courts = data.courts.filter(court => !courtId || court.id === courtId)
   const availabilityPending = freeOnly && (days.length !== (list ? rangeDays : 1) || days.some(day => courts.some(court => {
@@ -155,7 +155,7 @@ function AgendaDayListPage({ context = 'general', header }: AgendaPresentation) 
   const countLabel = monthly ? confirmedCount === 1 ? 'encontro' : 'encontros' : school ? entries.length === 1 ? 'aula' : 'aulas' : freeOnly ? entries.length === 1 ? 'horário livre' : 'horários livres' : entries.length === 1 ? 'atividade' : 'atividades'
   const renderEntries = (items: Entry[]) => <div className="arena-slots">{items.map(entry => <div key={entry.key}>{entry.node}</div>)}</div>
 
-  if (!data.canRead('reservations')) return <NoAccess />
+  if (!data.canRead('reservations') && (!focused || !(data.canLookup?.('reservations') ?? false))) return <NoAccess />
   return <main className="operation-page arena-page agenda-page operational-clean">
     {header ?? <Heading eyebrow="" title={monthly ? 'Mensalistas' : school ? 'Aulas' : 'Agenda'} action={canCreateReservation && <Link className="primary-link" to={filters.href('/agenda/novo', { date, court: courtId, start: '', end: '', view: list ? 'list' : 'day' })}>+ Nova reserva</Link>} />}
     <Feedback />
@@ -184,12 +184,12 @@ function AgendaDayListPage({ context = 'general', header }: AgendaPresentation) 
     {groupId && <p className="arena-message">Grupo semanal: <strong>{groupRows[0]?.groupTitle ?? 'Grupo selecionado'}</strong> · {groupRows.length} ocorrências <button className="text-button" onClick={() => filters.set('group', '')}>Ver todos os grupos</button></p>}
     {!focused && !showLessons && !freeOnly && <p className="arena-hint">A disponibilidade também considera as aulas e os horários fora do filtro.</p>}
     {!validSelection ? <p className="arena-message arena-error" role="alert">{list ? 'Escolha datas válidas, em ordem, com até 366 dias no período.' : 'Escolha uma data válida para consultar a agenda.'}</p> : <>
-      {!focused && data.canRead('courts') && <AvailabilityLegend />}
+      {!focused && (data.canLookup?.('courts') ?? data.canRead('courts')) && <AvailabilityLegend />}
       {list && !focused && <Disclosure title="Consultar horários livres"><p>Em Filtros, selecione Horários livres. A disponibilidade considera todas as ocupações.</p></Disclosure>}
       <div className="arena-list-summary" aria-live="polite"><strong>{!data.dataUpdatedAt ? 'Carregando seleção…' : incomplete ? freeOnly ? 'Disponibilidade a confirmar' : selectedSchedule.isError ? 'Lista parcial · aulas indisponíveis' : 'Lista parcial · conferindo aulas' : `${confirmedCount} ${countLabel}${previews.length ? ` · ${previews.length} a confirmar` : ''}`}</strong>{!focused && !incomplete && !freeOnly && <span>{reservationCount} {reservationCount === 1 ? 'reserva/bloqueio' : 'reservas/bloqueios'} · {lessonCount} {lessonCount === 1 ? 'aula' : 'aulas'}</span>}</div>
       {previews.length > 0 && <p className="arena-hint">A confirmar: horário previsto, sem reserva da quadra.</p>}
       {requiresSchedule && selectedSchedule.isError && <p className="arena-message arena-error" role="alert">{freeOnly ? 'A disponibilidade não pôde ser consultada.' : 'As aulas não puderam ser consultadas. A lista está incompleta.'} <button type="button" className="text-button" onClick={() => void selectedSchedule.refetch()}>Tentar novamente</button></p>}
-      {(showLessons || freeOnly) && !data.canRead('courts') && <p className="arena-hint">Seu acesso permite consultar reservas. Aulas e disponibilidade exigem acesso às quadras.</p>}
+      {(showLessons || freeOnly) && !(data.canLookup?.('courts') ?? data.canRead('courts')) && <p className="arena-hint">Seu acesso permite consultar reservas. Aulas e disponibilidade exigem acesso às quadras.</p>}
       {list ? entries.length ? <Pagination total={entries.length}>{(start, end) => renderEntries(entries.slice(start, end))}</Pagination> : !incomplete && <Empty>Nenhuma atividade corresponde aos filtros.</Empty> : courts.length ? <div className="arena-schedule">{courts.map(court => {
         const occupation = !availabilityFailed ? schedule.data?.courts.find(item => item.courtId === court.id) : undefined
         const items = entries.filter(entry => entry.courtId === court.id)

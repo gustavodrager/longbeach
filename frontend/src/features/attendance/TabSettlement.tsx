@@ -1,4 +1,4 @@
-import { hasPermission } from '../auth/access'
+import { hasPermission, hasStaffAction, hasStaffMenu } from '../auth/access'
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/authContext'
@@ -18,7 +18,8 @@ function Settlement({ tab, unavailable, showDetailsLink }: { tab: Tab; unavailab
   const intent = useIntent(`settlement:${tab.id}:${previousClose}`)
   const [confirming, setConfirming] = useState(false)
   const closeButton = useRef<HTMLButtonElement>(null)
-  const canOperate = Boolean(hasPermission(user, 'bar:sales:operate'))
+  const canReceive = Boolean(hasPermission(user, 'bar:sales:operate') && hasStaffMenu(user, 'bar.receive') && hasStaffAction(user, 'bar.receive'))
+  const canOperate = Boolean(canReceive || hasPermission(user, 'bar:sales:operate') && hasStaffMenu(user, 'bar.tabs') && hasStaffAction(user, 'bar.tabs'))
   const requested = tab.items.filter(item => item.state === 'Requested').length
   const accepted = tab.items.filter(item => item.state === 'Accepted').length
   const refundPending = tab.payments.some(payment => payment.refundPending > 0)
@@ -39,8 +40,8 @@ function Settlement({ tab, unavailable, showDetailsLink }: { tab: Tab; unavailab
       {refundPending && <p>Há estorno aguardando confirmação. Confira-o antes de encerrar.</p>}
       {ready && <p>Sem saldo ou pendências. {canOperate ? 'Você pode encerrar a comanda.' : 'A equipe responsável pode encerrar a comanda.'}</p>}
       <div className="ux-actions">
-        {canOperate && tab.payable > 0 && <Link className="ux-button primary" to={`/atendimento/receber/${tab.id}`}>Receber restante · {money(tab.payable)}</Link>}
-        {showDetailsLink && (requested > 0 || accepted > 0 || refundPending || tab.pending > 0) && <Link className="ux-button secondary" to={`/atendimento/comandas/${tab.id}`}>Conferir pendências</Link>}
+        {canReceive && tab.payable > 0 && <Link className="ux-button primary" to={`/atendimento/receber/${tab.id}`}>Receber restante · {money(tab.payable)}</Link>}
+        {showDetailsLink && hasStaffMenu(user, 'bar.tabs') && (requested > 0 || accepted > 0 || refundPending || tab.pending > 0) && <Link className="ux-button secondary" to={`/atendimento/comandas/${tab.id}`}>Conferir pendências</Link>}
         {canOperate && ready && tab.allowedActions.includes('close') && <button ref={closeButton} className="ux-button primary" aria-expanded={confirming} disabled={command.busy} onClick={() => setConfirming(true)}>Encerrar comanda</button>}
       </div>
       {canOperate && ready && confirming && <div className="lb-close-confirmation">

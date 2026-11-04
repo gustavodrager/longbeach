@@ -1,3 +1,5 @@
+import { useAuth } from '../auth/authContext'
+import { canOperateStock } from '../bar/staffAccess'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { loadMenu, loadMenuCatalog, publishMenu, saveMenu } from './menuApi'
@@ -13,6 +15,7 @@ const move = <T,>(items: T[], index: number, direction: number): T[] => {
   return next
 }
 export function MenuEditorPage() {
+  const {user}=useAuth();const canWrite=canOperateStock(user,'bar:catalog:write')
   const [state, setState] = useState<MenuAdminState | null>(null)
   const [draft, setDraft] = useState<MenuDocument>({ title: 'CARDÁPIO', pages: [] })
   const [products, setProducts] = useState<MenuCatalogProduct[]>([])
@@ -26,11 +29,11 @@ export function MenuEditorPage() {
     finally { setBusy(false) }
   }
   useEffect(() => { void reload() }, [])
-  const edit = (next: MenuDocument) => { setDraft(next); setDirty(true) }
+  const edit = (next: MenuDocument) => { if(canWrite){setDraft(next); setDirty(true)} }
   const errors = resolveMenuPreview(draft, products).issues
   const catalog = new Map(products.map(product => [product.id, product]))
   async function persist(publish: boolean) {
-    if (!state) return
+    if (!state || !canWrite) return
     setBusy(true); setMessage('')
     try {
       accept(publish ? await publishMenu(state.version) : await saveMenu(state.version, draft))
@@ -44,9 +47,9 @@ export function MenuEditorPage() {
     {!state ? <button disabled={busy} onClick={() => void reload()}>Carregar novamente</button> : <>
       <p>Versão de edição: {state.version} · {state.published ? `Publicação: ${state.published.version}` : 'Ainda sem publicação'}{dirty ? ' · Alterações não salvas' : ''}</p>
       {errors.length > 0 && <section aria-label="Pendências de publicação"><h2>Pendências</h2><ul>{errors.map((e, i) => <li key={i}>{e}</li>)}</ul></section>}
-      <div className="menu-editor-actions"><button disabled={busy || !dirty} onClick={() => void persist(false)}>Salvar rascunho</button><button className="primary-button" disabled={busy || dirty || errors.length > 0} onClick={() => void persist(true)}>Publicar versão salva</button><button disabled={busy} onClick={() => setPreview(v => !v)} aria-expanded={preview}>Conferir prévia</button></div>
-      {preview && <MenuPreview document={draft} products={products} />}
-      <fieldset disabled={busy} onInvalidCapture={event => {
+      <div className="menu-editor-actions">{canWrite&&<><button disabled={busy || !dirty} onClick={() => void persist(false)}>Salvar rascunho</button><button className="primary-button" disabled={busy || dirty || errors.length > 0} onClick={() => void persist(true)}>Publicar versão salva</button></>}<button disabled={busy} onClick={() => setPreview(v => !v)} aria-expanded={preview}>Conferir prévia</button></div>
+      {(preview || !canWrite) && <MenuPreview document={draft} products={products} />}
+      {canWrite&&<fieldset disabled={busy} onInvalidCapture={event => {
         let parent = event.target as HTMLElement | null
         while (parent && parent !== event.currentTarget) { if (parent instanceof HTMLDetailsElement) parent.open = true; parent = parent.parentElement }
         requestAnimationFrame(() => (event.target as HTMLElement).focus())
@@ -79,7 +82,7 @@ export function MenuEditorPage() {
             <button onClick={() => update({ ...page, items: [...page.items, { id: crypto.randomUUID(), name: 'Novo item', description: '', visible: true, productIds: [] }] })}>Adicionar item</button>
           </fieldset></details>
         })}
-      </fieldset>
+      </fieldset>}
     </>}
   </main>
 }

@@ -22,14 +22,31 @@ public static partial class ImportEndpoints
         group.MapGet("/", ListBatches);
         group.MapGet("/{batchId:guid}/rows", ListRows);
         group.MapGet("/{batchId:guid}/rental-groups", (Guid batchId, LongBeach.Application.Operations.IRentalGroupImport service, CancellationToken ct) => service.Preview(batchId, ct));
-        group.MapPost("/{batchId:guid}/rental-groups/apply", (Guid batchId, LongBeach.Contracts.Operations.ApplyGradeImportInput input, LongBeach.Application.Operations.IRentalGroupImport service, CancellationToken ct) => service.Apply(batchId, input.ConfirmationToken, ct));
+        group.MapPost("/{batchId:guid}/rental-groups/apply", async (Guid batchId, LongBeach.Contracts.Operations.ApplyGradeImportInput input, HttpContext http, LongBeach.Application.Operations.IRentalGroupImport service, CancellationToken ct) =>
+            CanApply(http, "recurring") ? Results.Ok(await service.Apply(batchId, input.ConfirmationToken, ct)) : Results.Forbid());
         group.MapGet("/{batchId:guid}/class-grade", (Guid batchId, LongBeach.Application.Operations.IGradeImport service, CancellationToken ct) => service.Preview(batchId, ct));
-        group.MapPost("/{batchId:guid}/class-grade/apply", (Guid batchId, LongBeach.Contracts.Operations.ApplyGradeImportInput input, LongBeach.Application.Operations.IGradeImport service, CancellationToken ct) => service.Apply(batchId, input.ConfirmationToken, ct));
+        group.MapPost("/{batchId:guid}/class-grade/apply", async (Guid batchId, LongBeach.Contracts.Operations.ApplyGradeImportInput input, HttpContext http, LongBeach.Application.Operations.IGradeImport service, CancellationToken ct) =>
+        {
+            var preview = await service.Preview(batchId, ct);
+            var team = preview.Items.Where(item => item.Kind == "team").ToArray();
+            if (team.Length > 0 && !http.User.HasClaim("can_manage_staff", "true")) return Results.Forbid();
+            if (preview.Items.Any(item => item.Kind == "classes") && !CanApply(http, "classes") ||
+                preview.Items.Any(item => item.Kind == "enrollments") && !CanApply(http, "enrollments")) return Results.Forbid();
+            if (team.Any(item => StaffRecordFields.HasAccessFields(item.Body)))
+                return Results.BadRequest(new { message = "Importe somente a ficha da equipe. Administre usuários e acessos na Equipe." });
+            // The service recomputes this fingerprint under its transaction lock, so
+            // neither new Team rows nor account fields can be inserted after review.
+            return Results.Ok(await service.Apply(batchId, input.ConfirmationToken, ct));
+        });
         group.MapGet("/{batchId:guid}/bar-catalog", (Guid batchId, LongBeach.Application.Bar.ICatalogImport service, CancellationToken ct) => service.Preview(batchId, ct));
-        group.MapPost("/{batchId:guid}/bar-catalog/apply", (Guid batchId, LongBeach.Contracts.Bar.ApplyCatalogImportInput input, LongBeach.Application.Bar.ICatalogImport service, CancellationToken ct) => service.Apply(batchId, input.ConfirmationToken, ct));
+        group.MapPost("/{batchId:guid}/bar-catalog/apply", async (Guid batchId, LongBeach.Contracts.Bar.ApplyCatalogImportInput input, HttpContext http, LongBeach.Application.Bar.ICatalogImport service, CancellationToken ct) =>
+            CanApply(http, "stock") ? Results.Ok(await service.Apply(batchId, input.ConfirmationToken, ct)) : Results.Forbid());
         group.MapPost("/", StageBatch).WithMetadata(new Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute(8_000_000));
         return endpoints;
     }
+
+    private static bool CanApply(HttpContext http, string menu) => !http.User.HasClaim("staff_managed", "true") ||
+        http.User.HasClaim("staff_menu", menu) && http.User.HasClaim("staff_action", menu + ".operate");
 
     private static async Task<IResult> StageBatch(ImportBatchInput input, HttpContext http, LongBeachDbContext db, CancellationToken ct)
     {

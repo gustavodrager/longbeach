@@ -7,6 +7,7 @@ import { useAuth } from '../features/auth/authContext'
 import { GoogleSignInButton } from '../features/auth/GoogleSignInButton'
 import { passwordRequirementError } from '../features/auth/passwordRequirements'
 import './auth-entry.css'
+import { formatPhone } from '../lib/inputFormatting'
 
 export function FirstAccessPage() {
   const { user, isBootstrapping, changePassword, completeFirstAccessWithGoogle, signOut } = useAuth()
@@ -16,9 +17,10 @@ export function FirstAccessPage() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState<'password' | 'google' | null>(null)
   const busy = saving !== null
-  const options = useQuery({ queryKey: ['sign-in-options'], queryFn: getSignInOptions, retry: false, staleTime: 0 })
+  const passwordRequired = Boolean(user?.requiresLocalPasswordChange)
+  const options = useQuery({ queryKey: ['sign-in-options'], queryFn: getSignInOptions, enabled: !isBootstrapping && Boolean(user) && !passwordRequired, retry: false, staleTime: 0 })
   const googleClientId = !options.isError ? options.data?.googleClientId : null
-  const googleEnabled = Boolean(googleClientId)
+  const googleEnabled = !passwordRequired && Boolean(googleClientId)
 
   if (isBootstrapping) return <main className="session-loading" role="status">Carregando seu acesso…</main>
   if (!user) return <Navigate to="/login" replace />
@@ -38,7 +40,7 @@ export function FirstAccessPage() {
   }
 
   async function linkGoogle(credential: string) {
-    if (busy) return
+    if (busy || passwordRequired) return
     setError(''); setSaving('google')
     try { await completeFirstAccessWithGoogle(credential) }
     catch { setError('Não foi possível vincular essa conta. Ela pode já estar em uso. Tente novamente ou escolha uma nova senha.') }
@@ -48,14 +50,14 @@ export function FirstAccessPage() {
   return <main className="auth-entry-page first-access-entry"><section className="auth-entry-panel" aria-labelledby="first-access-title">
     <div className="auth-entry-brand"><Logo showTagline={false} /></div>
     <div className="auth-entry-heading"><h1 id="first-access-title">Concluir acesso</h1>
-      <p className="auth-entry-account">{user.username ? <>Usuário: <strong>{user.username}</strong></> : <strong>{user.name}</strong>}</p></div>
+      <p className="auth-entry-account">{user.phoneLogin || user.username ? <>Usuário: <strong>{user.phoneLogin ? formatPhone(user.phoneLogin) : user.username}</strong></> : <strong>{user.name}</strong>}</p></div>
     {googleEnabled && <section className="auth-entry-google" aria-label="Vincular Google">
       <GoogleSignInButton clientId={googleClientId ?? ''} onCredential={credential => void linkGoogle(credential)} onError={setError} disabled={busy} />
       <p className="auth-entry-note">Use esta conta nos próximos acessos.</p></section>}
-    {options.isPending && <p className="auth-entry-status" role="status">Consultando acesso Google…</p>}
-    {options.isError && <p className="auth-entry-status" role="status">Não foi possível consultar o Google. <button className="text-button" type="button" disabled={busy} onClick={() => void options.refetch()}>Tentar novamente</button></p>}
-    {options.isSuccess && !googleEnabled && <p className="auth-entry-status" role="status">Google indisponível. Você pode criar uma senha.</p>}
-    <details className="auth-entry-password">
+    {!passwordRequired && options.isPending && <p className="auth-entry-status" role="status">Consultando acesso Google…</p>}
+    {!passwordRequired && options.isError && <p className="auth-entry-status" role="status">Não foi possível consultar o Google. <button className="text-button" type="button" disabled={busy} onClick={() => void options.refetch()}>Tentar novamente</button></p>}
+    {!passwordRequired && options.isSuccess && !googleEnabled && <p className="auth-entry-status" role="status">Google indisponível. Você pode criar uma senha.</p>}
+    <details className="auth-entry-password" open={passwordRequired || undefined}>
       <summary>Criar senha</summary>
       <form className="auth-entry-form" onSubmit={savePassword}>
         <label><span>Senha inicial</span><input type="password" autoComplete="current-password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} maxLength={256} disabled={busy} required /></label>

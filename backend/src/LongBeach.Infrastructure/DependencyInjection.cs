@@ -81,6 +81,10 @@ public static class DependencyInjection
         services.AddScoped<LongBeach.Application.Operations.IRentalGroupImport, LongBeach.Infrastructure.Operations.RentalGroupImportService>();
         services.AddScoped<LongBeach.Application.Operations.IGradeImport, LongBeach.Infrastructure.Operations.GradeImportService>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddOptions<LongBeach.Application.Staff.StaffAccessOptions>().Bind(configuration.GetSection(LongBeach.Application.Staff.StaffAccessOptions.SectionName))
+            .Validate(value=>value.OwnerUserIds is not null && value.OwnerUserIds.Length<=4 && value.OwnerUserIds.All(id=>id!=Guid.Empty) && value.OwnerUserIds.Distinct().Count()==value.OwnerUserIds.Length,"Configure up to four distinct, explicit owner user IDs.").ValidateOnStart();
+        services.AddScoped<LongBeach.Application.Staff.IStaffAuthorization, LongBeach.Infrastructure.Auth.StaffAuthorization>();
+        services.AddScoped<LongBeach.Application.Staff.IStaffAccess, LongBeach.Infrastructure.Auth.StaffAccessService>();
         services.AddScoped<LongBeach.Application.Auth.IGoogleClientRegistration, LongBeach.Infrastructure.Auth.GoogleClientRegistration>();
         services.AddScoped<LongBeach.Application.Auth.IClientAccess, LongBeach.Infrastructure.Auth.ClientAccessService>();
         services.AddScoped<LongBeach.Application.Customers.ICustomerGuardians, LongBeach.Infrastructure.Customers.CustomerGuardianService>();

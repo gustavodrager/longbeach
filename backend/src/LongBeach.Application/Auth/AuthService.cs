@@ -3,6 +3,7 @@ using System.Text;
 using LongBeach.Application.Abstractions;
 using LongBeach.Contracts.Auth;
 using LongBeach.Domain.Identity;
+using LongBeach.Application.Staff;
 
 namespace LongBeach.Application.Auth;
 
@@ -10,7 +11,8 @@ public sealed class AuthService(
     IUserRepository users,
     IPasswordHasher passwordHasher,
     ITokenService tokens,
-    TimeProvider timeProvider) : IAuthService
+    TimeProvider timeProvider,
+    IStaffAuthorization? staffAuthorization = null) : IAuthService
 {
     public async Task<AuthSession> LoginAsync(
         string email,
@@ -22,6 +24,12 @@ public sealed class AuthService(
         var user = email.Contains('@')
             ? await users.FindByEmailAsync(login, cancellationToken)
             : await users.FindByUsernameAsync(login, cancellationToken);
+        if (user is null && !email.Contains('@'))
+        {
+            string? phone = null;
+            try { phone = User.NormalizePhoneLogin(email); } catch (ArgumentException) { }
+            if (phone is not null) user = await users.FindByPhoneLoginAsync(phone, cancellationToken);
+        }
 
         var passwordVerification = passwordHasher.Verify(password,
             user is { LocalPasswordEnabled: true } ? user.PasswordHash : passwordHasher.DummyHash);
@@ -77,7 +85,7 @@ public sealed class AuthService(
         Guid userId, string subject, string email, string? ipAddress, CancellationToken cancellationToken = default)
     {
         var user = await users.FindByIdAsync(userId, cancellationToken);
-        if (user is null || !user.IsActive || !ProfileAccess.HasValidProfile(user.GetRoleNames()) || !user.RequiresFirstAccess ||
+        if (user is null || !user.IsActive || !ProfileAccess.HasValidProfile(user.GetRoleNames()) || !user.RequiresFirstAccess || user.RequiresLocalPasswordChange ||
             !user.InitialAccessIsValidAt(timeProvider.GetUtcNow())) throw new AuthenticationFailedException();
         var bySubject = await users.FindByGoogleSubjectAsync(subject, cancellationToken);
         var byEmail = await users.FindByEmailAsync(User.NormalizeEmail(email), cancellationToken);
@@ -231,13 +239,17 @@ public sealed class AuthService(
         return ToResponse(user, issued);
     }
 
-    private static TokenPrincipal ToPrincipal(User user) =>
-        new(user.Id, user.Name, VisibleEmail(user), user.RequiresFirstAccess ? [] : user.GetRoleNames(),
-            user.RequiresFirstAccess ? [] : ProfileAccess.Permissions(user.GetRoleNames(), user.GetPermissionNames()), user.RequiresFirstAccess, user.Username, user.InitialAccessExpiresAtUtc, user.GoogleSubject is not null, user.CredentialVersion, user.LocalPasswordEnabled);
+    private TokenPrincipal ToPrincipal(User user)
+    {
+        var access = staffAuthorization?.Resolve(user) ?? new StaffAuthorizationResult(ProfileAccess.Permissions(user.GetRoleNames(), []), false, null);
+        return new(user.Id, user.Name, VisibleEmail(user), user.RequiresFirstAccess ? [] : user.GetRoleNames(),
+            user.RequiresFirstAccess ? [] : access.Permissions, user.RequiresFirstAccess, user.Username, user.InitialAccessExpiresAtUtc, user.GoogleSubject is not null, user.CredentialVersion, user.LocalPasswordEnabled,
+            access.CanManageStaff, user.PhoneLogin, user.RequiresLocalPasswordChange, access.StaffAccess);
+    }
 
     private static string VisibleEmail(User user) => user.Email.EndsWith("@unlinked.longbeach.invalid", StringComparison.Ordinal) ? string.Empty : user.Email;
 
-    private static AuthSession ToResponse(User user, IssuedTokenPair issued) =>
+    private AuthSession ToResponse(User user, IssuedTokenPair issued) =>
         new(
             new AuthResponse(
                 issued.AccessToken,
@@ -248,8 +260,9 @@ public sealed class AuthService(
                     user.Name,
                     VisibleEmail(user),
                     user.RequiresFirstAccess ? [] : user.GetRoleNames(),
-                    user.RequiresFirstAccess ? [] : ProfileAccess.Permissions(user.GetRoleNames(), user.GetPermissionNames()),
-                    user.RequiresFirstAccess, user.Username, user.GoogleSubject is not null, user.LocalPasswordEnabled)),
+                    ToPrincipal(user).Permissions,
+                    user.RequiresFirstAccess, user.Username, user.GoogleSubject is not null, user.LocalPasswordEnabled,
+                    ToPrincipal(user).CanManageStaff, user.PhoneLogin, user.RequiresLocalPasswordChange, ToPrincipal(user).StaffAccess)),
             issued.RefreshToken,
             issued.RefreshTokenExpiresAtUtc,
             issued.CsrfToken);

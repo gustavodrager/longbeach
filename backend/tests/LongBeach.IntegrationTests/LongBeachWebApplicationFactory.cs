@@ -10,6 +10,7 @@ namespace LongBeach.IntegrationTests;
 
 public sealed class LongBeachWebApplicationFactory : WebApplicationFactory<Program>
 {
+    internal static readonly Guid StaffOwnerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Test");
@@ -24,6 +25,7 @@ public sealed class LongBeachWebApplicationFactory : WebApplicationFactory<Progr
                 ["Database:MigrateOnStartup"] = "false",
                 ["Authorization:SeedOnStartup"] = "false",
                 ["HealthChecks:DatabaseEnabled"] = "false",
+                ["StaffAccess:OwnerUserIds:0"] = StaffOwnerId.ToString(),
                 ["Cors:AllowedOrigins:0"] = "https://longbeach.test",
                 ["Authentication:MobileAllowedOrigins:0"] = "capacitor://localhost",
                 ["Authentication:MobileAllowedOrigins:1"] = "https://localhost"

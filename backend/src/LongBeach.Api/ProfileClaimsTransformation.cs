@@ -10,6 +10,10 @@ public sealed class ProfileClaimsTransformation : IClaimsTransformation
         if (principal.Identity?.IsAuthenticated != true || principal.HasClaim("requires_first_access", "true")) return Task.FromResult(principal);
         var copy = principal.Clone();
         var permissions = ProfileAccess.Permissions(copy.FindAll(ClaimTypes.Role).Select(c => c.Value), copy.FindAll("permission").Select(c => c.Value));
+        // CurrentSessionValidator already resolved a managed staff template. A base
+        // profile is its ceiling and must never restore unchecked template grants.
+        if (copy.HasClaim("staff_managed", "true"))
+            permissions = permissions.Intersect(copy.FindAll("permission").Select(c => c.Value), StringComparer.Ordinal).ToArray();
         foreach (var identity in copy.Identities)
             foreach (var claim in identity.FindAll("permission").ToArray()) identity.RemoveClaim(claim);
         ((ClaimsIdentity)copy.Identity!).AddClaims(permissions.Select(p => new Claim("permission", p)));

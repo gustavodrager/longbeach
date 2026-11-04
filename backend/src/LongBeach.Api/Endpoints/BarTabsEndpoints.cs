@@ -16,7 +16,11 @@ public static class BarTabsEndpoints
         recipes.MapPost("", (SaveRecipeInput i, HttpContext h, IBarTabs s, CancellationToken ct) => s.SaveRecipe(i, Actor(h), ct));
         var tabs = endpoints.MapGroup("/api/v1/bar/tabs").WithTags("Bar · Comandas").RequireAuthorization();
         tabs.MapGet("", (string? state, string? search, string? orderState, int? page, int? pageSize, HttpContext h, IBarTabs s, CancellationToken ct) => s.List(state, search, page ?? 1, pageSize ?? 30, Costs(h), ct, Has(h,SystemPermissions.BarSupervise), orderState)).RequireAuthorization(SystemPermissions.BarSalesRead);
-        tabs.MapPost("", (OpenTabInput i, HttpContext h, IBarTabs s, CancellationToken ct) => s.Open(i, Actor(h), ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
+        tabs.MapPost("", async (OpenTabInput i, HttpContext h, IBarTabs s, CancellationToken ct) =>
+        {
+            if (Managed(h) && i.Mode != "Tab" && !StaffAction(h, "bar.sell")) return Results.Forbid();
+            return Results.Ok(await s.Open(i, Actor(h), ct));
+        }).RequireAuthorization(SystemPermissions.BarSalesOperate);
         tabs.MapPut("/{id:guid}/customer", (Guid id, TabCustomerInput i, HttpContext h, IBarTabs s, CancellationToken ct) => s.IdentifyCustomer(id, i, Actor(h), ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
         tabs.MapGet("/customers", (string? search, IBarTabs s, CancellationToken ct) => s.Customers(search, ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
         tabs.MapGet("/locations", (IBarTabs s, CancellationToken ct) => s.Locations(ct)).RequireAuthorization(SystemPermissions.BarSalesRead);
@@ -31,7 +35,11 @@ public static class BarTabsEndpoints
         tabs.MapGet("/payments/{paymentId:guid}", (Guid paymentId, IBarTabs s, CancellationToken ct) => s.PaymentTab(paymentId, ct)).RequireAuthorization(SystemPermissions.BarFinanceRead);
         tabs.MapGet("/resources/{kind}/{id:guid}", (string kind, Guid id, int? page, int? pageSize, IBarTabs s, CancellationToken ct) => s.Source(kind, id, page ?? 1, pageSize ?? 20, ct)).RequireAuthorization(SystemPermissions.BarFinanceRead);
         tabs.MapGet("/{id:guid}", (Guid id, HttpContext h, IBarTabs s, CancellationToken ct) => s.Get(id, Costs(h), ct, Has(h,SystemPermissions.BarSupervise))).RequireAuthorization(SystemPermissions.BarSalesRead);
-        tabs.MapPost("/{id:guid}/items", (Guid id, AddTabItemsInput i, HttpContext h, IBarTabs s, CancellationToken ct) => s.Add(id, i, Actor(h), null, ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
+        tabs.MapPost("/{id:guid}/items", async (Guid id, AddTabItemsInput i, HttpContext h, IBarTabs s, CancellationToken ct) =>
+        {
+            if (Managed(h) && i.Deliver && !StaffAction(h, "bar.orders")) return Results.Forbid();
+            return Results.Ok(await s.Add(id, i, Actor(h), null, ct));
+        }).RequireAuthorization(SystemPermissions.BarSalesOperate);
         foreach (var action in new[] { "accept", "reject", "fulfill", "reverse" })
         {
             var current = action;
@@ -59,5 +67,7 @@ public static class BarTabsEndpoints
     private static string Token(HttpContext h) => h.Request.Headers["X-LongBeach-Tab"].ToString();
     private static Guid Actor(HttpContext h) => Guid.TryParse(h.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? h.User.FindFirstValue("sub"), out var id) && id != Guid.Empty ? id : throw new BarRuleException("Sessão sem operador válido.");
     private static bool Has(HttpContext h, string permission) => h.User.HasClaim("permission", permission);
+    private static bool Managed(HttpContext h) => h.User.HasClaim("staff_managed", "true");
+    private static bool StaffAction(HttpContext h, string action) => h.User.HasClaim("staff_menu", action) && h.User.HasClaim("staff_action", action);
     private static bool Costs(HttpContext h) => Has(h, SystemPermissions.BarFinanceRead) || Has(h, SystemPermissions.BarCatalogWrite);
 }

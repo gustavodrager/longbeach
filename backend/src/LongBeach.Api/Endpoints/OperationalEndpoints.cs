@@ -31,7 +31,7 @@ public static class OperationalEndpoints
                 .OrderBy(item => item.Name).Select(item => new { item.Id, item.Payload }).ToListAsync(ct);
             var payloads = new List<string>();
             foreach (var row in rows)
-                payloads.Add(VisiblePayload(publicDemo ? row.Payload : await CustomerOperationalRecords.ProjectAsync(customers, kind, row.Id, row.Payload, ct), kind, http, publicDemo));
+                payloads.Add(StaffDependencyPayload(VisiblePayload(publicDemo ? row.Payload : await CustomerOperationalRecords.ProjectAsync(customers, kind, row.Id, row.Payload, ct), kind, http, publicDemo), kind, http));
             return Results.Content($"[{string.Join(',', payloads)}]", "application/json");
         });
 
@@ -70,6 +70,8 @@ public static class OperationalEndpoints
             if (!Allowed(http, kind, true, publicDemo)) return Denied(http);
             if (body.ValueKind != JsonValueKind.Object || System.Text.Encoding.UTF8.GetByteCount(body.GetRawText()) > 32_768)
                 return Results.BadRequest(new { message = "O registro deve ser um objeto de até 32 KB." });
+            if (kind == "team" && StaffRecordFields.HasAccessFields(body))
+                return Results.BadRequest(new { message = "Use a seção de acesso da Equipe para administrar a conta." });
             if (kind == "reservations" && OperationalValidation.Text(body, "activityKind") == "SingleLesson" &&
                 (!Guid.TryParse(OperationalValidation.Text(body, "customerId"), out var lessonCustomerId) || lessonCustomerId == Guid.Empty))
                 return Results.BadRequest(new { message = "Escolha um cliente cadastrado para a aula avulsa." });
@@ -83,6 +85,8 @@ public static class OperationalEndpoints
                 grouping => grouping.Select(row => ParsePayload(row.Payload)).ToArray());
             if (records.Any(row => row.Id == id && row.Kind != kind)) return Results.Conflict(new { message = "Este identificador já pertence a outra área." });
             var record = records.SingleOrDefault(row => row.Id == id && row.Kind == kind);
+            if (kind == "team" && await db.Set<StaffMembership>().AnyAsync(member => member.TeamId == id, ct))
+                return Results.Conflict(new { message = "Esta pessoa possui conta de acesso. Atualize a ficha e a conta juntas na Equipe." });
             if (kind == "classes" && record is null)
             {
                 // Stale operational forms, including legacy version-zero forms, must
@@ -260,13 +264,33 @@ public static class OperationalEndpoints
         if (publicDemo && OperationalValidation.LegacyKinds.Contains(kind)) return true;
         if (http.User.Identity?.IsAuthenticated != true) return false;
         if (http.User.HasClaim("requires_first_access", "true")) return false;
+        if (kind == "team" && write && !http.User.HasClaim("can_manage_staff", "true")) return false;
         var permission = OperationalValidation.Permissions[kind];
         return http.User.HasClaim("permission", write ? permission.Write : permission.Read);
     }
     private static bool CanFinance(HttpContext http, bool write, bool publicDemo, string kind) =>
-        (publicDemo && OperationalValidation.LegacyKinds.Contains(kind)) || http.User.HasClaim("permission", SystemPermissions.FinanceRead) && (!write || http.User.HasClaim("permission", SystemPermissions.FinanceWrite));
+        (publicDemo && OperationalValidation.LegacyKinds.Contains(kind)) ||
+        (!http.User.HasClaim("staff_managed", "true") || http.User.HasClaim("staff_menu", "finance") && (!write || http.User.HasClaim("staff_action", "finance.operate"))) &&
+        http.User.HasClaim("permission", SystemPermissions.FinanceRead) && (!write || http.User.HasClaim("permission", SystemPermissions.FinanceWrite));
     private static string VisiblePayload(string json, string kind, HttpContext http, bool publicDemo) =>
         OperationalRecordAccess.VisiblePayload(json, kind, CanFinance(http, false, publicDemo, kind));
+    private static string StaffDependencyPayload(string json, string kind, HttpContext http)
+    {
+        if (!http.User.HasClaim("staff_managed", "true")) return json;
+        bool Menu(string id) => http.User.HasClaim("staff_menu", id);
+        string[]? fields = kind switch
+        {
+            "team" when !http.User.HasClaim("can_manage_staff", "true") => ["id", "version", "name", "role", "status"],
+            "students" when !Menu("students") => ["id", "version", "name", "status", "customerId"],
+            "classes" when !Menu("classes") => ["id", "version", "name", "status", "teacherId", "courtId", "weekDay", "weekDays", "startTime", "endTime", "startDate", "endDate", "capacity", "studentIds"],
+            "courts" when !Menu("agenda.settings") => ["id", "version", "name", "status", "openingTime", "closingTime", "operatingDays", "scheduleConfirmed"],
+            "reservations" when !Menu("agenda") => ["id", "version", "name", "courtId", "date", "startTime", "endTime", "status", "activityKind", "teacherId", "rentalGroupId"],
+            _ => null
+        };
+        if (fields is null) return json;
+        var body = JsonNode.Parse(json)!.AsObject();
+        return new JsonObject(body.Where(pair => fields.Contains(pair.Key, StringComparer.Ordinal)).Select(pair => KeyValuePair.Create(pair.Key, pair.Value?.DeepClone()))).ToJsonString();
+    }
     private static JsonElement ParsePayload(string json)
     {
         using var document = JsonDocument.Parse(json);

@@ -72,7 +72,7 @@ public sealed class ClassDeletionPostgresTests
     {
         await using var isolated = await IsolatedMaterialDatabase.Create();
         await using var factory = Factory(isolated); using var client = factory.CreateClient();
-        var actor = Guid.NewGuid(); client.DefaultRequestHeaders.Authorization = new("Bearer", ProfileAuthorizationTests.Token(actor, ["Manager"]));
+        var actor = LongBeachWebApplicationFactory.StaffOwnerId; client.DefaultRequestHeaders.Authorization = new("Bearer", ProfileAuthorizationTests.Token(actor, ["Manager"]));
         var lesson = await CreateClass(client); var id = Guid.Parse(lesson["id"]!.GetValue<string>());
         if (legacyVersionZero)
         {

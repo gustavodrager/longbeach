@@ -25,12 +25,15 @@ it('usa o mesmo menu em gestão e atendimento, com cinco acessos móveis e secun
  await userEvent.click(dialog.getByRole('link',{name:'Compras'}))
  expect(router.state.location.pathname).toBe('/bar/compras');expect(screen.queryByRole('dialog')).not.toBeInTheDocument();router.dispose()
 })
-it('não oferece cadastros ou gestão de caixa ao atendente',()=>{
+it('não oferece cadastros ou gestão de caixa ao atendente',async()=>{
  const router=mount({...owner,roles:['Operations'],permissions:['bar:catalog:read','bar:sales:operate','bar:sales:read','bar:cash:operate']},'/atendimento/vender')
  const nav=within(screen.getByRole('navigation',{name:'Atendimento'}))
  expect(nav.queryByRole('link',{name:'Produtos e estoque'})).not.toBeInTheDocument()
  expect(nav.getByRole('link',{name:'Caixa'})).toHaveAttribute('href','/bar/caixa')
- expect(screen.queryByRole('button',{name:'Mais'})).not.toBeInTheDocument();router.dispose()
+ await userEvent.click(screen.getByRole('button',{name:'Mais'}))
+ const extras=within(screen.getByRole('dialog',{name:'Mais opções do Bar'}))
+ expect(extras.getByRole('link',{name:'Receber'})).toHaveAttribute('href','/atendimento/receber')
+ expect(extras.queryByRole('link',{name:'Compras'})).not.toBeInTheDocument();router.dispose()
 })
 it('mantém acesso ao estoque sem liberar vendas ou cadastro de produtos',async()=>{
  const router=mount({...owner,roles:['Operations'],permissions:['bar:stock:read']})

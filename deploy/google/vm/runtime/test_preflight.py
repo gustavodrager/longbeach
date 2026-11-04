@@ -26,6 +26,7 @@ def config():
                            "CookieDomain": "longbeach.quebranunca.com.br"},
         "Cors": {"AllowedOrigins": [preflight.WEB_ORIGIN]},
         "Integrations": {"Banking": {"ImportOnly": True}},
+        "StaffAccess": {"OwnerUserIds": ["de000000-0000-4000-8000-00000000000" + str(index) for index in range(1, 5)]},
     }
 
 
@@ -43,6 +44,32 @@ def environment():
 
 
 class ConfigurationTests(unittest.TestCase):
+    def test_four_explicit_distinct_owner_ids_are_required(self):
+        for owners in (None, [], config()["StaffAccess"]["OwnerUserIds"][:3],
+                       ["Pedro", "Victor", "Gustavo", "LongBeachArena"],
+                       ["de000000-0000-4000-8000-000000000001"] * 4,
+                       ["00000000-0000-0000-0000-000000000000"] + config()["StaffAccess"]["OwnerUserIds"][:3]):
+            data = config()
+            data["StaffAccess"]["OwnerUserIds"] = owners
+            with self.subTest(owners=owners), self.assertRaises(preflight.Refused):
+                preflight.check_application_config(data)
+        data = config()
+        data["StaffAccess"]["OwnerUserIds"][0] = data["StaffAccess"]["OwnerUserIds"][0].upper()
+        self.assertEqual(preflight.owner_user_ids(data), config()["StaffAccess"]["OwnerUserIds"])
+
+    def test_owner_ids_cannot_inject_sql_or_configuration(self):
+        for value in ("'; DELETE FROM public.Users;--", "de000000-0000-4000-8000-000000000001 ", 42):
+            owners = config()["StaffAccess"]["OwnerUserIds"]
+            owners[0] = value
+            with self.assertRaises(preflight.Refused):
+                preflight.staff_schema_query(owners)
+
+    def test_staff_local_first_access_cannot_be_disabled_in_production(self):
+        data = config()
+        data["Authentication"]["Local"] = {"Enabled": False}
+        with self.assertRaisesRegex(preflight.Refused, "staff_local_login_required"):
+            preflight.check_application_config(data)
+
     def test_valid_configuration_with_quoted_password(self):
         preflight.check_application_config(config())
         fields = preflight.connection_fields("Host=postgres;Password='a;''b';Database=longbeach")
@@ -157,8 +184,8 @@ class FakeDocker:
         self.running_id = self.container
         self.image = {"Id": "sha256:" + "d" * 64, "Os": "linux", "Architecture": "amd64",
                       "RepoDigests": [environment()["API_IMAGE"]], "Config": {"Labels": {
-                          preflight.LABEL_CAPABILITY: "v1", preflight.LABEL_SCHEMA_HASH: preflight.API_SCHEMA_SHA256,
-                          preflight.LABEL_SCHEMA_COUNT: "32", preflight.LABEL_SCHEMA_LATEST: preflight.API_SCHEMA_LATEST}}}
+                          preflight.LABEL_CAPABILITY: "v1", preflight.LABEL_STAFF_CAPABILITY: "v1", preflight.LABEL_SCHEMA_HASH: preflight.API_SCHEMA_SHA256,
+                          preflight.LABEL_SCHEMA_COUNT: "33", preflight.LABEL_SCHEMA_LATEST: preflight.API_SCHEMA_LATEST}}}
         self.postgres = {"Id": self.container, "State": {"Running": True},
                          "Config": {"Image": environment()["POSTGRES_BACKUP_IMAGE"], "User": "999:999", "Labels": {
                              "com.docker.compose.project": "longbeach", "com.docker.compose.service": "postgres",
@@ -167,6 +194,10 @@ class FakeDocker:
                          "NetworkSettings": {"Ports": {"5432/tcp": None}},
                          "Mounts": [{"Type": "bind", "Source": "/var/lib/longbeach/postgres", "Destination": "/var/lib/postgresql", "RW": True}]}
         self.database = {"database": "longbeach", "server_version_num": 180006, "read_only": "on", "migrations": source_migrations()}
+        self.staff = {"database": "longbeach", "read_only": "on", "configured_owner_count": 4, "owners_present": 4,
+                      "owners_manager": 4, "usable_owners": 1,
+                      **{key: True for key in ("staff_tables_present", "runtime_role_safe", "runtime_no_schema_ddl", "runtime_dml",
+                         "operations_immutable", "no_destructive_access", "no_public_access", "no_transport_access", "staff_owner_safe")}}
 
     def __call__(self, args, *, input=None):
         self.calls.append((list(args), input))
@@ -179,24 +210,67 @@ class FakeDocker:
             return json.dumps([self.postgres])
         if args[0] == "exec":
             assert args == ["exec", "--user", "999:999", "-i", self.container, "psql", "--no-psqlrc", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "longbeach"]
-            assert input == preflight.SCHEMA_QUERY
-            return json.dumps(self.database)
+            if input == preflight.SCHEMA_QUERY:
+                return json.dumps(self.database)
+            assert input == preflight.staff_schema_query(config()["StaffAccess"]["OwnerUserIds"])
+            return json.dumps(self.staff)
         raise AssertionError("Unexpected Docker command")
 
 
 class ApiSchemaGateTests(unittest.TestCase):
+    def setUp(self):
+        reader = patch.object(preflight, "read_application_config", side_effect=config)
+        reader.start()
+        self.addCleanup(reader.stop)
+
     def test_current_immutable_image_matches_actual_schema_without_pulls_starts_or_credentials(self):
         fake = FakeDocker()
         proof = preflight.check_api_schema(environment(), fake)
-        self.assertEqual(proof["migration_count"], 32)
+        self.assertEqual(proof["migration_count"], 33)
+        self.assertTrue(proof["staff_access_verified"])
+        self.assertTrue(proof["owner_accounts_verified"])
+        self.assertEqual(proof["usable_owner_count"], 1)
         self.assertTrue(proof["image_digest_verified"])
         # Config ID and index digest are different legitimate OCI objects.
         self.assertNotEqual(fake.image["Id"], environment()["API_IMAGE"].split('@')[1])
-        self.assertEqual([args[0] for args, _ in fake.calls], ["image", "compose", "inspect", "exec"])
+        self.assertEqual([args[0] for args, _ in fake.calls], ["image", "compose", "inspect", "exec", "exec"])
         for args, _ in fake.calls:
             self.assertFalse(any(item in args for item in ("pull", "run", "create", "start", "up", "password", "PGPASSWORD")))
         self.assertIn("BEGIN READ ONLY", preflight.SCHEMA_QUERY)
         self.assertNotRegex(preflight.SCHEMA_QUERY.upper(), r"\b(INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE)\b")
+        staff_query = fake.calls[-1][1]
+        self.assertIn("BEGIN READ ONLY", staff_query)
+        without_literals = re.sub(r"'(?:[^']|'')*'", "''", staff_query)
+        self.assertNotRegex(without_literals.upper(), r"\b(INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE)\b")
+        self.assertNotIn(config()["StaffAccess"]["OwnerUserIds"][0], json.dumps(proof))
+
+    def test_missing_owner_configuration_fails_before_any_docker_access(self):
+        fake = FakeDocker()
+        with patch.object(preflight, "read_application_config", return_value={}):
+            with self.assertRaisesRegex(preflight.Refused, "staff_owner_ids_require_four_explicit_accounts"):
+                preflight.check_api_schema(environment(), fake)
+        self.assertEqual(fake.calls, [])
+
+    def test_staff_access_requires_all_owner_identities_and_one_usable_owner(self):
+        for key, value in (("configured_owner_count", 3), ("owners_present", 3), ("owners_manager", 3),
+                           ("usable_owners", 0), ("usable_owners", True), ("usable_owners", 5)):
+            fake = FakeDocker()
+            fake.staff[key] = value
+            with self.subTest(key=key, value=value), self.assertRaisesRegex(preflight.Refused, "staff_owner_accounts_unproven"):
+                preflight.check_api_schema(environment(), fake)
+
+    def test_staff_acl_or_schema_failure_refuses_api_start(self):
+        for key in ("staff_tables_present", "runtime_role_safe", "runtime_no_schema_ddl", "runtime_dml", "operations_immutable",
+                    "no_destructive_access", "no_public_access", "no_transport_access", "staff_owner_safe"):
+            fake = FakeDocker()
+            fake.staff[key] = False
+            with self.subTest(key=key), self.assertRaisesRegex(preflight.Refused, "staff_database_privilege_invalid:" + key):
+                preflight.check_api_schema(environment(), fake)
+        for key, value in (("database", "another"), ("read_only", "off")):
+            fake = FakeDocker()
+            fake.staff[key] = value
+            with self.assertRaisesRegex(preflight.Refused, "staff_schema_database_identity_invalid"):
+                preflight.check_api_schema(environment(), fake)
 
     def test_old_image_without_capability_is_refused_even_when_runtime_claims_current_digest(self):
         fake = FakeDocker()
@@ -246,7 +320,7 @@ class ApiSchemaGateTests(unittest.TestCase):
                 preflight.check_api_schema(environment(), containerd)
 
     def test_unrecognized_or_self_declared_capability_never_authorizes_an_arbitrary_schema(self):
-        for name, value in ((preflight.LABEL_CAPABILITY, "v99"), (preflight.LABEL_SCHEMA_HASH, "f" * 64),
+        for name, value in ((preflight.LABEL_CAPABILITY, "v99"), (preflight.LABEL_STAFF_CAPABILITY, "v99"), (preflight.LABEL_SCHEMA_HASH, "f" * 64),
                             (preflight.LABEL_SCHEMA_COUNT, "999"), (preflight.LABEL_SCHEMA_LATEST, "20990101000000_Anything")):
             fake = FakeDocker()
             fake.image["Config"]["Labels"][name] = value
@@ -318,14 +392,15 @@ class ApiSchemaGateTests(unittest.TestCase):
 
     def test_build_labels_and_gate_hash_the_actual_migration_attributes_including_handwritten_files(self):
         ids = source_migrations()
-        self.assertEqual(len(ids), 32)
-        self.assertEqual(len(set(ids)), 32)
+        self.assertEqual(len(ids), 33)
+        self.assertEqual(len(set(ids)), 33)
         self.assertIn("20261001000100_InitialCreate", ids)
         expected = hashlib.sha256(("\n".join(ids) + "\n").encode()).hexdigest()
         self.assertEqual(expected, preflight.API_SCHEMA_SHA256)
         dockerfile = (REPO / "deploy/api.Dockerfile").read_text()
         self.assertIn('com.longbeach.api.customer-registry="v1"', dockerfile)
-        self.assertIn('com.longbeach.api.schema.migration-count="32"', dockerfile)
+        self.assertIn('com.longbeach.api.staff-access="v1"', dockerfile)
+        self.assertIn('com.longbeach.api.schema.migration-count="33"', dockerfile)
         self.assertIn('com.longbeach.api.schema.latest="' + ids[-1] + '"', dockerfile)
         self.assertIn('com.longbeach.api.schema.migrations-sha256="' + expected + '"', dockerfile)
         self.assertIn('test "$migration_sha256" = "' + expected + '"', dockerfile)

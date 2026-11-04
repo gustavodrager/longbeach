@@ -4,9 +4,10 @@ import { apiFetch, restoreSession, subscribeSession } from '../../lib/http'
 import { changePassword, completeFirstAccessWithGoogle, getCurrentUser, login, loginWithGoogle, logout, registerGoogleClient } from './authApi'
 import { AuthContext } from './authContext'
 import type { AuthUser, LoginCredentials, PasswordChange } from './types'
+import { staffScopeKey } from './staffScope'
 
 type AuthProviderProps = PropsWithChildren<{ demoMode?: boolean }>
-const accessScope = (user: AuthUser | null) => user ? JSON.stringify([user.id, [...user.roles].sort(), [...user.permissions].sort(), Boolean(user.requiresFirstAccess)]) : null
+const accessScope = staffScopeKey
 
 export function AuthProvider({ children, demoMode = false }: AuthProviderProps) {
   const queryClient = useQueryClient()

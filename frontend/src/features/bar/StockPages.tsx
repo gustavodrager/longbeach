@@ -2,6 +2,7 @@ import { amount, StockPage, StockActions } from './StockUi'
 import { useState } from 'react'
 import { useAuth } from '../auth/authContext'
 import { hasPermission } from '../auth/access'
+import { canOperateStock } from './staffAccess'
 import { StockAvailableEditor } from './StockAvailableEditor'
 import { Link, Navigate } from 'react-router-dom'
 import { ActionPanel, Disclosure, RecordTable, useSection, useContextSearchParams } from '../../components/managementUi'
@@ -46,7 +47,7 @@ export function BarStockPage({balancesOnly=false}:{balancesOnly?:boolean}) {
     </div>
     {section === 'saldos' ? <>
       <p className="arena-hint">{rows.length} produtos nesta seleção</p>
-      {stock.ready && rows.length > 0 && <Pagination total={rows.length}>{(start,end)=><div className="stock-balances"><RecordTable label="Saldos do estoque" columns={['Produto','Disponível']} rows={rows.slice(start,end).map(r=>({key:r.productId,cells:[<><strong>{r.name}</strong><small>{r.unit || 'un'} · mínimo {amount(r.minimumStock ?? 0)}{r.low ? ` · ${r.available <= 0 ? 'Esgotado' : 'Repor'}` : ''}</small></>,<div className="stock-available"><strong className={r.low?'stock-alert':''}>{r.controlsStock===false?'Sem controle':`${amount(r.available)} ${r.unit||'un'}`}</strong>{hasPermission(user,'bar:supervise')&&r.active&&r.controlsStock&&r.alertEligible&&<button onClick={()=>setEditing({...r})} aria-label={`Editar quantidade de ${r.name}`}>Editar</button>}</div>]}))}/></div>}</Pagination>}
+      {stock.ready && rows.length > 0 && <Pagination total={rows.length}>{(start,end)=><div className="stock-balances"><RecordTable label="Saldos do estoque" columns={['Produto','Disponível']} rows={rows.slice(start,end).map(r=>({key:r.productId,cells:[<><strong>{r.name}</strong><small>{r.unit || 'un'} · mínimo {amount(r.minimumStock ?? 0)}{r.low ? ` · ${r.available <= 0 ? 'Esgotado' : 'Repor'}` : ''}</small></>,<div className="stock-available"><strong className={r.low?'stock-alert':''}>{r.controlsStock===false?'Sem controle':`${amount(r.available)} ${r.unit||'un'}`}</strong>{canOperateStock(user,'bar:supervise')&&r.active&&r.controlsStock&&r.alertEligible&&<button onClick={()=>setEditing({...r})} aria-label={`Editar quantidade de ${r.name}`}>Editar</button>}</div>]}))}/></div>}</Pagination>}
       {!rows.length && stock.ready && balances.isSuccess && <Empty>Nenhum produto nesta seleção.</Empty>}
       <Disclosure title="Sobre os saldos"><p>Disponível é o que pode ser vendido agora. Cada correção fica registrada no histórico.</p></Disclosure>
       {previous.length>0 && <Disclosure title="Saldos anteriores para conferência"><p>Estes locais não são usados pelo atendimento do Bar.</p><Pagination total={previous.length}>{(start,end)=><RecordTable label="Saldos anteriores" columns={['Produto','Disponível']} rows={previous.slice(start,end).map(r=>({key:r.productId+r.locationId,cells:[<>{r.name}<small>{stock.query.data?.find(l=>l.id===r.locationId)?.name ?? 'Cadastro anterior'}</small></>,amount(r.available)]}))}/>}</Pagination></Disclosure>}
@@ -64,14 +65,14 @@ export function BarStockPage({balancesOnly=false}:{balancesOnly?:boolean}) {
         <nav className="arena-pagination" aria-label="Páginas das movimentações"><button disabled={history.isFetching||history.data.page<=1} onClick={()=>filters.set('page',String(history.data!.page-1))}>Anterior</button><span>Página {history.data.page} de {Math.max(1,Math.ceil(history.data.total/20))}</span><button disabled={history.isFetching||history.data.page*20>=history.data.total} onClick={()=>filters.set('page',String(history.data!.page+1))}>Próxima</button></nav>
       </>}</>}
     </>}
-    {editing&&<StockAvailableEditor balance={editing} onClose={()=>setEditing(null)}/>}
+    {editing&&canOperateStock(user,'bar:supervise')&&<StockAvailableEditor balance={editing} onClose={()=>setEditing(null)}/>}
   </StockPage>
 }
 
 export function BarLossesPage() {
-  const stock=useBarStock(); const balances=useBar<Balance[]>('/stock/balances'); const a=useAction()
+  const {user}=useAuth();const canWrite=canOperateStock(user,'bar:stock:output');const stock=useBarStock(); const balances=useBar<Balance[]>('/stock/balances'); const a=useAction()
   return <StockPage title="Perdas e consumo interno"><Notice action={a}/><Link className="secondary-link" to="/bar/estoque?secao=movimentos">Ver movimentações →</Link>
-    <ActionPanel title="Registrar saída" action="novo" busy={a.busy} primary closeLabel="Fechar"><Notice action={a}/><StockNotice stock={stock}/><QueryNotice query={balances}/><StockOutputForm balances={(balances.data??[]).filter(r=>r.locationId===stock.location?.id && r.active && r.controlsStock)} ready={stock.ready && balances.isSuccess} locationId={stock.location?.id} action={a}/></ActionPanel>
+    {canWrite&&<ActionPanel title="Registrar saída" action="novo" busy={a.busy} primary closeLabel="Fechar"><Notice action={a}/><StockNotice stock={stock}/><QueryNotice query={balances}/><StockOutputForm balances={(balances.data??[]).filter(r=>r.locationId===stock.location?.id && r.active && r.controlsStock)} ready={stock.ready && balances.isSuccess} locationId={stock.location?.id} action={a}/></ActionPanel>}
   </StockPage>
 }
 function StockOutputForm({balances,ready,locationId,action:a}:{balances:Balance[];ready:boolean;locationId?:string;action:ReturnType<typeof useAction>}) {

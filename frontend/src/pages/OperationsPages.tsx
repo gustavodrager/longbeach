@@ -2,6 +2,7 @@ import { formatPhone } from '../lib/inputFormatting'
 import './registration-clean.css'
 import { CustomerPicker } from '../features/customers/CustomerPicker'
 import { blankStudent } from '../features/operations/studentDraft'
+import { StaffTeamView } from '../features/staff/StaffTeamView'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useOperations, type ArenaProject, type InventoryItem, type Student, type TeamMember } from '../features/operations/DemoDataProvider'
@@ -48,9 +49,9 @@ export function StudentDetailsPage() {
 }
 
 const blankTeam = (): Omit<TeamMember,'id'> => ({name:'',phone:'',role:'Professor de futevôlei',payAmount:null,payBasis:'A combinar',paymentFrequency:'A combinar',paymentDay:'',status:'Ativo',notes:''})
-export function TeamPage() { return <TeamView /> }
-export function TeamDetailsPage() { const {memberId} = useParams(); return <TeamView detailId={memberId} /> }
-function TeamView({detailId}:{detailId?:string}) {
+export function TeamPage() { const data=useOperations(); return data.customerRegistryEnabled ? <StaffTeamView /> : <LegacyTeamView /> }
+export function TeamDetailsPage() { const {memberId} = useParams(); const data=useOperations(); return data.customerRegistryEnabled ? <StaffTeamView detailId={memberId} /> : <LegacyTeamView detailId={memberId} /> }
+function LegacyTeamView({detailId}:{detailId?:string}) {
   const data=useOperations(); const filters=useFilters(); const save=useSave(); const draftId=useRef(crypto.randomUUID()); const existing=data.team.find(person=>person.id===detailId)
   const {form,setForm,editId,open:openForm,close}=useRecordForm(data.team,blankTeam)
   const open=(item?:TeamMember)=>{draftId.current=crypto.randomUUID();openForm(item)}

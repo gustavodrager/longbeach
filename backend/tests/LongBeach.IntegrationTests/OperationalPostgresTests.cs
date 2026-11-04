@@ -156,5 +156,5 @@ public sealed class OperationalPostgresTests
         return document.RootElement.Clone();
     }
     internal static AuthenticationHeaderValue Header(string role, params string[] permissions) =>
-        new("Bearer", ProfileAuthorizationTests.Token(Guid.NewGuid(), [role], permissions));
+        new("Bearer", ProfileAuthorizationTests.Token(role == "Manager" ? LongBeachWebApplicationFactory.StaffOwnerId : Guid.NewGuid(), [role], permissions));
 }

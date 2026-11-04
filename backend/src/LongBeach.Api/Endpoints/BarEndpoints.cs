@@ -26,7 +26,7 @@ public static class BarEndpoints
         bar.MapPost("/stock/transfers", async (TransferInput i, HttpContext h, IBarStock s, CancellationToken ct) => { await s.Transfer(i,Actor(h),ct); return Results.NoContent(); }).RequireAuthorization(SystemPermissions.BarStockManage);
         bar.MapPost("/stock/losses", async (StockOutputInput i, HttpContext h, IBarStock s, CancellationToken ct) => { await s.Output(i,"Loss",Actor(h),Has(h,SystemPermissions.BarSupervise),ct); return Results.NoContent(); }).RequireAuthorization(SystemPermissions.BarStockOutput);
         bar.MapPost("/stock/internal-consumption", async (StockOutputInput i, HttpContext h, IBarStock s, CancellationToken ct) => { await s.Output(i,"InternalConsumption",Actor(h),Has(h,SystemPermissions.BarSupervise),ct); return Results.NoContent(); }).RequireAuthorization(SystemPermissions.BarStockOutput);
-        bar.MapGet("/counts", (IBarStock s, CancellationToken ct) => s.Counts(ct)).RequireAuthorization(SystemPermissions.BarStockManage);
+        bar.MapGet("/counts", (IBarStock s, CancellationToken ct) => s.Counts(ct)).RequireAuthorization(SystemPermissions.BarStockRead);
         bar.MapPost("/counts", (CountInput i, HttpContext h, IBarStock s, CancellationToken ct) => s.CreateCount(i,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarStockManage);
         bar.MapPut("/counts/{id:guid}/items", (Guid id, CountItemInput i, IBarStock s, CancellationToken ct) => s.Count(id,i,ct)).RequireAuthorization(SystemPermissions.BarStockManage);
         bar.MapPost("/counts/{id:guid}/cancel",(Guid id,ApprovalInput i,IBarStock s,CancellationToken ct)=>s.CancelCount(id,i.Reason,ct)).RequireAuthorization(SystemPermissions.BarStockManage);
@@ -42,7 +42,7 @@ public static class BarEndpoints
         }).RequireAuthorization(SystemPermissions.BarCashOperate);
         bar.MapGet("/cash/registers", (IBarCash s, CancellationToken ct) => s.Registers(ct)).RequireAuthorization(SystemPermissions.BarCashOperate);
         bar.MapPost("/cash/registers", (LocationInput i, IBarCash s, CancellationToken ct) => s.CreateRegister(i.Name,ct)).RequireAuthorization(SystemPermissions.BarSupervise);
-        bar.MapGet("/cash/sessions", (HttpContext h, IBarCash s, CancellationToken ct) => s.Sessions(Actor(h),Has(h,SystemPermissions.BarSupervise)||Has(h,SystemPermissions.BarFinanceRead),ct)).RequireAuthorization(SystemPermissions.BarCashOperate);
+        bar.MapGet("/cash/sessions", (HttpContext h, IBarCash s, CancellationToken ct) => s.Sessions(Actor(h),Supervises(h),ct)).RequireAuthorization(SystemPermissions.BarCashOperate);
         bar.MapPost("/cash/sessions", (OpenCashInput i, HttpContext h, IBarCash s, CancellationToken ct) => s.Open(i,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarCashOperate);
         foreach (var action in new[] { ("supply", "Supply"), ("withdraw", "Withdraw"), ("expense", "Expense") })
         {
@@ -51,7 +51,7 @@ public static class BarEndpoints
         }
         bar.MapPost("/cash/sessions/{id:guid}/close", (Guid id, CloseCashInput i, HttpContext h, IBarCash s, CancellationToken ct) => s.Close(id,i,Actor(h),Has(h,SystemPermissions.BarSupervise),ct)).RequireAuthorization(SystemPermissions.BarCashOperate);
         bar.MapPost("/cash/sessions/{id:guid}/reopen", (Guid id, ApprovalInput i, HttpContext h, IBarCash s, CancellationToken ct) => s.Reopen(id,i.Reason,Actor(h),i.OperationId,ct)).RequireAuthorization(SystemPermissions.BarSupervise);
-        bar.MapGet("/sales", (HttpContext h, IBarSales s, CancellationToken ct) => s.List(Actor(h),Has(h,SystemPermissions.BarSupervise)||Has(h,SystemPermissions.BarFinanceRead),Costs(h),ct)).RequireAuthorization(SystemPermissions.BarSalesRead);
+        bar.MapGet("/sales", (HttpContext h, IBarSales s, CancellationToken ct) => s.List(Actor(h),Supervises(h),Costs(h),ct)).RequireAuthorization(SystemPermissions.BarSalesRead);
         bar.MapPost("/sales", (SaleInput i, HttpContext h, IBarSales s, CancellationToken ct) => s.Create(i,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
         foreach (var action in new[] { ("cash", "Cash"), ("card-manual", "CardManual") })
         {
@@ -111,5 +111,6 @@ public static class BarEndpoints
     }
     private static Guid Actor(HttpContext h) => Guid.TryParse(h.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? h.User.FindFirstValue("sub"), out var id) ? id : throw new BarRuleException("Sessão sem operador válido.");
     private static bool Has(HttpContext h, string p) => h.User.HasClaim("permission",p);
+    private static bool Supervises(HttpContext h) => Has(h,SystemPermissions.BarSupervise) || !h.User.HasClaim("staff_managed", "true") && Has(h,SystemPermissions.BarFinanceRead);
     private static bool Costs(HttpContext h) => Has(h,SystemPermissions.BarFinanceRead) || Has(h,SystemPermissions.BarCatalogWrite);
 }

@@ -1,13 +1,14 @@
 import type { OperationalKind } from '../features/operations/DemoDataProvider'
 import type { IconName } from './NavigationIcon'
 
-export type Destination = { label: string; href: string; kind?: OperationalKind; permission?: string; anyPermission?: string[]; owner?: boolean; related?: Destination[] }
+export type Destination = { label: string; href: string; kind?: OperationalKind; permission?: string; anyPermission?: string[]; owner?: boolean; staffOwner?: boolean; related?: Destination[] }
 export type NavigationGroup = Destination & { icon: IconName; children?: Destination[] }
 export const barNavigation: NavigationGroup[] = [
   { label: 'Vender', icon: 'plus', href: '/atendimento/vender', permission: 'bar:sales:operate' },
   { label: 'Comandas', icon: 'orders', href: '/atendimento/comandas', permission: 'bar:sales:read' },
   { label: 'Pedidos', icon: 'check', href: '/atendimento/pedidos', permission: 'bar:sales:operate' },
   { label: 'Caixa', icon: 'wallet', href: '/bar/caixa', anyPermission: ['bar:cash:operate', 'bar:supervise'] },
+  { label: 'Receber', icon: 'wallet', href: '/atendimento/receber', permission: 'bar:sales:operate' },
   { label: 'Produtos e estoque', icon: 'bar', href: '/bar/produtos', anyPermission: ['bar:catalog:write', 'bar:stock:read'] },
   { label: 'Cardápio', icon: 'bar', href: '/bar/cardapio', permission: 'bar:catalog:write' },
   { label: 'Compras', icon: 'wallet', href: '/bar/compras', permission: 'bar:purchases:manage' },
@@ -37,14 +38,15 @@ export const managementNavigation: NavigationGroup[] = [
   ] },
   { label: 'Bar', icon: 'bar', href: '/bar', children: barNavigation },
   { label: 'Administração', icon: 'tools', href: '/equipe', children: [
-    { label: 'Equipe', href: '/equipe', kind: 'team', related: [{ label: 'Acesso dos professores', href: '/administracao/professores', owner: true }] }, { label: 'Importações', href: '/importacoes', owner: true }, { label: 'Materiais', href: '/administracao/materiais', kind: 'inventory' },
+    { label: 'Equipe', href: '/equipe', kind: 'team', related: [{ label: 'Acesso dos professores', href: '/administracao/professores', staffOwner: true }] }, { label: 'Importações', href: '/importacoes', owner: true }, { label: 'Materiais', href: '/administracao/materiais', kind: 'inventory' },
     { label: 'Projetos', href: '/projetos', kind: 'projects' }, { label: 'Manutenção', href: '/manutencao', kind: 'maintenance' },
   ] },
 ]
 export const routeMatches = (path: string, href: string) => path === href || href !== '/' && path.startsWith(href + '/')
 export function barNavigationPath(path: string) {
   if(['/bar/estoque','/bar/inventario','/bar/perdas','/bar/receitas'].some(prefix=>routeMatches(path,prefix))) return '/bar/produtos'
-  if(['/bar/vendas','/atendimento/receber','/atendimento/comprovante','/atendimento/pagamento-online'].some(prefix=>routeMatches(path,prefix))) return '/atendimento/comandas'
+  if(['/atendimento/comprovante','/atendimento/pagamento-online'].some(prefix=>routeMatches(path,prefix))) return '/atendimento/receber'
+  if(routeMatches(path,'/bar/vendas')) return '/atendimento/comandas'
   if(routeMatches(path,'/bar/registros')) return '/bar/indicadores'
   return path
 }

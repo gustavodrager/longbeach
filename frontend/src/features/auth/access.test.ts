@@ -18,8 +18,9 @@ it('gestor acessa todas as funções e atendente fica dentro do teto operacional
   const attendant = identity(['Operations'], [...operational, ...protectedPermissions])
   for (const permission of operational) expect(hasPermission(attendant, permission)).toBe(true)
   for (const permission of protectedPermissions) expect(hasPermission(attendant, permission)).toBe(false)
-  for (const permission of [...operational, ...protectedPermissions]) expect(hasPermission(identity(['Manager']), permission)).toBe(true)
+  for (const permission of [...operational, ...protectedPermissions]) expect(hasPermission({...identity(['Manager']),canManageStaff:true}, permission)).toBe(true)
   expect(hasPermission(identity(['Operations']), 'students:write')).toBe(false)
+  expect(hasPermission(identity(['Manager']), 'employees:write')).toBe(false)
 })
 
 it.each(['Teacher', 'Student'])('%s não recupera funções internas com claims antigas', role => {

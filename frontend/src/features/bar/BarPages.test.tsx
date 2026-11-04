@@ -10,7 +10,7 @@ const user: AuthUser={id:'operator',name:'Operador',email:'test@longbeach.test',
 function wrapper(children:React.ReactNode, authUser=user, path='/'){const auth={user:authUser,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{}, completeFirstAccessWithGoogle: async () => {}};return <QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><MemoryRouter initialEntries={[path]}><AuthContext.Provider value={auth}>{children}</AuthContext.Provider></MemoryRouter></QueryClientProvider>}
 function response(body:unknown){return new Response(JSON.stringify(body),{headers:{'Content-Type':'application/json'}})}
 afterEach(()=>vi.restoreAllMocks())
-it('oferece apenas grupos permitidos para operador, preservando o atendimento',()=>{const can=(item:{permission?:string;anyPermission?:string[];owner?:boolean;kind?:string})=>!item.owner&&!item.kind&&(!item.anyPermission||item.anyPermission.some(p=>user.permissions.includes(p)))&&(!item.permission||user.permissions.includes(item.permission));const bar=visibleNavigation(can).find(item=>item.label==='Bar');expect(bar?.children?.map(item=>item.label)).toEqual(['Vender','Pedidos','Caixa','Produtos e estoque']);expect(attendantNavigation.filter(can).map(item=>item.label)).toEqual(['Vender','Pedidos','Caixa'])})
+it('oferece apenas grupos permitidos para operador, preservando o atendimento',()=>{const can=(item:{permission?:string;anyPermission?:string[];owner?:boolean;kind?:string})=>!item.owner&&!item.kind&&(!item.anyPermission||item.anyPermission.some(p=>user.permissions.includes(p)))&&(!item.permission||user.permissions.includes(item.permission));const bar=visibleNavigation(can).find(item=>item.label==='Bar');expect(bar?.children?.map(item=>item.label)).toEqual(['Vender','Pedidos','Caixa','Receber','Produtos e estoque']);expect(attendantNavigation.filter(can).map(item=>item.label)).toEqual(['Vender','Pedidos','Caixa'])})
 
 const stockLocations = [{ id: 'warehouse', name: 'Almoxarifado' }, { id: 'bar', name: 'Bar' }]
 function stockApi(locations = stockLocations) {
@@ -76,7 +76,7 @@ it.each([
   [{ id: 'bar', name: 'Bar' }, { id: 'other', name: ' BAR ' }],
 ])('bloqueia a contagem quando não há estoque Bar único: %j', async (...items) => {
   const api = stockApi(items)
-  render(wrapper(<BarCountsPage/>))
+  render(wrapper(<BarCountsPage/>,{...user,roles:['Manager']}))
   await userEvent.click(screen.getByRole('button', { name: 'Nova contagem' }))
   expect(await within(screen.getByRole('dialog')).findByText('Estoque do Bar não configurado. Peça à gestão para conferir o cadastro.')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Abrir contagem' })).toBeDisabled()

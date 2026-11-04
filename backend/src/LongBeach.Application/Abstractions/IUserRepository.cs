@@ -9,6 +9,7 @@ public interface IUserRepository
         FindByIdAsync(id, cancellationToken);
     Task<User?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default);
     Task<User?> FindByUsernameAsync(string normalizedUsername, CancellationToken cancellationToken = default);
+    Task<User?> FindByPhoneLoginAsync(string normalizedPhone, CancellationToken cancellationToken = default) => Task.FromResult<User?>(null);
     Task<User?> FindByGoogleSubjectAsync(string subject, CancellationToken cancellationToken = default);
     Task<User?> FindByRefreshTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default);
     Task AddAsync(User user, CancellationToken cancellationToken = default);

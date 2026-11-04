@@ -44,10 +44,19 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : ITokenServic
         if (principal.GoogleLinked) claims.Add(new("google_linked", "true"));
         if (principal.Username is not null) claims.Add(new("username", principal.Username));
         if (principal.RequiresFirstAccess) claims.Add(new("requires_first_access", "true"));
+        if (principal.PhoneLogin is not null) claims.Add(new("phone_login", principal.PhoneLogin));
+        if (principal.RequiresLocalPasswordChange) claims.Add(new("requires_local_password_change", "true"));
         else
         {
             claims.AddRange(principal.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
             claims.AddRange(principal.Permissions.Select(permission => new Claim("permission", permission)));
+            claims.Add(new("can_manage_staff", principal.CanManageStaff ? "true" : "false"));
+            if (principal.StaffAccess is { } access)
+            {
+                claims.AddRange(new[] { new Claim("staff_managed", "true"), new Claim("staff_type_id", access.TypeId), new Claim("staff_type_name", access.Name), new Claim("staff_type_role", access.Role), new Claim("staff_home", access.HomePath) });
+                claims.AddRange(access.Menus.Select(menu => new Claim("staff_menu", menu)));
+                claims.AddRange(access.Actions.Select(action => new Claim("staff_action", action)));
+            }
         }
 
         var jwt = new JwtSecurityToken(

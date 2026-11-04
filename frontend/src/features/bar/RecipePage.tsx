@@ -1,4 +1,5 @@
 import { hasPermission } from '../auth/access'
+import { canOperateStock } from './staffAccess'
 import { useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { EditorPanel, useEditorQuery, useUnsavedChanges } from '../../components/managementUi'
@@ -79,7 +80,7 @@ function RecipeEditor({ product, products, previous, onCancel, onSaved, onLocked
 
 export function BarRecipesPage() {
   const { user } = useAuth(); const { productId } = useParams(); const filters = useFilters(); const navigate = useNavigate()
-  const allowed = Boolean(hasPermission(user, 'bar:catalog:write'))
+  const allowed = Boolean(hasPermission(user, 'bar:catalog:write'));const canWrite=canOperateStock(user,'bar:catalog:write')
   const products = useBarData<ManagedProduct[]>('/products', allowed)
   const rawPage = Number(filters.params.get('page') ?? 1); const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1
   const versionId = filters.params.get('version') ?? ''
@@ -98,15 +99,15 @@ export function BarRecipesPage() {
     {products.isLoading && <p role="status" className="arena-message">Carregando produtos…</p>}
     {products.error && <p role="alert" className="arena-message arena-error">{products.error.message} <button className="text-button" onClick={() => void products.refetch()}>Tentar novamente</button></p>}
     <div className="arena-toolbar"><Field label="Produto preparado" disabled={draftLocked} value={productId ?? ''} onChange={choose} options={[{ value: '', label: 'Escolha um produto preparado' }, ...(products.data?.filter(item => item.product.prepared).map(item => ({ value: item.product.id, label: `${item.product.name}${item.product.active ? '' : ' · inativo'}` })) ?? [])]} /></div>
-    {!productId ? <Empty action={<Link className="secondary-link" to="/bar/produtos">Cadastrar ou editar produtos →</Link>}>Escolha um produto preparado para ver sua receita e o histórico de versões.</Empty> : product && !product.product.prepared ? <Empty>Este produto não está marcado como preparado. Configure o produto antes de cadastrar a receita.</Empty> : product ? <>
+    {!productId ? <Empty action={canWrite?<Link className="secondary-link" to="/bar/produtos">Cadastrar ou editar produtos →</Link>:undefined}>Escolha um produto preparado para ver sua receita e o histórico de versões.</Empty> : product && !product.product.prepared ? <Empty>Este produto não está marcado como preparado. Configure o produto antes de cadastrar a receita.</Empty> : product ? <>
       {saved?.productId === productId && <p className="arena-message" role="status">Versão {saved.version} registrada. Os pedidos anteriores mantêm a versão original.</p>}
       {first.isLoading && <p className="arena-message" role="status">Carregando receitas…</p>}
       {first.error && <p className="arena-message arena-error" role="alert">{first.error.message} <button className="text-button" onClick={() => void first.refetch()}>Consultar receitas novamente</button></p>}
       {version.error && versionId && <p className="arena-message arena-error" role="alert">Não foi possível consultar esta versão.</p>}
       {version.data && versionId && version.data.productId !== productId && <p className="arena-message arena-error" role="alert">Esta versão pertence a outro produto. Escolha uma versão no histórico abaixo.</p>}
-      {editing ? <EditorPanel title="Editar ficha técnica" className="stock-clean" busy={draftLocked} onClose={()=>setEditing(false)}><RecipeEditor key={productId} product={product} products={products.data ?? []} previous={current} onLockedChange={setDraftLocked} onCancel={() => setEditing(false)} onSaved={recipe => { setSaved(recipe); setEditing(false); navigate(filters.href(`/bar/receitas/${productId}`,{version:recipe.id})) }} /></EditorPanel> : !first.isLoading && !first.isError ? <div className="arena-actions"><button className="primary-link" disabled={!product.product.active} onClick={() => setEditing(true)}>{current ? 'Criar nova versão da receita' : 'Cadastrar primeira receita'}</button>{versionId && <Link className="secondary-link" to={filters.href(`/bar/receitas/${productId}`, { version: '', page: '' })}>Ver receita atual →</Link>}</div> : null}
-      {!editing && selected && <RecipeDetails recipe={selected} current={!first.isError && selected.id === current?.id} />}
-      {!editing && !current && !first.isLoading && !first.isError && <Empty>Este preparado ainda não tem receita. Até cadastrar uma receita, a entrega usa o próprio estoque conforme a configuração do produto.</Empty>}
+      {editing && canWrite ? <EditorPanel title="Editar ficha técnica" className="stock-clean" busy={draftLocked} onClose={()=>setEditing(false)}><RecipeEditor key={productId} product={product} products={products.data ?? []} previous={current} onLockedChange={setDraftLocked} onCancel={() => setEditing(false)} onSaved={recipe => { setSaved(recipe); setEditing(false); navigate(filters.href(`/bar/receitas/${productId}`,{version:recipe.id})) }} /></EditorPanel> : !first.isLoading && !first.isError ? <div className="arena-actions">{canWrite&&<button className="primary-link" disabled={!product.product.active} onClick={() => setEditing(true)}>{current ? 'Criar nova versão da receita' : 'Cadastrar primeira receita'}</button>}{versionId && <Link className="secondary-link" to={filters.href(`/bar/receitas/${productId}`, { version: '', page: '' })}>Ver receita atual →</Link>}</div> : null}
+      {(!editing || !canWrite) && selected && <RecipeDetails recipe={selected} current={!first.isError && selected.id === current?.id} />}
+      {(!editing || !canWrite) && !current && !first.isLoading && !first.isError && <Empty>Este preparado ainda não tem receita. Até cadastrar uma receita, a entrega usa o próprio estoque conforme a configuração do produto.</Empty>}
       {!product.product.active && <p className="arena-hint">Produto inativo. Ative-o em Produtos para cadastrar uma nova versão.</p>}
       <section className="operation-card"><h2>Histórico de versões</h2>
         {history.error && <p className="arena-message arena-error" role="alert">O histórico não pôde ser atualizado.</p>}

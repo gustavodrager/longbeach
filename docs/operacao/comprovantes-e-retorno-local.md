@@ -1,4 +1,14 @@
-# Comprovantes e retorno local — 27/10/2026
+# Comprovantes e retorno local
+
+## Referência atual — 04/11/2026
+
+Após a publicação dos acessos da equipe, a árvore voltou ao alias `outputs -> evidencias/outputs` pelo procedimento oficial, com plano novo, ausência de gravadores conferida e rename exclusivo no mesmo volume. Os 7.159 arquivos, 1.079.014.692 bytes e 65 links foram preservados. A automação que utilizava a árvore estava pausada; nenhum serviço hospedado depende deste movimento local.
+
+O recibo aplicável para um próximo retorno local é `arquivo/consolidacao-2026-10-26/suportes-execucao-20261104T204349Z-22444e0202.json`, SHA-256 `3c98f1680a40c67c6c90e16405f9445308f876543a98a7340548d1e76b13467b`. A prova e o plano atuais estão em `evidencias/equipe-acessos-2026-11-04/publicacao-b93c7bb/outputs-alias-completed.private.json` e `outputs-alias-reorganization-plan.private.json`.
+
+Os recibos de 27/10 abaixo continuam como histórico, sem alterações. O retorno inicial desta sessão exigiu conferir o estado atual: os metadados do dispositivo mudaram e o monitor teve atualização legítima em 28/10. Nenhum inventário antigo foi editado ou forçado para passar. O novo recibo não renova autorizações de produção.
+
+## Histórico de 27/10/2026
 
 A migração Google Cloud foi aceita e concluída em 26/10/2026, com retirada da origem e da homologação e publicação posterior da aplicação consolidada. Em 27/10, o chat Google Cloud confirmou o encerramento e liberou o arquivamento local. A revisão não identificou helpers em execução, gravações abertas ou contêineres vinculados a outputs. Os handles do Docker encontrados eram somente de leitura.
 
@@ -38,13 +48,13 @@ O alias preserva consultas e referências comuns, mas não a execução canônic
 Antes de considerar uma dessas ferramentas, coordenar o uso da pasta e encerrar todos os gravadores locais. Conferir que o recibo abaixo ainda é o recibo final aplicável. A partir da pasta principal LongBeach, planejar a reversão:
 
 ```sh
-python3 -B arquivo/consolidacao-2026-10-26/organizar-suportes.py --rollback /Users/gustavo-drager/Works/LongBeach/arquivo/consolidacao-2026-10-26/suportes-execucao-20261027T121733Z-61cd6d24fe.json
+python3 -B arquivo/consolidacao-2026-10-26/organizar-suportes.py --rollback /Users/gustavo-drager/Works/LongBeach/arquivo/consolidacao-2026-10-26/suportes-execucao-20261104T204349Z-22444e0202.json
 ```
 
 Depois de conferir o plano e a ausência de gravadores, executar a mesma reversão:
 
 ```sh
-python3 -B arquivo/consolidacao-2026-10-26/organizar-suportes.py --rollback /Users/gustavo-drager/Works/LongBeach/arquivo/consolidacao-2026-10-26/suportes-execucao-20261027T121733Z-61cd6d24fe.json --apply --ack-quiescent
+python3 -B arquivo/consolidacao-2026-10-26/organizar-suportes.py --rollback /Users/gustavo-drager/Works/LongBeach/arquivo/consolidacao-2026-10-26/suportes-execucao-20261104T204349Z-22444e0202.json --apply --ack-quiescent
 ```
 
 O procedimento confere todos os hashes/metadados, remove somente o alias esperado e devolve a árvore como `LongBeach/outputs`, diretório real. Não sobrescreve uma origem recriada. Se qualquer arquivo tiver mudado ou houver divergência, a reversão automática será recusada; preservar o estado e revisar as alterações antes de seguir. Não apagar arquivos, editar o inventário ou forçar a reversão para fazê-la passar.
@@ -55,7 +65,7 @@ Conferir novamente `outputs.resolve() == outputs`, os caminhos necessários, per
 
 O retorno do diretório local preserva o acesso às evidências. A produção opera na VM e não depende de outputs no Mac. A origem Cloud SQL/Run foi removida; recuperação exige reconstrução e restauração/reconciliação dos dados atuais, com nova revisão e autorização. Não executar o protocolo antigo de reabertura da origem ou reaplicar planos de retirada.
 
-Usar o [runbook atual da VM](google-vm.md), o [registro da release atual](release-google-vm.json) e o [procedimento de backup/restauração](../../deploy/google/vm/backup/README.md). A release identifica a imagem vigente; o pin de bootstrap/Terraform preserva a preparação histórica. Manter API e workers parados no candidato, restaurar em diretório vazio, conferir replay, schema, dados, totais, sequências, permissões e sessão, reconciliar gravações recentes e só então revisar a retomada.
+Usar o [runbook atual da VM](google-vm.md), o [registro da release atual](release-equipe-acessos-2026-11-04.json) e o [procedimento de backup/restauração](../../deploy/google/vm/backup/README.md). A release identifica a imagem vigente; o pin de bootstrap/Terraform preserva a preparação histórica. Manter API e workers parados no candidato, restaurar em diretório vazio, conferir replay, schema, dados, totais, sequências, permissões e sessão, reconciliar gravações recentes e só então revisar a retomada.
 
 As raízes canônicas de infraestrutura são `deploy/google/vm/terraform`, `deploy/google/support/terraform` e `deploy/google/staging-retired/terraform`, cada uma com backend próprio. Não reaplicar `deploy/google/terraform`, raiz histórica que recriaria recursos retirados. Preservar projetos e buckets necessários aos backups nativos e ao GCS.
 

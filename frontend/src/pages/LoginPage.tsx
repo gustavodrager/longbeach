@@ -126,7 +126,7 @@ export function LoginPage() {
     {!registering && localLogin && <details className="auth-entry-password" open={!googleClientId || created || undefined}>
       <summary>{homologation ? 'Acesso de teste' : 'Entrar com usuário e senha'}</summary>
       <form className="auth-entry-form" onSubmit={event => void handleLocal(event)}>
-        <label>{homologation ? 'E-mail de teste' : 'Usuário ou e-mail'}<input type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} required maxLength={240} value={identifier} onChange={event => setIdentifier(event.target.value)} disabled={isSubmitting} /></label>
+        <label>{homologation ? 'E-mail de teste' : 'Telefone, usuário ou e-mail'}<input type="text" autoComplete="username" autoCapitalize="none" spellCheck={false} required maxLength={240} value={identifier} onChange={event => setIdentifier(event.target.value)} disabled={isSubmitting} /></label>
         <label>{homologation ? 'Senha de teste' : 'Senha'}<input type="password" autoComplete="current-password" required maxLength={256} value={password} onChange={event => setPassword(event.target.value)} disabled={isSubmitting} /></label>
         <button className="primary-button" type="submit" disabled={isSubmitting || isBootstrapping}>{homologation ? 'Entrar na homologação' : 'Entrar'}</button>
       </form>

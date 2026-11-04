@@ -1,4 +1,4 @@
-import { isManagement } from '../features/auth/access'
+import { isManagement, canManageStaff, hasStaffMenu, hasStaffAction } from '../features/auth/access'
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { ApiError, apiFetch } from '../lib/http'
 import { useAuth } from '../features/auth/authContext'
@@ -19,14 +19,18 @@ export function ImportPage() {
   const [busy, setBusy] = useState(false)
   const [catalogPreview, setCatalogPreview] = useState<CatalogPreview | null>(null)
   const [historyPreview, setHistoryPreview] = useState<HistoryPreview | null>(null)
-  const canImport = isManagement(user) ?? false
+  const canRead = isManagement(user) && hasStaffMenu(user,'administration')
+  const canImport=canRead&&hasStaffAction(user,'administration.operate')
+  const canReadHistory=hasStaffMenu(user,'finance')||hasStaffMenu(user,'reports')
+  const canWriteFinance=hasStaffMenu(user,'finance')&&hasStaffAction(user,'finance.operate')
+  const canApplyItem=(kind:string)=>kind==='team'?canManageStaff(user):({classes:'classes',enrollments:'enrollments',rentalGroups:'recurring'} as Record<string,string>)[kind] ? hasStaffMenu(user,({classes:'classes',enrollments:'enrollments',rentalGroups:'recurring'} as Record<string,string>)[kind])&&hasStaffAction(user,({classes:'classes',enrollments:'enrollments',rentalGroups:'recurring'} as Record<string,string>)[kind]+'.operate'):false
 
   async function load() {
     try { setBatches(await apiFetch<StagedBatch[]>('/api/v1/imports')) }
     catch (error) { setMessage(error instanceof ApiError && error.status === 403 ? 'Esta área está disponível para a gestão.' : 'Não foi possível consultar os lotes de importação.') }
   }
 
-  useEffect(() => { if (canImport) void load() }, [canImport])
+  useEffect(() => { if (canRead) void load() }, [canRead])
 
   async function inspectCatalog(id: string) {
     setBusy(true); setMessage(''); setCatalogPreview(null); setHistoryPreview(null)
@@ -42,7 +46,7 @@ export function ImportPage() {
     finally { setBusy(false) }
   }
   async function applyHistory() {
-    if (!historyPreview) return
+    if (!historyPreview || !canImport || !canWriteFinance) return
     setBusy(true); setMessage('')
     try {
       setHistoryPreview(await apiFetch<HistoryPreview>(`/api/v1/financial-history/imports/${historyPreview.batchId}/apply`, { method: 'POST', body: JSON.stringify({ confirmationToken: historyPreview.confirmationToken }) }))
@@ -55,7 +59,7 @@ export function ImportPage() {
   async function upload(event: ChangeEvent<HTMLInputElement>) {
     const inputElement = event.currentTarget
     const file = event.currentTarget.files?.[0]
-    if (!file) return
+    if (!file || !canImport) return
     setBusy(true); setMessage(''); setCatalogPreview(null); setHistoryPreview(null)
     try {
       const input = JSON.parse(await file.text()) as ImportPackage
@@ -74,16 +78,16 @@ export function ImportPage() {
 
   return <main className="dashboard import-page administration-clean">
     <header className="page-heading"><h1>Importações</h1></header>
-    {!canImport ? <p role="alert">Esta área está disponível para a gestão.</p> : <>
-      <BankStatementImport onApplied={load} />
-      <Disclosure title="Importar outros arquivos"><section className="import-card"><div><h2>Lote para conferência</h2><p>O envio guarda o lote para conferência. Não confirma status, pagamentos ou saldos.</p><details><summary>Formato do arquivo</summary><p>Selecione um pacote JSON preparado a partir das planilhas. Cada linha mantém a aba e o número original.</p></details></div>
+    {!canRead ? <p role="alert">Esta área está disponível para a gestão.</p> : <>
+      {canImport&&canWriteFinance&&<BankStatementImport onApplied={load} />}
+      {canImport&&<Disclosure title="Importar outros arquivos"><section className="import-card"><div><h2>Lote para conferência</h2><p>O envio guarda o lote para conferência. Não confirma status, pagamentos ou saldos.</p><details><summary>Formato do arquivo</summary><p>Selecione um pacote JSON preparado a partir das planilhas. Cada linha mantém a aba e o número original.</p></details></div>
         <label className="button-primary import-picker">{busy ? 'Carregando lote…' : 'Selecionar pacote JSON'}<input aria-label="Selecionar pacote JSON" type="file" accept="application/json,.json" disabled={busy} onChange={(event) => void upload(event)} /></label>
-      </section></Disclosure>
+      </section></Disclosure>}
       {message && <p className="persistence-banner" role="status">{message}</p>}
       <section className="import-batches"><div className="section-heading"><h2>Lotes carregados</h2><button type="button" onClick={() => void load()}>Atualizar</button></div>
-        {batches.length === 0 ? <p>Nenhum lote foi carregado.</p> : batches.map((batch) => <article className="import-batch" key={batch.id}><div><strong>{batch.sourceName}</strong><span>{batch.rowCount} linhas · {batch.status === 'NeedsReview' ? 'Pendente de conferência' : batch.status === 'Applied' ? 'Aplicado' : batch.status}</span></div><details className="import-source"><summary>Origem do arquivo</summary><code>{batch.sourceSha256}</code></details><button type="button" disabled={busy} onClick={() => void inspectCatalog(batch.id)} aria-label={`Conferir produtos do bar: ${batch.sourceName}`}>Conferir produtos do bar</button><button type="button" disabled={busy} onClick={() => void inspectHistory(batch.id)} aria-label={`Conferir histórico financeiro: ${batch.sourceName}`}>Conferir histórico financeiro</button><GradeImportReview batchId={batch.id} sourceName={batch.sourceName} onApplied={load} /><GradeImportReview kind="rentals" batchId={batch.id} sourceName={batch.sourceName} onApplied={load} /></article>)}
+        {batches.length === 0 ? <p>Nenhum lote foi carregado.</p> : batches.map((batch) => <article className="import-batch" key={batch.id}><div><strong>{batch.sourceName}</strong><span>{batch.rowCount} linhas · {batch.status === 'NeedsReview' ? 'Pendente de conferência' : batch.status === 'Applied' ? 'Aplicado' : batch.status}</span></div><details className="import-source"><summary>Origem do arquivo</summary><code>{batch.sourceSha256}</code></details><button type="button" disabled={busy} onClick={() => void inspectCatalog(batch.id)} aria-label={`Conferir produtos do bar: ${batch.sourceName}`}>Conferir produtos do bar</button>{canReadHistory&&<button type="button" disabled={busy} onClick={() => void inspectHistory(batch.id)} aria-label={`Conferir histórico financeiro: ${batch.sourceName}`}>Conferir histórico financeiro</button>}<GradeImportReview batchId={batch.id} sourceName={batch.sourceName} onApplied={load} canApply={canImport} canApplyItem={canApplyItem} /><GradeImportReview kind="rentals" batchId={batch.id} sourceName={batch.sourceName} onApplied={load} canApply={canImport} canApplyItem={canApplyItem} /></article>)}
       </section>
-      {historyPreview && <section className="foundation-card" aria-label="Conferência financeira"><h2>Conferir histórico financeiro</h2><p>{historyPreview.sourceName} · {historyPreview.creates} valores novos · {historyPreview.matches} já aplicados.</p><p>Aplicar disponibiliza o histórico à gestão com a situação informada na fonte. Os totais dos controles permanecem separados.</p><div className="table-scroll"><table><thead><tr><th>Controle</th><th>Indicador</th><th>Período</th><th>Estado</th><th>Registros</th><th>Total</th></tr></thead><tbody>{historyPreview.totals.map(total => <tr key={`${total.series}:${total.metric}:${total.state}:${total.period}:${total.grain}`}><td>{seriesLabels[total.series]}</td><td>{total.metric}</td><td>{total.period} · {total.grain}</td><td>{total.state}</td><td>{total.records}</td><td>{centsMoney(total.amountCents)}</td></tr>)}</tbody></table></div>{historyPreview.applied ? <p role="status">Histórico já aplicado.</p> : <button type="button" disabled={busy} onClick={() => void applyHistory()} className="button-primary">Aplicar histórico conferido</button>}</section>}
+      {historyPreview && <section className="foundation-card" aria-label="Conferência financeira"><h2>Conferir histórico financeiro</h2><p>{historyPreview.sourceName} · {historyPreview.creates} valores novos · {historyPreview.matches} já aplicados.</p><p>Aplicar disponibiliza o histórico à gestão com a situação informada na fonte. Os totais dos controles permanecem separados.</p><div className="table-scroll"><table><thead><tr><th>Controle</th><th>Indicador</th><th>Período</th><th>Estado</th><th>Registros</th><th>Total</th></tr></thead><tbody>{historyPreview.totals.map(total => <tr key={`${total.series}:${total.metric}:${total.state}:${total.period}:${total.grain}`}><td>{seriesLabels[total.series]}</td><td>{total.metric}</td><td>{total.period} · {total.grain}</td><td>{total.state}</td><td>{total.records}</td><td>{centsMoney(total.amountCents)}</td></tr>)}</tbody></table></div>{historyPreview.applied ? <p role="status">Histórico já aplicado.</p> : canImport&&canWriteFinance&&<button type="button" disabled={busy} onClick={() => void applyHistory()} className="button-primary">Aplicar histórico conferido</button>}</section>}
       {catalogPreview && <section className="foundation-card" aria-label="Conferência de produtos do bar">
         <h2>Conferir catálogo do bar</h2>
         <p>Arquivo: {catalogPreview.sourceName}</p>

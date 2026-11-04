@@ -13,6 +13,10 @@ public sealed class ExceptionHandlingMiddleware(
         {
             await next(context);
         }
+        catch (LongBeach.Application.Staff.StaffAccessException exception)
+        {
+            await WriteProblemAsync(context, exception.StatusCode, "Confira o acesso da equipe", exception.Message);
+        }
         catch (LongBeach.Domain.Bar.BarPaymentConfirmationPendingException exception)
         {
             context.Response.StatusCode = StatusCodes.Status502BadGateway;

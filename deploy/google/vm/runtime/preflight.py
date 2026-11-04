@@ -21,10 +21,11 @@ RUNTIME_ROOT = Path("/opt/longbeach/runtime")
 API_HOST = "api.longbeach.quebranunca.com.br"
 WEB_ORIGIN = "https://longbeach.quebranunca.com.br"
 # This proof is versioned with the API source; no runtime environment override is accepted.
-API_SCHEMA_LATEST = "20261102163528_ClientIndividualAccess"
-API_SCHEMA_COUNT = 32
-API_SCHEMA_SHA256 = "e68bb0b2cacc3f30bd53bbda0ce192f7803708bef66e2fdfeb800f29016884a0"
+API_SCHEMA_LATEST = "20261104173051_StaffIndividualAccess"
+API_SCHEMA_COUNT = 33
+API_SCHEMA_SHA256 = "f882f11fe3d37c55e9b38cae4bc564f640c76182bd728f512b5a973d5ef961c9"
 LABEL_CAPABILITY = "com.longbeach.api.customer-registry"
+LABEL_STAFF_CAPABILITY = "com.longbeach.api.staff-access"
 LABEL_SCHEMA_HASH = "com.longbeach.api.schema.migrations-sha256"
 LABEL_SCHEMA_COUNT = "com.longbeach.api.schema.migration-count"
 LABEL_SCHEMA_LATEST = "com.longbeach.api.schema.latest"
@@ -36,6 +37,39 @@ SELECT json_build_object(
     'read_only', current_setting('transaction_read_only'),
     'migrations', (SELECT COALESCE(json_agg("MigrationId" ORDER BY "MigrationId" COLLATE "C"), '[]'::json)
         FROM public."__EFMigrationsHistory"));
+COMMIT;
+"""
+STAFF_SCHEMA_QUERY = """BEGIN READ ONLY;
+SET LOCAL statement_timeout = '5s';
+WITH configured_owners AS (SELECT unnest(ARRAY[__OWNER_IDS__]::uuid[]) AS id),
+owner_facts AS (
+ SELECT o.id, u."Id" IS NOT NULL AS present,
+   (SELECT count(*) FROM public.user_roles ur WHERE ur."UserId"=o.id)=1
+     AND EXISTS (SELECT 1 FROM public.user_roles ur JOIN public.roles r ON r."Id"=ur."RoleId" WHERE ur."UserId"=o.id AND r."Name"='Manager') AS manager,
+   u."IsActive" AND NOT u."RequiresFirstAccess" AND (u."LocalPasswordEnabled" OR u."GoogleSubject" IS NOT NULL)
+     AND (m."Id" IS NULL OR m."Enabled" AND t."Role"='Manager') AS usable
+ FROM configured_owners o LEFT JOIN public.users u ON u."Id"=o.id
+ LEFT JOIN public.staff_memberships m ON m."UserId"=o.id
+ LEFT JOIN public.staff_access_types t ON t."Id"=m."AccessTypeId"
+), staff_tables AS (
+ SELECT c.* FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+ WHERE n.nspname='public' AND c.relkind='r' AND c.relname IN ('staff_access_types','staff_memberships','staff_access_operations')
+)
+SELECT json_build_object(
+ 'database', current_database(), 'read_only', current_setting('transaction_read_only'),
+ 'configured_owner_count', (SELECT count(*) FROM owner_facts),
+ 'owners_present', (SELECT count(*) FROM owner_facts WHERE present),
+ 'owners_manager', (SELECT count(*) FROM owner_facts WHERE manager),
+ 'usable_owners', (SELECT count(*) FROM owner_facts WHERE manager AND usable),
+ 'staff_tables_present', (SELECT count(*)=3 FROM staff_tables),
+ 'runtime_role_safe', COALESCE((SELECT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls FROM pg_roles WHERE rolname='longbeach_runtime'),false),
+ 'runtime_no_schema_ddl', NOT has_schema_privilege('longbeach_runtime','public','CREATE'),
+ 'runtime_dml', NOT EXISTS (SELECT 1 FROM staff_tables t WHERE NOT has_table_privilege('longbeach_runtime',t.oid,'SELECT') OR NOT has_table_privilege('longbeach_runtime',t.oid,'INSERT') OR (t.relname<>'staff_access_operations' AND NOT has_table_privilege('longbeach_runtime',t.oid,'UPDATE'))),
+ 'operations_immutable', NOT EXISTS (SELECT 1 FROM staff_tables t WHERE t.relname='staff_access_operations' AND has_table_privilege('longbeach_runtime',t.oid,'UPDATE')),
+ 'no_destructive_access', NOT EXISTS (SELECT 1 FROM staff_tables t WHERE has_table_privilege('longbeach_runtime',t.oid,'DELETE,TRUNCATE,REFERENCES,TRIGGER')),
+ 'no_public_access', NOT EXISTS (SELECT 1 FROM staff_tables t CROSS JOIN LATERAL aclexplode(COALESCE(t.relacl,acldefault('r',t.relowner))) a WHERE a.grantee=0),
+ 'no_transport_access', NOT EXISTS (SELECT 1 FROM staff_tables t CROSS JOIN pg_roles r WHERE r.rolname IN ('longbeach_whatsapp_runtime','longbeach_whatsapp_bridge') AND has_table_privilege(r.oid,t.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')),
+ 'staff_owner_safe', NOT EXISTS (SELECT 1 FROM staff_tables t WHERE pg_get_userbyid(t.relowner) IN ('longbeach_runtime','longbeach_whatsapp_runtime','longbeach_whatsapp_bridge')));
 COMMIT;
 """
 ALLOWED_SETTINGS = {
@@ -208,6 +242,8 @@ def connection_fields(value: str) -> dict[str, str]:
 def check_application_config(value: object) -> None:
     require(isinstance(value, dict), "configuration_not_object")
     config = flattened(value)
+    owner_user_ids(value)
+    require(boolean(config.get("authentication:local:enabled", True), True), "staff_local_login_required")
     for key in ("database:migrateonstartup", "authorization:seedonstartup",
                 "bootstrap:initialowner:enabled", "authentication:google:provisionallowedemailsasowners"):
         require(boolean(config.get(key, False), False), "startup_mutation_flag:" + key)
@@ -235,6 +271,33 @@ def check_application_config(value: object) -> None:
     except ValueError:
         raise Refused("runtime_pool_size_invalid") from None
     require(1 <= pool <= 30, "runtime_pool_above_connection_budget")
+
+
+def owner_user_ids(value: object) -> list[str]:
+    config = flattened(value)
+    prefix = "staffaccess:owneruserids:"
+    owners = {key[len(prefix):]: item for key, item in config.items() if key.startswith(prefix)}
+    require(set(owners) == {"0", "1", "2", "3"}, "staff_owner_ids_require_four_explicit_accounts")
+    values = [owners[str(index)] for index in range(4)]
+    require(all(isinstance(item, str) and re.fullmatch(r"[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}", item)
+                and item.replace("-", "") != "0" * 32 for item in values), "staff_owner_id_invalid")
+    normalized = [item.lower() for item in values]
+    require(len(set(normalized)) == 4, "staff_owner_ids_not_unique")
+    return normalized
+
+
+def read_application_config() -> object:
+    path = SECRET_ROOT / "appsettings.Production.json"
+    secure_file(path, 1654, 0o640)
+    config = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=json_object)
+    check_application_config(config)
+    return config
+
+
+def staff_schema_query(owners: list[str]) -> str:
+    # Only canonical GUIDs produced by owner_user_ids enter this read-only SQL.
+    checked = owner_user_ids({"StaffAccess": {"OwnerUserIds": owners}})
+    return STAFF_SCHEMA_QUERY.replace("__OWNER_IDS__", ",".join("'" + item + "'" for item in checked))
 
 
 def boolean(value: object, expected: bool) -> bool:
@@ -313,6 +376,7 @@ def inspect_image(image: str, run) -> dict[str, object]:
 def check_api_schema(settings: dict[str, str], run=None) -> dict[str, object]:
     """No pull/start/migration: bind an immutable local image to the live owned DB schema."""
     run = run or docker_read
+    owners = owner_user_ids(read_application_config())
     image = settings["API_IMAGE"]
     require(pinned(image), "api_image_not_pinned")
     candidate = inspect_image(image, run)
@@ -321,7 +385,7 @@ def check_api_schema(settings: dict[str, str], run=None) -> dict[str, object]:
     require(candidate.get("Os") == "linux" and candidate.get("Architecture") == "amd64"
             and bool(re.fullmatch(r"sha256:[a-f0-9]{64}", candidate.get("Id", ""))), "api_schema_image_platform_invalid")
     labels = candidate.get("Config", {}).get("Labels") or {}
-    require(labels.get(LABEL_CAPABILITY) == "v1" and labels.get(LABEL_SCHEMA_HASH) == API_SCHEMA_SHA256
+    require(labels.get(LABEL_CAPABILITY) == "v1" and labels.get(LABEL_STAFF_CAPABILITY) == "v1" and labels.get(LABEL_SCHEMA_HASH) == API_SCHEMA_SHA256
             and labels.get(LABEL_SCHEMA_COUNT) == str(API_SCHEMA_COUNT)
             and labels.get(LABEL_SCHEMA_LATEST) == API_SCHEMA_LATEST, "api_schema_image_compatibility_unproven")
     compose = ["compose", "--project-directory", str(RUNTIME_ROOT), "--env-file", str(ENV_FILE),
@@ -355,8 +419,19 @@ def check_api_schema(settings: dict[str, str], run=None) -> dict[str, object]:
     applied = database.get("migrations")
     require(migration_hash(applied) == API_SCHEMA_SHA256 and max(applied) == API_SCHEMA_LATEST,
             "api_schema_database_mismatch")
+    raw = run(["exec", "--user", "999:999", "-i", container, "psql", "--no-psqlrc", "-qAt",
+               "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "longbeach"], input=staff_schema_query(owners))
+    staff = json.loads(raw)
+    require(isinstance(staff, dict) and staff.get("database") == "longbeach" and staff.get("read_only") == "on",
+            "staff_schema_database_identity_invalid")
+    require(staff.get("configured_owner_count") == 4 and staff.get("owners_present") == 4 and staff.get("owners_manager") == 4
+            and type(staff.get("usable_owners")) is int and 1 <= staff["usable_owners"] <= 4, "staff_owner_accounts_unproven")
+    for key in ("staff_tables_present", "runtime_role_safe", "runtime_no_schema_ddl", "runtime_dml", "operations_immutable",
+                "no_destructive_access", "no_public_access", "no_transport_access", "staff_owner_safe"):
+        require(staff.get(key) is True, "staff_database_privilege_invalid:" + key)
     return {"migration_count": API_SCHEMA_COUNT, "latest_migration": API_SCHEMA_LATEST,
-            "migrations_sha256": API_SCHEMA_SHA256, "image_digest_verified": True, "postgres_container": container}
+            "migrations_sha256": API_SCHEMA_SHA256, "image_digest_verified": True, "postgres_container": container,
+            "staff_access_verified": True, "owner_accounts_verified": True, "usable_owner_count": staff["usable_owners"]}
 
 
 def check_whatsapp_schema(settings: dict[str, str], postgres: str, run=None) -> dict[str, object]:
@@ -411,11 +486,9 @@ def check_host() -> dict[str, str]:
         require(path.resolve().is_relative_to(DATA_ROOT), "data_directory_outside_disk")
     version = DATA_ROOT / "postgres/18/docker/PG_VERSION"
     require(version.is_file() and version.read_text().strip() == "18", "postgres18_not_initialized")
-    secure_file(SECRET_ROOT / "appsettings.Production.json", 1654, 0o640)
     secure_file(SECRET_ROOT / "postgres-admin-password", 999, 0o640)
     secure_file(Path("/etc/longbeach/backup/pgbackrest.conf"), 999, 0o640)
-    config = json.loads((SECRET_ROOT / "appsettings.Production.json").read_text(encoding="utf-8"), object_pairs_hook=json_object)
-    check_application_config(config)
+    config = read_application_config()
     bridge = None
     if settings.get("WHATSAPP_ENABLED", "false") == "true":
         secure_file(BRIDGE_CONFIG, 65532, 0o640)

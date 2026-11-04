@@ -81,6 +81,7 @@ public static class AuthEndpoints
         ClaimsPrincipal principal, HttpContext httpContext, IConfiguration configuration,
         IAuthService authService, CancellationToken cancellationToken)
     {
+        if (principal.HasClaim("requires_local_password_change", "true")) return Results.Forbid();
         if (principal.FindFirstValue("requires_first_access") != "true" ||
             !Guid.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
             return Results.Forbid();
@@ -250,7 +251,11 @@ public static class AuthEndpoints
             principal.FindFirstValue("requires_first_access") == "true",
             principal.FindFirstValue("username"),
             principal.FindFirstValue("google_linked") == "true",
-            principal.FindFirstValue("local_password_enabled") != "false"));
+            principal.FindFirstValue("local_password_enabled") != "false",
+            CanManageStaff: principal.HasClaim("can_manage_staff", "true"),
+            PhoneLogin: principal.FindFirstValue("phone_login"),
+            RequiresLocalPasswordChange: principal.HasClaim("requires_local_password_change", "true"),
+            StaffAccess: LongBeach.Api.StaffSessionClaims.Read(principal)));
     }
 
     private static Dictionary<string, string[]> ValidateLogin(LoginRequest request)
