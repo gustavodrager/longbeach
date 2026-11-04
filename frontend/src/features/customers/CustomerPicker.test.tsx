@@ -90,7 +90,7 @@ it('erro409 preserva campos e não seleciona um cadastro presumido', async () =>
   fireEvent.change(screen.getByLabelText('Nome do novo cliente'), { target: { value: customer.name } }); fireEvent.change(screen.getByLabelText('Telefone do novo cliente'), { target: { value: customer.phone } })
   fireEvent.click(screen.getByRole('button', { name: 'Cadastrar e selecionar' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('formulário foi preservado')
-  expect(screen.getByLabelText('Nome do novo cliente')).toHaveValue(customer.name); expect(screen.getByLabelText('Telefone do novo cliente')).toHaveValue(customer.phone); expect(selected).not.toHaveBeenCalled()
+  expect(screen.getByLabelText('Nome do novo cliente')).toHaveValue(customer.name); expect(screen.getByLabelText('Telefone do novo cliente')).toHaveDisplayValue(/\(11\)\s*98888-7777/); expect(selected).not.toHaveBeenCalled()
 })
 
 it('falha de rede repete o mesmo operationId e cancelar cadastro rápido preserva o pai', async () => {

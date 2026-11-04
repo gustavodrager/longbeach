@@ -71,7 +71,7 @@ export function RecurringReservationsPage() {
         <details className="arena-extra-fields"><summary>Cliente, valor e observações (opcionais)</summary><div className="field-grid">
           {data.customerRegistryEnabled ? <CustomerPicker scope="reservations" contextKey="recurring-reservations:novo" label="Cliente do grupo de reservas" disabled={disabled} value={form.customerId?{id:form.customerId,name:form.customerName}:null} onChange={person=>setForm(current=>({...current,customerId:person?.id??null,customerName:person?.name??'',phone:person?.id===current.customerId?current.phone:''}))} /> : <><Field label="Nome do cliente ou responsável" value={form.customerName} onChange={customerName => setForm({ ...form, customerName })} />
           <Field label="Telefone" type="tel" value={form.phone} onChange={phone => setForm({ ...form, phone })} /></>}
-          {data.canWrite('financeEntries') && <Field label="Valor por ocorrência (R$)" type="number" min={0} value={form.amount} onChange={amount => setForm({ ...form, amount: Number(amount) })} />}
+          {data.canWrite('financeEntries') && <Field label="Valor por ocorrência (R$)" type="money" min={0} value={form.amount} onChange={amount => setForm({ ...form, amount: Number(amount) })} />}
           <Notes value={form.notes} onChange={notes => setForm({ ...form, notes })} />
         </div></details>
       </fieldset>

@@ -21,6 +21,58 @@ namespace LongBeach.IntegrationTests;
 public sealed class MaterialStockPostgresTests
 {
     [PostgresFact]
+    public async Task Http_creates_updates_and_moves_material_without_inventing_a_storage_location()
+    {
+        await using var isolated = await IsolatedMaterialDatabase.Create();
+        var actor = Guid.NewGuid();
+        await using var factory = Factory(isolated); using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new("Bearer", ProfileAuthorizationTests.Token(actor, ["Manager"]));
+        foreach (var locationShape in new[] { "missing", "null", "empty" })
+        {
+            var id = Guid.NewGuid();
+            var input = JsonSerializer.SerializeToNode(new { id, name = "Material sem local", quantity = 0, minimum = 0,
+                unit = "litro", unitCost = 9, nature = "Consumable", movements = Array.Empty<object>() })!.AsObject();
+            if (locationShape != "missing") input["location"] = locationShape == "null" ? null : "";
+            var created = await client.PutAsJsonAsync($"/api/v1/operations/inventory/{id}", input);
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+            var metadata = JsonNode.Parse(await created.Content.ReadAsStringAsync())!.AsObject();
+            Assert.Equal(locationShape != "missing", metadata.ContainsKey("location"));
+            Assert.True(JsonNode.DeepEquals(input["location"], metadata["location"]));
+            metadata["name"] = "Material atualizado sem local";
+            Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync($"/api/v1/operations/inventory/{id}", metadata)).StatusCode);
+            var receipt = await client.PostAsJsonAsync($"/api/v1/materials/{id}/movements", Input(2, "Receipt", 10));
+            Assert.Equal(HttpStatusCode.OK, receipt.StatusCode);
+            var body = (await receipt.Content.ReadFromJsonAsync<JsonElement>());
+            Assert.Equal(10m, body.GetProperty("material").GetProperty("quantity").GetDecimal());
+            Assert.Equal("", body.GetProperty("movement").GetProperty("location").GetString());
+            Assert.Equal(actor, body.GetProperty("movement").GetProperty("actorId").GetGuid());
+            var saved = JsonNode.Parse(body.GetProperty("material").GetRawText())!.AsObject();
+            Assert.Equal(locationShape != "missing", saved.ContainsKey("location"));
+            Assert.True(JsonNode.DeepEquals(input["location"], saved["location"]));
+            var history = (await client.GetFromJsonAsync<MaterialHistory>($"/api/v1/materials/{id}/movements"))!;
+            Assert.Single(history.Items); Assert.Equal("", history.Items[0].Location);
+            saved["location"] = new string('x', 161);
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync($"/api/v1/operations/inventory/{id}", saved)).StatusCode);
+        }
+        var legacyId = await Seed(isolated.Context);
+        var legacyRecord = await isolated.Context.OperationalRecords.SingleAsync(row => row.Id == legacyId);
+        var legacy = JsonNode.Parse(legacyRecord.Payload)!.AsObject();
+        legacy.Remove("location"); legacy["quantity"] = 5;
+        legacyRecord.Update(legacyRecord.Name, legacy.ToJsonString()); await isolated.Context.SaveChangesAsync();
+        var legacyReceipt = await client.PostAsJsonAsync($"/api/v1/materials/{legacyId}/movements", Input(1, "Receipt", 10));
+        Assert.Equal(HttpStatusCode.OK, legacyReceipt.StatusCode);
+        var legacyBody = (await legacyReceipt.Content.ReadFromJsonAsync<JsonElement>());
+        Assert.Equal(15m, legacyBody.GetProperty("material").GetProperty("quantity").GetDecimal());
+        Assert.Equal(5m, legacyBody.GetProperty("movement").GetProperty("before").GetDecimal());
+        Assert.False(legacyBody.GetProperty("material").TryGetProperty("location", out _));
+        Assert.Equal(legacy["movements"]!.ToJsonString(), JsonNode.Parse(legacyBody.GetProperty("material").GetRawText())!["movements"]!.ToJsonString());
+        await using var reader = isolated.NewContext();
+        Assert.Equal(4, await reader.Set<MaterialMovement>().CountAsync());
+        Assert.All(await reader.Set<MaterialMovement>().ToListAsync(), row => Assert.Equal("", row.Location));
+        Assert.False(reader.Database.HasPendingModelChanges());
+    }
+
+    [PostgresFact]
     public async Task Http_material_flow_protects_metadata_and_financial_fields_and_records_auditable_history()
     {
         await using var isolated = await IsolatedMaterialDatabase.Create();

@@ -1,3 +1,4 @@
+import { formatMonth } from '../lib/inputFormatting'
 import { ModalPanel, ContextLink } from '../components/managementUi'
 import { useOperations } from '../features/operations/DemoDataProvider'
 import type { ArenaClass, Reservation } from '../features/arena/types'
@@ -36,7 +37,7 @@ export function AgendaActivityDetails({ selected, onClose, returnLabel = 'Agenda
         {(reservation.activityKind === 'Trial' || reservation.activityKind === 'SingleLesson') && <DetailList items={[["Professor", data.canRead('team') ? data.team.find(row=>row.id===reservation.teacherId)?.name??'Não informado' : 'Acesso restrito'], ["Tipo de encontro", reservation.activityKind === 'SingleLesson' ? "Aula avulsa individual" : "Aula experimental individual"]]} />}
         {reservation.rentalGroupId && <>
           <h3>Participantes</h3>
-          {!data.canRead('rentalGroups') || !group ? <p>Detalhes do grupo indisponíveis para seu acesso.</p> : <><p className="arena-hint">{month ? `Participantes registrados no mês ${month.month.slice(5)}/${month.month.slice(0, 4)}.` : 'Participantes atuais do grupo; mês não disponível.'}</p>{participants?.length ? <ul>{participants.map(row => <li key={row.id}>{row.name}</li>)}</ul> : <p>Nenhum participante registrado.</p>}</>}
+          {!data.canRead('rentalGroups') || !group ? <p>Detalhes do grupo indisponíveis para seu acesso.</p> : <><p className="arena-hint">{month ? `Participantes registrados no mês ${formatMonth(month.month)}.` : 'Participantes atuais do grupo; mês não disponível.'}</p>{participants?.length ? <ul>{participants.map(row => <li key={row.id}>{row.name}</li>)}</ul> : <p>Nenhum participante registrado.</p>}</>}
         </>}
         {(reservation.notes || group?.notes) && <><h3>Observações</h3>{reservation.notes && <p className="detail-notes">{reservation.notes}</p>}{group?.notes && group.notes !== reservation.notes && <p className="detail-notes">{group.notes}</p>}</>}
         <div className="arena-actions"><ContextLink className="primary-link" state={{ returnLabel }} to={filters.href(`/agenda/${reservation.id}`)}>Ver reserva</ContextLink>{group && <ContextLink className="secondary-link" state={{ returnLabel }} to={filters.href(`/mensalistas/${group.id}`, { month: reservation.rentalMonth ?? selected.date.slice(0, 7) })}>Ver grupo</ContextLink>}</div>

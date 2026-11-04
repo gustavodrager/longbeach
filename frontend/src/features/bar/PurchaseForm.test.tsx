@@ -10,7 +10,7 @@ function Fixture({onReceive}:{onReceive:(p:any)=>void}){const {data}=useQuery({q
 function setup(){const client=new QueryClient({defaultOptions:{queries:{retry:false}}}),onReceive=vi.fn();render(<QueryClientProvider client={client}><MemoryRouter><Fixture onReceive={onReceive}/></MemoryRouter></QueryClientProvider>);return {client,onReceive}}
 it('preserva itens ao cadastrar fornecedor e registra antes de abrir o recebimento',async()=>{
  const writes:{path:string;body:any}[]=[]
- vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{const path=String(input),body=JSON.parse(String(init?.body));writes.push({path,body});return new Response(JSON.stringify(path.endsWith('/suppliers')?{id:'new',name:'Novo fornecedor'}:{id:'purchase',document:body.document,total:30,items:body.items,state:'Ordered'}))})
+ vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{const path=String(input),body=JSON.parse(String(init?.body));writes.push({path,body});return new Response(JSON.stringify(path.endsWith('/suppliers')?{id:'new',name:'Novo fornecedor'}:{id:'purchase',document:body.document,total:1851.84,items:body.items,state:'Ordered'}))})
  const {client,onReceive}=setup()
  expect(screen.queryByRole('button',{name:/Inativo/})).not.toBeInTheDocument()
  fireEvent.change(screen.getByLabelText('Documento ou referência única da compra'),{target:{value:'Teste 01'}})
@@ -19,7 +19,7 @@ it('preserva itens ao cadastrar fornecedor e registra antes de abrir o recebimen
  fireEvent.change(screen.getByLabelText('Quantidade: Água teste'),{target:{value:'1,5'}})
  fireEvent.keyDown(screen.getByLabelText('Quantidade: Água teste'),{key:'Enter'})
  expect(screen.getByLabelText('Custo: Água teste')).toHaveFocus()
- fireEvent.change(screen.getByLabelText('Custo: Água teste'),{target:{value:'20.00'}})
+ fireEvent.change(screen.getByLabelText('Custo: Água teste'),{target:{value:'R$ 1.234,56'}})
  fireEvent.keyDown(screen.getByLabelText('Custo: Água teste'),{key:'Enter'})
  expect(screen.getByLabelText('Buscar produto para adicionar')).toHaveFocus()
  expect(screen.queryByRole('button',{name:/Água teste.*caixa/})).not.toBeInTheDocument()
@@ -33,7 +33,7 @@ it('preserva itens ao cadastrar fornecedor e registra antes de abrir o recebimen
  await screen.findByRole('heading',{name:'Compra registrada'})
  expect(screen.getByRole('link',{name:'Financeiro da compra →'})).toHaveAttribute('href','/financeiro/despesas?purchase=purchase')
  expect(writes).toHaveLength(2)
- expect(writes[1].body).toMatchObject({supplierId:'new',document:'Teste 01',items:[{productId:'water',quantity:1.5,purchaseCost:20,total:null}]})
+ expect(writes[1].body).toMatchObject({supplierId:'new',document:'Teste 01',items:[{productId:'water',quantity:1.5,purchaseCost:1234.56,total:null}]})
  expect(writes.some(w=>w.path.endsWith('/receive'))).toBe(false)
  fireEvent.click(screen.getByRole('button',{name:'Receber esta compra'}))
  expect(onReceive).toHaveBeenCalledWith(expect.objectContaining({id:'purchase'}));client.clear()

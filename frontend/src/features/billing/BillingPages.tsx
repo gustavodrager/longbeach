@@ -1,3 +1,4 @@
+import { FormattedInput } from '../../components/FormattedInput'
 import { isManagement } from '../auth/access'
 import { paymentLabel } from '../attendance/api'
 import { CopyPix } from '../../components/CopyPix'
@@ -30,7 +31,7 @@ function PaymentHistory({ account, base, admin, importOnly, refresh }: { account
     {p.state === 'Approved' && <button onClick={() => downloadReceipt(account, p)}>Baixar comprovante</button>}
     {linked && admin && (!importOnly || manualPayment(p)) && p.state === 'Approved' && p.amount > p.refunded && !(p.refundPending ?? 0) && <button disabled={busy} onClick={() => { setRefund(p); setValue(String(p.amount - p.refunded)); setReason(''); setOperation(crypto.randomUUID()) }}>Estornar</button>}
   </article>)}
-    {linked && refund && (!importOnly || manualPayment(refund)) && <form onSubmit={e => { e.preventDefault(); void run(`${base}/accounts/${account.id}/payments/${refund.id}/refund`, { operationId: operation, amount: Number(value.replace(',', '.')), reason }) }}><h4>Estornar pagamento</h4><label className="ux-field">Valor<input required inputMode="decimal" value={value} disabled={busy || refund.method === 'Subscription'} onChange={e => setValue(e.target.value)} /></label><label className="ux-field">Motivo<input required minLength={3} maxLength={500} value={reason} disabled={busy} onChange={e => setReason(e.target.value)} /></label><button disabled={busy}>Solicitar estorno</button><button type="button" disabled={busy} onClick={() => setRefund(undefined)}>Fechar</button></form>}
+    {linked && refund && (!importOnly || manualPayment(refund)) && <form onSubmit={e => { e.preventDefault(); void run(`${base}/accounts/${account.id}/payments/${refund.id}/refund`, { operationId: operation, amount: Number(value), reason }) }}><h4>Estornar pagamento</h4><label className="ux-field">Valor<FormattedInput format="money" required value={value} disabled={busy || refund.method === 'Subscription'} onValueChange={setValue} /></label><label className="ux-field">Motivo<input required minLength={3} maxLength={500} value={reason} disabled={busy} onChange={e => setReason(e.target.value)} /></label><button disabled={busy}>Solicitar estorno</button><button type="button" disabled={busy} onClick={() => setRefund(undefined)}>Fechar</button></form>}
     {error && <p role="alert">{error}</p>}
   </section>
 }

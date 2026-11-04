@@ -1,3 +1,5 @@
+import { FormattedInput } from '../../components/FormattedInput'
+import { parseMoneyInput } from '../../lib/inputFormatting'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { usePrototype } from './PrototypeProvider'
@@ -18,7 +20,7 @@ function readDraft(accessId: string): ClientDraft {
       orderOperation: typeof item.orderOperation === 'string' ? item.orderOperation : fresh.orderOperation,
       paymentOperation: typeof item.paymentOperation === 'string' ? item.paymentOperation : fresh.paymentOperation,
       paymentId: typeof item.paymentId === 'string' ? item.paymentId : '', partial: item.partial === true,
-      amount: typeof item.amount === 'string' ? item.amount : '',
+      amount: typeof item.amount === 'string' ? parseMoneyInput(item.amount) : '',
     }
   } catch { return fresh }
 }
@@ -110,12 +112,12 @@ function ClientAccount({ account }: { account: Account }) {
         <p className="ux-note">Referência: {activePayment.id} · {time(activePayment.createdAt)}</p>
       </section>}
       {paying && <form className="ux-panel" onSubmit={sendPix}><h2>Quanto você vai pagar?</h2><div className="ux-actions"><button type="button" aria-pressed={!partial} className={`ux-button ${!partial ? 'primary' : 'secondary'}`} onClick={() => { setPartial(false); resetPaymentOperation() }}>Pagar tudo · {money(totals.payableCents)}</button><button type="button" aria-pressed={partial} className={`ux-button ${partial ? 'primary' : 'secondary'}`} onClick={() => { setPartial(true); resetPaymentOperation() }}>Pagar uma parte</button></div>
-        {partial && <label className="ux-field">Valor da sua parte (R$)<input value={amount} inputMode="decimal" placeholder="Ex.: 20,00" required onChange={event => { setAmount(event.target.value); resetPaymentOperation() }} /></label>}
+        {partial && <label className="ux-field">Valor da sua parte (R$)<FormattedInput format="money" value={amount} placeholder="Ex.: 20,00" required onValueChange={value => { setAmount(value); resetPaymentOperation() }} /></label>}
         {totals.pendingCents > 0 && <p className="ux-note">{money(totals.pendingCents)} já aguardam confirmação. Você pode pagar até {money(totals.payableCents)} nesta tentativa.</p>}
         <h3><Icon name="pix" /> Pagamento por Pix</h3><p className="ux-note">Somente demonstração. Use dados fictícios; eles não serão guardados no histórico.</p>
         <label className="ux-field">Nome do pagador<input autoComplete="off" value={payerName} required maxLength={100} onChange={event => { setPayerName(event.target.value); resetPaymentOperation() }} /></label>
         <label className="ux-field">E-mail do pagador<input type="email" autoComplete="off" value={payerEmail} required maxLength={150} onChange={event => { setPayerEmail(event.target.value); resetPaymentOperation() }} /></label>
-        <label className="ux-field">CPF ou CNPJ do pagador<input inputMode="numeric" autoComplete="off" value={payerTaxId} required pattern="[0-9]{11}|[0-9]{14}" maxLength={14} onChange={event => { setPayerTaxId(event.target.value.replace(/\D/g, '')); resetPaymentOperation() }} /><span className="ux-note">Somente números · exemplo fictício preenchido</span></label>
+        <label className="ux-field">CPF ou CNPJ do pagador<FormattedInput format="document" autoComplete="off" value={payerTaxId} required pattern="[0-9]{11}|[0-9]{14}" maxLength={14} onValueChange={value => { setPayerTaxId(value); resetPaymentOperation() }} /><span className="ux-note">Exemplo fictício preenchido</span></label>
         <div className="ux-actions"><button className="ux-button primary" disabled={totals.payableCents <= 0}><Icon name="pix" /> Gerar Pix de demonstração</button><button className="ux-button secondary" type="button" onClick={() => setPaying(false)}>Voltar à comanda</button></div>
       </form>}
       {payments.length > 0 && <section className="ux-panel"><h2>Seus pagamentos</h2>{payments.map(payment => <div className="ux-list-row" key={payment.id}><div><strong>{payment.method === 'cash' ? 'Dinheiro' : payment.method === 'card' ? 'Cartão' : 'Pix'} · {time(payment.createdAt)}</strong><PaymentState payment={payment} />{payment.refundedCents > 0 && <p className="ux-note">Estornado: {money(payment.refundedCents)}</p>}</div><strong>{money(payment.amountCents)}</strong></div>)}</section>}

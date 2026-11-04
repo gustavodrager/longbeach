@@ -34,7 +34,7 @@ export function MaterialStockPanel({ item, onClose }: { item: InventoryItem; onC
     && after !== null && validMaterialQuantity(after) && after !== snapshot.quantity
     && Number.isInteger(snapshot.version) && reason.trim().length > 0 && reason.trim().length <= 500
     && destination.trim().length > 0 && destination.trim().length <= 160
-    && snapshot.location.trim().length > 0 && snapshot.unit.trim().length > 0
+    && snapshot.unit.trim().length > 0
   const frozen = busy || uncertain || stale || confirmed
 
   function close() {
@@ -71,7 +71,7 @@ export function MaterialStockPanel({ item, onClose }: { item: InventoryItem; onC
   }
 
   return <EditorPanel title={`Movimentar ${snapshot.name}`} className="stock-clean" busy={busy} onClose={close}>
-    <p>Saldo conferido: <strong>{materialQuantity(snapshot.quantity)} {snapshot.unit}</strong> · {snapshot.location || 'Informe o local no cadastro'}</p>
+    <p>Saldo conferido: <strong>{materialQuantity(snapshot.quantity)} {snapshot.unit}</strong> · {snapshot.location || 'Local não informado'}</p>
     {error && <p role="alert">{error}</p>}
     {!data.canMoveMaterials ? <p role="alert">Movimentações exigem uma sessão individual com acesso ao estoque.</p>
       : confirmed ? <><p role="status">Esta movimentação já foi confirmada. O saldo atual está na ficha do material.</p><button type="button" onClick={close}>Concluir</button></>
@@ -87,7 +87,6 @@ export function MaterialStockPanel({ item, onClose }: { item: InventoryItem; onC
             </div></fieldset>
             {amount !== '' && after !== null && <p>Saldo após a confirmação: <strong>{materialQuantity(after)} {snapshot.unit}</strong></p>}
             {amount !== '' && value === null && <p role="alert">Informe uma quantidade positiva ou zero, com até três casas decimais.</p>}
-            {!snapshot.location && <p role="alert">Informe onde o material fica guardado antes de movimentar.</p>}
             {!snapshot.unit && <p role="alert">Este cadastro antigo não informa a unidade. Confira a ficha antes de movimentar.</p>}
             {!Number.isInteger(snapshot.version) && <p role="alert">Atualize a ficha para conferir a versão atual do material.</p>}
             <SaveRow busy={busy} disabled={(!uncertain && !valid) || !data.canMoveMaterials} label={uncertain ? 'Conferir mesma solicitação' : 'Confirmar movimentação'} />
@@ -115,7 +114,7 @@ export function MaterialStockHistory({ item }: { item: InventoryItem }) {
       {!history.total && <p>Nenhuma movimentação registrada. Saldo anterior preservado.</p>}
       <div className="movement-list">{history.items.map(row => <article key={row.id} className="operation-card">
         <strong>{materialKinds[row.kind]} · {materialQuantity(row.quantity)} {row.unit}</strong>
-        <p>{materialQuantity(row.before)} → {materialQuantity(row.after)} {row.unit} · {row.location}</p>
+        <p>{materialQuantity(row.before)} → {materialQuantity(row.after)} {row.unit} · {row.location || 'Local não informado'}</p>
         <p>{row.reason} · Destino: {row.destination}</p>
         <small>{new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date(row.occurredAt))} · {row.actorName || 'Operador não informado'}</small>
       </article>)}</div>

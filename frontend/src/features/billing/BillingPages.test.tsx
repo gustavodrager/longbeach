@@ -17,6 +17,17 @@ it('consulta apenas minhas contas e separa bar e quadra',async()=>{
  const requests:string[]=[];vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{const url=String(input);requests.push(url);if(url.endsWith('/config'))return json(config);if(url.endsWith('/subscriptions'))return json([]);return json([account,{...account,id:'bar-a',kind:'Bar',title:'Comanda 10'}])});mount(<BillingPage />)
  expect(await screen.findByText('Mensalidade de outubro')).toBeInTheDocument();expect(screen.getByRole('heading',{name:'Conta do Bar'})).toBeInTheDocument();expect(screen.getByRole('heading',{name:'Conta da Quadra'})).toBeInTheDocument();expect(screen.queryByText('Vincular conta ao responsável')).not.toBeInTheDocument();expect(requests.every(r=>r.startsWith('/api/v1/me/billing/'))).toBe(true)
 })
+it('apresenta valor e documento brasileiros e envia pagamento com valor numérico e documento sem máscara',async()=>{
+ const requests=vi.spyOn(globalThis,'fetch').mockResolvedValue(json({}));const done=vi.fn(async()=>{})
+ mount(<AccountCheckout account={{...account,kind:'Bar',payable:1234.56}} config={config} base="/api/v1/me/billing" done={done}/> )
+ expect(screen.getByLabelText('Valor a pagar')).toHaveValue('R$ 1.234,56')
+ fireEvent.change(screen.getByLabelText('Valor a pagar'),{target:{value:'2.345,67'}})
+ fireEvent.change(screen.getByLabelText('CPF ou CNPJ'),{target:{value:'123.456.789-09'}})
+ expect(screen.getByLabelText('CPF ou CNPJ')).toHaveValue('123.456.789-09')
+ fireEvent.click(screen.getByRole('button',{name:'Confirmar pagamento'}))
+ await waitFor(()=>expect(done).toHaveBeenCalledOnce())
+ expect(JSON.parse(String(requests.mock.calls[0][1]?.body))).toMatchObject({amount:2345.67,taxId:'12345678909',method:'Pix'})
+})
 it('bloqueia pagamento avulso de nova competência com assinatura ativa',async()=>{
  vi.spyOn(globalThis,'fetch').mockImplementation(async input=>String(input).endsWith('/config')?json(config):String(input).endsWith('/subscriptions')?json([{id:'sub-a',accountId:'older-account',operationId:'op-a',amount:100,firstDue:'2026-09-10',state:'ACTIVE',canResume:false}]):json([{...account,subscriptionId:'sub-a'}]));mount(<BillingPage />)
  expect(await screen.findByRole('button',{name:'Cancelar cobranças futuras'})).toBeInTheDocument();expect(screen.queryByRole('button',{name:'Pagar esta conta'})).not.toBeInTheDocument()

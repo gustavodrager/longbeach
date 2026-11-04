@@ -20,17 +20,17 @@ it('separa estimativas, conserva déficit e bloqueia consulta de equipe',async()
 it('envia revisão com a versão original e mantém o formulário quando outra pessoa já editou',async()=>{
   const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async (_input,init)=>init?.method==='PUT'?new Response(JSON.stringify({message:'Este controle mudou. Atualize a página.'}),{status:409}):new Response(JSON.stringify({month:'2026-09',months:['2026-09'],control})))
   const user=userEvent.setup();wrap();await user.click(await screen.findByRole('button',{name:'Editar Energia teste'}))
-  const amount=screen.getByLabelText('Valor (R$)');await user.clear(amount);await user.type(amount,'120');await user.click(screen.getByRole('button',{name:'Salvar valor'}))
+  const amount=screen.getByLabelText('Valor (R$)');await user.clear(amount);await user.type(amount,'1.234,56');await user.click(screen.getByRole('button',{name:'Salvar valor'}))
   expect(await screen.findByRole('alert')).toHaveTextContent('Este controle mudou')
   await waitFor(()=>expect(fetch.mock.calls.some(([,init])=>init?.method==='PUT')).toBe(true))
-  const input=JSON.parse(String(fetch.mock.calls.find(([,init])=>init?.method==='PUT')![1]!.body));expect(input.version).toBe(3);expect(input.lines[1].amountCents).toBe(12000)
-  expect(screen.getByLabelText('Valor (R$)')).toHaveValue(120)
+  const input=JSON.parse(String(fetch.mock.calls.find(([,init])=>init?.method==='PUT')![1]!.body));expect(input.version).toBe(3);expect(input.lines[1].amountCents).toBe(123456)
+  expect(screen.getByLabelText('Valor (R$)')).toHaveValue('R$ 1.234,56')
 })
 
 it('restaura a edição ao abrir um link direto',async()=>{
   vi.spyOn(globalThis,'fetch').mockResolvedValue(new Response(JSON.stringify({month:'2026-09',months:['2026-09'],control})))
   wrap('/financeiro/controle-mensal?month=2026-09&acao=editar&registro=22222222-2222-2222-2222-222222222222')
-  expect(await screen.findByLabelText('Valor (R$)')).toHaveValue(140)
+  expect(await screen.findByLabelText('Valor (R$)')).toHaveValue('R$ 140,00')
 })
 
 it('filtra despesas pela URL, preserva total do mês e mantém o grupo depois da edição',async()=>{

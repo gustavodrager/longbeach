@@ -40,6 +40,53 @@ const postBodies = (fetch: MockInstance<typeof globalThis.fetch>) => fetch.mock.
 beforeEach(() => { localStorage.clear(); vi.stubEnv('VITE_OPERATIONAL_STORAGE', 'local'); vi.stubEnv('VITE_API_URL', ''); vi.spyOn(window, 'confirm').mockReturnValue(true) })
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks() })
 
+it.each([undefined, ''])('moves five to fifteen units without storage location (%s), preserving other evidence', async location => {
+  let current = { ...material, quantity: 5, location } as InventoryItem
+  const fetch = api(() => current)
+  fetch.mockImplementation(async (input, init) => {
+    if (init?.method === 'POST') {
+      current = { ...current, quantity: 15, version: 4 }
+      return response({ material: current, movement: { ...movement, kind: 'Receipt', before: 5, quantity: 10, after: 15, location: '' } })
+    }
+    if (init?.method === 'PUT') { current = JSON.parse(String(init.body)); return response(current) }
+    return response(String(input).endsWith('/inventory') ? [current] : [])
+  })
+  render(tree()); await open(); await fill('10')
+  expect(screen.getByText(/Saldo após a confirmação/)).toHaveTextContent('15 litro')
+  expect(screen.getByRole('button', { name: 'Confirmar movimentação' })).toBeEnabled()
+  await userEvent.click(screen.getByRole('button', { name: 'Confirmar movimentação' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  expect(document.querySelector('.stock-number')).toHaveTextContent('15 litro')
+  expect(postBodies(fetch)).toEqual([{ operationId: expect.any(String), expectedVersion: 3, kind: 'Receipt', quantity: 10,
+    reason: 'Limpeza das quadras', destination: 'Área esportiva' }])
+  await userEvent.click(screen.getByRole('button', { name: 'Editar' }))
+  expect(screen.getByLabelText('Onde fica guardado (opcional)')).not.toBeRequired()
+  await userEvent.clear(screen.getByLabelText('Material ou equipamento'))
+  await userEvent.type(screen.getByLabelText('Material ou equipamento'), 'Material sem local atualizado')
+  await userEvent.click(screen.getByRole('button', { name: 'Salvar cadastro' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  const sent = JSON.parse(String(fetch.mock.calls.find(([, init]) => init?.method === 'PUT')?.[1]?.body))
+  expect(sent).toMatchObject({ quantity: 15, name: 'Material sem local atualizado' })
+  expect(sent.location).toBe(location)
+})
+
+it('creates and moves a material without storage location in the isolated demonstration', async () => {
+  const fetch = vi.spyOn(globalThis, 'fetch')
+  render(tree({ demo: true, identity: null }))
+  await userEvent.click(screen.getByRole('button', { name: '+ Adicionar item' }))
+  await userEvent.type(screen.getByLabelText('Material ou equipamento'), 'Material opcional')
+  await userEvent.selectOptions(screen.getByLabelText('Unidade'), 'litro')
+  expect(screen.getByLabelText('Onde fica guardado (opcional)')).not.toBeRequired()
+  await userEvent.click(screen.getByRole('button', { name: 'Salvar cadastro' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  await open(); await fill('10'); await userEvent.click(screen.getByRole('button', { name: 'Confirmar movimentação' }))
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  const saved = JSON.parse(localStorage.getItem('longbeach-os-demo-v1') ?? '{}')
+  expect(saved.inventory[0]).toMatchObject({ quantity: 10, location: '', version: 2 })
+  expect(Object.values(saved.__materialOperations)).toMatchObject([{ movement: { location: '', before: 0, after: 10 } }])
+  expect(fetch).not.toHaveBeenCalled()
+})
+
 it('keeps the exact uncertain operation after close, remount and a newer background balance', async () => {
   let current = material
   const fetch = api(() => current)
@@ -206,10 +253,11 @@ it('discards late movement responses and private forms after the session changes
   expect(document.querySelector('.stock-number')).toHaveTextContent('2,125 litro')
 })
 
-it('keeps incomplete legacy metadata safe and asks for a storage location instead of crashing', async () => {
+it('keeps missing legacy units blocked while leaving storage location optional', async () => {
   api(() => ({ ...material, version: undefined, location: undefined, unit: undefined } as unknown as InventoryItem))
   render(tree()); await open()
-  expect(screen.getByText('Informe onde o material fica guardado antes de movimentar.')).toBeInTheDocument()
+  expect(screen.getByText(/Local não informado/)).toBeInTheDocument()
+  expect(screen.queryByText('Informe onde o material fica guardado antes de movimentar.')).not.toBeInTheDocument()
   expect(screen.getByText(/Este cadastro antigo não informa a unidade/)).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Confirmar movimentação' })).toBeDisabled()
 })
@@ -220,7 +268,7 @@ it('clears the previous metadata form before another writer opens the same mater
   fetch.mockImplementation(async (input, init) => init?.method === 'PUT' ? response(JSON.parse(String(init.body))) : response(String(input).endsWith('/inventory') ? [current] : []))
   const view = render(tree()); await screen.findByRole('heading', { name: 'Material de teste' })
   await userEvent.click(screen.getByRole('button', { name: 'Editar' }))
-  expect(screen.getByLabelText('Custo unitário estimado (R$)')).toHaveValue(17)
+  expect(screen.getByLabelText('Custo unitário estimado (R$)')).toHaveDisplayValue(/R\$\s*17,00/)
   current = { ...material, name: 'Cadastro da sessão atual', costsVisible: false, unitCost: 0, paymentMethod: '' }
   view.rerender(tree({ identity: { ...owner, id: 'operator-two', roles: ['Operations'], permissions: ['inventory:read', 'inventory:write'] } }))
   await waitFor(() => expect(screen.getByLabelText('Material ou equipamento')).toHaveValue('Cadastro da sessão atual'))

@@ -66,6 +66,39 @@ it('faz pagamento parcial e permite receber o restante sem reaproveitar a cobran
   expect(stored().payments.filter(payment => payment.accountId === 'account-12')).toHaveLength(2)
 })
 
+it('retoma dinheiro formatado do rascunho antigo e conserva centavos e operação', async () => {
+  const user = userEvent.setup()
+  sessionStorage.setItem('longbeach-ux-payment:account-12', JSON.stringify({stage:'details',partial:true,amount:'7,50',method:'cash',tendered:'1.234,56',approved:false,payerName:'',payerEmail:'',payerTaxId:'',operationId:'same-cash-operation'}))
+  const state = createInitialState()
+  Object.assign(state.cashSessions.find(session => session.id === 'cash-marina')!, {openingCents:200000,expectedCents:201000})
+  state.cashMovements.find(movement => movement.id === 'opening-marina')!.amountCents = 200000
+  start('/prototipo/receber/account-12', state)
+  const tendered = await screen.findByLabelText('Dinheiro recebido (R$)')
+  await user.tab()
+  expect(tendered).toHaveValue('R$ 1.234,56')
+  await user.click(screen.getByRole('button', {name:'Confirmar recebimento'}))
+  expect(await screen.findByRole('heading', {name:'Comprovante'})).toBeInTheDocument()
+  expect(stored().payments.at(-1)).toMatchObject({amountCents:750,tenderedCents:123456,changeCents:122706})
+  expect(stored().operations.some(operation => operation.id === 'same-cash-operation')).toBe(true)
+})
+
+it('cliente digita reais e CPF formatados sem guardar dados do pagador', async () => {
+  const user = userEvent.setup()
+  start('/prototipo/cliente/demo-access-12')
+  await user.click(await screen.findByRole('button', {name:'Minha comanda'}))
+  await user.click(screen.getByRole('button', {name:'Pagar com Pix'}))
+  await user.click(screen.getByRole('button', {name:'Pagar uma parte'}))
+  await user.type(screen.getByLabelText('Valor da sua parte (R$)'), '7,50')
+  const document = screen.getByLabelText(/CPF ou CNPJ do pagador/)
+  await user.clear(document)
+  await user.type(document, '12345678909')
+  expect(document).toHaveValue('123.456.789-09')
+  await user.click(screen.getByRole('button', {name:'Gerar Pix de demonstração'}))
+  expect(await screen.findByRole('heading', {name:'Esperando confirmação do Pix'})).toBeInTheDocument()
+  expect(stored().payments.at(-1)).toMatchObject({amountCents:750,state:'pending',method:'pix'})
+  expect(JSON.stringify(stored())).not.toContain('12345678909')
+})
+
 it('isola a visão do cliente e envia pedido QR sem incluí-lo no total cobrável', async () => {
   const user = userEvent.setup()
   start('/prototipo/cliente/demo-access-12')

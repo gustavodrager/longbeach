@@ -292,9 +292,10 @@ it('repetir após falha conserva o valor e o identificador da mesma cobrança',a
   const fetchMock=server(state);mount('/atendimento/receber/tab-a')
   fireEvent.click(await screen.findByRole('button',{name:/Receber tudo/}));fireEvent.click(screen.getByRole('button',{name:'Dinheiro'}))
   fireEvent.change(screen.getByLabelText('Dinheiro recebido (R$)'),{target:{value:'20'}})
+  fireEvent.blur(screen.getByLabelText('Dinheiro recebido (R$)'))
   fireEvent.click(screen.getByRole('button',{name:'Confirmar recebimento'}))
   expect(await screen.findByRole('alert')).toHaveTextContent('Conexão indisponível')
-  expect(screen.getByLabelText('Dinheiro recebido (R$)')).toHaveValue('20')
+  expect(screen.getByLabelText('Dinheiro recebido (R$)')).toHaveValue('R$ 20,00')
   fireEvent.click(screen.getByRole('button',{name:'Consultar ou repetir confirmação'}))
   expect(await screen.findByRole('heading',{name:'Comprovante recebido'})).toBeInTheDocument()
   const writes=fetchMock.mock.calls.filter(([,init])=>init?.method==='POST').map(([,init])=>JSON.parse(String(init?.body)))
@@ -412,6 +413,7 @@ it('Pix parcial com POST502 repete a mesma chave até o GET confirmar e cria a p
   const fetchMock=server(state);const query=mount('/cliente#token=own-secret')
   fireEvent.click(await screen.findByRole('button',{name:'Pagar'}));fireEvent.click(await screen.findByRole('button',{name:'Uma parte'}))
   fireEvent.change(screen.getByLabelText('Valor (R$)'),{target:{value:'6,25'}})
+  fireEvent.blur(screen.getByLabelText('Valor (R$)'))
   fireEvent.change(screen.getByLabelText('Seu nome'),{target:{value:'Pessoa de teste'}})
   fireEvent.change(screen.getByLabelText('E-mail'),{target:{value:'teste@example.com'}})
   fireEvent.change(screen.getByLabelText('CPF / CNPJ'),{target:{value:'12345678901'}})
@@ -423,7 +425,7 @@ it('Pix parcial com POST502 repete a mesma chave até o GET confirmar e cria a p
   const retryBodies=fetchMock.mock.calls.filter(([,init])=>init?.method==='POST').map(([,init])=>JSON.parse(String(init?.body)))
   expect(retryBodies).toHaveLength(2);expect(retryBodies[0]).toEqual(retryBodies[1])
   await act(async()=>{await query.invalidateQueries({queryKey:['client-tab','own-secret']})})
-  await waitFor(()=>expect(screen.getByLabelText('Valor (R$)')).toBeEnabled());expect(screen.getByLabelText('Valor (R$)')).toHaveValue('6,25')
+  await waitFor(()=>expect(screen.getByLabelText('Valor (R$)')).toBeEnabled());expect(screen.getByLabelText('Valor (R$)')).toHaveValue('R$ 6,25')
   const create=screen.getByRole('button',{name:'Criar Pix'});act(()=>{fireEvent.click(create);fireEvent.click(create)})
   await waitFor(()=>expect(state.tab.payments).toHaveLength(2))
   const bodies=fetchMock.mock.calls.filter(([,init])=>init?.method==='POST').map(([,init])=>JSON.parse(String(init?.body)))
@@ -958,4 +960,65 @@ it('caixa próprio conserva responsável, dinheiro e bloqueio de diferença para
  expect(screen.getByRole('button',{name:'Confirmar fechamento'})).toBeDisabled();
  expect(screen.getByText('Comandas abertas atravessam turnos. Pagamentos pendentes precisam ser conferidos antes do fechamento.')).toBeVisible();
  expect(requests.mock.calls.every(([,init])=>!init||init.method!=='POST')).toBe(true)
+})
+
+it('recebimento com milhar conserva reais e a mesma confirmação após resposta perdida',async()=>{
+ let attempts=0
+ const requests=server({tab:{...makeTab(),total:3000,due:3000,payable:3000},pixEnabled:false,post:(_path,body)=>++attempts===1?json({detail:'Resposta perdida'},503):json(payment(body))})
+ mount('/atendimento/receber/tab-a')
+ fireEvent.click(await screen.findByRole('button',{name:'Receber uma parte'}))
+ const part=screen.getByLabelText('Valor desta parte (R$)')
+ fireEvent.change(part,{target:{value:'1.234,56'}})
+ fireEvent.blur(part)
+ expect(part).toHaveValue('R$ 1.234,56')
+ fireEvent.click(screen.getByRole('button',{name:'Dinheiro'}))
+ fireEvent.change(screen.getByLabelText('Dinheiro recebido (R$)'),{target:{value:'2.000,00'}})
+ const confirm=screen.getByRole('button',{name:'Confirmar recebimento'})
+ await waitFor(()=>expect(confirm).toBeEnabled())
+ fireEvent.click(confirm)
+ await screen.findByRole('alert')
+ fireEvent.click(screen.getByRole('button',{name:'Consultar ou repetir confirmação'}))
+ await screen.findByRole('heading',{name:'Comprovante recebido'})
+ const bodies=requests.mock.calls.filter(([,init])=>init?.method==='POST').map(([,init])=>JSON.parse(String(init?.body)))
+ expect(bodies).toHaveLength(2)
+ expect(bodies[0]).toMatchObject({amount:1234.56,tendered:2000,method:'Cash',sessionId:'session-a'})
+ expect(bodies[1]).toEqual(bodies[0])
+})
+
+it.each([
+ ['123.456.789-01','12345678901'],
+ ['12.345.678/0001-90','12345678000190'],
+])('Pix exibe documento %s e envia somente seus dígitos',async(display,digits)=>{
+ const state:Server={tab:makeTab(),pixEnabled:true}
+ state.post=(_path,body)=>{const row={...payment(body,'Pending'),canResume:false,providerId:'provider-a',pixText:'Pix fictício'};state.tab={...state.tab,pending:12.5,payable:0,payments:[row]};return json(row)}
+ const requests=server(state);mount('/cliente#token=own-secret')
+ fireEvent.click(await screen.findByRole('button',{name:'Pagar'}))
+ fireEvent.change(await screen.findByLabelText('Seu nome'),{target:{value:'Pessoa fictícia'}})
+ fireEvent.change(screen.getByLabelText('E-mail'),{target:{value:'pessoa@example.invalid'}})
+ const document=screen.getByLabelText('CPF / CNPJ')
+ fireEvent.change(document,{target:{value:display}})
+ expect(document).toHaveValue(display)
+ fireEvent.click(screen.getByRole('button',{name:'Criar Pix'}))
+ await screen.findByRole('heading',{name:'Esperando o Pix'})
+ const writes=requests.mock.calls.filter(([,init])=>init?.method==='POST')
+ expect(writes).toHaveLength(1)
+ expect(JSON.parse(String(writes[0][1]?.body))).toMatchObject({amount:12.5,taxId:digits})
+})
+
+it('estorno da maquininha usa reais formatados e conserva a confirmação manual',async()=>{
+ const original={...payment({method:'TerminalManual',amount:2000,operationId:'paid-operation'}),terminalType:'Credit'}
+ const requests=server({tab:{...makeTab(),total:2000,paid:2000,due:0,payable:0,payments:[original]},pixEnabled:false,post:(path,body)=>{
+   expect(path).toBe('/api/v1/bar/tabs/tab-a/payments/payment-a/refund')
+   return json({...original,refunded:Number(body.amount)})
+ }})
+ mount('/atendimento/comprovante/tab-a/payment-a',{...actor,roles:['Manager']},true)
+ fireEvent.click(await screen.findByRole('button',{name:'Estornar pagamento'}))
+ fireEvent.change(screen.getByLabelText('Valor a estornar (R$)'),{target:{value:'R$ 1.234,56'}})
+ fireEvent.change(screen.getByLabelText('Motivo obrigatório'),{target:{value:'Devolução de exemplo'}})
+ fireEvent.click(screen.getByLabelText('Confirmo que a devolução já foi aprovada na maquininha. Este registro não movimenta estoque.'))
+ fireEvent.click(screen.getByRole('button',{name:'Registrar devolução confirmada'}))
+ await screen.findByText('Estorno solicitado. Confira o estado no pagamento.')
+ const writes=requests.mock.calls.filter(([,init])=>init?.method==='POST')
+ expect(writes).toHaveLength(1)
+ expect(JSON.parse(String(writes[0][1]?.body))).toMatchObject({amount:1234.56,manualConfirmed:true,reason:'Devolução de exemplo',operationId:expect.any(String)})
 })

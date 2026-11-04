@@ -1,3 +1,4 @@
+import { formatPhone } from '../../lib/inputFormatting'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Disclosure, EditorPanel, ContextLink, SectionTabs, useContextSearchParams, useUnsavedChanges } from '../../components/managementUi'
@@ -40,7 +41,7 @@ export function CustomersPage() {
     {query.data && !query.isError && <>
       <p role="status">{query.data.total} {query.data.total === 1 ? 'cliente encontrado' : 'clientes encontrados'}</p>
       <div className="customer-directory-list">{query.data.items.map(customer => <ContextLink key={customer.id} className="customer-directory-row" to={filters.href(`/clientes/${customer.id}`)} state={{ returnLabel: 'Clientes' }}>
-        <div><strong>{customer.name}</strong><small className={customer.incomplete ? 'customer-contact-pending' : undefined}>{customer.phone || 'Telefone pendente'}{customer.incomplete && customer.phone && ' · Telefone pendente'}</small><div className="customer-tags">{customer.profiles.map(item => <span className="status-pill" key={item}>{item}</span>)}</div></div>
+        <div><strong>{customer.name}</strong><small className={customer.incomplete ? 'customer-contact-pending' : undefined}>{formatPhone(customer.phone) || 'Telefone pendente'}{customer.incomplete && customer.phone && ' · Telefone pendente'}</small><div className="customer-tags">{customer.profiles.map(item => <span className="status-pill" key={item}>{item}</span>)}</div></div>
         <Status warning={customer.incomplete}>{customer.status}</Status>
       </ContextLink>)}</div>
       {!query.data.items.length && <p>Nenhum cliente nesta seleção. Confira os filtros antes de cadastrar.</p>}
@@ -85,7 +86,7 @@ function CustomerDetails({ id }: { id: string }) {
     {customer && !query.isError && <>
       {customer.incomplete && !showForm && <p className="arena-message" role="status">Cadastro antigo com telefone pendente. Os vínculos existentes continuam válidos.</p>}
       <SectionTabs items={[{ value: 'cadastro', label: 'Cadastro' }, { value: 'atividades', label: 'Atividades' }]} value={section} onChange={setSection} />
-      <section className="operation-card" hidden={section !== 'cadastro'}><h2>Contato</h2><DetailList items={[["Telefone", customer.phone || 'Pendente'], ["E-mail", customer.email], ["Situação", customer.status]]} /><Disclosure title="Origem do cadastro"><p>{originLabel(customer.origin)}</p></Disclosure></section>
+      <section className="operation-card" hidden={section !== 'cadastro'}><h2>Contato</h2><DetailList items={[["Telefone", formatPhone(customer.phone) || 'Pendente'], ["E-mail", customer.email], ["Situação", customer.status]]} /><Disclosure title="Origem do cadastro"><p>{originLabel(customer.origin)}</p></Disclosure></section>
       <section className="operation-card" hidden={section !== 'atividades'}><h2>Atividades</h2>{customer.profiles.length > 0 && <div className="customer-tags">{customer.profiles.map(profile => <span className="status-pill" key={profile}>{profile}</span>)}</div>}<CustomerLinks customer={customer} enabled={section === 'atividades'} /></section>
       <CustomerAccessControls customer={customer} refresh={() => { void query.refetch() }} />
     </>}
@@ -143,7 +144,7 @@ function CustomerForm({ customer, busyChanged, cancel, saved, refresh }: Custome
       {pending && <p role="status">Há uma criação pendente de confirmação. Os dados e a mesma operação serão recuperados antes de iniciar outro cadastro.</p>}{invalidPending && <p role="alert">A confirmação anterior não pôde ser lida. Peça à gestão para conferir antes de criar outra pessoa.</p>}
       {customer?.incomplete && <p className="arena-hint" role="status">Cadastro antigo com telefone pendente. Você pode manter o contato atual; os vínculos existentes continuam válidos.</p>}
       {validation && <p role="alert">{validation}</p>}{command.error && <p role="alert">{command.error}</p>}
-      {command.conflict && customer && <section className="customer-merge-review"><h3>O cadastro mudou em outro atendimento</h3><p>Seus campos foram preservados. Confira a versão atual antes de continuar.</p><button className="secondary-link" type="button" onClick={async () => { const value = await refresh(); if (value) setLatest(value) }}>Comparar cadastro atual</button>{latest && <><DetailList items={[["Nome atual", latest.name], ["Telefone atual", latest.phone], ["E-mail atual", latest.email], ["Situação atual", latest.status]]} /><button className="secondary-link" type="button" onClick={() => { setName(latest.name); setPhone(latest.phone); setEmail(latest.email ?? ''); setStatus(latest.status); setVersion(latest.version); setLatest(undefined); cancel() }}>Fechar edição e usar cadastro atualizado</button></>}</section>}
+      {command.conflict && customer && <section className="customer-merge-review"><h3>O cadastro mudou em outro atendimento</h3><p>Seus campos foram preservados. Confira a versão atual antes de continuar.</p><button className="secondary-link" type="button" onClick={async () => { const value = await refresh(); if (value) setLatest(value) }}>Comparar cadastro atual</button>{latest && <><DetailList items={[["Nome atual", latest.name], ["Telefone atual", formatPhone(latest.phone)], ["E-mail atual", latest.email], ["Situação atual", latest.status]]} /><button className="secondary-link" type="button" onClick={() => { setName(latest.name); setPhone(latest.phone); setEmail(latest.email ?? ''); setStatus(latest.status); setVersion(latest.version); setLatest(undefined); cancel() }}>Fechar edição e usar cadastro atualizado</button></>}</section>}
       <div className="form-actions"><button className="primary-button" disabled={command.busy || invalidPending || command.conflict && Boolean(customer)} type="submit">{command.busy ? 'Salvando…' : pending ? 'Conferir criação pendente' : 'Salvar cliente'}</button><button className="secondary-link" disabled={command.busy || Boolean(pending) || invalidPending} type="button" onClick={cancel}>Cancelar</button></div>
     </fieldset>
   </form>

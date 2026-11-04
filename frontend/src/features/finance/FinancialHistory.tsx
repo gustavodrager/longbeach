@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../../lib/http'
 import { useAuth } from '../auth/authContext'
+import { displayDate } from '../../pages/arenaUi'
 import { Disclosure, ModalPanel, RecordTable } from '../../components/managementUi'
 import { centsMoney, monthLabel, useHistory, type Classified } from './financialHistoryApi'
 export { centsMoney, type HistoryPreview } from './financialHistoryApi'
@@ -84,7 +85,7 @@ function PagBankDocuments() {
   return <section className="foundation-card"><h2>Documentos PagBank</h2><p>Histórico preservado. Novos movimentos chegam por importação.</p><Disclosure title="Origem e situação dos documentos"><p>Vendas, liquidações, transferências e saldos permanecem separados, com valores e códigos de origem. O canal da venda identifica Bar ou Quadra; somente o nome PagBank não identifica a unidade.</p><p>Confira a situação de cada pagamento em Recebimentos.</p></Disclosure>
     {query.isPending && <p role="status">Consultando documentos…</p>}{query.isError && <p role="alert">Não foi possível consultar os documentos PagBank. <button type="button" onClick={() => void query.refetch()}>Tentar novamente</button></p>}
     {report && <>{report.dates.length ? <label className="arena-field">Data do documento<select value={date || report.date || ''} onChange={e => { setDate(e.target.value); setPage(1) }}>{report.dates.map(day => <option key={day} value={day}>{day.split('-').reverse().join('/')}</option>)}</select></label> : <p>Nenhum documento EDI preservado. Importe os extratos para consultar movimentos e saldos.</p>}
-      <p>{report.total} movimentos nesta data.</p>{report.items.map((item, index) => <details key={`${item.movement}:${item.sourcePage}:${index}`}><summary>{item.movement} · {item.date} · movimento {(page - 1) * 50 + index + 1}</summary><div className="table-scroll"><table><tbody>{Object.entries(item.data).map(([key, value]) => <tr key={key}><th>{key.replaceAll('_', ' ')}</th><td>{typeof value === 'object' ? JSON.stringify(value) : String(value ?? 'Não informado')}</td></tr>)}</tbody></table></div><p>Página de origem {item.sourcePage} · SHA-256: <code>{item.sourceSha256}</code></p></details>)}
+      <p>{report.total} movimentos nesta data.</p>{report.items.map((item, index) => <details key={`${item.movement}:${item.sourcePage}:${index}`}><summary>{item.movement} · {displayDate(item.date)} · movimento {(page - 1) * 50 + index + 1}</summary><div className="table-scroll"><table><tbody>{Object.entries(item.data).map(([key, value]) => <tr key={key}><th>{key.replaceAll('_', ' ')}</th><td>{typeof value === 'object' ? JSON.stringify(value) : String(value ?? 'Não informado')}</td></tr>)}</tbody></table></div><p>Página de origem {item.sourcePage} · SHA-256: <code>{item.sourceSha256}</code></p></details>)}
       {report.total > 50 && <div className="arena-actions"><button disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</button><span>Página {page}</span><button disabled={page * 50 >= report.total} onClick={() => setPage(page + 1)}>Próxima</button></div>}</>}
   </section>
 }

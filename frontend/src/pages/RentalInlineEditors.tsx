@@ -1,3 +1,4 @@
+import { formatMonth, formatPhone } from '../lib/inputFormatting'
 import { CustomerPicker } from '../features/customers/CustomerPicker'
 import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode, type Dispatch, type SetStateAction } from 'react'
 import { useUnsavedChanges } from '../components/managementUi'
@@ -89,9 +90,9 @@ export function MonthlyCharge({month, entry}: {month: RentalMonth; entry?: Finan
       event.preventDefault()
       if (draft.status === 'Pago' && !confirmed) return
       if (await save.run(() => data.saveFinanceEntry({...draft,...allocationFields(allocationChoice(draft.origin,draft))},draft.id), 'Mensalidade salva.')) setDraft(null)
-    }}><fieldset disabled={save.busy}><p>Alteração somente na cobrança de {month.month.split('-').reverse().join('/')}. O acordo dos próximos meses permanece igual.</p><Group title="Cobrança do mês">
+    }}><fieldset disabled={save.busy}><p>Alteração somente na cobrança de {formatMonth(month.month)}. O acordo dos próximos meses permanece igual.</p><Group title="Cobrança do mês">
       <Field label="Descrição da mensalidade" value={draft.name} required onChange={name => setDraft({...draft,name})} />
-      <Field label="Valor deste mês (R$)" type="number" min={0.01} step="0.01" required value={draft.amount} onChange={v => {setDraft({...draft,amount:Number(v)});setConfirmed(false)}} />
+      <Field label="Valor deste mês (R$)" type="money" min={0.01} step="0.01" required value={draft.amount} onChange={v => {setDraft({...draft,amount:Number(v)});setConfirmed(false)}} />
       <Field label="Vencimento deste mês" type="date" required value={draft.dueDate} onChange={dueDate => setDraft({...draft,dueDate})} />
       <Field label="Situação da mensalidade" value={draft.status} options={['Pendente','Pago','Cancelado']} onChange={v => {setDraft({...draft,status:v as FinanceEntry['status'],paidDate:v==='Pago'?(draft.paidDate || today()):''});setConfirmed(false)}} />
       {draft.status === 'Pago' && <><Field label="Data do recebimento" type="date" required value={draft.paidDate} onChange={paidDate => {setDraft({...draft,paidDate});setConfirmed(false)}} /><ReceiptSourceFields origin={draft.origin} value={draft} onChange={value => {setDraft({...draft,...value});setConfirmed(false)}} /><label className="rental-checkbox"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />Confirmo que recebi {currency(draft.amount)}. Esta é uma confirmação manual.</label></>}
@@ -133,7 +134,7 @@ export function MemberInline({group, member}: {group: RentalGroup; member: Renta
   const [draft, setDraft] = useInlineDraft<{group: RentalGroup; member: RentalMember; role: string}>()
   const {active: editing} = useRentalEditing()
   const role = member.id === group.organizerId ? 'Responsável' : member.id === group.backupId ? 'Suplente' : 'Integrante'
-  return <article className="rental-inline-record"><strong>{member.name}</strong><small>{role} · {member.status}</small>{member.phone && <span>{member.phone}</span>}<Feedback action={save} />
+  return <article className="rental-inline-record"><strong>{member.name}</strong><small>{role} · {member.status}</small>{member.phone && <span>{formatPhone(member.phone)}</span>}<Feedback action={save} />
     {draft ? <InlineFormGuard busy={save.busy} onCancel={() => setDraft(null)}><form className="operation-form" onSubmit={async event => {
       event.preventDefault()
       const base = draft.group
@@ -160,6 +161,6 @@ export function QuickGroupEditor({group, onClose}: {group: RentalGroup; onClose:
     <Field label="Dia da semana" value={draft.weekDay} options={weekDays.map((label,index)=>({value:String(index),label}))} onChange={v=>setDraft({...draft,weekDay:Number(v)})} />
     <Field label="Início" type="time" required value={draft.startTime} onChange={startTime=>setDraft({...draft,startTime})} />
     <Field label="Término" type="end-time" required value={draft.endTime} onChange={endTime=>setDraft({...draft,endTime})} />
-    {data.canRead('financeEntries') && <Field label="Valor mensal (R$)" type="number" min={0} step="0.01" disabled={!data.canWrite('financeEntries')} value={draft.monthlyAmount??''} onChange={v=>setDraft({...draft,monthlyAmount:v===''?null:Number(v)})} />}
+    {data.canRead('financeEntries') && <Field label="Valor mensal (R$)" type="money" min={0} step="0.01" disabled={!data.canWrite('financeEntries')} value={draft.monthlyAmount??''} onChange={v=>setDraft({...draft,monthlyAmount:v===''?null:Number(v)})} />}
   </Group><p>Altera o acordo para meses ainda não gerados. Encontros, cobranças e presenças existentes são preservados; edite-os na ficha do grupo.</p><SaveRow label="Salvar grupo" busy={save.busy} onCancel={onClose} /></fieldset></form></InlineFormGuard>
 }

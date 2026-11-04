@@ -1,3 +1,4 @@
+import { formatDocument } from '../../lib/inputFormatting'
 import { useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -33,8 +34,8 @@ function readFile(file: File): Promise<string> {
 function InvoiceSummary({ data }: { data: InvoiceData }) {
   return <section className="operation-card invoice-summary" aria-label="Detalhes da nota">
     <h2>NF-e {data.number} · série {data.series}</h2>
-    <p><strong>{data.supplierName}</strong> · {data.supplierTaxId}</p>
-    <p>Destinatário: {data.recipientTaxId} · Emissão: {new Date(data.issuedAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>
+    <p><strong>{data.supplierName}</strong> · {formatDocument(data.supplierTaxId)}</p>
+    <p>Destinatário: {formatDocument(data.recipientTaxId)} · Emissão: {new Date(data.issuedAt).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>
     <details className="invoice-source"><summary>Chave da NF-e</summary><p className="invoice-key">{data.accessKey}</p></details>
     <p><strong>Total: {money(data.total)}</strong> · Produtos: {money(data.productsTotal)} · Frete: {money(data.freight)} · Desconto: {money(data.discount)}</p>
     <p className="arena-hint">Arquivo importado. Autenticidade da assinatura e situação atual na SEFAZ ainda não verificadas.{data.environment === 2 && ' Documento de homologação, sem valor fiscal.'}</p>
@@ -79,7 +80,7 @@ function PurchaseReview({ invoice, onCreated }: { invoice: Detail; onCreated: ()
     {choices.data && <form className="bar-form" onSubmit={event => void submit(event)}><fieldset disabled={busy} className="invoice-fieldset">
       <label className="bar-field">Fornecedor no sistema<select value={supplierId} onChange={event => { setSupplierId(event.target.value); setConfirmed(false) }}>
         <option value={emptyId}>Identificar por CPF/CNPJ ou cadastrar {invoice.data.supplierName}</option>
-        {choices.data.suppliers.map(supplier => <option key={supplier.id} value={supplier.id}>{supplier.name}{supplier.taxId ? ` · ${supplier.taxId}` : ' · documento ainda não cadastrado'}</option>)}
+        {choices.data.suppliers.map(supplier => <option key={supplier.id} value={supplier.id}>{supplier.name}{supplier.taxId ? ` · ${formatDocument(supplier.taxId)}` : ' · documento ainda não cadastrado'}</option>)}
       </select></label>
       {invoice.data.items.map(line => {
         const selection = mapping[line.number]

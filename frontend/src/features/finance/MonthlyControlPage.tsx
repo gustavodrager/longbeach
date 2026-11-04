@@ -102,7 +102,7 @@ function LineForm({ initial, month, busy, error, submit, cancel }: { initial: Co
   const send = (event: FormEvent) => { event.preventDefault(); const numeric = Number(amount); if (Number.isFinite(numeric)) submit({ ...line, ...allocationFields(allocationChoice(line.costCenter,line)), amountCents: Math.round(numeric * 100) }) }
   return <form onSubmit={send}>{error && <p role="alert">{error}</p>}<div className="field-grid">
     <Field label="Descrição" required value={line.label} onChange={v => update('label', v)} />
-    <Field label="Valor (R$)" required type="number" min={0} step="0.01" value={amount} onChange={setAmount} />
+    <Field label="Valor (R$)" required type="money" min={0} value={amount} onChange={setAmount} />
     <Field label="Movimento" value={line.direction} onChange={v => update('direction', v)} options={['Receita', 'Despesa']} />
     <Field label="Tipo" value={line.category} onChange={v => update('category', v)} options={[{ value: 'Operação', label: 'Operação / outras' }, { value: 'Fixa', label: 'Despesa fixa' }, { value: 'Variável', label: 'Despesa variável' }, { value: 'Parcela', label: 'Parcela' }, { value: 'Acerto', label: 'Acerto / devolução' }]} />
     <Field label="Área" value={line.costCenter} onChange={v => setLine(current=>({...current,costCenter:v as ControlLine['costCenter'],...allocationFields(allocationChoice(v,{}))}))} options={['Arena', 'Bar', 'Escola', 'Locações']} />

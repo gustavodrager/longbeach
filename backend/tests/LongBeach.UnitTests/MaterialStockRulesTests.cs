@@ -33,6 +33,44 @@ public sealed class MaterialStockRulesTests
     [InlineData("Unknown", 1)]
     public void Invalid_operations_are_rejected(string kind, double amount) => Assert.Throws<InventoryRuleException>(() => Movement(kind, (decimal)amount));
 
+    [Theory]
+    [InlineData(false, null)]
+    [InlineData(true, null)]
+    [InlineData(true, "")]
+    [InlineData(true, "  ")]
+    [InlineData(true, "Depósito")]
+    public void Storage_location_is_optional_without_inventing_or_rewriting_metadata(bool hasLocation, string? location)
+    {
+        var original = JsonNode.Parse("""{"quantity":5,"minimum":1,"unit":"litro","movements":[]}""")!.AsObject();
+        if (hasLocation) original["location"] = location;
+        var incoming = original.DeepClone().AsObject();
+        MaterialRecordRules.GuardMetadata(incoming, original.ToJsonString());
+        Assert.Equal(hasLocation, incoming.ContainsKey("location"));
+        Assert.True(JsonNode.DeepEquals(original["location"], incoming["location"]));
+        var created = incoming.DeepClone().AsObject(); created["quantity"] = 0m;
+        MaterialRecordRules.GuardMetadata(created, null);
+        Assert.Equal(hasLocation, created.ContainsKey("location"));
+        var movement = new MaterialMovement(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1,
+            "Receipt", 10, 5, "litro", location!, "Compra", "Limpeza");
+        Assert.Equal(15m, movement.After);
+        Assert.Equal(location?.Trim() ?? "", movement.Location);
+    }
+
+    [Fact]
+    public void Optional_storage_location_still_has_a_length_limit_and_other_evidence_remains_required()
+    {
+        var material = JsonNode.Parse("""{"quantity":0,"minimum":0,"unit":"litro","location":""}""")!.AsObject();
+        material["location"] = new string('x', 161);
+        Assert.Throws<InventoryRuleException>(() => MaterialRecordRules.GuardMetadata(material, null));
+        material["location"] = 42;
+        Assert.Throws<InventoryRuleException>(() => MaterialRecordRules.GuardMetadata(material, null));
+        Assert.Throws<InventoryRuleException>(() => new MaterialMovement(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1,
+            "Receipt", 1, 5, "litro", new string('x', 161), "Compra", "Limpeza"));
+        foreach (var (unit, reason, destination) in new[] { ("", "Compra", "Limpeza"), ("litro", "", "Limpeza"), ("litro", "Compra", "") })
+            Assert.Throws<InventoryRuleException>(() => new MaterialMovement(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1,
+                "Receipt", 1, 5, unit, "", reason, destination));
+    }
+
     [Fact]
     public void Metadata_cannot_rewrite_stock_or_history_and_new_records_start_empty()
     {

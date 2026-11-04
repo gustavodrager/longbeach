@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { getSignInOptions, registerClient } from '../features/auth/authApi'
 import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { Logo } from '../components/Logo'
+import { FormattedInput } from '../components/FormattedInput'
+import { formatPhone } from '../lib/inputFormatting'
 import { useAuth } from '../features/auth/authContext'
 import { GoogleSignInButton } from '../features/auth/GoogleSignInButton'
 import { CredentialFields, credentialsProblem, type CredentialsDraft } from '../features/auth/CredentialFields'
@@ -106,10 +108,10 @@ export function LoginPage() {
     {created && <p className="auth-entry-status" role="status">Conta criada. Entre com seu usuário e sua senha.</p>}
     {registering && !contactConfirmed && <form className="auth-entry-form" noValidate onSubmit={confirmContact}>
       <label>Nome<input ref={contactName} required autoComplete="name" maxLength={240} value={name} onChange={event => setName(event.target.value)} disabled={isSubmitting} /></label>
-      <label>Telefone com DDD<input ref={contactPhone} required type="tel" autoComplete="tel-national" inputMode="tel" maxLength={30} value={phone} onChange={event => setPhone(event.target.value.replace(/\D/g, ''))} disabled={isSubmitting} /></label>
+      <label>Telefone com DDD<FormattedInput ref={contactPhone} format="phone" required autoComplete="tel-national" maxLength={30} value={phone} onValueChange={value => setPhone(value.replace(/\D/g, ''))} disabled={isSubmitting} /></label>
       <button className="primary-button" type="submit" disabled={isSubmitting || isBootstrapping}>Continuar</button>
     </form>}
-    {choosingAccess && <div className="auth-entry-contact"><p className="auth-entry-note">{name.trim()} · {phone}</p><button className="text-button" type="button" disabled={isSubmitting} onClick={editContact}>Alterar dados</button></div>}
+    {choosingAccess && <div className="auth-entry-contact"><p className="auth-entry-note">{name.trim()} · {formatPhone(phone)}</p><button className="text-button" type="button" disabled={isSubmitting} onClick={editContact}>Alterar dados</button></div>}
     {googleClientId && !localSelected && (!registering || choosingAccess) && <div className="auth-entry-google"><GoogleSignInButton clientId={googleClientId} onCredential={credential => void handleGoogle(credential)} onError={setError} disabled={isSubmitting || isBootstrapping} /></div>}
     {googleRegistration && !localSelected && !created && (!registering || choosingAccess) && <p className="auth-entry-note">{registering ? 'Ao continuar, criaremos sua conta de cliente.' : 'Se ainda não tiver cadastro, criaremos sua conta de cliente.'}</p>}
     {choosingAccess && localRegistration && !localSelected && <button className="auth-entry-secondary" type="button" disabled={isSubmitting} onClick={() => { setMethod('local'); setEmailExpanded(Boolean(email)); setError('') }}>Usar usuário e senha</button>}
