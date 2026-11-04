@@ -9,7 +9,7 @@ Data: 04/11/2026. Estado: implementado e validado localmente; não publicado.
 - Administração da equipe, tipos, reset, bloqueio, vínculo docente e importação de pessoas exigem dono confirmado por UserId. Os nomes não concedem acesso.
 - Senha temporária individual de 24 horas, exibida uma vez, troca local obrigatória e revogação imediata das sessões ao mudar credenciais ou acesso.
 - Conta atual compatível pode ser escolhida explicitamente. Google, salários ocultos, ficha de cliente e histórico são preservados. Não há associação automática ou reset em massa.
-- Servidor recusa rotas e ações não liberadas. Interface fecha atalhos, formulários de edição e operações em tipos de consulta. Dependências de seletores e da agenda não abrem os cadastros administrativos correspondentes.
+- Servidor recusa rotas e ações não liberadas; Professor com apenas Hoje não consulta a lista de alunos por chamada direta. Interface fecha atalhos, formulários de edição e operações em tipos de consulta. Dependências de seletores e da agenda não abrem os cadastros administrativos correspondentes.
 - Migration aditiva 33, permissões das tabelas e preflight de compatibilidade atualizados. Retorno destrutivo é recusado quando há acesso em uso.
 
 ## Validação local

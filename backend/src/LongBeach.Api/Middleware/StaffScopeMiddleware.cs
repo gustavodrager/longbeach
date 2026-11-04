@@ -41,6 +41,8 @@ public static class StaffApiScope
         if (path.StartsWith("/api/v1/me/teaching", StringComparison.Ordinal))
         {
             if (!read) return Menu("teaching.attendance") && Action("teaching.presence");
+            if (path.StartsWith("/api/v1/me/teaching/classes/", StringComparison.Ordinal))
+                return Menu("teaching.classes", "teaching.attendance");
             return Menu("teaching.today", "teaching.classes", "teaching.attendance");
         }
         // Personal client data is a different area. A staff work template does not

@@ -119,6 +119,11 @@ public sealed class StaffScopeAuthorizationTests
     {
         var user = Principal(["teaching.attendance"], ["teaching.presence"]);
         Assert.True(StaffApiScope.Allowed(user, "GET", "/api/v1/me/teaching"));
+        var roster = "/api/v1/me/teaching/classes/11111111-1111-1111-1111-111111111111";
+        Assert.True(StaffApiScope.Allowed(user, "GET", roster));
+        Assert.True(StaffApiScope.Allowed(Principal(["teaching.classes"], []), "GET", roster));
+        Assert.True(StaffApiScope.Allowed(Principal(["teaching.today"], []), "GET", "/api/v1/me/teaching"));
+        Assert.False(StaffApiScope.Allowed(Principal(["teaching.today"], []), "GET", roster));
         Assert.True(StaffApiScope.Allowed(user, "PUT", "/api/v1/me/teaching/classes/11111111-1111-1111-1111-111111111111/presences"));
         Assert.False(StaffApiScope.Allowed(user, "PUT", "/api/v1/operations/presences/11111111-1111-1111-1111-111111111111"));
         Assert.False(StaffApiScope.Allowed(user, "GET", "/api/v1/operations/students"));
