@@ -1,6 +1,6 @@
 # Formatação, materiais e matrícula — 04/11/2026
 
-Estado: implementado e conferido localmente; aguarda publicação específica da API e da interface. Esta revisão não acrescenta migration nem altera produção.
+Estado: API e interface publicadas em 04/11/2026, na fonte `144dbe58afb51b94e700f1074ddb72dc8be9fdf7`, após qualidade e aprovação específicas da revisão [#66](https://github.com/gustavodrager/longbeach/pull/66). Não acrescenta migration. O [registro da publicação](../operacao/publicacao-formatacao-materiais-matricula-2026-11-04.md) e o [manifesto](../operacao/release-formatacao-materiais-matricula-2026-11-04.json) documentam os artefatos, a preservação e os limites da conferência.
 
 ## Campos em português do Brasil
 
@@ -26,4 +26,4 @@ A suíte final da interface aprovou 1.214 testes em 101 arquivos; build TypeScri
 
 A prévia local conferiu os três fluxos com dados fictícios: máscaras, turma e cadastro de aluno durante a matrícula, preservando data e mensalidade de R$ 125,50; materiais sem local receberam movimentações de 0 → 5 → 15. A matrícula também foi conferida em 390 × 844, sem transbordamento horizontal, com foco no cadastro e retorno ao campo Aluno. Capturas registraram a conferência, sem operações em produção.
 
-Perfis, concessões, credenciais e históricos permanecem preservados. A publicação exige API e interface.
+API e interface foram publicadas nesta operação, sem migrations, seeds ou SQL de escrita pela implantação. Schema 32, ACLs, perfis, Google e flags foram preservados; login local segue habilitado e autocadastro público local permanece fechado. A conferência publicada passou em 207 GETs, sem falhas, e o navegador isolado aplicou a atualização do PWA. Os fluxos autenticados desta revisão foram exercitados na prévia fictícia e nos testes, sem repetir gravações em produção. A conferência individual de contas foi um snapshot somente leitura anterior à publicação, atribuído à fonte 89951, com seus limites registrados no manifesto.
