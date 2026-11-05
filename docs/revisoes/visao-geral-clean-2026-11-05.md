@@ -1,6 +1,6 @@
 # Visão Geral mais simples
 
-A abertura concentra o trabalho do dia: reservas, horas livres, turmas, até três próximos horários e pendências com destino direto. Os botões principais são **Abrir agenda** e **Atendimento**, conforme as permissões existentes.
+A abertura concentra o trabalho do dia: horas livres, turmas, até três próximos horários e pendências com destino direto. O indicador de reservas foi retirado a pedido da gestão. Os botões principais são **Abrir agenda** e **Atendimento**, conforme as permissões existentes.
 
 Foram retirados da Visão Geral o resumo financeiro, os resultados por período, os filtros de datas, os relatórios históricos, as consultas de estoque e grade e os avisos de cadastros incompletos. Os indicadores não repetem instruções para abrir cada destino. A data de atualização só aparece quando a última leitura foi preservada após falha.
 
@@ -19,5 +19,7 @@ Prévia local com dados fictícios no computador (1470 px), celular (390 × 844)
 As evidências visuais e os resultados de testes/build ficam em `evidencias/visao-geral-clean-2026-11-05/`, fora do repositório da aplicação. A validação automatizada cobre a Visão Geral, acesso às consultas financeiras somente ao abrir, estados de falha/leitura preservada e permissões.
 
 Resultado local: **1.287 testes da interface em 108 arquivos aprovados**, build da interface/PWA aprovado e build da solução do servidor sem avisos ou erros. A execução geral identificou três testes antigos dependentes da data real; os relógios das agendas foram alinhados às fixtures e a validade do recibo fictício passou a ser calculada a partir do teste, preservando as asserções e o comportamento do produto.
+
+Após a retirada do indicador de reservas, os **94 testes afetados** e o build da interface/PWA passaram novamente. A agenda e os próximos horários foram mantidos. As imagens da primeira prévia estão preservadas como registro da versão anterior ao ajuste.
 
 Esta revisão prepara somente a interface. A publicação da nova fonte depende de aprovação específica; autorizações de versões anteriores não se aplicam.

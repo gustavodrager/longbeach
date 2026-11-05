@@ -24,7 +24,7 @@ afterEach(()=>vi.unstubAllEnvs())
 
 it('mostra a operação do dia sem tratar falta de cadastro como zero ou ausência de pendências', () => {
   start('/')
-  expect(within(screen.getByRole('link', { name: /^Reservas\b/ })).getByText('Sem reservas')).toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: /^Reservas\b/ })).not.toBeInTheDocument()
   expect(within(screen.getByRole('link', { name: /^Horas livres\b/ })).getByText('Sem quadras')).toBeInTheDocument()
   expect(within(screen.getByRole('link', { name: /^Turmas\b/ })).getByText('Sem turmas')).toBeInTheDocument()
   expect(screen.getByText('Sem registros para conferir.')).toBeInTheDocument()
@@ -206,16 +206,13 @@ it('recepção considera aulas na disponibilidade sem divulgar turma, professor 
   expect(fetchMock.mock.calls.some(([input])=>String(input).endsWith('/students')||String(input).endsWith('/classes')||String(input).endsWith('/team'))).toBe(false)
 })
 
-it('reservas de hoje abre exatamente a composição do indicador, sem bloqueios, canceladas ou aulas',async()=>{
+it('filtro de reservas na agenda mostra apenas reservas, sem bloqueios, canceladas ou aulas',async()=>{
   const day=today();const reservation={id:'77777777-7777-7777-7777-777777777777',name:'Reserva confirmada',courtId:court.id,date:day,startTime:'10:00',endTime:'11:00',customerName:'Grupo teste',phone:'',amount:100,status:'Confirmada',notes:''}
   const block={...reservation,id:'88888888-8888-8888-8888-888888888888',name:'Bloqueio para limpeza',status:'Bloqueio',startTime:'11:00',endTime:'12:00'}
   const canceled={...reservation,id:'99999999-9999-9999-9999-999999999999',name:'Reserva cancelada',status:'Cancelada'}
   const lesson={id:'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',name:'Turma do dia',sport:'Futevôlei',courtId:court.id,weekDay:new Date(`${day}T12:00:00`).getDay(),startTime:'18:00',endTime:'19:00',teacherId:'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',capacity:8,studentIds:[],status:'Ativa',notes:''}
   localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[court],reservations:[reservation,block,canceled],classes:[lesson]}))
-  start('/')
-  const card=screen.getByRole('link',{name:/^Reservas\b/})
-  expect(within(card).getByText('1')).toBeInTheDocument()
-  await userEvent.setup().click(card)
+  start(`/agenda?date=${day}&view=day&activity=reservations`)
   expect(await screen.findByRole('heading',{name:'Agenda'})).toBeInTheDocument()
   expect(screen.getByLabelText('Mostrar')).toHaveValue('reservations')
   expect(screen.getByRole('button',{name:/Reserva confirmada/})).toBeInTheDocument()

@@ -43,7 +43,7 @@ export function DashboardPage() {
   ].filter(item => data.canRead(item.kind))
   const alerts = attention.filter(item => readable(item.kind) && item.count > 0)
   const hasMonitoredRecords = attention.some(item => readable(item.kind) && data[item.kind].length > 0)
-  const hasTodayMetrics = data.canRead('reservations') || data.canRead('courts') || data.canRead('classes')
+  const hasTodayMetrics = data.canRead('courts') || data.canRead('classes')
 
   return <main className="operation-page arena-page dashboard dashboard-overview">
     <header className="dashboard-heading">
@@ -57,7 +57,6 @@ export function DashboardPage() {
     {hasTodayMetrics && <section className="arena-dashboard-section dashboard-today" aria-labelledby="arena-today">
       <h2 id="arena-today">Hoje</h2>
       <div className="arena-metric-grid dashboard-today-grid">
-        {data.canRead('reservations') && <Metric label="Reservas" value={count('reservations', data.reservations.filter(item => item.date === day && !['Cancelada', 'Bloqueio'].includes(item.status)).length, 'Sem reservas')} to={`${agenda}&activity=reservations`} />}
         {data.canRead('courts') && <Metric label="Horas livres" value={availabilityReady ? `${quantity(scheduleCourts.reduce((sum, court) => sum + (court.availableMinutes ?? 0), 0) / 60)} h` : availability} to={agenda} note={availabilityReady && scheduleCourts.length > 1 ? 'Total entre quadras' : undefined} />}
         {data.canRead('classes') && <Metric label="Turmas" value={count('classes', activeClasses.filter(item => item.weekDay === new Date(`${day}T12:00:00Z`).getUTCDay()).length, 'Sem turmas')} to={`${agenda}&activity=classes`} />}
       </div>
