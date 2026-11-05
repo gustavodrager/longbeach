@@ -52,6 +52,7 @@ public sealed class BarPurchasesService(LongBeachDbContext db):IBarPurchases
         foreach(var i in input.Items)
         {
             var product=await db.Set<BarProduct>().AsNoTracking().SingleOrDefaultAsync(x=>x.Id==i.ProductId,ct) ?? throw new BarRuleException("Produto inexistente.");
+            if (!product.Active) throw new BarRuleException("Produto excluído. Escolha um produto ativo para a compra.");
             if(!product.ControlsStock) throw new BarRuleException("Compra de estoque exige produto estocável.");
             purchase.Items.Add(new PurchaseItem(purchase.Id,product,i.Quantity,i.PurchaseCost));
         }

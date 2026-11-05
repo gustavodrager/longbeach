@@ -129,7 +129,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         var products=await db.Set<BarProduct>().AsNoTracking().Where(x=>x.Active).OrderByDescending(x=>x.Favorite).ThenBy(x=>x.DisplayOrder).ThenBy(x=>x.Name).ToListAsync(ct);
         var recipes=await db.Set<BarRecipeVersion>().AsNoTracking().Include(x=>x.Ingredients).Where(r=>!db.Set<BarRecipeVersion>().Any(other=>other.ProductId==r.ProductId&&other.Version>r.Version)).ToDictionaryAsync(x=>x.ProductId,ct);
         var activeIngredients=products.Where(x=>x.ControlsStock&&!x.Prepared).ToDictionary(x=>x.Id);
-        return products.Where(x=>x.SalePrice>0).Select(x=>
+        return products.Where(x=>x.AvailableForSale && x.SalePrice>0).Select(x=>
         {
             var recipe=x.Prepared?recipes.GetValueOrDefault(x.Id):null;
             decimal? available=x.ControlsStock?balances.GetValueOrDefault(x.Id)?.Available??0:null;
@@ -418,7 +418,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     }
     private async Task Accept(BarTab tab, BarTabItem item, Guid actor, CancellationToken ct)
     {
-        if (!await db.Set<BarProduct>().AnyAsync(x => x.Id == item.ProductId && x.Active, ct)) throw new BarRuleException("Produto desativado; recuse o pedido.");
+        if (!await db.Set<BarProduct>().AnyAsync(x => x.Id == item.ProductId && x.Active && x.AvailableForSale, ct)) throw new BarRuleException("Produto indisponível para venda; recuse o pedido.");
         await SnapshotAndReserve(tab, item, ct); item.Accept(time.GetUtcNow());
         db.Add(new BarTabHistory(tab.Id, "Accepted", actor, item.Total, itemId: item.Id));
     }

@@ -20,7 +20,7 @@ export function ClientPage() {
   return <div className="ux-root ux-client lb-client-clean"><header className="lb-client-brand"><Logo showTagline={false} /></header><main className="ux-page">{(!query.data || accessDenied) && <h1>Sua comanda</h1>}<LoadState query={query} />{query.data && !accessDenied && <ClientTab key={query.data.id} tab={query.data} token={token} />}</main></div>
 }
 function ClientTab({ tab, token }: { tab: Tab; token: string }) {
-  const catalog = useQuery({ queryKey: ['client-catalog', token], queryFn: () => clientRequest<CatalogItem[]>(token, '/catalog'), enabled: tab.state === 'Open' })
+  const catalog = useQuery({ queryKey: ['client-catalog', token], queryFn: () => clientRequest<CatalogItem[]>(token, '/catalog'), enabled: tab.state === 'Open', staleTime: 0, refetchOnMount: 'always', refetchOnWindowFocus: 'always', refetchInterval: 15_000 })
   const config = useQuery({ queryKey: ['client-config', token], queryFn: () => clientRequest<{ pixEnabled: boolean }>(token, '/config') })
   const [pendingOrder, setPendingOrder] = useConfirmationGate(`client-order:${tab.id}`)
   const cache = useQueryClient(); const [cart, setCart] = useCart(tab.id); const [screen, setScreen] = useState(tab.state === 'Closed' ? 'tab' : 'catalog'); const [review, setReview] = useState(Boolean(pendingOrder))

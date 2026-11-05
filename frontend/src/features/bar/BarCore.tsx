@@ -11,7 +11,7 @@ const stateLabels: Record<string,string> = {Draft:'Rascunho',AwaitingPayment:'Ag
 export const label = (state:string) => stateLabels[state] ?? state
 export const money = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 export type Named = { id: string; name: string }
-export type Product = Named & { code: string; shortName: string; categoryId: string; saleUnit: string; salePrice: number; controlsStock: boolean; minimumStock: number; favorite: boolean; displayOrder: number; active: boolean; version: number; barcode?: string; imageUrl?: string; prepared?: boolean }
+export type Product = Named & { code: string; shortName: string; categoryId: string; saleUnit: string; salePrice: number; controlsStock: boolean; minimumStock: number; favorite: boolean; displayOrder: number; active: boolean; availableForSale?: boolean; version: number; barcode?: string; imageUrl?: string; prepared?: boolean }
 export type Managed = { product: Product; purchaseUnit: string; conversionFactor: number; averageCost: number; lastCost: number; mainSupplierId?: string }
 export type Balance = { version?: number; productId: string; locationId: string; quantity: number; reserved: number; available: number; name: string; low: boolean; minimumStock: number; unit: string; alertEligible: boolean; active: boolean; controlsStock: boolean }
 export type Session = { id: string; registerId: string; locationId: string; state: string; expected: number; terminal: string }
@@ -25,7 +25,7 @@ export function useAction() {
     if (locked.current) return undefined; locked.current=true; let retryKey: string | undefined
     if (body && typeof body === 'object' && 'operationId' in body) { const b=body as Record<string,unknown>; const {operationId: _id,...rest}=b; const key=path+JSON.stringify(rest); retryKey=key; if(attemptKeys.current.has(key)) b.operationId=attemptKeys.current.get(key); else attemptKeys.current.set(key,String(b.operationId)) }
     setBusy(true); setError(''); setMessage('')
-    try { const result = await apiFetch<T>(root + path, { method, body: JSON.stringify(body) }); if(retryKey) attemptKeys.current.delete(retryKey); await client.invalidateQueries({ queryKey: ['bar'] }); markSaved(); setMessage('Operação registrada.'); return result ?? null }
+    try { const result = await apiFetch<T>(root + path, { method, body: JSON.stringify(body) }); if(retryKey) attemptKeys.current.delete(retryKey); await Promise.all([client.invalidateQueries({ queryKey: ['bar'] }), client.invalidateQueries({ queryKey: ['bar-runtime'] }), client.invalidateQueries({ queryKey: ['client-catalog'] })]); markSaved(); setMessage('Operação registrada.'); return result ?? null }
     catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível registrar.'); return undefined }
     finally { locked.current=false; setBusy(false) }
   }

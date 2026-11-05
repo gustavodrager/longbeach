@@ -38,8 +38,9 @@ afterEach(() => { cleanup(); clients.splice(0).forEach(query => query.clear()); 
 it.each(['novo', 'editar&registro=water-test'])('consulta produtos sem abrir edição pela URL, mesmo com concessões antigas exigidas pelos GETs (%s)', async action => {
   const api = server(); mount(<BarProductsPage />, `/bar/produtos?acao=${action}`)
   expect(await screen.findByRole('table', { name: 'Produtos do bar' })).toHaveTextContent('Água teste')
-  expect(screen.queryByRole('button', { name: /Novo produto|Editar|Salvar/ })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /Novo produto|Editar|Salvar|Excluir/ })).not.toBeInTheDocument()
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  expect(screen.queryByRole('checkbox', { name: 'Disponível para venda' })).not.toBeInTheDocument()
   expect(screen.queryByRole('link', { name: /Contar estoque|Receber compra|Registrar perda/ })).not.toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Compras' })).toHaveAttribute('href', '/bar/compras')
   expect(api.mock.calls.some(([path]) => String(path).endsWith('/products'))).toBe(true)

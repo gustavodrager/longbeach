@@ -56,7 +56,7 @@ it.each([{categories:[]},{categories:[{id:'c',name:'Bebidas'},{id:'none',name:'S
  fireEvent.click(screen.getByRole('button',{name:'Salvar produto'}));
  await waitFor(()=>expect(api.mock.calls.some(([,init])=>init?.method==='POST')).toBe(true));
  const write=api.mock.calls.find(([,init])=>init?.method==='POST');
- expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({code:'',name:'Água mineral',shortName:'Água mineral',categoryId:null,saleUnit:'un',purchaseUnit:'un',conversionFactor:1,averageCost:0,minimumStock:0,controlsStock:true,active:true});
+ expect(JSON.parse(String(write?.[1]?.body))).toMatchObject({code:'',name:'Água mineral',shortName:'Água mineral',categoryId:null,saleUnit:'un',purchaseUnit:'un',conversionFactor:1,averageCost:0,minimumStock:0,controlsStock:true,availableForSale:true,active:true});
  client.clear();
 });
 
@@ -104,3 +104,28 @@ it('filtra disponibilidade sem tratar produtos sem controle como esgotados',asyn
  fireEvent.change(screen.getByLabelText('Disponibilidade'),{target:{value:'low'}});
  expect(within(screen.getByRole('table')).getByText('Repor')).toBeInTheDocument();client.clear();
 })
+
+
+it('mantém fora da venda com saldo visível e retira produtos excluídos da lista',async()=>{
+ const product={id:'hidden',version:1,name:'Água sem venda',code:'H',shortName:'Água',categoryId:'c',saleUnit:'un',salePrice:5,controlsStock:true,minimumStock:0,active:true,availableForSale:false,displayOrder:0,favorite:false};
+ const response=(value:unknown)=>new Response(JSON.stringify(value));
+ vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
+  if(String(input).endsWith('/products'))return response([{product,averageCost:2},{product:{...product,id:'deleted',name:'Produto excluído',active:false},averageCost:2}]);
+  if(String(input).endsWith('/stock/balances'))return response([{productId:'hidden',locationId:'b0000000-0000-0000-0000-000000000002',available:6}]);
+  return response([]);
+ });
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ render(<QueryClientProvider client={client}><MemoryRouter><BarProductsPage/></MemoryRouter></QueryClientProvider>);
+ await screen.findByText('Água sem venda');expect(screen.getByText('Fora da venda')).toBeInTheDocument();expect(await screen.findByText('6 un')).toBeInTheDocument();
+ expect(screen.queryByText('Produto excluído')).not.toBeInTheDocument();client.clear();
+});
+
+it('cadastra produto fora da venda por escolha explícita',async()=>{
+ const api=vi.spyOn(globalThis,'fetch').mockImplementation(async(_input,init)=>new Response(JSON.stringify(init?.method==='POST'?{}:[])));
+ const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+ render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/bar/produtos?acao=novo']}><BarProductsPage/></MemoryRouter></QueryClientProvider>);
+ fireEvent.change(await screen.findByLabelText('Nome'),{target:{value:'Insumo'}});fireEvent.change(screen.getByLabelText('Preço de venda (R$)'),{target:{value:'5'}});
+ const available=screen.getByRole('checkbox',{name:'Disponível para venda'});expect(available).toBeVisible();expect(available).toBeChecked();fireEvent.click(available);
+ fireEvent.click(screen.getByRole('button',{name:'Salvar produto'}));await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+ const body=api.mock.calls.find(([,init])=>init?.method==='POST')?.[1]?.body;expect(JSON.parse(String(body))).toMatchObject({availableForSale:false,active:true});client.clear();
+});

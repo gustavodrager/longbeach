@@ -19,6 +19,7 @@ public static class BarModel
         product.ToTable("bar_products"); product.HasKey(x => x.Id); product.Property(x => x.Id).ValueGeneratedNever();
         product.Property(x=>x.Barcode).HasMaxLength(80);product.Property(x=>x.ImageUrl).HasMaxLength(1000);
         product.HasOne<LongBeach.Domain.Purchases.Supplier>().WithMany().HasForeignKey(x=>x.MainSupplierId).OnDelete(DeleteBehavior.Restrict);
+        product.Property(x => x.AvailableForSale).HasDefaultValue(true).HasSentinel(true);
         product.Property(x => x.Code).HasMaxLength(40); product.HasIndex(x => x.Code).IsUnique();
         product.Property(x => x.Name).HasMaxLength(160); product.Property(x => x.ShortName).HasMaxLength(80);
         product.Property(x => x.SaleUnit).HasMaxLength(20); product.Property(x => x.PurchaseUnit).HasMaxLength(20);

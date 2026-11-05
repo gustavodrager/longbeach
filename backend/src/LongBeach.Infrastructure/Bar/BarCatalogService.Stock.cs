@@ -35,6 +35,7 @@ public sealed partial class BarCatalogService
                 var balance = await new BarStockService(db).Balance(id,StockModel.Bar,ct);
                 if(input.StockVersion!=balance.Version) throw new BarRuleException("O estoque mudou. Atualize os dados e confira novamente.");
                 var delta=available-balance.Available;
+                if (!product.Active && delta > 0) throw new BarRuleException("Produto excluído. Não é possível registrar uma nova entrada de estoque.", 409);
                 if(delta!=0) db.Add(new StockMovement(balance,delta,input.Product.AverageCost,"InventoryAdjustment","Correção da quantidade disponível no cadastro de produtos",input.OperationId,actor));
             }
             var result = await SaveProduct(id,input.Product,ct);

@@ -55,7 +55,7 @@ public sealed class BarTabItem : Entity
     private BarTabItem() { }
     public BarTabItem(Guid tabId, BarProduct product, decimal quantity, Guid? actor, bool client, string? notes = null) : base(Guid.NewGuid())
     {
-        if (!product.Active) throw new BarRuleException("Produto indisponível.");
+        if (!product.Active || !product.AvailableForSale) throw new BarRuleException("Produto indisponível.");
         if (product.SalePrice <= 0) throw new BarRuleException("Produto sem preço de venda. Cadastre um preço para vender; cortesias exigem supervisão.");
         Notes = BarTab.NormalizeNotes(notes);
         TabId = tabId; ProductId = product.Id; Name = product.ShortName; Quantity = BarRules.Quantity(quantity);

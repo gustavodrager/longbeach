@@ -1022,3 +1022,19 @@ it('estorno da maquininha usa reais formatados e conserva a confirmação manual
  expect(writes).toHaveLength(1)
  expect(JSON.parse(String(writes[0][1]?.body))).toMatchObject({amount:1234.56,manualConfirmed:true,reason:'Devolução de exemplo',operationId:expect.any(String)})
 })
+
+it.each(['atendente','cliente'] as const)('retira da venda após atualizar o catálogo e conserva o pedido para revisão: %s',async scene=>{
+ const state:Server={tab:makeTab(),pixEnabled:false,catalog:[products[0]]};const calls=server(state);
+ const query=mount(scene==='cliente'?'/cliente#token=own-secret':'/atendimento/vender');
+ fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));
+ state.catalog=[];
+ await act(async()=>{await query.invalidateQueries({queryKey:[scene==='cliente'?'client-catalog':'bar-runtime']})});
+ await waitFor(()=>expect(screen.queryByRole('button',{name:/Adicionar Água por/})).not.toBeInTheDocument());
+ fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}));
+ expect(screen.getByText('1 × Produto indisponível')).toBeInTheDocument();
+ if(scene==='cliente')fireEvent.click(screen.getByRole('button',{name:'Enviar pedido'}));
+ else fireEvent.click(screen.getByRole('button',{name:'Enviar para preparo'}));
+ expect(screen.getByRole('alert')).toHaveTextContent(scene==='cliente'?'não está mais disponível':'O estoque mudou');
+ expect(screen.getByText('1 × Produto indisponível')).toBeInTheDocument();
+ expect(calls.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
+});

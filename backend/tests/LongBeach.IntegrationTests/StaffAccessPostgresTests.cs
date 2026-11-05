@@ -80,6 +80,7 @@ public sealed class StaffAccessPostgresTests
             Assert.Equal(HttpStatusCode.OK, (await staff.GetAsync(url)).StatusCode);
         foreach (var url in new[] { "/api/v1/bar/products", "/api/v1/bar/suppliers", "/api/v1/bar/purchases", "/api/v1/bar/counts" })
             Assert.Equal(HttpStatusCode.Forbidden, (await staff.PostAsJsonAsync(url, new { })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.DeleteAsync("/api/v1/bar/products/00000000-0000-4000-8000-000000000001?version=1")).StatusCode);
     }
 
     [PostgresFact]

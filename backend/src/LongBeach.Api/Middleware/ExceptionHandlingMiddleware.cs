@@ -65,7 +65,7 @@ public sealed class ExceptionHandlingMiddleware(
         }
         catch (LongBeach.Domain.Bar.BarRuleException exception)
         {
-            await WriteProblemAsync(context, 400, "Operação do Bar rejeitada", exception.Message);
+            await WriteProblemAsync(context, exception.StatusCode, "Operação do Bar rejeitada", exception.Message);
         }
         catch (Exception exception) when (IsSerializationConflict(exception))
         {

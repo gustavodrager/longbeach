@@ -20,7 +20,7 @@ public sealed class BarProfileLimitsTests
             ("POST", $"/sales/{id}/discount"), ("POST", $"/sales/{id}/courtesy"),
             ("POST", $"/sales/{id}/refund"), ("POST", $"/tabs/{id}/adjustments"),
             ("POST", $"/tabs/{id}/payments/{id}/refund"), ("POST", $"/tabs/{id}/items/{id}/reverse"),
-            ("PUT", $"/products/{id}/stock"), ("PUT", "/stock/available"),
+            ("DELETE", $"/products/{id}?version=1"), ("PUT", $"/products/{id}"), ("PUT", $"/products/{id}/stock"), ("PUT", "/stock/available"),
             ("POST", "/stock/transfers"), ("POST", "/counts"), ("POST", $"/counts/{id}/approve"),
             ("POST", "/purchases"), ("POST", $"/purchases/{id}/receive"),
             ("POST", $"/cash/sessions/{id}/reopen")

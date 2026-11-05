@@ -21,9 +21,9 @@ RUNTIME_ROOT = Path("/opt/longbeach/runtime")
 API_HOST = "api.longbeach.quebranunca.com.br"
 WEB_ORIGIN = "https://longbeach.quebranunca.com.br"
 # This proof is versioned with the API source; no runtime environment override is accepted.
-API_SCHEMA_LATEST = "20261104173051_StaffIndividualAccess"
-API_SCHEMA_COUNT = 33
-API_SCHEMA_SHA256 = "f882f11fe3d37c55e9b38cae4bc564f640c76182bd728f512b5a973d5ef961c9"
+API_SCHEMA_LATEST = "20261105215807_BarProductSaleAvailability"
+API_SCHEMA_COUNT = 34
+API_SCHEMA_SHA256 = "d1d754abe912b9141e43d7639d468c504f752d489cc7e0e224573bac29c69e44"
 LABEL_CAPABILITY = "com.longbeach.api.customer-registry"
 LABEL_STAFF_CAPABILITY = "com.longbeach.api.staff-access"
 LABEL_SCHEMA_HASH = "com.longbeach.api.schema.migrations-sha256"

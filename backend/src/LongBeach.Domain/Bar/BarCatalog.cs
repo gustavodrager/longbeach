@@ -2,7 +2,10 @@ using LongBeach.Domain.Common;
 
 namespace LongBeach.Domain.Bar;
 
-public sealed class BarRuleException(string message) : Exception(message);
+public sealed class BarRuleException(string message, int statusCode = 400) : Exception(message)
+{
+    public int StatusCode { get; } = statusCode;
+}
 
 public static class BarRules
 {
@@ -59,11 +62,23 @@ public sealed class BarProduct : Entity
     public bool Favorite { get; private set; }
     public int DisplayOrder { get; private set; }
     public bool Active { get; private set; }
+    public bool AvailableForSale { get; private set; } = true;
     public bool Prepared { get; private set; }
     public string? Barcode { get; private set; }
     public string? ImageUrl { get; private set; }
     public Guid? MainSupplierId { get; private set; }
     public int Version { get; private set; }
+
+    public void SetSaleAvailability(bool available)
+    {
+        if (AvailableForSale == available) return;
+        AvailableForSale = available; Version++;
+    }
+    public void Archive()
+    {
+        if (!Active) return;
+        Active = false; AvailableForSale = false; Version++;
+    }
 
     public void SetPreparation(bool prepared) { if (Prepared != prepared) { Prepared = prepared; Version++; } }
 
