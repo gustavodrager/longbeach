@@ -22,61 +22,104 @@ const court={id:'22222222-2222-2222-2222-222222222222',name:'Quadra 1',sport:'Fu
 beforeEach(()=>{localStorage.clear();sessionStorage.clear();vi.stubEnv('VITE_DEMO_MODE','true');vi.stubEnv('VITE_OPERATIONAL_STORAGE','local')})
 afterEach(()=>vi.unstubAllEnvs())
 
-it('distingue falta de cadastro de zero e recolhe áreas ainda não configuradas', async () => {
+it('mostra a operação do dia sem tratar falta de cadastro como zero ou ausência de pendências', () => {
   start('/')
-  expect(within(screen.getByRole('link', { name: /Reservas de hoje/ })).getByText('Sem cadastros')).toBeInTheDocument()
-  expect(within(screen.getByRole('link', { name: /Horas livres de quadra hoje/ })).getByText('Sem quadras')).toBeInTheDocument()
-  expect(screen.getByText('Cadastros ainda não disponíveis para acompanhar pendências.')).toBeInTheDocument()
-  await userEvent.click(screen.getByText('Cadastros a completar'))
-  expect(screen.getAllByText('Sem cadastros · acompanhamento ainda não iniciado')).toHaveLength(4)
-  expect(screen.queryByText('Nenhuma pendência nos cadastros consultados.')).not.toBeInTheDocument()
+  expect(within(screen.getByRole('link', { name: /^Reservas\b/ })).getByText('Sem reservas')).toBeInTheDocument()
+  expect(within(screen.getByRole('link', { name: /^Horas livres\b/ })).getByText('Sem quadras')).toBeInTheDocument()
+  expect(within(screen.getByRole('link', { name: /^Turmas\b/ })).getByText('Sem turmas')).toBeInTheDocument()
+  expect(screen.getByText('Sem registros para conferir.')).toBeInTheDocument()
+  expect(screen.queryByText('Nenhuma pendência nos cadastros.')).not.toBeInTheDocument()
+  expect(screen.queryByText('Cadastros a completar')).not.toBeInTheDocument()
 })
 
-it('mantém os extratos disponíveis em Consultas sem alongar a abertura da inicial', async () => {
-  start('/')
-  expect(screen.queryByRole('heading', { name: 'Movimentos bancários' })).not.toBeInTheDocument()
-  await userEvent.click(screen.getByText('Movimentos bancários importados', { exact: true }))
-  expect(await screen.findByRole('heading', { name: 'Movimentos bancários' })).toBeInTheDocument()
+it('mantém a abertura focada no dia, sem painéis financeiros, históricos ou filtros de período', () => {
+  start('/?from=2020-01-01&to=2020-01-02')
+  expect(screen.getByRole('heading', { name: 'Visão geral' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Hoje' })).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Abrir agenda' })).toHaveAttribute('href', `/agenda?date=${today()}&view=day`)
+  expect(screen.getByRole('link', { name: 'Atendimento' })).toHaveAttribute('href', '/atendimento/vender')
+  for (const title of ['Resumo financeiro', 'Resultados no período', 'Consultas', 'Movimentos bancários', 'Grade de aulas atual']) {
+    expect(screen.queryByRole('heading', { name: title })).not.toBeInTheDocument()
+  }
+  expect(screen.queryByLabelText('De')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Até')).not.toBeInTheDocument()
+  expect(screen.queryByRole('group', { name: 'Períodos rápidos' })).not.toBeInTheDocument()
+  expect(screen.queryByText('Movimentos bancários importados', { exact: true })).not.toBeInTheDocument()
+  expect(screen.queryByText('Estoque do bar e potencial de venda', { exact: true })).not.toBeInTheDocument()
+  expect(screen.queryByText('Atualizado em', { exact: false })).not.toBeInTheDocument()
 })
 
-it('omite alertas zerados quando o estoque cadastrado está acima do mínimo', async () => {
+it('exibe os próximos três horários em ordem, incluindo o atual e omitindo encerrados e bloqueios', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-11-05T13:30:00Z'))
+  try {
+    const base = { courtId: court.id, date: today(), customerName: 'Grupo de teste', phone: '', amount: 100, status: 'Confirmada', notes: '' }
+    const reservations = [
+      { ...base, id: 'finished', name: 'Reserva encerrada', startTime: '09:00', endTime: '10:00' },
+      { ...base, id: 'current', name: 'Reserva atual', startTime: '10:00', endTime: '11:00' },
+      { ...base, id: 'block', name: 'Bloqueio de limpeza', startTime: '11:00', endTime: '12:00', status: 'Bloqueio' },
+      { ...base, id: 'next', name: 'Reserva seguinte', startTime: '12:00', endTime: '13:00' },
+      { ...base, id: 'third', name: 'Terceira reserva', startTime: '14:00', endTime: '15:00' },
+      { ...base, id: 'fourth', name: 'Quarta reserva', startTime: '16:00', endTime: '17:00' },
+    ]
+    localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({ courts: [court], reservations }))
+    start('/')
+    const section = await screen.findByRole('region', { name: 'Próximos horários' })
+    const links = within(section).getAllByRole('link')
+    expect(links).toHaveLength(3)
+    expect(links.map(link => link.querySelector('time')?.textContent)).toEqual(['10:00–11:00', '12:00–13:00', '14:00–15:00'])
+    expect(within(links[0]).getByText('Em andamento')).toBeInTheDocument()
+    expect(links.every(link => link.getAttribute('href') === `/agenda?date=${today()}&view=day&court=${court.id}`)).toBe(true)
+  } finally { vi.useRealTimers() }
+})
+
+it('omite alertas zerados quando o estoque cadastrado está acima do mínimo', () => {
   localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({ inventory: [{ id: 'material-test', name: 'Rede', quantity: 5, minimum: 2 }] }))
   start('/')
   expect(screen.queryByRole('link', { name: /Materiais para repor/ })).not.toBeInTheDocument()
-  expect(screen.getByText('Nenhuma pendência nos cadastros consultados.')).toBeInTheDocument()
+  expect(screen.getByText('Nenhuma pendência nos cadastros.')).toBeInTheDocument()
 })
 
-it('destaca apenas pendências existentes e abre sua composição sem filtro de período', async () => {
+it('destaca apenas pendências existentes e abre sua composição sem filtro de período', () => {
   localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({ inventory: [{ id: 'material-test', name: 'Rede', quantity: 1, minimum: 2 }] }))
   start('/?from=2020-01-01&to=2020-01-02')
   expect(screen.getByRole('link', { name: /Materiais para repor/ })).toHaveAttribute('href', '/administracao/materiais?low=1')
   expect(screen.queryByRole('link', { name: /Projetos com prazo vencido/ })).not.toBeInTheDocument()
+  expect(screen.queryByText('Nenhuma pendência nos cadastros.')).not.toBeInTheDocument()
 })
 
-it('períodos rápidos alteram as duas datas e preservam a operação de hoje', async () => {
-  const day = today()
-  start('/?from=2020-01-01&to=2020-01-02')
-  const user = userEvent.setup()
-  await user.click(screen.getByRole('button', { name: 'Este mês' }))
-  expect(screen.getByLabelText('De')).toHaveValue(day.slice(0, 7) + '-01')
-  expect(screen.getByLabelText('Até')).toHaveValue(day)
-  expect(screen.getByRole('link', { name: /Reservas de hoje/ })).toHaveAttribute('href', expect.stringContaining('date=' + day))
-  await user.click(screen.getByRole('button', { name: 'Hoje' }))
-  expect(screen.getByLabelText('De')).toHaveValue(day)
-  expect(screen.getByLabelText('Até')).toHaveValue(day)
-  fireEvent.change(screen.getByLabelText('De'), { target: { value: '2099-01-01' } })
-  expect(screen.getByText(/Escolha um período válido/)).toHaveAttribute('role', 'alert')
-  expect(screen.queryByRole('link', { name: /Recebimentos registrados/ })).not.toBeInTheDocument()
+it('não consulta nem apresenta áreas fora do acesso da pessoa na visão geral', async () => {
+  vi.stubEnv('VITE_DEMO_MODE', 'false')
+  const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async input => json(String(input).endsWith('/inventory') ? [{ id: 'material-test', name: 'Rede', quantity: 1, minimum: 2 }] : []))
+  start('/', false, { ...owner, roles: ['Operations'], permissions: ['inventory:read'] })
+  expect(await screen.findByRole('link', { name: /Materiais para repor/ })).toBeInTheDocument()
+  for (const name of [/^Reservas\b/, /^Horas livres\b/, /^Turmas\b/, /^Abrir agenda$/, /^Atendimento$/]) {
+    expect(screen.queryByRole('link', { name })).not.toBeInTheDocument()
+  }
+  expect(screen.queryByRole('heading', { name: 'Hoje' })).not.toBeInTheDocument()
+  expect(fetch.mock.calls.every(([input]) => String(input) === '/api/v1/operations/inventory')).toBe(true)
 })
 
-it('calcula a grade atual sem duplicar alunos nem incluir turmas futuras ou encerradas',()=>{
-  const current={id:'current',name:'Turma atual',status:'Ativa',startDate:'2020-01-01',startTime:'17:00',endTime:'18:00',capacity:6}
-  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({classes:[current,{...current,id:'second'},{...current,id:'future',startDate:'2099-01-01'},{...current,id:'closed',status:'Encerrada'}],enrollments:[{id:'one',studentId:'student',classId:'current',status:'Ativa',startDate:'2020-01-01'},{id:'two',studentId:'student',classId:'second',status:'Ativa',startDate:'2020-01-01'},{id:'three',studentId:'another',classId:'future',status:'Ativa',startDate:'2099-01-01'}]}))
-  start('/')
-  const section=screen.getByRole('region',{name:'Grade de aulas atual'})
-  expect(within(section).getByText('2 h de aulas por semana')).toBeInTheDocument()
-  expect(within(section).getByText('2/12')).toBeInTheDocument()
-  expect(within(within(section).getByRole('link',{name:/Alunos na grade atual/})).getByText('1')).toBeInTheDocument()
+it('uma falha de consulta não é apresentada como ausência de pendências', async () => {
+  vi.stubEnv('VITE_DEMO_MODE', 'false')
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ message: 'Falha ao carregar os registros de teste.' }, 503))
+  start('/', false, { ...owner, roles: ['Operations'], permissions: ['inventory:read'] })
+  expect(await screen.findByText('Falha ao carregar os registros de teste.')).toBeInTheDocument()
+  expect(screen.queryByText('Nenhuma pendência nos cadastros.')).not.toBeInTheDocument()
+  expect(screen.queryByText('Sem registros para conferir.')).not.toBeInTheDocument()
+})
+
+it('avisa quando a última leitura é preservada após falha de atualização', async () => {
+  vi.stubEnv('VITE_DEMO_MODE', 'false')
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(json([{ id: 'material-test', name: 'Rede', quantity: 1, minimum: 2 }]))
+  start('/', false, { ...owner, roles: ['Operations'], permissions: ['inventory:read'] })
+  expect(await screen.findByRole('link', { name: /Materiais para repor/ })).toBeInTheDocument()
+  expect(screen.queryByText(/Última leitura preservada/)).not.toBeInTheDocument()
+  fetch.mockResolvedValue(json({ message: 'Atualização indisponível.' }, 503))
+  act(() => { window.dispatchEvent(new Event('focus')) })
+  expect(await screen.findByText(/Última leitura preservada/)).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: /Materiais para repor/ })).toBeInTheDocument()
+  expect(screen.queryByText('Nenhuma pendência nos cadastros.')).not.toBeInTheDocument()
 })
 
 it('registra reserva uma vez em dois envios e preserva filtros ao abrir a ficha',async()=>{
@@ -91,24 +134,6 @@ it('registra reserva uma vez em dois envios e preserva filtros ao abrir a ficha'
   expect(JSON.parse(localStorage.getItem('longbeach-os-demo-v1')??'{}').reservations).toHaveLength(1)
   expect(screen.getByTestId('route')).toHaveTextContent(`date=${today()}`)
   expect(screen.getByRole('link',{name:'← Agenda'})).toHaveAttribute('href',expect.stringContaining(`court=${court.id}`))
-})
-
-it('mostra recebimentos pela data paga, abre a composição e preserva período ao voltar',async()=>{
-  const day=today();const paid={id:'33333333-3333-3333-3333-333333333333',name:'Mensalidade de teste',direction:'Receber',origin:'Escola',amount:120,dueDate:'2000-01-01',status:'Pago',paidDate:day,notes:''}
-  const pending={...paid,id:'44444444-4444-4444-4444-444444444444',name:'Valor ainda pendente',amount:80,status:'Pendente',paidDate:'',dueDate:day}
-  localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({financeEntries:[paid,pending]}))
-  start(`/?from=${day}&to=${day}`)
-  const user=userEvent.setup();const card=screen.getByRole('link',{name:/Recebimentos registrados/})
-  expect(within(card).getByText(/120,00/)).toBeInTheDocument()
-  await user.click(card)
-  expect(await screen.findByRole('heading',{name:'Lançamentos'})).toBeInTheDocument()
-  expect(screen.queryByText('Valor ainda pendente')).not.toBeInTheDocument()
-  await user.click(screen.getByRole('link',{name:/Mensalidade de teste/}))
-  expect(await screen.findByRole('heading',{name:'Mensalidade de teste'})).toBeInTheDocument()
-  expect(screen.getByTestId('route')).toHaveTextContent('dateField=paidDate')
-  await user.click(screen.getByRole('link',{name:/← (Financeiro|Lançamentos)/}))
-  expect(screen.getByTestId('route')).toHaveTextContent(`from=${day}`)
-  expect(screen.getByTestId('route')).toHaveTextContent('status=Pago')
 })
 
 it('falha ao salvar mantém a reserva e reenvia o mesmo identificador sem duplicar',async()=>{
@@ -188,7 +213,7 @@ it('reservas de hoje abre exatamente a composição do indicador, sem bloqueios,
   const lesson={id:'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',name:'Turma do dia',sport:'Futevôlei',courtId:court.id,weekDay:new Date(`${day}T12:00:00`).getDay(),startTime:'18:00',endTime:'19:00',teacherId:'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',capacity:8,studentIds:[],status:'Ativa',notes:''}
   localStorage.setItem('longbeach-os-demo-v1',JSON.stringify({courts:[court],reservations:[reservation,block,canceled],classes:[lesson]}))
   start('/')
-  const card=screen.getByRole('link',{name:/Reservas de hoje/})
+  const card=screen.getByRole('link',{name:/^Reservas\b/})
   expect(within(card).getByText('1')).toBeInTheDocument()
   await userEvent.setup().click(card)
   expect(await screen.findByRole('heading',{name:'Agenda'})).toBeInTheDocument()
@@ -548,7 +573,7 @@ it('o atalho das aulas de hoje abre somente a composição da grade do dia', asy
   const reservation = { id: 'reservation-today', name: 'Reserva fora do filtro', courtId: court.id, date: day, startTime: '16:00', endTime: '17:00', customerName: 'Grupo', status: 'Confirmada', notes: '' }
   localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({ courts: [court], classes: [lesson], reservations: [reservation] }))
   start('/')
-  await userEvent.click(screen.getByRole('link', { name: /Turmas com aula hoje/ }))
+  await userEvent.click(screen.getByRole('link', { name: /^Turmas\b/ }))
   expect(await screen.findByRole('button', { name: /Aula do dia/ })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /Reserva fora do filtro/ })).not.toBeInTheDocument()
   expect(screen.getByLabelText('Mostrar')).toHaveValue('classes')

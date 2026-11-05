@@ -52,8 +52,8 @@ function start(path: string) {
   </Routes></MemoryRouter></DemoDataProvider></AuthContext.Provider></QueryClientProvider>)
 }
 function expectReadOnly(fetchMock: ReturnType<typeof mockApi>) { expect(fetchMock.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true) }
-beforeEach(() => { localStorage.clear(); sessionStorage.clear(); vi.stubEnv('VITE_DEMO_MODE', 'false'); vi.stubEnv('VITE_OPERATIONAL_STORAGE', 'postgres'); vi.stubEnv('VITE_API_URL', '') })
-afterEach(() => { clients.splice(0).forEach(client => client.clear()); vi.unstubAllEnvs(); vi.unstubAllGlobals() })
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(`${date}T12:00:00Z`)); localStorage.clear(); sessionStorage.clear(); vi.stubEnv('VITE_DEMO_MODE', 'false'); vi.stubEnv('VITE_OPERATIONAL_STORAGE', 'postgres'); vi.stubEnv('VITE_API_URL', '') })
+afterEach(() => { clients.splice(0).forEach(client => client.clear()); vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals() })
 
 it.each(['day', 'list'] as const)('Aulas em %s fixa a atividade e mostra apenas aulas cadastradas mesmo com filtro adulterado', async view => {
   const fetchMock = mockApi()
