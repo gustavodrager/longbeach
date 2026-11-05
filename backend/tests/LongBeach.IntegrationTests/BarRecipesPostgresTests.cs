@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using LongBeach.Application.Bar;
 using LongBeach.Contracts.Bar;
 using LongBeach.Domain.Bar;
@@ -84,6 +87,90 @@ public sealed class BarRecipesPostgresTests
         await Assert.ThrowsAsync<BarRuleException>(()=>new BarSalesService(f.Db).Create(new(f.Session.Id,[new(f.Ingredient.Id,1)]),f.Actor,default));
         tab=await f.Tabs.Add(tab.Id,new(Guid.NewGuid(),[new(f.Prepared.Id,1)]),f.Actor,null,default); Assert.Equal(25,tab.Total); Assert.Equal(3,(await f.Balance(f.Ingredient)).Reserved);
     }
+    [PostgresFact]
+    public async Task Immediate_checkout_delivers_prepared_recipe_once_and_can_receive_payment()
+    {
+        await using var f = await Fixture.Create(); var recipe = await f.Save(0.5m, "Purchase", 2);
+        var tab = await f.Open("Immediate");
+        var add = new AddTabItemsInput(Guid.NewGuid(), [new(f.Prepared.Id, 2)], Deliver: true);
+        var saved = await f.Tabs.Add(tab.Id, add, f.Actor, null, default); var item = Assert.Single(saved.Items);
+        Assert.Equal("Fulfilled", item.State); Assert.NotNull(item.FulfilledAtUtc);
+        var snapshot = Assert.Single(await f.Db.Set<BarTabIngredientSnapshot>().Where(x => x.ItemId == item.Id).ToListAsync());
+        Assert.Equal(recipe.Id, snapshot.RecipeId); Assert.Equal(6, snapshot.Quantity); Assert.Equal(2, snapshot.UnitCost);
+        Assert.Equal(18, (await f.Balance(f.Ingredient)).Quantity); Assert.Equal(0, (await f.Balance(f.Ingredient)).Reserved);
+        Assert.Equal(10, (await f.Balance(f.Prepared)).Quantity);
+        Assert.Equal(item.Id, Assert.Single((await f.Tabs.Add(tab.Id, add, f.Actor, null, default)).Items).Id);
+        var payment = new TabPaymentInput(Guid.NewGuid(), "Cash", 50, f.Session.Id);
+        await f.Tabs.Pay(tab.Id, payment, f.Actor, null, default); await f.Tabs.Pay(tab.Id, payment, f.Actor, null, default);
+        var closed = await f.Tabs.Close(tab.Id, new(Guid.NewGuid()), f.Actor, default);
+        Assert.Equal("Closed", closed.State); Assert.Equal(0, closed.Due);
+        Assert.Single(await f.Db.Set<BarTabPayment>().Where(x => x.TabId == tab.Id).ToListAsync());
+        Assert.Single(await f.Db.Set<StockMovement>().Where(x => x.OriginId == item.Id && x.Kind == "TabDelivery").ToListAsync());
+        Assert.Single(await f.Db.Set<BarTabIngredientSnapshot>().Where(x => x.ItemId == item.Id).ToListAsync());
+        Assert.Equal(18, (await f.Balance(f.Ingredient)).Quantity);
+    }
+
+    [PostgresFact]
+    public async Task Immediate_without_delivery_and_previously_accepted_receipts_keep_their_pending_preparation()
+    {
+        await using var f = await Fixture.Create(); await f.Save(3, "Sale", 1); var tab = await f.Open("Immediate");
+        var accepted = await f.Tabs.Add(tab.Id, new(Guid.NewGuid(), [new(f.Prepared.Id, 1)], Deliver: false), f.Actor, null, default);
+        var item = Assert.Single(accepted.Items); Assert.Equal("Accepted", item.State);
+        Assert.Equal(24, (await f.Balance(f.Ingredient)).Quantity); Assert.Equal(3, (await f.Balance(f.Ingredient)).Reserved);
+        // Simulate an immutable receipt confirmed by the previous version, where
+        // Deliver=true on an Immediate prepared item still returned Accepted.
+        var legacy = new AddTabItemsInput(Guid.NewGuid(), [new(f.Prepared.Id, 1)], Deliver: true);
+        var id = tab.Id; var scope = f.Actor.ToString(); var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var payload = new { action = "add", id, input = new { legacy.OperationId,
+            Items = legacy.Items.Select(x => new { x.ProductId, x.Quantity }), legacy.Deliver }, scope };
+        var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(payload, json))));
+        f.Db.Add(new BarTabOperation(legacy.OperationId, fingerprint, JsonSerializer.Serialize(accepted, json))); await f.Db.SaveChangesAsync();
+        var replay = await f.Tabs.Add(tab.Id, legacy, f.Actor, null, default);
+        Assert.Equal(item.Id, Assert.Single(replay.Items).Id); Assert.Equal("Accepted", Assert.Single(replay.Items).State);
+        Assert.Empty(await f.Db.Set<StockMovement>().Where(x => x.OriginId == item.Id && x.Kind == "TabDelivery").ToListAsync());
+        Assert.Equal(3, (await f.Balance(f.Ingredient)).Reserved);
+    }
+
+    [PostgresFact]
+    public async Task Qr_cannot_deliver_prepared_items_even_on_an_immediate_checkout()
+    {
+        await using var f = await Fixture.Create(); await f.Save(3, "Sale", 1); var tab = await f.Open("Immediate");
+        var access = await f.Tabs.IssueAccess(tab.Id, new(Guid.NewGuid()), f.Actor, default);
+        var saved = await f.Tabs.Add(tab.Id, new(Guid.NewGuid(), [new(f.Prepared.Id, 1)], Deliver: true), null, access.Token, default);
+        var item = Assert.Single(saved.Items); Assert.Equal("Requested", item.State); Assert.Null(item.FulfilledAtUtc);
+        Assert.Equal(24, (await f.Balance(f.Ingredient)).Quantity); Assert.Equal(0, (await f.Balance(f.Ingredient)).Reserved);
+        Assert.Empty(await f.Db.Set<BarTabIngredientSnapshot>().Where(x => x.ItemId == item.Id).ToListAsync());
+    }
+
+    [PostgresFact]
+    public async Task Immediate_prepared_product_without_recipe_consumes_its_own_stock_once()
+    {
+        await using var f = await Fixture.Create(); var tab = await f.Open("Immediate");
+        var add = new AddTabItemsInput(Guid.NewGuid(), [new(f.Prepared.Id, 2)], Deliver: true);
+        var saved = await f.Tabs.Add(tab.Id, add, f.Actor, null, default); var item = Assert.Single(saved.Items);
+        Assert.Equal("Fulfilled", item.State); Assert.Equal(8, (await f.Balance(f.Prepared)).Quantity);
+        Assert.Equal(0, (await f.Balance(f.Prepared)).Reserved); Assert.Equal(24, (await f.Balance(f.Ingredient)).Quantity);
+        await f.Tabs.Add(tab.Id, add, f.Actor, null, default);
+        Assert.Single(await f.Db.Set<StockMovement>().Where(x => x.OriginId == item.Id && x.Kind == "TabDelivery").ToListAsync());
+        Assert.Empty(await f.Db.Set<BarTabIngredientSnapshot>().Where(x => x.ItemId == item.Id).ToListAsync());
+    }
+
+    [PostgresFact]
+    public async Task Later_failure_rolls_back_immediate_recipe_item_snapshot_history_stock_and_reservation()
+    {
+        await using var f = await Fixture.Create(); var recipe = await f.Save(3, "Sale", 1); var tab = await f.Open("Immediate");
+        var add = new AddTabItemsInput(Guid.NewGuid(), [new(f.Prepared.Id, 1), new(Guid.NewGuid(), 1)], Deliver: true);
+        await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Add(tab.Id, add, f.Actor, null, default));
+        Assert.Empty(await f.Db.Set<BarTabItem>().Where(x => x.TabId == tab.Id).ToListAsync());
+        Assert.Empty(await f.Db.Set<BarTabHistory>().Where(x => x.TabId == tab.Id && (x.Kind == "Requested" || x.Kind == "Accepted" || x.Kind == "Fulfilled")).ToListAsync());
+        Assert.False(await f.Db.Set<BarTabOperation>().AnyAsync(x => x.Id == add.OperationId));
+        Assert.Equal(tab.Version, (await f.Db.Set<BarTab>().SingleAsync(x => x.Id == tab.Id)).Version);
+        Assert.Equal(24, (await f.Balance(f.Ingredient)).Quantity); Assert.Equal(0, (await f.Balance(f.Ingredient)).Reserved);
+        Assert.Equal(10, (await f.Balance(f.Prepared)).Quantity); Assert.Equal(0, (await f.Balance(f.Prepared)).Reserved);
+        Assert.Empty(await f.Db.Set<BarTabIngredientSnapshot>().Where(x => x.RecipeId == recipe.Id).ToListAsync());
+        Assert.Empty(await f.Db.Set<StockMovement>().Where(x => x.LocationId == f.Location.Id && x.Kind == "TabDelivery").ToListAsync());
+    }
+
     private sealed class Fixture:IAsyncDisposable
     {
         public LongBeachDbContext Db {get;} public BarTabsService Tabs {get;} public Guid Actor {get;}=Guid.NewGuid(); public StockLocation Location {get;}=new("Receita "+Guid.NewGuid()); public BarProduct Prepared {get;} public BarProduct Ingredient {get;} public CashSession Session {get;}
@@ -98,7 +185,7 @@ public sealed class BarRecipesPostgresTests
         }
         public static async Task<Fixture> Create(){var f=new Fixture();await f.Db.Database.MigrateAsync();await f.Db.SaveChangesAsync();return f;}
         public Task<RecipeVersionResponse> Save(decimal quantity,string unit,decimal yield)=>Tabs.SaveRecipe(new(Guid.NewGuid(),Prepared.Id,yield,"Ficha técnica de teste",[new(Ingredient.Id,quantity,unit)]),Actor,default);
-        public Task<TabResponse> Open()=>Tabs.Open(new(Guid.NewGuid(),Location.Id),Actor,default);
+        public Task<TabResponse> Open(string mode = "Tab")=>Tabs.Open(new(Guid.NewGuid(),Location.Id,Mode:mode),Actor,default);
         public Task<StockBalance> Balance(BarProduct product)=>Db.Set<StockBalance>().SingleAsync(x=>x.ProductId==product.Id&&x.LocationId==Location.Id);
         public ValueTask DisposeAsync()=>Db.DisposeAsync();
     }

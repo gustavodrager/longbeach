@@ -8,6 +8,7 @@ public sealed record TabCustomer(Guid Id, string Name, string EmailHint);
 public sealed record TabResponsible(Guid Id, string Name);
 public sealed record TabItemInput(Guid ProductId, decimal Quantity, string? Notes = null);
 public sealed record AddTabItemsInput(Guid OperationId, IReadOnlyList<TabItemInput> Items, bool Deliver = false);
+public sealed record TabCancelInput(Guid OperationId, int ExpectedVersion, string Reason);
 public sealed record TabActionInput(Guid OperationId, string? Reason = null, bool ReturnStock = false);
 public sealed record TabPaymentInput(Guid OperationId, string Method, decimal Amount, Guid? SessionId = null,
     decimal? Tendered = null, bool CardApproved = false, string? Authorization = null,

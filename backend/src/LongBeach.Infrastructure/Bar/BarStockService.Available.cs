@@ -25,11 +25,12 @@ public sealed partial class BarStockService
             if(await db.Set<BarTabPayment>().AnyAsync(x=>x.OperationId==input.OperationId,ct) || await db.Set<BarTabRefund>().AnyAsync(x=>x.OperationId==input.OperationId,ct))
                 throw new BarRuleException("Chave já usada em outra operação.");
             var product = await Product(input.ProductId,ct);
-            if(!product.Active || product.Prepared) throw new BarRuleException("Ajuste somente produtos ativos com estoque próprio.");
+            if(product.Prepared) throw new BarRuleException("Ajuste somente produtos com estoque próprio.");
             if(input.LocationId!=StockModel.Bar) throw new BarRuleException("O ajuste rápido usa somente o estoque do Bar.");
             var balance = await Balance(input.ProductId,input.LocationId,ct);
             if(balance.Version!=input.ExpectedVersion) throw new BarRuleException("O estoque mudou. Atualize o saldo e confira a quantidade antes de salvar novamente.");
             var delta = input.Available-balance.Available;
+            if (!product.Active && delta > 0) throw new BarRuleException("Produto excluído. Não é possível registrar uma nova entrada de estoque.", 409);
             if(delta!=0) db.Add(new StockMovement(balance,delta,product.AverageCost,"InventoryAdjustment","Correção da quantidade disponível pela gestão",input.OperationId,actor));
             db.Add(new BarTabOperation(input.OperationId,fingerprint,"null"));
             await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);

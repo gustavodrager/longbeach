@@ -18,6 +18,15 @@ namespace LongBeach.IntegrationTests;
 
 public sealed class StaffScopeAuthorizationTests
 {
+    [Fact]
+    public void Cancellation_requires_the_existing_tabs_menu_and_supervision_action()
+    {
+        const string path = "/api/v1/bar/tabs/11111111-1111-1111-1111-111111111111/cancel";
+        Assert.False(StaffApiScope.Allowed(Principal(["bar.tabs"], ["bar.tabs"]), "POST", path));
+        Assert.False(StaffApiScope.Allowed(Principal(["bar.sell"], ["bar.supervise"]), "POST", path));
+        Assert.True(StaffApiScope.Allowed(Principal(["bar.tabs"], ["bar.supervise"]), "POST", path));
+    }
+
     [Theory]
     [InlineData("GET", "/api/v1/billing/accounts")]
     [InlineData("GET", "/api/v1/financial-history")]

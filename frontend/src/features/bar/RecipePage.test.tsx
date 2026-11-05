@@ -17,11 +17,11 @@ function start(path = `/bar/receitas/${prepared.product.id}`, user = manager) {
   const query = new QueryClient({ defaultOptions: { queries: { retry: false } } }); clients.push(query)
   render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><Routes><Route path="/bar/receitas" element={<BarRecipesPage />} /><Route path="/bar/receitas/:productId" element={<BarRecipesPage />} /></Routes></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
 }
-function server(recipes: RecipeVersion[], post?: (body: Record<string, unknown>) => Promise<Response>) {
+function server(recipes: RecipeVersion[], post?: (body: Record<string, unknown>) => Promise<Response>, catalog = [prepared, ingredient]) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = new URL(String(input), 'http://localhost')
     if (init?.method === 'POST') return post ? post(JSON.parse(String(init.body))) : json({ message: 'POST inesperado' }, 400)
-    if (url.pathname.endsWith('/products')) return json([prepared, ingredient])
+    if (url.pathname.endsWith('/products')) return json(catalog)
     if (/\/recipes\/[\w-]+$/.test(url.pathname)) return json(recipes.find(row => url.pathname.endsWith(row.id)))
     if (url.pathname.endsWith('/recipes')) return json({ items: [...recipes].sort((a, b) => b.version - a.version), page: 1, pageSize: 20, total: recipes.length })
     return json([])
@@ -91,3 +91,33 @@ it('consulta versão anterior sem trocar sua conversão pela receita atual', asy
   expect(screen.queryByText(/36 un de estoque por receita/)).not.toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Ver receita atual →' })).toHaveAttribute('href', `/bar/receitas/${prepared.product.id}`)
 })
+
+
+it.each(['excluído','inativo'] as const)('consulta versões preservadas de produto %s sem permitir edição pela URL',async state=>{
+ const old=version(1);const latest={...version(2),yieldQuantity:20,ingredients:[{...old.ingredients[0],quantity:3,stockQuantity:36}]};
+ const catalog=state==='excluído'?[ingredient]:[{...prepared,product:{...prepared.product,active:false}},ingredient];
+ const calls=server([old,latest],undefined,catalog);
+ start(`/bar/receitas/${prepared.product.id}?version=${old.id}&acao=editar&registro=${prepared.product.id}`);
+ expect(await screen.findByRole('heading',{name:'Versão 1 · Porção preparada'})).toBeInTheDocument();
+ expect(screen.getByText(/24 un de estoque por receita/)).toBeInTheDocument();expect(screen.queryByText(/36 un de estoque por receita/)).not.toBeInTheDocument();
+ expect(screen.getByLabelText('Produto preparado')).toHaveValue(prepared.product.id);
+ expect(screen.getByText('Produto fora do catálogo. Consulta do histórico.')).toBeInTheDocument();
+ expect(screen.queryByRole('dialog')).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:/Cadastrar primeira|Criar nova versão|Salvar versão/})).not.toBeInTheDocument();
+ expect(screen.queryByLabelText('Motivo desta versão')).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('link',{name:/Versão 2.*Formulação 2/}));
+ expect(await screen.findByRole('heading',{name:'Versão 2 · Porção preparada'})).toBeInTheDocument();
+ expect(screen.getByText(/36 un de estoque por receita/)).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('link',{name:'Ver receita atual →'}));
+ expect(await screen.findByText('Receita atual')).toBeInTheDocument();
+ expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+ expect(calls.mock.calls.every(([,init])=>!init?.method||init.method==='GET')).toBe(true);
+});
+
+it('não exibe uma versão de outro produto no histórico de um produto excluído',async()=>{
+ const own=version(1);const foreign={...version(2),productId:ingredient.product.id,productName:'Outro produto'};
+ server([own,foreign],undefined,[ingredient]);
+ start(`/bar/receitas/${prepared.product.id}?version=${foreign.id}&acao=editar`);
+ expect(await screen.findByRole('alert')).toHaveTextContent('Esta versão pertence a outro produto');
+ expect(screen.queryByRole('heading',{name:/Versão 2 · Outro produto/})).not.toBeInTheDocument();
+ expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});

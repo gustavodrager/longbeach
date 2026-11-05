@@ -116,6 +116,11 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
                     b.Property<bool>("Active")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("AvailableForSale")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<decimal>("AverageCost")
                         .HasPrecision(18, 6)
                         .HasColumnType("numeric(18,6)");

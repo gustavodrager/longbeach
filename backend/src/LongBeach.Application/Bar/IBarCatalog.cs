@@ -8,5 +8,6 @@ public interface IBarCatalog
     Task<IReadOnlyList<CatalogProduct>> Catalog(CancellationToken ct);
     Task<IReadOnlyList<ManagedProduct>> Products(CancellationToken ct);
     Task<ManagedProduct> SaveProductStock(Guid id, ProductStockInput input, Guid actor, CancellationToken ct);
+    Task DeleteProduct(Guid id, int version, CancellationToken ct);
     Task<ManagedProduct> SaveProduct(Guid? id, ProductInput input, CancellationToken ct);
 }

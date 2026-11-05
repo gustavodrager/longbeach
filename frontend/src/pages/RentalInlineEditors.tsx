@@ -7,6 +7,7 @@ import { useOperations } from '../features/operations/DemoDataProvider'
 import type { Reservation, FinanceEntry } from '../features/arena/types'
 import type { RentalGroup, RentalMember, RentalMonth } from '../features/arena/rentals'
 import { weekDays } from '../features/arena/rentals'
+import { RentalMusicPreferences } from '../features/arena/RentalMusicPreferences'
 import { allocationChoice, allocationFields } from '../features/finance/businessUnits'
 import { ReceiptSourceFields } from '../features/finance/ReceiptSourceFields'
 import { DetailList, Feedback, Field, Group, Notes, SaveRow, Status, currency, displayDate, today, useSave } from './arenaUi'
@@ -162,5 +163,5 @@ export function QuickGroupEditor({group, onClose}: {group: RentalGroup; onClose:
     <Field label="Início" type="time" required value={draft.startTime} onChange={startTime=>setDraft({...draft,startTime})} />
     <Field label="Término" type="end-time" required value={draft.endTime} onChange={endTime=>setDraft({...draft,endTime})} />
     {data.canRead('financeEntries') && <Field label="Valor mensal (R$)" type="money" min={0} step="0.01" disabled={!data.canWrite('financeEntries')} value={draft.monthlyAmount??''} onChange={v=>setDraft({...draft,monthlyAmount:v===''?null:Number(v)})} />}
-  </Group><p>Altera o acordo para meses ainda não gerados. Encontros, cobranças e presenças existentes são preservados; edite-os na ficha do grupo.</p><SaveRow label="Salvar grupo" busy={save.busy} onCancel={onClose} /></fieldset></form></InlineFormGuard>
+  </Group><RentalMusicPreferences value={draft.musicPreferences} onChange={musicPreferences => setDraft({...draft,musicPreferences})} /><p>Altera o acordo para meses ainda não gerados. Encontros, cobranças e presenças existentes são preservados; edite-os na ficha do grupo.</p><SaveRow label="Salvar grupo" busy={save.busy} onCancel={onClose} /></fieldset></form></InlineFormGuard>
 }

@@ -104,6 +104,7 @@ public static class OperationalEndpoints
                 CanFinance(http, false, publicDemo, kind), CanFinance(http, true, publicDemo, kind));
             if (!prepared.Allowed) return Results.Forbid();
             var incoming = prepared.Body;
+            if (kind == "rentalGroups") RentalMusicPreferences.PreserveOmitted(incoming, record?.Payload);
             if (kind == "inventory")
             {
                 // A movement may have advanced the material while its metadata form was open.

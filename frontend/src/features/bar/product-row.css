@@ -66,3 +66,10 @@
  .product-records :is(input,select) { font-size: 16px; }
  .product-filters > * { flex-basis: 100%; }
 }
+
+.product-sale-status { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; }
+.product-delete-actions { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.product-delete-actions p { margin-top: 0; }
+.product-delete-button { color: var(--danger, #9c2924); }
+.product-records .product-delete-actions .product-inline-actions { flex-wrap: wrap; }
+.product-records .product-inline-details :is(button,input):focus-visible { outline: 3px solid var(--teal-soft); outline-offset: 2px; }

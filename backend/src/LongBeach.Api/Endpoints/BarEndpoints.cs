@@ -15,6 +15,11 @@ public static class BarEndpoints
         bar.MapGet("/products", (IBarCatalog service, CancellationToken ct) => service.Products(ct)).RequireAuthorization(SystemPermissions.BarCatalogWrite);
         bar.MapPost("/products", (ProductInput input, IBarCatalog service, CancellationToken ct) => service.SaveProduct(null, input, ct)).RequireAuthorization(SystemPermissions.BarCatalogWrite);
         bar.MapPut("/products/{id:guid}", (Guid id, ProductInput input, IBarCatalog service, CancellationToken ct) => service.SaveProduct(id, input, ct)).RequireAuthorization(SystemPermissions.BarCatalogWrite);
+        bar.MapDelete("/products/{id:guid}", async (Guid id, int version, IBarCatalog service, CancellationToken ct) =>
+        {
+            await service.DeleteProduct(id, version, ct);
+            return Results.NoContent();
+        }).RequireAuthorization(SystemPermissions.BarCatalogWrite);
         bar.MapPut("/products/{id:guid}/stock", (Guid id, ProductStockInput input, HttpContext h, IBarCatalog service, CancellationToken ct) => service.SaveProductStock(id,input,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarCatalogWrite, SystemPermissions.BarSupervise);
         bar.MapGet("/stock/locations", (IBarStock s, CancellationToken ct) => s.Locations(ct)).RequireAuthorization(SystemPermissions.BarStockRead);
         bar.MapPost("/stock/locations", (LocationInput i, IBarStock s, CancellationToken ct) => s.CreateLocation(i,ct)).RequireAuthorization(SystemPermissions.BarStockManage);

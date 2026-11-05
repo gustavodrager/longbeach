@@ -270,3 +270,18 @@
 @media (max-width:360px) {
  .lb-attendance .ux-receive-page .ux-choice { font-size:16px; padding:10px 8px; overflow-wrap:normal; }
 }
+
+:is(.lb-attendance,.lb-client-clean) :is(h1,h2,.lb-tab-card-title strong,.lb-payment-destination,.lb-close-confirmation,.lb-order-refusal) { overflow-wrap:anywhere; }
+.lb-attendance .ux-heading-line > div { min-width:0; }
+.lb-attendance .lb-order-comanda h2 { margin-top:0; }
+
+.lb-attendance .lb-customer-identification { min-width:0; overflow-wrap:anywhere; }
+
+.lb-cancel-tab { min-width:0; overflow-wrap:anywhere; margin-top:16px; padding-top:16px; border-top:1px solid #ded8cb; }
+.lb-cancel-tab h3 { margin-top:0; }
+.lb-cancel-tab textarea { min-height:112px; max-width:100%; box-sizing:border-box; }
+
+.lb-cancel-only .lb-cancel-tab { margin:0; padding:0; border:0; }
+@media(max-width:640px) {
+ .lb-cancel-tab .ux-actions { display:grid; grid-template-columns:minmax(0,1fr); }
+}

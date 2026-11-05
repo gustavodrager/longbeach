@@ -39,8 +39,8 @@ export function tabAttention(tab: Tab, now: number) {
 export function TabAttention({ tab, now }: { tab: Tab; now: number }) {
   const messages = tabAttention(tab, now)
   return <>
-    <span className="lb-tab-state">{tab.state === 'Closed' ? 'Encerrada' : 'Aberta'}</span>
-    <small>{tab.state === 'Closed' ? `Encerrada em ${dateTime(tab.closedAtUtc ?? undefined)}` : `Aberta em ${dateTime(tab.createdAtUtc)}`}</small>
+    <span className="lb-tab-state">{tab.state === 'Cancelled' ? 'Cancelada' : tab.state === 'Closed' ? 'Encerrada' : 'Aberta'}</span>
+    <small>{tab.state === 'Cancelled' ? `Cancelada em ${dateTime(tab.closedAtUtc ?? undefined)}` : tab.state === 'Closed' ? `Encerrada em ${dateTime(tab.closedAtUtc ?? undefined)}` : `Aberta em ${dateTime(tab.createdAtUtc)}`}</small>
     {messages.length > 0 && <span className="lb-tab-attention" aria-label="Pendências da comanda">{messages.map(message => <Status key={message} tone="warning">{message}</Status>)}</span>}
   </>
 }

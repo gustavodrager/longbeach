@@ -58,6 +58,16 @@ public sealed class BarAuthorizationTests
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(path)).StatusCode);
     }
     [Fact]
+    public async Task Product_deletion_requires_login_and_catalog_write_permission()
+    {
+        await using var factory = new LongBeachWebApplicationFactory();
+        using var client = factory.CreateClient();
+        const string path = "/api/v1/bar/products/00000000-0000-0000-0000-000000000001?version=1";
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.DeleteAsync(path)).StatusCode);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token("bar:catalog:read"));
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.DeleteAsync(path)).StatusCode);
+    }
+    [Fact]
     public async Task Stock_reader_cannot_access_inventory_costs_and_profit()
     {
         await using var factory = new LongBeachWebApplicationFactory();
@@ -71,6 +81,7 @@ public sealed class BarAuthorizationTests
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/payments")]
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/access")]
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/access/revoke")]
+    [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/cancel")]
     [InlineData("/api/v1/bar/menu/publish")]
     [InlineData("/api/v1/bar/recipes")]
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/adjustments")]

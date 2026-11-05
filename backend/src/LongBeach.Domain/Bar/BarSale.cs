@@ -23,7 +23,7 @@ public sealed class BarSale : Entity
     public void Add(BarProduct product, decimal quantity)
     {
         if (State != "Draft") throw new BarRuleException("Venda paga ou aguardando pagamento é imutável.");
-        if (!product.Active) throw new BarRuleException("Produto inativo."); BarRules.Quantity(quantity);
+        if (!product.Active || !product.AvailableForSale) throw new BarRuleException("Produto inativo."); BarRules.Quantity(quantity);
         if (Items.Any(x => x.ProductId == product.Id)) throw new BarRuleException("Agrupe a quantidade de cada produto em um único item.");
         var item = new BarSaleItem(Id, product, quantity); Items.Add(item); Total = BarRules.Money(Total+item.Total);var nextCost=Cost+decimal.Round(item.UnitCost*quantity,6);if(nextCost>999999999999m)throw new BarRuleException("Custo total fora do limite.");Cost=nextCost; Version++;
     }

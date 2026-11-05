@@ -84,3 +84,13 @@ it.each([{ activityKind: 'Trial', teacherId: 'teacher' }, { teacherId: 'teacher'
   const snapshot = data(); snapshot.reservations = [{ ...reservation, ...previous } as Reservation]
   expect(check('reservations', { ...reservation, activityKind: 'SingleLesson', customerId: 'customer', teacherId: 'teacher' }, snapshot)).toMatch(/tipo deste encontro/)
 })
+
+
+it.each([null, 'rock', ['rock', 'rock'], ['desconhecido'], ['Rock'], [1], Array(16).fill('rock')])('recusa preferências musicais inválidas: %j', musicPreferences => {
+  expect(check('rentalGroups', {...group,musicPreferences},data())).toMatch(/preferências musicais/)
+})
+it('preferências musicais são opcionais e independentes do acordo e dos integrantes', () => {
+  expect(check('rentalGroups',group,data())).toBeNull()
+  expect(check('rentalGroups',{...group,musicPreferences:[]},data())).toBeNull()
+  expect(check('rentalGroups',{...group,musicPreferences:['rock','pagode']},data())).toBeNull()
+})

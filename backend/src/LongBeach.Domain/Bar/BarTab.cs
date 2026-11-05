@@ -39,7 +39,7 @@ public sealed class BarTab : Entity
     public string State { get; private set; } = "Open";
     public DateTimeOffset? ClosedAtUtc { get; private set; }
     public int Version { get; private set; }
-    public void EnsureOpen() { if (State != "Open") throw new BarRuleException("Esta comanda já foi fechada."); }
+    public void EnsureOpen() { if (State != "Open") throw new BarRuleException("Esta comanda já foi encerrada."); }
     public void Touch() { EnsureOpen(); Version++; }
     public void Close(decimal due, decimal pending, bool unfinished, DateTimeOffset now)
     {
@@ -47,7 +47,27 @@ public sealed class BarTab : Entity
         if (due != 0 || pending != 0 || unfinished) throw new BarRuleException("Receba o saldo e resolva pagamentos e pedidos pendentes antes de fechar.");
         State = "Closed"; ClosedAtUtc = now; Version++;
     }
-    public void ReopenAfterRefund() { State = "Open"; ClosedAtUtc = null; Version++; }
+    public decimal LimitConcession(decimal remainingGross)
+    {
+        EnsureOpen();
+        if (remainingGross < 0 || decimal.Round(remainingGross, 2) != remainingGross)
+            throw new BarRuleException("Total bruto restante inválido.");
+        var removed = Math.Max(0, Discount - remainingGross);
+        if (removed > 0) { Discount -= removed; Version++; }
+        return removed;
+    }
+    public void Cancel(string reason, DateTimeOffset now)
+    {
+        EnsureOpen();
+        if (BarRules.Text(reason, 450, "Motivo do cancelamento").Length < 3)
+            throw new BarRuleException("Informe um motivo de cancelamento com pelo menos 3 caracteres.");
+        Discount = 0; State = "Cancelled"; ClosedAtUtc = now; Version++;
+    }
+    public void ReopenAfterRefund()
+    {
+        if (State != "Closed") throw new BarRuleException("Somente uma comanda encerrada pode ser reaberta após estorno.");
+        State = "Open"; ClosedAtUtc = null; Version++;
+    }
 }
 
 public sealed class BarTabItem : Entity
@@ -55,7 +75,7 @@ public sealed class BarTabItem : Entity
     private BarTabItem() { }
     public BarTabItem(Guid tabId, BarProduct product, decimal quantity, Guid? actor, bool client, string? notes = null) : base(Guid.NewGuid())
     {
-        if (!product.Active) throw new BarRuleException("Produto indisponível.");
+        if (!product.Active || !product.AvailableForSale) throw new BarRuleException("Produto indisponível.");
         if (product.SalePrice <= 0) throw new BarRuleException("Produto sem preço de venda. Cadastre um preço para vender; cortesias exigem supervisão.");
         Notes = BarTab.NormalizeNotes(notes);
         TabId = tabId; ProductId = product.Id; Name = product.ShortName; Quantity = BarRules.Quantity(quantity);

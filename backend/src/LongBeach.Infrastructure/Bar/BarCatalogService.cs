@@ -25,14 +25,14 @@ public sealed partial class BarCatalogService(LongBeachDbContext db) : IBarCatal
         await RankedCatalog(ct);
     private async Task<IReadOnlyList<CatalogProduct>> RankedCatalog(CancellationToken ct)
     {
-        var products = await db.Set<BarProduct>().AsNoTracking().Where(x=>x.Active).ToListAsync(ct);
+        var products = await db.Set<BarProduct>().AsNoTracking().Where(x=>x.Active && x.AvailableForSale).ToListAsync(ct);
         var ranking = await (from item in db.Set<BarSaleItem>() join sale in db.Set<BarSale>() on item.SaleId equals sale.Id
             where sale.State == "Paid" && sale.Reason == null group item by item.ProductId into g
             select new { Id=g.Key, Quantity=g.Sum(x=>x.Quantity) }).ToDictionaryAsync(x=>x.Id,x=>x.Quantity,ct);
         return products.OrderByDescending(x=>ranking.GetValueOrDefault(x.Id)).ThenByDescending(x=>x.Favorite).ThenBy(x=>x.DisplayOrder).ThenBy(x=>x.Name).Select(Public).ToArray();
     }
     public async Task<IReadOnlyList<ManagedProduct>> Products(CancellationToken ct) =>
-        (await db.Set<BarProduct>().AsNoTracking().OrderBy(x => x.Name).ToListAsync(ct)).Select(Managed).ToArray();
+        (await db.Set<BarProduct>().AsNoTracking().Where(x => x.Active).OrderBy(x => x.Name).ToListAsync(ct)).Select(Managed).ToArray();
     public async Task<ManagedProduct> SaveProduct(Guid? id, ProductInput input, CancellationToken ct)
     {
         var useDefaultCategory = input.CategoryId is null || input.CategoryId == Guid.Empty;
@@ -84,12 +84,15 @@ public sealed partial class BarCatalogService(LongBeachDbContext db) : IBarCatal
             if ((BarRules.Text(input.SaleUnit, 20, "Unidade de venda") != product.SaleUnit || input.ControlsStock != product.ControlsStock)
                 && await HasStockHistory(product.Id, ct))
                 throw new BarRuleException("Produto com saldo, histórico ou operações vinculadas: preserve a unidade e o controle de estoque. Cadastre outro produto para mudar essas regras.");
+            if (product.Active && !input.Active) await EnsureCanArchive(product.Id, ct);
             product.Change(input.Name, input.ShortName, categoryId, input.SaleUnit, input.PurchaseUnit,
                 input.ConversionFactor, input.SalePrice, input.AverageCost, input.MinimumStock, input.ControlsStock, input.Favorite, input.DisplayOrder, input.Active);
         }
         if(input.MainSupplierId is not null && !await db.Set<LongBeach.Domain.Purchases.Supplier>().AnyAsync(x=>x.Id==input.MainSupplierId,ct))throw new BarRuleException("Fornecedor principal inexistente.");
         product.SetMetadata(input.Barcode,input.ImageUrl,input.MainSupplierId);
         product.SetPreparation(input.Prepared);
+        if (input.AvailableForSale is bool available) product.SetSaleAvailability(available);
+        if (!product.Active) product.SetSaleAvailability(false);
         await db.SaveChangesAsync(ct);
         if (transaction is not null) await transaction.CommitAsync(ct);
         return Managed(product);
@@ -122,6 +125,6 @@ public sealed partial class BarCatalogService(LongBeachDbContext db) : IBarCatal
     private Task<int> LockCategories(CancellationToken ct) =>
         db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(19771005)", ct);
     private static CatalogProduct Public(BarProduct x) => new(x.Id, x.Code, x.Name, x.ShortName, x.CategoryId, x.SaleUnit,
-        x.SalePrice, x.ControlsStock, x.MinimumStock, x.Favorite, x.DisplayOrder, x.Active, x.Version,x.Barcode,x.ImageUrl,x.Prepared);
+        x.SalePrice, x.ControlsStock, x.MinimumStock, x.Favorite, x.DisplayOrder, x.Active, x.Version,x.Barcode,x.ImageUrl,x.Prepared,x.AvailableForSale);
     private static ManagedProduct Managed(BarProduct x) => new(Public(x), x.PurchaseUnit, x.ConversionFactor, x.AverageCost, x.LastCost,x.MainSupplierId);
 }
