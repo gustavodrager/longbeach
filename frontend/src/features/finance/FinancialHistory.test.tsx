@@ -30,6 +30,24 @@ it('atendente não consulta o histórico financeiro nem as APIs', () => {
   expect(screen.getByRole('alert')).toHaveTextContent('para a gestão')
   expect(fetch).not.toHaveBeenCalled()
 })
+it('mantém saldos e resumo importado acessíveis sem consultar essas fontes antes de abrir', async () => {
+  const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+    const path = String(input)
+    if (path.includes('/arena-summary')) return new Response(JSON.stringify({ months: [], students: null, rentals: null, lessons: null }))
+    return new Response(JSON.stringify(report))
+  })
+  wrap(<FinancialHistoryPage />)
+  await screen.findByRole('table', { name: 'Registros financeiros de origem' })
+  const deferred = () => fetch.mock.calls.filter(([path]) => /dashboard-balances|current-position|arena-summary/.test(String(path)))
+  expect(deferred()).toHaveLength(0)
+  fireEvent.click(screen.getByText('Saldos e contas', { selector: 'summary' }))
+  expect(await screen.findByRole('heading', { name: 'Resumo financeiro' })).toBeVisible()
+  expect(fetch.mock.calls.some(([path]) => String(path).includes('/dashboard-balances'))).toBe(true)
+  expect(fetch.mock.calls.some(([path]) => String(path).includes('/arena-summary'))).toBe(false)
+  fireEvent.click(screen.getByText('Resumo dos controles importados', { selector: 'summary' }))
+  expect(await screen.findByText('Mensalidades de alunos pagas')).toBeVisible()
+  expect(fetch.mock.calls.some(([path]) => String(path).includes('/arena-summary'))).toBe(true)
+})
 it('apresenta a receita consolidada sem chamá-la de vendas brutas', async () => {
   const summary = { ...report, month: '2026-09', totals: [{ ...report.totals[0], metric: 'receitas-consolidadas', period: '2026-09', amountCents: 90000 }] }
   vi.spyOn(globalThis, 'fetch').mockImplementation(async input => new Response(JSON.stringify(String(input).includes('pagvendas-vendas') ? { ...summary, totals: [] } : summary)))

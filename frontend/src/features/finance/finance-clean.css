@@ -19,6 +19,9 @@
   .finance-clean .arena-section-heading { align-items:flex-start; flex-wrap:wrap; }
   .finance-clean .arena-section-heading > div { min-width:0; }
   .finance-clean pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+  .dashboard-balance-details #current-financial-details tfoot { display:block; }
+  .dashboard-balance-details #current-financial-details tfoot tr { display:flex; justify-content:space-between; align-items:center; }
+  .dashboard-balance-details #current-financial-details tfoot th { border:0; background:transparent; }
 }
 @media(max-width:540px) {
   .finance-clean .expenses-summary { grid-template-columns:minmax(0,1fr) minmax(0,1fr); padding:16px; gap:12px; }

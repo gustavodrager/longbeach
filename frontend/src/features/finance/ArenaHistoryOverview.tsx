@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../../lib/http'
 import { useAuth } from '../auth/authContext'
-import { centsMoney } from './FinancialHistory'
+import { centsMoney } from './financialHistoryApi'
 
 type Payments = { month: string; records: number; paidRecords: number; paidNames: number; paidAmountCents: number; unpaidRecords: number; otherRecords: number }
 type Rentals = { payments: Payments; scheduleRecords: number; weeklyMinutes: number | null; invalidSchedules: number; schedule: { day: string; hours: string; records: number; paidRecords: number; unpaidRecords: number }[] }

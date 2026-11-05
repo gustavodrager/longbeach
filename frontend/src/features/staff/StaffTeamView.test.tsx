@@ -90,7 +90,7 @@ it('cria ficha e conta juntas, impede duplo envio e mostra a senha somente no re
   expect(within(editor).getByLabelText('Nome')).toBeDisabled()
   expect(within(editor).getByLabelText('Observações do acordo')).toBeDisabled()
   const input = bodies[0] as { member: TeamMember }
-  finish?.(json({ member: input.member, access: { ...status, teamId: input.member.id, requiresFirstAccess: true, phoneLogin: '11977776666' }, initialPassword: 'temporary-secret-fixture', initialPasswordExpiresAtUtc: '2026-11-05T12:00:00Z' }))
+  finish?.(json({ member: input.member, access: { ...status, teamId: input.member.id, requiresFirstAccess: true, phoneLogin: '11977776666' }, initialPassword: 'temporary-secret-fixture', initialPasswordExpiresAtUtc: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() }))
   const receipt = await screen.findByRole('dialog', { name: 'Acesso inicial' })
   expect(within(receipt).getByLabelText('Usuário')).toHaveValue('11977776666')
   expect(within(receipt).getByLabelText('Senha temporária')).toHaveValue('temporary-secret-fixture')

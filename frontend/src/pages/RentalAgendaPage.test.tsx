@@ -81,8 +81,8 @@ function expectReadOnly(fetchMock: ReturnType<typeof mockApi>) {
   expect(fetchMock.mock.calls.some(([input]) => /\/rentals\/groups\/[^/]+\/months(?:\?|$)/.test(String(input)))).toBe(false)
 }
 
-beforeEach(() => { localStorage.clear(); sessionStorage.clear(); vi.stubEnv('VITE_DEMO_MODE', 'false'); vi.stubEnv('VITE_OPERATIONAL_STORAGE', 'postgres'); vi.stubEnv('VITE_API_URL', '') })
-afterEach(() => { clients.splice(0).forEach(client => client.clear()); vi.unstubAllEnvs(); vi.unstubAllGlobals() })
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(`${day}T12:00:00Z`)); localStorage.clear(); sessionStorage.clear(); vi.stubEnv('VITE_DEMO_MODE', 'false'); vi.stubEnv('VITE_OPERATIONAL_STORAGE', 'postgres'); vi.stubEnv('VITE_API_URL', '') })
+afterEach(() => { clients.splice(0).forEach(client => client.clear()); vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals() })
 
 it.each([[false, 'week'], [true, 'day']] as const)('abre a agenda de mensalistas com a visualização responsiva compacta=%s', async (compact, view) => {
   const fetchMock = mockApi()
