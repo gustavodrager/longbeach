@@ -151,4 +151,74 @@ public sealed class RentalGroupsPostgresTests
         Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync(GroupPath(other) + $"/bar/{tabId}", new { reservationId = otherReservation })).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await client.DeleteAsync(path + $"/bar/{tabId}?version=1")).StatusCode);
     }
+    [PostgresFact]
+    public async Task Music_preferences_preserve_legacy_omissions_allow_clear_and_keep_the_agreement()
+    {
+        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory);
+        client.DefaultRequestHeaders.Authorization = Header("Manager"); var original = await Setup(client);
+        var path = $"/api/v1/operations/rentalGroups/{original["id"]}";
+        var noOp = await Read(await client.PutAsJsonAsync(path, original));
+        Assert.Equal(1, noOp.GetProperty("version").GetInt32()); Assert.False(noOp.TryGetProperty("musicPreferences", out _));
+        var edit = original.DeepClone().AsObject(); edit["musicPreferences"] = new JsonArray("rock", "pagode");
+        var saved = JsonNode.Parse((await Read(await client.PutAsJsonAsync(path, edit))).GetRawText())!.AsObject();
+        Assert.Equal(2, saved["version"]!.GetValue<int>());
+        var omitted = saved.DeepClone().AsObject(); omitted.Remove("musicPreferences"); omitted["name"] = "Grupo corrigido";
+        saved = JsonNode.Parse((await Read(await client.PutAsJsonAsync(path, omitted))).GetRawText())!.AsObject();
+        Assert.Equal(new[] { "rock", "pagode" }, saved["musicPreferences"]!.AsArray().Select(x => x!.GetValue<string>()));
+        Assert.Equal(original["monthlyAmount"]!.ToJsonString(), saved["monthlyAmount"]!.ToJsonString());
+        Assert.True(JsonNode.DeepEquals(original["members"], saved["members"]));
+        Assert.True(JsonNode.DeepEquals(original["organizerId"], saved["organizerId"]));
+        saved["musicPreferences"] = new JsonArray();
+        var cleared = await client.PutAsJsonAsync(path, saved); Assert.Equal(HttpStatusCode.OK, cleared.StatusCode);
+        Assert.Empty((await Read(cleared)).GetProperty("musicPreferences").EnumerateArray());
+        var fetched = (await Read(await client.GetAsync("/api/v1/operations/rentalGroups"))).EnumerateArray().Single(x => RentalGroupRules.Id(x) == Guid.Parse(original["id"]!.ToString()));
+        Assert.Empty(fetched.GetProperty("musicPreferences").EnumerateArray());
+    }
+    [PostgresFact]
+    public async Task Invalid_music_cannot_change_the_group_or_advance_its_version()
+    {
+        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory);
+        client.DefaultRequestHeaders.Authorization = Header("Manager"); var original = await Setup(client);
+        var path = $"/api/v1/operations/rentalGroups/{original["id"]}";
+        foreach (var json in new[] { "null", "\"rock\"", "[1]", "[null]", "[\"rock\",\"rock\"]", "[\"unknown\"]" })
+        {
+            var invalid = original.DeepClone().AsObject(); invalid["musicPreferences"] = JsonNode.Parse(json);
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(path, invalid)).StatusCode);
+        }
+        var fetched = (await Read(await client.GetAsync("/api/v1/operations/rentalGroups"))).EnumerateArray().Single(x => RentalGroupRules.Id(x) == Guid.Parse(original["id"]!.ToString()));
+        Assert.Equal(1, fetched.GetProperty("version").GetInt32()); Assert.False(fetched.TryGetProperty("musicPreferences", out _));
+    }
+    [PostgresFact]
+    public async Task Concurrent_music_edits_conflict_instead_of_overwriting_each_other()
+    {
+        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory);
+        client.DefaultRequestHeaders.Authorization = Header("Manager"); var original = await Setup(client);
+        var path = $"/api/v1/operations/rentalGroups/{original["id"]}";
+        var rock = original.DeepClone().AsObject(); rock["musicPreferences"] = new JsonArray("rock");
+        var pagode = original.DeepClone().AsObject(); pagode["musicPreferences"] = new JsonArray("pagode");
+        var writes = await Task.WhenAll(client.PutAsJsonAsync(path, rock), client.PutAsJsonAsync(path, pagode));
+        Assert.Single(writes, x => x.StatusCode == HttpStatusCode.OK); Assert.Single(writes, x => x.StatusCode == HttpStatusCode.Conflict);
+        var fetched = (await Read(await client.GetAsync("/api/v1/operations/rentalGroups"))).EnumerateArray().Single(x => RentalGroupRules.Id(x) == Guid.Parse(original["id"]!.ToString()));
+        Assert.Equal(2, fetched.GetProperty("version").GetInt32()); Assert.Single(fetched.GetProperty("musicPreferences").EnumerateArray());
+    }
+    [PostgresFact]
+    public async Task Reception_edits_music_without_financial_access_and_clients_or_teachers_cannot_edit_it()
+    {
+        await using var factory = Factory(); using var client = factory.CreateClient(); await Migrate(factory);
+        client.DefaultRequestHeaders.Authorization = Header("Manager"); var original = await Setup(client);
+        var path = $"/api/v1/operations/rentalGroups/{original["id"]}";
+        foreach (var role in new[] { "Student", "Teacher" })
+        {
+            client.DefaultRequestHeaders.Authorization = Header(role);
+            Assert.Equal(HttpStatusCode.Forbidden, (await client.PutAsJsonAsync(path, original)).StatusCode);
+        }
+        client.DefaultRequestHeaders.Authorization = Header("Operations", "projects:read", "projects:write");
+        var redacted = (await Read(await client.GetAsync("/api/v1/operations/rentalGroups"))).EnumerateArray().Single(x => RentalGroupRules.Id(x) == Guid.Parse(original["id"]!.ToString()));
+        var edit = JsonNode.Parse(redacted.GetRawText())!.AsObject(); edit["musicPreferences"] = new JsonArray("rock", "pop");
+        Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync(path, edit)).StatusCode);
+        client.DefaultRequestHeaders.Authorization = Header("Manager");
+        var fetched = (await Read(await client.GetAsync("/api/v1/operations/rentalGroups"))).EnumerateArray().Single(x => RentalGroupRules.Id(x) == Guid.Parse(original["id"]!.ToString()));
+        Assert.Equal(400, fetched.GetProperty("monthlyAmount").GetDecimal()); Assert.Equal(100, fetched.GetProperty("extraAmount").GetDecimal());
+        Assert.Equal(new[] { "rock", "pop" }, fetched.GetProperty("musicPreferences").EnumerateArray().Select(x => x.GetString()));
+    }
 }

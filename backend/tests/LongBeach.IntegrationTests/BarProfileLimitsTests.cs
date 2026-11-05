@@ -18,7 +18,7 @@ public sealed class BarProfileLimitsTests
         foreach (var action in new[]
         {
             ("POST", $"/sales/{id}/discount"), ("POST", $"/sales/{id}/courtesy"),
-            ("POST", $"/sales/{id}/refund"), ("POST", $"/tabs/{id}/adjustments"),
+            ("POST", $"/sales/{id}/refund"), ("POST", $"/tabs/{id}/adjustments"), ("POST", $"/tabs/{id}/cancel"),
             ("POST", $"/tabs/{id}/payments/{id}/refund"), ("POST", $"/tabs/{id}/items/{id}/reverse"),
             ("DELETE", $"/products/{id}?version=1"), ("PUT", $"/products/{id}"), ("PUT", $"/products/{id}/stock"), ("PUT", "/stock/available"),
             ("POST", "/stock/transfers"), ("POST", "/counts"), ("POST", $"/counts/{id}/approve"),

@@ -81,6 +81,7 @@ public sealed class BarAuthorizationTests
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/payments")]
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/access")]
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/access/revoke")]
+    [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/cancel")]
     [InlineData("/api/v1/bar/menu/publish")]
     [InlineData("/api/v1/bar/recipes")]
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/adjustments")]

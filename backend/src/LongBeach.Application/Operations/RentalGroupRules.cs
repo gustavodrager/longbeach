@@ -17,6 +17,8 @@ public static class RentalGroupRules
     public static JsonElement[] Members(JsonElement group) => group.TryGetProperty("members", out var members) && members.ValueKind == JsonValueKind.Array ? members.EnumerateArray().ToArray() : [];
     public static string? ValidateGroup(JsonElement body, IReadOnlyDictionary<string, JsonElement[]> records)
     {
+        var musicError = RentalMusicPreferences.Validate(body);
+        if (musicError is not null) return musicError;
         var courts = records.GetValueOrDefault("courts", []);
         var court = courts.FirstOrDefault(row => Id(row) == Id(body, "courtId"));
         if (court.ValueKind == JsonValueKind.Undefined) return "Escolha uma quadra cadastrada.";

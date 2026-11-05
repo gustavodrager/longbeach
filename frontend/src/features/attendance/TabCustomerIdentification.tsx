@@ -47,7 +47,7 @@ function IdentificationForm({ tab, disabled }: { tab: Tab; disabled: boolean }) 
       }
     } finally { request.current = false }
   }
-  return <section className="ux-panel" aria-label="Identificação do cliente">
+  return <section className="ux-panel lb-customer-identification" aria-label="Identificação do cliente">
     <h2>Cliente identificado</h2><p>{tab.customer?.name ?? 'Atendimento sem cliente identificado'}</p>
     {tab.customer?.incomplete && <p className="ux-note">Telefone pendente no cadastro anterior. O atendimento continua disponível.</p>}
     <Feedback {...command} />

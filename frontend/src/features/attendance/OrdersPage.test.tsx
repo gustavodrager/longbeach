@@ -20,14 +20,14 @@ afterEach(() => { clients.splice(0).forEach(client => client.clear()); sessionSt
 it('agrupa produtos por comanda e aplica busca/filtro antes da paginação sem perder o contexto', async () => {
   const mock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => json({ items: [tab()], page: 1, pageSize: 24, total: 25 }))
   mount(); await screen.findByRole('region', { name: 'Pedidos da comanda 104' })
-  expect(screen.getAllByRole('link', { name: 'Comanda 104 Mesa teste' })).toHaveLength(1)
+  expect(screen.getAllByRole('link', { name: 'Comanda 104 - Mesa teste' })).toHaveLength(1)
   expect(screen.getAllByRole('article')).toHaveLength(2)
   fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Produto' } })
   fireEvent.click(screen.getByRole('button', { name: 'A aceitar' }))
   await waitFor(() => expect(mock.mock.calls.some(([url]) => String(url).includes('search=Produto&orderState=Requested'))).toBe(true))
   fireEvent.click(await screen.findByRole('button', { name: 'Próxima' }))
   await waitFor(() => expect(mock.mock.calls.some(([url]) => String(url).includes('page=2&pageSize=24&search=Produto&orderState=Requested'))).toBe(true))
-  expect((await screen.findByRole('link', { name: 'Comanda 104 Mesa teste' })).getAttribute('href')).toContain('busca%3DProduto')
+  expect((await screen.findByRole('link', { name: 'Comanda 104 - Mesa teste' })).getAttribute('href')).toContain('busca%3DProduto')
 })
 
 it('recusa no contexto, foca motivo e limpa o texto ao cancelar ou trocar de item', async () => {
@@ -35,7 +35,7 @@ it('recusa no contexto, foca motivo e limpa o texto ao cancelar ou trocar de ite
   mount(); const a = within(await screen.findByRole('article', { name: '1 × Produto a' })); const b = within(screen.getByRole('article', { name: '1 × Produto b' }))
   fireEvent.click(a.getByRole('button', { name: 'Recusar' }))
   expect(a.getByLabelText('Motivo da recusa')).toHaveFocus()
-  expect(a.getByText('Recusar 1 × Produto a · Comanda 104')).toBeInTheDocument()
+  expect(a.getByText('Recusar 1 × Produto a · Comanda 104 - Mesa teste')).toBeInTheDocument()
   fireEvent.change(a.getByLabelText('Motivo da recusa'), { target: { value: 'Sem produto' } })
   fireEvent.click(b.getByRole('button', { name: 'Recusar' }))
   expect(b.getByLabelText('Motivo da recusa')).toHaveValue('')
@@ -104,3 +104,9 @@ it('consulta sem permissão de operação não oferece ações', async () => {
   expect(screen.queryByRole('button', { name: 'Aceitar' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Recusar' })).not.toBeInTheDocument()
 })
+
+it('identifica o cliente no cabeçalho do grupo sem usar o responsável de outra pessoa',async()=>{
+ vi.spyOn(globalThis,'fetch').mockResolvedValue(json({items:[{...tab(),number:1,customer:{id:'customer-a',name:' Cliente  Exemplo ',incomplete:false},responsible:{id:'payer',name:'Outra pessoa'}}],total:1}));
+ mount();expect(await screen.findByRole('heading',{level:2,name:'Comanda 01 - Cliente Exemplo'})).toBeInTheDocument();
+ expect(screen.queryByRole('heading',{name:/Outra pessoa/})).not.toBeInTheDocument();
+});

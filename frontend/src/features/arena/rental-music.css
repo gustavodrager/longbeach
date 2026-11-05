@@ -1,0 +1,11 @@
+.rental-music-field { border:0; padding:0; margin:20px 0; min-width:0; }
+.rental-music-field legend { font-size:16px; font-weight:700; padding:0; margin-bottom:8px; }
+.rental-music-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px 12px; }
+.rental-music-options label { display:flex; align-items:center; gap:8px; min-width:0; min-height:48px; overflow-wrap:anywhere; cursor:pointer; }
+.rental-music-options input { flex:none; width:20px; height:20px; margin:0; }
+.rental-music-options input:focus-visible { outline:3px solid var(--accent,#b18313); outline-offset:3px; }
+.rental-music-summary { margin:16px 0; min-width:0; }
+.rental-music-summary h3 { font-size:16px; margin:0 0 8px; }
+.rental-music-summary ul { display:flex; flex-wrap:wrap; gap:6px; padding:0; margin:0; list-style:none; }
+.rental-music-summary li { padding:5px 9px; border:1px solid var(--line,#ded6c7); border-radius:8px; font-size:14px; overflow-wrap:anywhere; }
+@media(max-width:700px) { .rental-music-options { grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px 8px; } }

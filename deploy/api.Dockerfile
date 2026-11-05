@@ -16,7 +16,7 @@ COPY backend/src/ src/
 # A new schema requires a reviewed compatibility label update; build args cannot override it.
 RUN migrations="$(sed -n 's/^[[:space:]]*\[Migration("\([^"]*\)")\].*/\1/p' src/LongBeach.Infrastructure/Persistence/Migrations/*.cs | LC_ALL=C sort)" \
     && migration_sha256="$(printf '%s\n' "$migrations" | sha256sum | cut -d ' ' -f 1)" \
-    && test "$migration_sha256" = "d1d754abe912b9141e43d7639d468c504f752d489cc7e0e224573bac29c69e44"
+    && test "$migration_sha256" = "cb2c806d612a3c32ce18b2cfdae79b26a4640f71475d9a7c2c9ffec8971048fd"
 RUN dotnet publish src/LongBeach.Api/LongBeach.Api.csproj \
     --configuration Release \
     --no-restore \
@@ -26,9 +26,9 @@ RUN dotnet publish src/LongBeach.Api/LongBeach.Api.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 LABEL com.longbeach.api.customer-registry="v1" \
     com.longbeach.api.staff-access="v1" \
-    com.longbeach.api.schema.migration-count="34" \
-    com.longbeach.api.schema.latest="20261105215807_BarProductSaleAvailability" \
-    com.longbeach.api.schema.migrations-sha256="d1d754abe912b9141e43d7639d468c504f752d489cc7e0e224573bac29c69e44"
+    com.longbeach.api.schema.migration-count="35" \
+    com.longbeach.api.schema.latest="20261105223240_BarTabCancellation" \
+    com.longbeach.api.schema.migrations-sha256="cb2c806d612a3c32ce18b2cfdae79b26a4640f71475d9a7c2c9ffec8971048fd"
 WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:8080 \
     DOTNET_EnableDiagnostics=0

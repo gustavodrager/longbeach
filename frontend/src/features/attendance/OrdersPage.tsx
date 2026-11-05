@@ -1,3 +1,4 @@
+import { tabTitle } from './tabTitle'
 import { hasPermission, hasStaffAction } from '../auth/access'
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -56,7 +57,7 @@ export function OrdersPage() {
       void cache.invalidateQueries({ queryKey: ['bar'], refetchType: 'none' })
       setProgress(current => ({ ...current, [item.id]: { busy: false } }))
       setRefusing(current => current === item.id ? null : current)
-      setMessage(`${item.quantity} × ${item.name} · Comanda ${tab.number}: ${name === 'accept' ? 'pedido aceito.' : name === 'fulfill' ? 'entrega confirmada.' : 'pedido recusado.'}`)
+      setMessage(`${item.quantity} × ${item.name} · ${tabTitle(tab)}: ${name === 'accept' ? 'pedido aceito.' : name === 'fulfill' ? 'entrega confirmada.' : 'pedido recusado.'}`)
       return true
     } catch (cause) {
       setProgress(current => ({ ...current, [item.id]: { busy: false, error: cause instanceof ApiError ? cause.message : 'Não foi possível confirmar. Tente novamente; o registro não será duplicado.', retry: { action: name, reason } } }))
@@ -73,9 +74,9 @@ export function OrdersPage() {
     <p className="ux-note">Mais antigos primeiro. A busca encontra comandas com o produto informado.</p>
     {message && <p className="ux-notice" role="status">{message}</p>}<LoadState query={query} />
     <div className="lb-orders-groups">{groups.map(({ tab, items }) => <section className="ux-panel lb-orders-group" key={tab.id} aria-label={`Pedidos da comanda ${tab.number}`}>
-      <Link className="lb-order-comanda" to={`/atendimento/comandas/${tab.id}?retorno=${encodeURIComponent(`/atendimento/pedidos${params.size ? `?${params}` : ''}`)}`}><span>Comanda <strong>{tab.number}</strong></span><h2>{tab.name || 'Visitante'}<Icon name="arrow" /></h2></Link>
+      <Link className="lb-order-comanda" to={`/atendimento/comandas/${tab.id}?retorno=${encodeURIComponent(`/atendimento/pedidos${params.size ? `?${params}` : ''}`)}`}><h2>{tabTitle(tab)}<Icon name="arrow" /></h2></Link>
       {tab.notes && <p className="lb-item-notes">{tab.notes}</p>}
-      {items.map(item => <OrderRow key={item.id} item={item} tab={tab} now={now} progress={progress[item.id]} canOperate={Boolean(canOperate) && !query.isError} refusing={refusing === item.id} onRefuse={() => setRefusing(item.id)} onCancel={() => setRefusing(null)} onAction={(name, reason) => action(tab, item, name, reason)} />)}
+      {items.map(item => <OrderRow key={item.id} item={item} tab={tab} now={now} progress={progress[item.id]} canOperate={Boolean(canOperate) && tab.state === 'Open' && !query.isError} refusing={refusing === item.id} onRefuse={() => setRefusing(item.id)} onCancel={() => setRefusing(null)} onAction={(name, reason) => action(tab, item, name, reason)} />)}
     </section>)}</div>
     {!query.isError && !query.isLoading && !groups.length && <Empty title={search || state ? 'Nenhum pedido nesta seleção' : 'Nenhum pedido aguardando'}>{(search || state) && <button className="ux-button secondary" onClick={() => filters({ busca: '', situacao: '', pagina: '1' })}>Limpar filtros</button>}</Empty>}
     {data && (data.total > 24 || page > 1) && <div className="ux-pagination"><button className="ux-button secondary" disabled={page === 1} onClick={() => filters({ pagina: String(page - 1) })}>Anterior</button><span>{data.total} comandas · Página {page}</span><button className="ux-button secondary" disabled={page * 24 >= data.total} onClick={() => filters({ pagina: String(page + 1) })}>Próxima</button></div>}
@@ -93,14 +94,14 @@ function OrderRow({ item, tab, now, progress, canOperate, refusing, onRefuse, on
     {canOperate && <div className="ux-actions lb-order-actions">{item.allowedActions?.includes('accept') && <button className="ux-button primary" disabled={blocked} onClick={() => void onAction('accept')}>Aceitar</button>}{item.allowedActions?.includes('reject') && <button ref={refuseButton} className="ux-button danger" disabled={blocked} onClick={onRefuse}>Recusar</button>}{item.allowedActions?.includes('fulfill') && <button className="ux-button primary" disabled={blocked} onClick={() => void onAction('fulfill')}>Entregar</button>}</div>}
     {progress?.busy && <p role="status">{actionLabels[progress.retry!.action]}</p>}
     {progress?.error && <div className="ux-notice error" role="alert"><p>{progress.error}</p><button className="ux-button secondary" disabled={blocked} onClick={() => void onAction(progress.retry!.action, progress.retry!.reason)}>Tentar novamente</button></div>}
-    {refusing && item.allowedActions?.includes('reject') && <RefusalForm item={item} number={tab.number} busy={Boolean(blocked)} onSubmit={reason => onAction('reject', reason)} onCancel={() => { onCancel(); refuseButton.current?.focus() }} />}
+    {refusing && item.allowedActions?.includes('reject') && <RefusalForm item={item} title={tabTitle(tab)} busy={Boolean(blocked)} onSubmit={reason => onAction('reject', reason)} onCancel={() => { onCancel(); refuseButton.current?.focus() }} />}
   </article>
 }
 
-function RefusalForm({ item, number, busy, onSubmit, onCancel }: { item: TabItem; number: number; busy: boolean; onSubmit: (reason: string) => unknown; onCancel: () => void }) {
+function RefusalForm({ item, title, busy, onSubmit, onCancel }: { item: TabItem; title: string; busy: boolean; onSubmit: (reason: string) => unknown; onCancel: () => void }) {
   const [reason, setReason] = useState('')
   return <form className="lb-order-refusal" aria-label={`Recusar ${item.name}`} onSubmit={event => { event.preventDefault(); if (reason.trim().length >= 3) onSubmit(reason.trim()) }}>
-    <strong>Recusar {item.quantity} × {item.name} · Comanda {number}</strong>
+    <strong>Recusar {item.quantity} × {item.name} · {title}</strong>
     <label className="ux-field">Motivo da recusa<input autoFocus required minLength={3} maxLength={500} value={reason} disabled={busy} onChange={event => setReason(event.target.value)} /></label>
     <div className="ux-actions"><button className="ux-button danger" disabled={busy || reason.trim().length < 3}>Confirmar recusa</button><button className="ux-button secondary" type="button" disabled={busy} onClick={onCancel}>Cancelar</button></div>
   </form>

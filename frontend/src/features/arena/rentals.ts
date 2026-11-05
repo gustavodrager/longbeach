@@ -1,8 +1,10 @@
+import type { RentalMusicGenre } from './rentalMusic'
+
 export type RentalMember = { customerId?: string | null; id: string; name: string; phone: string; status: 'Ativo' | 'Inativo' }
 export type RentalGroup = {
   id: string; version?: number; costsVisible?: boolean; name: string; sport: string; courtId: string; weekDay: number; startTime: string; endTime: string
   startDate: string; endDate: string; status: 'Ativo' | 'Pausado' | 'Encerrado'; capacity: number | null; organizerId: string; backupId: string; members: RentalMember[]
-  monthlyAmount: number | null; dueDay: number | null; fifthPolicy: 'A confirmar' | 'Incluído' | 'Extra'; extraAmount: number | null; notes: string
+  monthlyAmount: number | null; dueDay: number | null; fifthPolicy: 'A confirmar' | 'Incluído' | 'Extra'; extraAmount: number | null; notes: string; musicPreferences?: RentalMusicGenre[]
 }
 export type RentalMonth = { id: string; version: number; costsVisible?: boolean; name: string; rentalGroupId: string; month: string; dates: string[]; amount: number | null; dueDate: string; createCharge: boolean; members: Pick<RentalMember, 'id' | 'name'>[] }
 export type RentalAttendance = { id: string; version?: number; name: string; rentalGroupId: string; reservationId: string; memberId: string; status: 'Presente' | 'Ausente' | 'Não informado' }

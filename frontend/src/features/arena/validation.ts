@@ -1,3 +1,4 @@
+import { validRentalMusicPreferences } from './rentalMusic'
 import type { RentalGroup, RentalAttendance } from './rentals'
 import { allocationError } from '../finance/businessUnits'
 import { receiptError } from '../finance/receiptSources'
@@ -17,6 +18,8 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
   if (kind === 'rentalMonths') return 'Gere a competência na área de mensalistas conectada à arena.'
   if (kind === 'rentalGroups') {
+    const music = (input as RentalGroup).musicPreferences
+    if (music !== undefined && !validRentalMusicPreferences(music)) return 'Confira as preferências musicais, sem repetir estilos.'
     const group = input as RentalGroup, court = data.courts.find(c => c.id === group.courtId)
     if (!court || !validWeekDay(group.weekDay) || !validTime(group.startTime) || !validTime(group.endTime, true) || group.startTime >= group.endTime || group.startTime < court.openingTime || group.endTime > court.closingTime) return 'Confira o dia e o horário dentro do funcionamento da quadra.'
     if (!group.name.trim() || !validDate(group.startDate) || group.endDate && (!validDate(group.endDate) || group.endDate < group.startDate)) return 'Confira o nome e as datas do acordo.'

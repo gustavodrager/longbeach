@@ -289,3 +289,44 @@ it('limpar seleção temporária no editor individual preserva telefone e identi
  const fixture=editableFixture();fixture.tables.rentalGroups[0].members=[{...group.members[0],phone:'5511988887777'},group.members[1]]
  start(`/mensalistas/${groupId}`);fireEvent.click(await screen.findByRole('button',{name:'Integrantes'}));fireEvent.click(screen.getAllByRole('button',{name:'Editar integrante'})[0]);fireEvent.change(screen.getByRole('searchbox',{name:'Buscar cliente do integrante'}),{target:{value:'Pessoa'}});fireEvent.click(await screen.findByRole('button',{name:'Pessoa B corrigida · Telefone pendente · Cadastro incompleto · Ref. CLIENTB'}));fireEvent.click(screen.getByRole('button',{name:'Continuar sem identificar'}));fireEvent.change(screen.getByLabelText('Função no grupo'),{target:{value:'Suplente'}});fireEvent.click(screen.getByRole('button',{name:'Salvar integrante'}));await screen.findByText('Integrante atualizado.');expect((fixture.saved[0].body.members as typeof group.members)[0]).toMatchObject({id:'a',name:'Pessoa A',phone:'5511988887777'});expect(fixture.tables.rentalMonths[0].members).toEqual(group.members)
 })
+
+
+it.each(['novo','principal','rápido'] as const)('salva várias preferências musicais no editor %s', async scene => {
+  const writes: RentalGroup[] = []; const rows = scene === 'novo' ? [] : [{...group,musicPreferences:['pop' as const]}]
+  vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{
+    const path=String(input)
+    if(init?.method==='PUT'){const saved={...JSON.parse(String(init.body)),version:2};writes.push(saved);return json(saved)}
+    return json(path.endsWith('/courts')?[court]:path.endsWith('/rentalGroups')?rows:[])
+  })
+  start(scene==='novo'?'/mensalistas/novo':scene==='principal'?`/mensalistas/${groupId}`:'/mensalistas')
+  if(scene==='novo'){
+    await screen.findByRole('option',{name:'Quadra 1'});fireEvent.change(screen.getByLabelText('Nome do grupo'),{target:{value:'Grupo musical'}});fireEvent.change(screen.getByLabelText('Quadra'),{target:{value:courtId}})
+  }else fireEvent.click(await screen.findByRole('button',{name:scene==='principal'?'Editar dados e horário':'Editar'}))
+  expect(await screen.findByRole('group',{name:'Preferências musicais (opcional)'})).toBeInTheDocument()
+  if(scene!=='novo')expect(screen.getByRole('checkbox',{name:'Pop'})).toBeChecked()
+  fireEvent.click(screen.getByRole('checkbox',{name:'Rock'}));fireEvent.click(screen.getByRole('checkbox',{name:'Pagode'}));fireEvent.click(screen.getByRole('button',{name:'Salvar grupo'}))
+  await waitFor(()=>expect(writes).toHaveLength(1))
+  expect(writes[0].musicPreferences).toEqual(scene==='novo'?['rock','pagode']:['rock','pop','pagode'])
+  if(scene!=='novo')expect(writes[0]).toMatchObject({monthlyAmount:500,members:group.members,organizerId:group.organizerId})
+})
+it('limpa preferências explicitamente e preserva a edição durante uma falha',async()=>{
+  let fail=true;const writes:RentalGroup[]=[];const rows=[{...group,musicPreferences:['rock' as const,'pagode' as const]}]
+  vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{
+    if(init?.method==='PUT'){const body=JSON.parse(String(init.body));writes.push(body);if(fail)return json({message:'Não foi possível salvar.'},503);rows[0]={...body,version:2};return json(rows[0])}
+    return json(String(input).endsWith('/courts')?[court]:String(input).endsWith('/rentalGroups')?rows:[])
+  })
+  start(`/mensalistas/${groupId}`);expect(await screen.findByRole('region',{name:'Preferências musicais'})).toHaveTextContent('RockPagode')
+  fireEvent.click(screen.getByRole('button',{name:'Editar dados e horário'}));fireEvent.click(screen.getByRole('checkbox',{name:'Rock'}));fireEvent.click(screen.getByRole('checkbox',{name:'Pagode'}));fireEvent.click(screen.getByRole('button',{name:'Salvar grupo'}))
+  await screen.findByRole('alert');expect(screen.getByRole('checkbox',{name:'Rock'})).not.toBeChecked();expect(screen.getByRole('checkbox',{name:'Pagode'})).not.toBeChecked()
+  fail=false;fireEvent.click(screen.getByRole('button',{name:'Salvar grupo'}));await waitFor(()=>expect(writes).toHaveLength(2))
+  expect(writes.every(row=>row.musicPreferences?.length===0)).toBe(true)
+  await waitFor(()=>expect(screen.queryByRole('group',{name:'Preferências musicais (opcional)'})).not.toBeInTheDocument())
+  expect(screen.queryByRole('region',{name:'Preferências musicais'})).not.toBeInTheDocument()
+})
+it('consulta os estilos selecionados sem oferecer edição a quem só pode ler mensalistas',async()=>{
+  vi.spyOn(globalThis,'fetch').mockImplementation(async input=>json(String(input).endsWith('/courts')?[court]:String(input).endsWith('/rentalGroups')?[{...group,musicPreferences:['rock','pagode']}]:[]))
+  start(`/mensalistas/${groupId}`,['projects:read'])
+  expect(await screen.findByRole('region',{name:'Preferências musicais'})).toHaveTextContent('RockPagode')
+  expect(screen.queryByRole('button',{name:'Editar dados e horário'})).not.toBeInTheDocument()
+  expect(screen.queryByRole('checkbox',{name:'Rock'})).not.toBeInTheDocument()
+})

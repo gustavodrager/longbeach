@@ -9,6 +9,7 @@ import { MyCashPage } from './CashPage'
 import { OnlinePaymentRecoveryPage } from './OnlinePaymentRecoveryPage'
 import { ReceivePage, ReceiptPage } from './PaymentPages'
 import { ClientPage } from './ClientPage'
+import { ReceiveHomePage } from './ReceiveHomePage'
 import { BarReportPage } from './ReportPages'
 import { reportPeriod, reportPeriodError } from './reportPeriod'
 import { BarArenaMetrics } from './BarArenaMetrics'
@@ -39,7 +40,7 @@ const clients:QueryClient[]=[]
 function mount(path:string,user=actor,realReceipt=false,staleTime=0){
   const query=new QueryClient({defaultOptions:{queries:{retry:false,staleTime},mutations:{retry:false}}});clients.push(query)
   const auth:AuthContextValue={user,isBootstrapping:false,signIn:async()=>{},signInWithGoogle:async()=>{},signOut:async()=>{},changePassword:async()=>{}, completeFirstAccessWithGoogle: async () => {}}
-  render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<BarArenaMetrics from="2026-10-01" to="2026-10-04" />} /><Route path="/bar/indicadores/:metric" element={<BarReportPage />} /><Route path="/atendimento/pedidos" element={<OrdersPage />} /><Route path="/atendimento/caixa" element={<MyCashPage />} /><Route path="/atendimento/vender" element={<SellPage />} /><Route path="/atendimento/comandas" element={<TabsPage />} /><Route path="/atendimento/comandas/:tabId" element={<TabDetailsPage />} /><Route path="/atendimento/receber/:tabId" element={<ReceivePage />} /><Route path="/atendimento/pagamento-online/:tabId/:paymentId" element={<OnlinePaymentRecoveryPage />} /><Route path="/atendimento/comprovante/:tabId/:paymentId" element={realReceipt ? <ReceiptPage /> : <h1>Comprovante recebido</h1>} /><Route path="/cliente" element={<ClientPage />} /></Routes></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
+  render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<BarArenaMetrics from="2026-10-01" to="2026-10-04" />} /><Route path="/bar/indicadores/:metric" element={<BarReportPage />} /><Route path="/atendimento/pedidos" element={<OrdersPage />} /><Route path="/atendimento/caixa" element={<MyCashPage />} /><Route path="/atendimento/vender" element={<SellPage />} /><Route path="/atendimento/comandas" element={<TabsPage />} /><Route path="/atendimento/comandas/:tabId" element={<TabDetailsPage />} /><Route path="/atendimento/receber" element={<ReceiveHomePage />} /><Route path="/atendimento/receber/:tabId" element={<ReceivePage />} /><Route path="/atendimento/pagamento-online/:tabId/:paymentId" element={<OnlinePaymentRecoveryPage />} /><Route path="/atendimento/comprovante/:tabId/:paymentId" element={realReceipt ? <ReceiptPage /> : <h1>Comprovante recebido</h1>} /><Route path="/cliente" element={<ClientPage />} /></Routes></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
   return query
 }
 beforeEach(()=>{sessionStorage.clear();localStorage.clear();setAccessToken(null);setCsrfToken(null)})
@@ -56,7 +57,8 @@ it('permite alterar quantidade e impede adicionar produto esgotado ou acima do e
   fireEvent.click(screen.getByRole('button',{name:'Retirar uma unidade de Água'}))
   fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}))
   expect(screen.getByText('1 × Água')).toBeInTheDocument()
-  expect(screen.getByRole('button',{name:'Entregar e receber'})).toBeEnabled()
+  expect(screen.getByRole('button',{name:'Salvar'})).toBeEnabled()
+  expect(screen.queryByRole('button',{name:'Enviar para preparo'})).not.toBeInTheDocument()
 })
 
 it('atendimento usa sempre Bar mesmo com Almoxarifado salvo e preserva o carrinho após recarregar',async()=>{
@@ -127,7 +129,7 @@ it('vende produtos sem controle; permite retirar um item esgotado do carrinho',a
   await act(async()=>{await query.invalidateQueries({queryKey:['bar-runtime']})})
   await waitFor(()=>expect(screen.getByRole('button',{name:'Adicionar uma unidade de Água'})).toBeDisabled())
   fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}))
-  fireEvent.click(screen.getByRole('button',{name:'Entregar e receber'}))
+  fireEvent.click(screen.getByRole('button',{name:'Salvar'}))
   expect(screen.getByRole('alert')).toHaveTextContent('O estoque mudou')
   expect(fetchMock.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0)
   fireEvent.click(screen.getByRole('button',{name:'Mais produtos'}))
@@ -146,17 +148,17 @@ it.each([false,true])('recupera pedido após resposta perdida e mudança no cat�
   const fetchMock=server(state);const query=mount('/atendimento/vender')
   fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}))
   fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}))
-  fireEvent.click(screen.getByRole('button',{name:'Entregar e receber'}))
+  fireEvent.click(screen.getByRole('button',{name:'Salvar'}))
   expect(await screen.findByRole('alert')).toHaveTextContent('Resposta perdida')
   await act(async()=>{await query.invalidateQueries({queryKey:['bar-runtime']})})
-  fireEvent.click(screen.getByRole('button',{name:'Entregar e receber'}))
+  fireEvent.click(screen.getByRole('button',{name:'Salvar'}))
   expect(await screen.findByRole('heading',{name:'Receber · Comanda 104'})).toBeInTheDocument()
   const writes=fetchMock.mock.calls.filter(([input,init])=>String(input).endsWith('/items')&&init?.method==='POST').map(([,init])=>JSON.parse(String(init?.body)))
   expect(writes).toHaveLength(2);expect(writes[1]).toEqual(writes[0])
 })
 
-it('envia venda pronta como Immediate no contrato real e entrega o consumo uma vez',async()=>{
-  const state:Server={tab:{...makeTab(),total:0,due:0,payable:0},pixEnabled:false}
+it.each([false,true])('salva venda avulsa como Immediate e abre o recebimento sem fila (preparado=%s)',async prepared=>{
+  const state:Server={tab:{...makeTab(),total:0,due:0,payable:0},pixEnabled:false,catalog:[{...products[0],prepared}]}
   state.post=(path,body)=>{
     if(path.endsWith('/tabs')){state.tab={...state.tab,mode:String(body.mode)};return json(state.tab)}
     if(path.endsWith('/tabs/tab-a/items')){state.tab={...state.tab,total:5,due:5,payable:5,items:[{id:'item-a',tabId:'tab-a',productId:'water',name:'Água',quantity:1,unitPrice:5,total:5,state:'Fulfilled',source:'Operator',createdAtUtc,allowedActions:[]}]};return json(state.tab)}
@@ -165,7 +167,9 @@ it('envia venda pronta como Immediate no contrato real e entrega o consumo uma v
   const fetchMock=server(state);mount('/atendimento/vender')
   fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}))
   fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}))
-  const submit=screen.getByRole('button',{name:'Entregar e receber'});act(()=>{fireEvent.click(submit);fireEvent.click(submit)})
+  expect(screen.queryByRole('button',{name:'Enviar para preparo'})).not.toBeInTheDocument()
+  expect(screen.getAllByRole('button',{name:'Salvar'})).toHaveLength(1)
+  const submit=screen.getByRole('button',{name:'Salvar'});act(()=>{fireEvent.click(submit);fireEvent.click(submit)})
   expect(await screen.findByRole('heading',{name:'Receber · Comanda 104'})).toBeInTheDocument()
   const writes=fetchMock.mock.calls.filter(([,init])=>init?.method==='POST')
   expect(writes).toHaveLength(2)
@@ -642,7 +646,7 @@ it('filtra todas e com pedidos no servidor sem descartar a busca',async()=>{
 it('fila mostra espera desde o aceite e retorna à mesma página',async()=>{
  const tab=makeTab();tab.items=[{id:'order-a',tabId:tab.id,productId:'water',name:'Água',quantity:1,unitPrice:5,total:5,state:'Accepted',source:'Attendant',createdAtUtc,acceptedAtUtc:'2026-10-04T16:00:00Z',allowedActions:['fulfill']}];server({tab,pixEnabled:false});
  mount('/atendimento/pedidos?pagina=2');await screen.findByText(/Aguardando entrega há/);
- fireEvent.click(screen.getByRole('link',{name:'Comanda 104 Visitante'}));await screen.findByRole('heading',{name:'Comanda 104'});
+ fireEvent.click(screen.getByRole('link',{name:'Comanda 104'}));await screen.findByRole('heading',{name:'Comanda 104'});
  expect(screen.getByRole('link',{name:'Voltar'})).toHaveAttribute('href','/atendimento/pedidos?pagina=2');
 })
 
@@ -650,14 +654,14 @@ it('identifica a comanda e o responsável na escolha e revisão e envia somente 
  const tab={...makeTab(),name:'Grupo de teste',responsible:{id:'customer-a',name:'Responsável Teste'}};
  const state:Server={tab,pixEnabled:false,post:()=>json(tab)};const requests=server(state);mount('/atendimento/vender?comanda=tab-a');
  const destination=await screen.findByRole('region',{name:'Destino do pedido'});
- expect(within(destination).getByRole('heading',{name:'Comanda 104 · Grupo de teste'})).toBeInTheDocument();
+ expect(within(destination).getByRole('heading',{name:'Comanda 104 - Grupo de teste'})).toBeInTheDocument();
  expect(within(destination).getByText('Responsável: Responsável Teste')).toBeInTheDocument();
  expect(within(destination).getByText(/Saldo atual/)).toHaveTextContent('12,50');
  fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}));
  expect(within(screen.getByRole('region',{name:'Destino do pedido'})).getByText('Responsável: Responsável Teste')).toBeInTheDocument();
  expect(screen.getByText('1 × Água')).toBeInTheDocument();
  fireEvent.click(screen.getByRole('button',{name:'Adicionar à comanda'}));
- expect(await screen.findByRole('heading',{name:'Comanda 104'})).toBeInTheDocument();
+ expect(await screen.findByRole('heading',{level:1,name:'Comanda 104 - Grupo de teste'})).toBeInTheDocument();
  const posts=requests.mock.calls.filter(([,init])=>init?.method==='POST');expect(posts).toHaveLength(1);
  expect(posts[0][0]).toBe('/api/v1/bar/tabs/tab-a/items');expect(JSON.parse(String(posts[0][1]?.body))).toMatchObject({items:[{productId:'water',quantity:1}],deliver:false});
  expect(localStorage.getItem(`lb-cart:${actor.id}:tab-a`)).toBe('[]');
@@ -676,10 +680,10 @@ it('transfere apenas o rascunho após confirmar o destino dentro da tela',async(
  const requests=server({tab:makeTab(),pixEnabled:false});mount('/atendimento/vender');
  fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));
  fireEvent.click(screen.getByRole('button',{name:'Escolher uma comanda'}));
- fireEvent.click(await screen.findByRole('button',{name:'Comanda 104 · Visitante'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Comanda 104'}));
  expect(localStorage.getItem(`lb-cart:${actor.id}:sale`)).toContain('water');
  fireEvent.click(screen.getByRole('button',{name:'Confirmar destino e mover rascunho'}));
- expect(await screen.findByRole('heading',{name:'Comanda 104 · Visitante'})).toBeInTheDocument();
+ expect(await screen.findByRole('heading',{name:'Comanda 104'})).toBeInTheDocument();
  expect(await screen.findByLabelText('Quantidade de Água')).toHaveTextContent('1');
  expect(localStorage.getItem(`lb-cart:${actor.id}:sale`)).toBeNull();
  expect(requests.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
@@ -703,7 +707,7 @@ it('falha ao atualizar a comanda bloqueia envio mesmo com dados anteriores em ca
  expect(await screen.findByRole('alert')).toHaveTextContent('Comanda indisponível.');
  expect(screen.queryByRole('region',{name:'Destino do pedido'})).not.toBeInTheDocument();
  expect(screen.queryByRole('button',{name:'Adicionar à comanda'})).not.toBeInTheDocument();
- expect(screen.queryByRole('button',{name:'Entregar e receber'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Salvar'})).not.toBeInTheDocument();
  expect(localStorage.getItem(`lb-cart:${actor.id}:tab-a`)).toBe('[{"productId":"water","quantity":1}]');
  expect(requests.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
 });
@@ -711,7 +715,7 @@ it('falha ao atualizar a comanda bloqueia envio mesmo com dados anteriores em ca
 
 it('recebimento identifica responsável e mostra saldo projetado sem considerar pendência como pago',async()=>{
  const state:Server={tab:{...makeTab(),name:'Grupo da manhã',responsible:{id:'person-a',name:'Responsável teste'},total:100,due:100,payable:80,pending:20},pixEnabled:false};server(state);mount('/atendimento/receber/tab-a');
- expect(await screen.findByRole('heading',{name:'Comanda 104 · Grupo da manhã'})).toBeInTheDocument();
+ expect(await screen.findByRole('heading',{name:'Comanda 104 - Grupo da manhã'})).toBeInTheDocument();
  fireEvent.click(screen.getByRole('button',{name:'Receber uma parte'}));fireEvent.change(screen.getByLabelText('Valor desta parte (R$)'),{target:{value:'30'}});fireEvent.click(screen.getByRole('button',{name:'Dinheiro'}));
  expect(screen.getAllByText(/Responsável: Responsável teste/)).toHaveLength(2);
  expect(screen.getByText(/Após a confirmação/)).toHaveTextContent(/70,00.*inclui pagamentos que ainda aguardam/);
@@ -756,7 +760,7 @@ it('encerramento confirma a comanda e repete a mesma operação após resposta p
  state.post=(path)=>{expect(path).toContain('/tabs/tab-a/close');attempts++;if(attempts===1)return json({detail:'Resposta perdida'},502);state.tab={...state.tab,state:'Closed',closedAtUtc:createdAtUtc,allowedActions:[],history:[{id:'close-a',kind:'Closed',amount:0,createdAtUtc}]};return json(state.tab)};
  const mock=server(state);mount('/atendimento/comprovante/tab-a/payment-a',actor,true);
  fireEvent.click(await screen.findByRole('button',{name:'Encerrar comanda'}));
- expect(screen.getByText(/Encerrar a comanda 104/)).toHaveTextContent('O acesso pelo QR será encerrado');
+ expect(screen.getByText(/Encerrar Comanda 104/)).toHaveTextContent('O acesso pelo QR será encerrado');
  fireEvent.click(screen.getByRole('button',{name:'Continuar atendimento'}));expect(mock.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
  fireEvent.click(screen.getByRole('button',{name:'Encerrar comanda'}));fireEvent.click(screen.getByRole('button',{name:'Confirmar encerramento'}));
  expect(await screen.findByRole('alert')).toHaveTextContent('Resposta perdida');
@@ -856,7 +860,7 @@ it('pagamento incerto sobrevive ao recarregamento e repete exatamente a mesma op
 it('destino com rascunho oferece retomada sem substituir nenhum dos pedidos',async()=>{
  localStorage.setItem(`lb-cart:${actor.id}:tab-a`,JSON.stringify([{productId:'water',quantity:2}]));
  server({tab:makeTab(),pixEnabled:false});mount('/atendimento/vender');fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));
- fireEvent.click(screen.getByRole('button',{name:'Escolher uma comanda'}));fireEvent.click(await screen.findByRole('button',{name:'Comanda 104 · Visitante'}));
+ fireEvent.click(screen.getByRole('button',{name:'Escolher uma comanda'}));fireEvent.click(await screen.findByRole('button',{name:'Comanda 104'}));
  expect(screen.queryByRole('button',{name:'Confirmar destino e mover rascunho'})).not.toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Retomar rascunho existente'}));
  expect(await screen.findByLabelText('Quantidade de Água')).toHaveTextContent('2');expect(JSON.parse(localStorage.getItem(`lb-cart:${actor.id}:sale`)!)).toEqual([{productId:'water',quantity:1}]);
 });
@@ -896,13 +900,13 @@ it('identificação cadastral opcional abre comanda sem criar responsável finan
  const bodies:Record<string,unknown>[]=[];const state:Server={tab:makeTab(),pixEnabled:false,customerLookups:[identified],post:(_,body)=>{bodies.push(body);state.tab.customer=identified;return json(state.tab)}}
  const calls=server(state);mount('/atendimento/comandas');fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));await chooseIdentified('Buscar cliente identificado')
  expect(screen.getByText('Acesso à comanda (opcional)',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');expect(calls.mock.calls.some(([url])=>String(url).includes('/tabs/customers?'))).toBe(false)
- fireEvent.click(screen.getByRole('button',{name:'Abrir sem vínculo financeiro'}));await screen.findByRole('heading',{name:'Comanda 104'});expect(bodies).toHaveLength(1);expect(bodies[0]).toMatchObject({customerId:identified.id,mode:'Tab'});expect(bodies[0]).not.toHaveProperty('responsibleUserId');expect(screen.getByText('Sem responsável vinculado à área do cliente.')).toBeInTheDocument();expect(screen.getByText(/Telefone pendente no cadastro anterior/)).toBeInTheDocument()
+ fireEvent.click(screen.getByRole('button',{name:'Abrir sem vínculo financeiro'}));await screen.findByRole('heading',{name:'Comanda 104 - Pessoa de exemplo'});expect(bodies).toHaveLength(1);expect(bodies[0]).toMatchObject({customerId:identified.id,mode:'Tab'});expect(bodies[0]).not.toHaveProperty('responsibleUserId');expect(screen.getByText('Sem responsável vinculado à área do cliente.')).toBeInTheDocument();expect(screen.getByText(/Telefone pendente no cadastro anterior/)).toBeInTheDocument()
 })
 it('venda avulsa preserva cliente e operação incerta após remontar sem vincular Google',async()=>{
  const opens:Record<string,unknown>[]=[];let fail=true
  server({tab:makeTab(),pixEnabled:false,customerLookups:[identified],post:(path,body)=>{if(path.endsWith('/tabs')){opens.push(body);if(fail)throw new TypeError('interrupted')}return json({...makeTab(),mode:'Immediate',customer:identified})}})
- let client=mount('/atendimento/vender');await chooseIdentified('Buscar cliente da venda');fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));cleanup();client.clear();client=mount('/atendimento/vender');await screen.findByText(identified.name);await screen.findByLabelText('Quantidade de Água');fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}));fireEvent.click(screen.getByRole('button',{name:'Entregar e receber'}));await screen.findByText(/Não foi possível confirmar esta operação/)
- cleanup();client.clear();fail=false;mount('/atendimento/vender');const retry=await screen.findByRole('button',{name:'Entregar e receber'});await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry);await waitFor(()=>expect(screen.getByTestId('route')).toHaveTextContent('/atendimento/receber/tab-a'));expect(opens).toHaveLength(2);expect(opens[1]).toEqual(opens[0]);expect(opens[0]).toMatchObject({customerId:identified.id,mode:'Immediate'});expect(opens[0]).not.toHaveProperty('responsibleUserId')
+ let client=mount('/atendimento/vender');await chooseIdentified('Buscar cliente da venda');fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));cleanup();client.clear();client=mount('/atendimento/vender');await screen.findByText(identified.name);await screen.findByLabelText('Quantidade de Água');fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}));fireEvent.click(screen.getByRole('button',{name:'Salvar'}));await screen.findByText(/Não foi possível confirmar esta operação/)
+ cleanup();client.clear();fail=false;mount('/atendimento/vender');const retry=await screen.findByRole('button',{name:'Salvar'});await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry);await waitFor(()=>expect(screen.getByTestId('route')).toHaveTextContent('/atendimento/receber/tab-a'));expect(opens).toHaveLength(2);expect(opens[1]).toEqual(opens[0]);expect(opens[0]).toMatchObject({customerId:identified.id,mode:'Immediate'});expect(opens[0]).not.toHaveProperty('responsibleUserId')
 })
 it('identificação antes de receber repete mesma intenção e versão após resposta interrompida',async()=>{
  const writes:Record<string,unknown>[]=[];const state:Server={tab:makeTab(),pixEnabled:false,customerLookups:[identified],put:(path,body)=>{expect(path).toBe('/api/v1/bar/tabs/tab-a/customer');writes.push(body);state.tab={...state.tab,version:3,customer:identified};if(writes.length===1)throw new TypeError('interrupted');return json(state.tab)}}
@@ -924,7 +928,7 @@ it('sem operação ou com pagamento pendente não oferece alterar identificaçã
 it('pedido anônimo pendente anterior ao cadastro único conserva identificadores operacionais',async()=>{
  const openId='11111111-1111-4111-8111-111111111111',addId='22222222-2222-4222-8222-222222222222';const writes:Record<string,unknown>[]=[]
  localStorage.setItem(`lb-cart:${actor.id}:sale`,JSON.stringify([{productId:'water',quantity:1}]));localStorage.setItem(`lb-confirmation:order:${actor.id}:sale`,'deliver');localStorage.setItem(`lb-operation:${actor.id}:cart:sale:open:bar-a:water:1`,openId);localStorage.setItem(`lb-operation:${actor.id}:cart:sale:add:bar-a:water:1:true`,addId)
- server({tab:makeTab(),pixEnabled:false,post:(_,body)=>{writes.push(body);return json(makeTab())}});mount('/atendimento/vender');const retry=await screen.findByRole('button',{name:'Entregar e receber'});await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry);await waitFor(()=>expect(writes).toHaveLength(2));expect(writes.map(w=>w.operationId)).toEqual([openId,addId]);expect(writes[0]).not.toHaveProperty('customerId')
+ server({tab:makeTab(),pixEnabled:false,post:(_,body)=>{writes.push(body);return json(makeTab())}});mount('/atendimento/vender');const retry=await screen.findByRole('button',{name:'Salvar'});await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry);await waitFor(()=>expect(writes).toHaveLength(2));expect(writes.map(w=>w.operationId)).toEqual([openId,addId]);expect(writes[0]).not.toHaveProperty('customerId')
 })
 
 
@@ -1033,8 +1037,81 @@ it.each(['atendente','cliente'] as const)('retira da venda após atualizar o cat
  fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}));
  expect(screen.getByText('1 × Produto indisponível')).toBeInTheDocument();
  if(scene==='cliente')fireEvent.click(screen.getByRole('button',{name:'Enviar pedido'}));
- else fireEvent.click(screen.getByRole('button',{name:'Enviar para preparo'}));
+ else fireEvent.click(screen.getByRole('button',{name:'Salvar'}));
  expect(screen.getByRole('alert')).toHaveTextContent(scene==='cliente'?'não está mais disponível':'O estoque mudou');
  expect(screen.getByText('1 × Produto indisponível')).toBeInTheDocument();
  expect(calls.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
+});
+
+
+it('mantém o preparo de uma comanda existente ao adicionar um produto preparado',async()=>{
+ const state:Server={tab:makeTab(),pixEnabled:false,catalog:[{...products[0],prepared:true}],post:()=>json(makeTab())};
+ const calls=server(state);mount('/atendimento/vender?comanda=tab-a');
+ fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}));
+ expect(screen.queryByRole('button',{name:'Salvar'})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Adicionar à comanda'}));
+ expect(await screen.findByRole('heading',{name:'Comanda 104'})).toBeInTheDocument();
+ const writes=calls.mock.calls.filter(([,init])=>init?.method==='POST');expect(writes).toHaveLength(1);
+ expect(writes[0][0]).toBe('/api/v1/bar/tabs/tab-a/items');expect(JSON.parse(String(writes[0][1]?.body))).toMatchObject({deliver:false});
+});
+
+it.each([false,true])('reenvia venda avulsa de fila anterior sem mudar deliver=false ou UUIDs (preparado=%s)',async prepared=>{
+ const openId='33333333-3333-4333-8333-333333333333',addId='44444444-4444-4444-8444-444444444444';const writes:Record<string,unknown>[]=[];
+ localStorage.setItem(`lb-cart:${actor.id}:sale`,JSON.stringify([{productId:'water',quantity:1}]));
+ localStorage.setItem(`lb-confirmation:order:${actor.id}:sale`,'queue');
+ localStorage.setItem(`lb-operation:${actor.id}:cart:sale:open:bar-a:water:1`,openId);
+ localStorage.setItem(`lb-operation:${actor.id}:cart:sale:add:bar-a:water:1:false`,addId);
+ server({tab:makeTab(),pixEnabled:false,catalog:[{...products[0],prepared}],post:(_,body)=>{writes.push(body);return json(makeTab())}});
+ mount('/atendimento/vender');const retry=await screen.findByRole('button',{name:'Salvar'});await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry);
+ expect(await screen.findByRole('heading',{name:'Comanda 104'})).toBeInTheDocument();
+ expect(writes.map(body=>body.operationId)).toEqual([openId,addId]);expect(writes[1]).toMatchObject({deliver:false,items:[{productId:'water',quantity:1}]});
+ expect(localStorage.getItem(`lb-confirmation:order:${actor.id}:sale`)).toBeNull();
+});
+
+it.each([
+ ['/atendimento/comandas/tab-a','Comanda 01 - Cliente Exemplo'],
+ ['/atendimento/receber/tab-a','Receber · Comanda 01 - Cliente Exemplo'],
+ ['/atendimento/vender?comanda=tab-a','Vender · Comanda 01 - Cliente Exemplo'],
+] as const)('mostra o cliente identificado no título do destino certo: %s',async(path,title)=>{
+ server({tab:{...makeTab(),number:1,name:'Grupo da tarde',customer:{id:'customer-gustavo',name:'  Cliente   Exemplo ',incomplete:false},responsible:{id:'other-payer',name:'Responsável diferente'}},pixEnabled:false});
+ mount(path);expect(await screen.findByRole('heading',{level:1,name:title})).toBeInTheDocument();
+ expect(screen.queryByRole('heading',{name:/Comanda.*Responsável diferente/})).not.toBeInTheDocument();
+});
+
+it('mostra somente número sem cliente e atualiza o título após identificar ou remover cliente',async()=>{
+ const state:Server={tab:{...makeTab(),number:1,name:''},pixEnabled:false};server(state);const query=mount('/atendimento/comandas/tab-a');
+ expect(await screen.findByRole('heading',{level:1,name:'Comanda 01'})).toBeInTheDocument();
+ state.tab={...state.tab,customer:{id:'new-person',name:' Cliente Exemplo ',incomplete:false}};
+ await act(async()=>{await query.invalidateQueries({queryKey:['bar-runtime']})});
+ expect(await screen.findByRole('heading',{level:1,name:'Comanda 01 - Cliente Exemplo'})).toBeInTheDocument();
+ state.tab={...state.tab,customer:null};await act(async()=>{await query.invalidateQueries({queryKey:['bar-runtime']})});
+ expect(await screen.findByRole('heading',{level:1,name:'Comanda 01'})).toBeInTheDocument();expect(screen.queryByRole('heading',{level:1,name:/Cliente Exemplo/})).not.toBeInTheDocument();
+});
+
+it('avulsa identificada mostra o nome sem inventar número e React mantém nomes como texto',async()=>{
+ const name='<Cliente & Exemplo>';
+ localStorage.setItem(`lb-confirmation:sale-customer-v1:${actor.id}:sale`,JSON.stringify({id:'safe-name-person',name}));
+ server({tab:makeTab(),pixEnabled:false});mount('/atendimento/vender');
+ expect(await screen.findByRole('heading',{level:1,name:'Vender - <Cliente & Exemplo>'})).toBeInTheDocument();
+ expect(screen.queryByRole('heading',{name:/Comanda 0/})).not.toBeInTheDocument();expect(document.querySelector('cliente')).toBeNull();
+});
+
+
+it.each(['/atendimento/comandas','/atendimento/receber'])('lista com o nome identificado junto ao número: %s',async path=>{
+ server({tab:{...makeTab(),number:1,name:'Grupo da tarde',customer:{id:'customer-example',name:'Cliente Exemplo',incomplete:false}},pixEnabled:false});mount(path);
+ expect(await screen.findByRole('link',{name:/^Comanda 01 - Cliente Exemplo/})).toBeInTheDocument();
+});
+
+
+it('ao consultar outra comanda usa somente o DTO do destino, sem título do rascunho em espera',async()=>{
+ let finish:((response:Response)=>void)|undefined;
+ localStorage.setItem(`lb-confirmation:sale-customer-v1:${actor.id}:tab-a`,JSON.stringify({id:'old-draft-person',name:'Cliente de outro rascunho'}));
+ vi.spyOn(globalThis,'fetch').mockImplementation(async input=>{
+  const path=String(input);if(path.endsWith('/tabs/tab-a'))return new Promise<Response>(resolve=>{finish=resolve});
+  if(path.endsWith('/tabs/locations'))return json([{id:'bar-a',name:'Bar'}]);if(path.includes('/catalog'))return json(products);return json([]);
+ });
+ mount('/atendimento/vender?comanda=tab-a');
+ expect(screen.getByRole('heading',{level:1,name:'Vender'})).toBeInTheDocument();expect(screen.queryByRole('heading',{name:/Cliente de outro rascunho/})).not.toBeInTheDocument();
+ await waitFor(()=>expect(finish).toBeDefined());await act(async()=>{finish!(json({...makeTab(),number:1,customer:{id:'current-client',name:'Cliente Exemplo',incomplete:false}}))});
+ expect(await screen.findByRole('heading',{level:1,name:'Vender · Comanda 01 - Cliente Exemplo'})).toBeInTheDocument();
 });

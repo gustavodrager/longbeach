@@ -36,7 +36,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         var query = db.Set<BarTab>().AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(state))
         {
-            if (state is not ("Open" or "Closed" or "Orders")) throw new BarRuleException("Situação inválida.");
+            if (state is not ("Open" or "Closed" or "Cancelled" or "Orders")) throw new BarRuleException("Situação inválida.");
             query = state == "Orders" ? query.Where(x => x.State == "Open" && pending.Any(i => i.TabId == x.Id)) : query.Where(x => x.State == state);
         }
         if (!string.IsNullOrWhiteSpace(search))
@@ -52,7 +52,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         var count = await query.CountAsync(ct);
         var ordered = state == "Orders"
             ? query.OrderBy(x => pending.Where(i => i.TabId == x.Id).Min(i => i.CreatedAtUtc)).ThenBy(x => x.Number)
-            : state == "Closed" ? query.OrderByDescending(x => x.ClosedAtUtc).ThenByDescending(x => x.Number)
+            : state is "Closed" or "Cancelled" ? query.OrderByDescending(x => x.ClosedAtUtc).ThenByDescending(x => x.Number)
             : query.OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.Number);
         var tabs = await ordered.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
         var values = new List<TabResponse>(); foreach (var tab in tabs) values.Add(await Public(tab, costs, false, ct, supervisor));
@@ -155,7 +155,19 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
                 var item = new BarTabItem(tab.Id, product, request.Quantity, actor, actor is null, request.Notes);
                 await EnsureAvailable(item, tab.LocationId, ct);
                 db.Add(item); db.Add(new BarTabHistory(tab.Id, "Requested", actor, item.Total, itemId: item.Id));
-                if (actor is not null) { await Accept(tab, item, actor.Value, ct); if (input.Deliver && !item.Prepared) await Fulfill(tab, item, actor.Value, ct); }
+                if (actor is not null)
+                {
+                    await Accept(tab, item, actor.Value, ct);
+                    if (input.Deliver && (!item.Prepared || tab.Mode == "Immediate"))
+                    {
+                        // Recipe delivery reads its immutable ingredient snapshot.
+                        // Flush it inside Run's transaction before delivering;
+                        // a later failure still rolls back the entire command.
+                        if (item.Prepared && tab.Mode == "Immediate" && item.RecipeId is not null)
+                            await db.SaveChangesAsync(ct);
+                        await Fulfill(tab, item, actor.Value, ct);
+                    }
+                }
             }
             tab.Touch(); await db.SaveChangesAsync(ct); return await Public(tab, false, actor is null, ct);
         }, ct);
@@ -172,8 +184,13 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             case "reverse":
                 if (!supervisor) throw new BarRuleException("Correção exige supervisor.");
                 var totals = await Totals(id, ct);
-                if (totals.Total - item.Total < totals.Paid + totals.Pending) throw new BarRuleException("Estorne o valor recebido e resolva o Pix pendente antes de retirar o consumo.");
+                var remainingGross = totals.Total + tab.Discount - item.Total;
+                var remainingConcession = Math.Min(tab.Discount, Math.Max(0, remainingGross));
+                if (remainingGross - remainingConcession < totals.Paid + totals.Pending) throw new BarRuleException("Estorne o valor recebido e resolva o Pix pendente antes de retirar o consumo.");
                 var previous = item.State; item.Reverse(input.Reason, input.ReturnStock);
+                var concessionRemoved = tab.LimitConcession(remainingGross);
+                if (concessionRemoved > 0)
+                    db.Add(new BarTabHistory(id, "ConcessionReduced", actor, -concessionRemoved, BarRules.Text(input.Reason, 450, "Motivo"), item.Id));
                 if (previous == "Accepted") await RecipeStock(tab, item, "release", actor, ct);
                 else if (input.ReturnStock) await RecipeStock(tab, item, "return", actor, ct);
                 db.Add(new BarTabHistory(id, "Reversed", actor, -item.Total, item.Reason, item.Id)); break;
@@ -508,6 +525,12 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             var row = await PublicPayment(payment, ct, costs);
             paymentRows.Add(client ? ClientPayment(row) : row);
         }
+        string[] allowedActions = tab.State != "Open" ? [] : client ? ["add", "pix"]
+            : supervisor ? ["add", "pay", "close", "issueAccess", "adjust"] : ["add", "pay", "close", "issueAccess"];
+        if (!client && supervisor && tab.State == "Open"
+            && !payments.Any(x => x.State == "Pending" || x.State == "Approved" && x.Amount > x.Refunded)
+            && !await db.Set<BarTabRefund>().AnyAsync(x => x.TabId == tab.Id && x.State == "Pending", ct))
+            allowedActions = [.. allowedActions, "cancel"];
         var history = await db.Set<BarTabHistory>().AsNoTracking().Where(x => x.TabId == tab.Id).OrderBy(x => x.CreatedAtUtc).Select(x => new TabHistoryResponse(x.Id, x.Kind, x.ItemId, x.PaymentId, x.Amount, x.ActorId, x.Reason, x.CreatedAtUtc)).ToListAsync(ct);
         var responsible = client ? null : await (from account in db.Set<BillingAccount>().AsNoTracking()
             join user in db.Users.AsNoTracking() on account.UserId equals user.Id
@@ -517,7 +540,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         return new(tab.Id, tab.Number, tab.Name, tab.Mode, tab.State, tab.LocationId, client ? Guid.Empty : tab.ActorId, totals.Total, totals.Paid, totals.Pending, totals.Due, totals.Payable, tab.CreatedAtUtc, tab.ClosedAtUtc,
             items.Select(x => new TabItemResponse(x.Id, x.TabId, x.ProductId, x.Name, x.Quantity, x.UnitPrice, x.Total, x.State, x.Source, client ? null : x.ActorId, x.CreatedAtUtc, x.AcceptedAtUtc, x.FulfilledAtUtc, x.Reason, costs ? x.UnitCost : null,
                 client || tab.State != "Open" ? [] : x.State == "Requested" ? ["accept", "reject"] : x.State == "Accepted" ? supervisor ? ["fulfill", "reverse"] : ["fulfill"] : x.State == "Fulfilled" && supervisor ? ["reverse"] : [], costs ? x.RecipeId : null, costs && x.RecipeId is not null ? recipeVersions.GetValueOrDefault(x.RecipeId.Value) : null, x.Notes)).ToArray(), paymentRows, client ? history.Select(x => x with { ActorId = null }).ToArray() : history,
-            tab.State != "Open" ? [] : client ? ["add", "pix"] : supervisor ? ["add", "pay", "close", "issueAccess", "adjust"] : ["add", "pay", "close", "issueAccess"], totals.Total + tab.Discount, tab.Discount, responsible, tab.Notes,
+            allowedActions, totals.Total + tab.Discount, tab.Discount, responsible, tab.Notes,
             contact is null ? null : new TabIdentity(contact.Id, contact.Name, contact.Incomplete), tab.Version);
     }
     private async Task<TabPaymentResponse> PublicPayment(BarTabPayment payment, CancellationToken ct, bool costs = false)

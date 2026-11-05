@@ -185,7 +185,7 @@ class FakeDocker:
         self.image = {"Id": "sha256:" + "d" * 64, "Os": "linux", "Architecture": "amd64",
                       "RepoDigests": [environment()["API_IMAGE"]], "Config": {"Labels": {
                           preflight.LABEL_CAPABILITY: "v1", preflight.LABEL_STAFF_CAPABILITY: "v1", preflight.LABEL_SCHEMA_HASH: preflight.API_SCHEMA_SHA256,
-                          preflight.LABEL_SCHEMA_COUNT: "34", preflight.LABEL_SCHEMA_LATEST: preflight.API_SCHEMA_LATEST}}}
+                          preflight.LABEL_SCHEMA_COUNT: "35", preflight.LABEL_SCHEMA_LATEST: preflight.API_SCHEMA_LATEST}}}
         self.postgres = {"Id": self.container, "State": {"Running": True},
                          "Config": {"Image": environment()["POSTGRES_BACKUP_IMAGE"], "User": "999:999", "Labels": {
                              "com.docker.compose.project": "longbeach", "com.docker.compose.service": "postgres",
@@ -226,7 +226,7 @@ class ApiSchemaGateTests(unittest.TestCase):
     def test_current_immutable_image_matches_actual_schema_without_pulls_starts_or_credentials(self):
         fake = FakeDocker()
         proof = preflight.check_api_schema(environment(), fake)
-        self.assertEqual(proof["migration_count"], 34)
+        self.assertEqual(proof["migration_count"], 35)
         self.assertTrue(proof["staff_access_verified"])
         self.assertTrue(proof["owner_accounts_verified"])
         self.assertEqual(proof["usable_owner_count"], 1)
@@ -392,15 +392,15 @@ class ApiSchemaGateTests(unittest.TestCase):
 
     def test_build_labels_and_gate_hash_the_actual_migration_attributes_including_handwritten_files(self):
         ids = source_migrations()
-        self.assertEqual(len(ids), 34)
-        self.assertEqual(len(set(ids)), 34)
+        self.assertEqual(len(ids), 35)
+        self.assertEqual(len(set(ids)), 35)
         self.assertIn("20261001000100_InitialCreate", ids)
         expected = hashlib.sha256(("\n".join(ids) + "\n").encode()).hexdigest()
         self.assertEqual(expected, preflight.API_SCHEMA_SHA256)
         dockerfile = (REPO / "deploy/api.Dockerfile").read_text()
         self.assertIn('com.longbeach.api.customer-registry="v1"', dockerfile)
         self.assertIn('com.longbeach.api.staff-access="v1"', dockerfile)
-        self.assertIn('com.longbeach.api.schema.migration-count="34"', dockerfile)
+        self.assertIn('com.longbeach.api.schema.migration-count="35"', dockerfile)
         self.assertIn('com.longbeach.api.schema.latest="' + ids[-1] + '"', dockerfile)
         self.assertIn('com.longbeach.api.schema.migrations-sha256="' + expected + '"', dockerfile)
         self.assertIn('test "$migration_sha256" = "' + expected + '"', dockerfile)

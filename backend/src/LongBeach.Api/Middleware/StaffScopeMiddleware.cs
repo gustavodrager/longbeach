@@ -125,7 +125,7 @@ public static class StaffApiScope
             if (bar.StartsWith("tabs/payments", StringComparison.Ordinal)) return read && Area("reports");
             if (read) return AnyBar(); // Shared readonly comanda data powers selling, orders and receiving.
             if (bar.Contains("/refund", StringComparison.Ordinal)) return Menu("bar.receive") && Action("bar.refund");
-            if (bar.Contains("/adjustments", StringComparison.Ordinal) || bar.EndsWith("/reverse", StringComparison.Ordinal)) return Menu("bar.tabs") && Action("bar.supervise");
+            if (bar.Contains("/adjustments", StringComparison.Ordinal) || bar.EndsWith("/reverse", StringComparison.Ordinal) || bar.EndsWith("/cancel", StringComparison.Ordinal)) return Menu("bar.tabs") && Action("bar.supervise");
             if (bar.Contains("/payments", StringComparison.Ordinal)) return Bar("bar.receive");
             if (bar.EndsWith("/close", StringComparison.Ordinal)) return Bar("bar.tabs", "bar.receive");
             if (bar.Contains("/items/", StringComparison.Ordinal)) return Bar("bar.orders");

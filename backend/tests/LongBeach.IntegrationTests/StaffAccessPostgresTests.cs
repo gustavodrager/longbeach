@@ -209,6 +209,48 @@ public sealed class StaffAccessPostgresTests
         Assert.Equal(HttpStatusCode.OK, (await owner.PutAsJsonAsync("/api/v1/staff-access/types/bar", new StaffAccessTypeInput("Vendas", ["bar.sell"], ["bar.sell"], type.Version))).StatusCode);
         session = await Login(staff, "11998880011", PermanentPassword); staff.DefaultRequestHeaders.Authorization = new("Bearer", session.AccessToken);
         Assert.Equal(HttpStatusCode.Forbidden, (await staff.PostAsJsonAsync($"/api/v1/bar/tabs/{tab}/items", new AddTabItemsInput(Guid.NewGuid(), [], Deliver: true))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.GetAsync("/api/v1/operations/rentalGroups")).StatusCode);
+        var rentalId = Guid.NewGuid();
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.PutAsJsonAsync($"/api/v1/operations/rentalGroups/{rentalId}",
+            new { id = rentalId, name = "Grupo fictício", musicPreferences = new[] { "rock" } })).StatusCode);
+        var immediateResponse = await staff.PostAsJsonAsync("/api/v1/bar/tabs", new OpenTabInput(Guid.NewGuid(), location, "Venda preparada", "Immediate"));
+        Assert.Equal(HttpStatusCode.OK, immediateResponse.StatusCode);
+        var immediate = (await immediateResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        Guid preparedId;
+        await using (var db = f.Database.NewContext())
+        {
+            var category = new BarProductCategory("Preparados fictícios");
+            var prepared = new BarProduct("PREPARED-PERMISSION", "Preparado", "Preparado", category.Id, "un", "un", 1, 10, 0, 0, false, false, 0);
+            prepared.SetPreparation(true); db.AddRange(category, prepared); await db.SaveChangesAsync(); preparedId = prepared.Id;
+        }
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.PostAsJsonAsync($"/api/v1/bar/tabs/{immediate}/items",
+            new AddTabItemsInput(Guid.NewGuid(), [new(preparedId, 1)], Deliver: true))).StatusCode);
+        await using var verify = f.Database.NewContext();
+        Assert.False(await verify.Set<BarTabItem>().AnyAsync(x => x.TabId == immediate));
+    }
+
+    [PostgresFact]
+    public async Task Cancellation_requires_explicit_supervision_and_returns_authorized_terminal_state()
+    {
+        await using var f = await Fixture.Create(); using var owner = f.Client(true);
+        var type = (await owner.GetFromJsonAsync<StaffAccessTypeSummary[]>("/api/v1/staff-access/types"))!.Single(x => x.Id == "gestor");
+        Assert.Equal(HttpStatusCode.OK, (await owner.PutAsJsonAsync("/api/v1/staff-access/types/gestor", new StaffAccessTypeInput("Comandas", ["bar.tabs"], ["bar.tabs"], type.Version))).StatusCode);
+        var team = Guid.NewGuid(); var created = await Save(owner, team, Member(team, "gestor", "11998880031"));
+        using var staff = f.Client(); var first = await Login(staff, "11998880031", created.InitialPassword!); staff.DefaultRequestHeaders.Authorization = new("Bearer", first.AccessToken);
+        Assert.Equal(HttpStatusCode.OK, (await staff.PostAsJsonAsync("/api/v1/auth/change-password", new ChangePasswordRequest(created.InitialPassword, PermanentPassword))).StatusCode);
+        var session = await Login(staff, "11998880031", PermanentPassword); staff.DefaultRequestHeaders.Authorization = new("Bearer", session.AccessToken);
+        Guid location; await using (var db = f.Database.NewContext()) location = (await db.Set<StockLocation>().SingleAsync(x => x.Name == "Bar")).Id;
+        var opened = await staff.PostAsJsonAsync("/api/v1/bar/tabs", new OpenTabInput(Guid.NewGuid(), location)); Assert.Equal(HttpStatusCode.OK, opened.StatusCode);
+        var tab = (await opened.Content.ReadFromJsonAsync<TabResponse>())!; var input = new TabCancelInput(Guid.NewGuid(), tab.Version, "Cliente desistiu");
+        Assert.DoesNotContain("cancel", tab.AllowedActions);
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.PostAsJsonAsync($"/api/v1/bar/tabs/{tab.Id}/cancel", input)).StatusCode);
+        type = (await owner.GetFromJsonAsync<StaffAccessTypeSummary[]>("/api/v1/staff-access/types"))!.Single(x => x.Id == "gestor");
+        Assert.Equal(HttpStatusCode.OK, (await owner.PutAsJsonAsync("/api/v1/staff-access/types/gestor", new StaffAccessTypeInput("Comandas supervisionadas", ["bar.tabs"], ["bar.tabs", "bar.supervise"], type.Version))).StatusCode);
+        session = await Login(staff, "11998880031", PermanentPassword); staff.DefaultRequestHeaders.Authorization = new("Bearer", session.AccessToken);
+        Assert.Contains("cancel", (await staff.GetFromJsonAsync<TabResponse>($"/api/v1/bar/tabs/{tab.Id}"))!.AllowedActions);
+        var response = await staff.PostAsJsonAsync($"/api/v1/bar/tabs/{tab.Id}/cancel", input); Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var cancelled = (await response.Content.ReadFromJsonAsync<TabResponse>())!; Assert.Equal("Cancelled", cancelled.State); Assert.Empty(cancelled.AllowedActions);
+        Assert.Equal("Cliente desistiu", Assert.Single(cancelled.History, x => x.Kind == "Cancelled").Reason);
     }
 
     [PostgresFact]

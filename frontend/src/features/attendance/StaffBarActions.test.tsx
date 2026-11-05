@@ -89,7 +89,7 @@ it('Vender sem o menu Comandas continua no destino de venda permitido após abri
 it('Vender pode selecionar uma comanda sem ganhar acesso ao menu de consulta', async () => {
   server(); mount(<SaleDestination locked={false} hasDraft={false} />, actor(['bar.sell'], ['bar.sell']))
   fireEvent.click(screen.getByRole('button', { name: 'Escolher uma comanda' }))
-  fireEvent.click(await screen.findByRole('button', { name: 'Comanda 10 · Visitante teste' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Comanda 10 - Visitante teste' }))
   fireEvent.click(screen.getByRole('button', { name: 'Usar esta comanda' }))
   expect(screen.getByTestId('route')).toHaveTextContent('/atendimento/vender?comanda=tab-test')
 })
@@ -99,14 +99,14 @@ it.each([
   { actions: ['bar.tabs'], visible: true },
 ])('QR da comanda depende de operar Comandas ou Vender, sem confundir com Pedidos ($actions)', async ({ actions, visible }) => {
   server(); mount(<Routes><Route path="/atendimento/comandas/:tabId" element={<TabDetailsPage />} /></Routes>, actor(['bar.tabs', 'bar.orders'], actions), '/atendimento/comandas/tab-test')
-  await screen.findByRole('heading', { name: 'Comanda 10' })
+  await screen.findByRole('heading', { name: 'Comanda 10 - Visitante teste' })
   if (visible) { fireEvent.click(screen.getByText('Acesso do cliente', { selector: 'summary' })); expect(screen.getByRole('button', { name: 'Gerar QR Code' })).toBeVisible() }
   else expect(screen.queryByText('Acesso do cliente', { selector: 'summary' })).not.toBeInTheDocument()
 })
 
 it.each(['bar.sell', 'bar.receive'])('a lista de comandas mostra somente a ação liberada (%s)', async action => {
   server(tab({ due: 10, payable: 10 })); mount(<TabsPage />, actor(['bar.tabs', action], [action]))
-  await screen.findByRole('link', { name: '10 · Visitante teste · Abrir comanda' })
+  await screen.findByRole('link', { name: 'Comanda 10 - Visitante teste · Abrir comanda' })
   expect(screen.queryByRole('link', { name: 'Adicionar produtos à comanda 10' }) !== null).toBe(action === 'bar.sell')
   expect(screen.queryByRole('link', { name: 'Receber comanda 10' }) !== null).toBe(action === 'bar.receive')
   expect(screen.queryByRole('button', { name: 'Abrir comanda' })).not.toBeInTheDocument()
@@ -135,12 +135,13 @@ it('somente Receber volta para os recebimentos ao concluir o saldo sem abrir Com
   expect(screen.queryByRole('link', { name: 'Voltar à comanda' })).not.toBeInTheDocument()
 })
 
-it('Vender sem Pedidos registra para preparo com deliver=false e não oferece entrega imediata', async () => {
+it('Vender sem Pedidos salva com deliver=false e não amplia acesso de entrega', async () => {
   const api = server(); mount(<SellPage />, actor(['bar.sell'], ['bar.sell']), '/atendimento/vender')
   fireEvent.click(await screen.findByRole('button', { name: /Adicionar Água por/ }))
   fireEvent.click(screen.getByRole('button', { name: 'Conferir pedido' }))
   expect(screen.queryByRole('button', { name: /Entregar e receber|Adicionar e entregar/ })).not.toBeInTheDocument()
-  const send = screen.getByRole('button', { name: 'Enviar para preparo' }); await waitFor(() => expect(send).toBeEnabled()); fireEvent.click(send)
+  expect(screen.queryByRole('button', { name: 'Enviar para preparo' })).not.toBeInTheDocument()
+  const send = screen.getByRole('button', { name: 'Salvar' }); await waitFor(() => expect(send).toBeEnabled()); fireEvent.click(send)
   await waitFor(() => expect(api.mock.calls.filter(([url, init]) => String(url).endsWith('/items') && init?.method === 'POST')).toHaveLength(1))
   const request = api.mock.calls.find(([url, init]) => String(url).endsWith('/items') && init?.method === 'POST')!
   expect(JSON.parse(String(request[1]?.body))).toMatchObject({ deliver: false })
