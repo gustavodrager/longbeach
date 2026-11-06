@@ -21,23 +21,23 @@ const unrestricted: CatalogItem = {
 
 afterEach(() => cleanup())
 
-it('mostra o produto habilitado com saldo zero e mantém o acréscimo bloqueado', () => {
+it('permite adicionar produto com saldo zero', () => {
   const change = vi.fn()
   render(<Products products={[portion, unrestricted]} cart={[]} onChange={change} />)
 
   const emptyProduct = screen.getByRole('button', { name: /Adicionar Batata frita por/ })
   expect(emptyProduct).toBeVisible()
-  expect(emptyProduct).toBeDisabled()
-  expect(screen.getByText('Sem estoque disponível')).toBeVisible()
+  expect(emptyProduct).toBeEnabled()
+  expect(screen.getByText('Saldo: 0')).toBeVisible()
   fireEvent.click(emptyProduct)
-  expect(change).not.toHaveBeenCalled()
+  expect(change).toHaveBeenCalledExactlyOnceWith([{ productId: portion.id, quantity: 1 }])
   expect(screen.getByRole('button', { name: /Adicionar Água livre por/ })).toBeEnabled()
 })
 
 it('encontra produtos com e sem saldo pelo nome, sem perder o filtro de categorias', () => {
   render(<Products products={[portion, unrestricted]} cart={[]} onChange={() => {}} />)
   fireEvent.click(screen.getByRole('button', { name: 'Porções' }))
-  expect(screen.getByRole('button', { name: /Adicionar Batata frita por/ })).toBeDisabled()
+  expect(screen.getByRole('button', { name: /Adicionar Batata frita por/ })).toBeEnabled()
   expect(screen.queryByRole('button', { name: /Adicionar Água livre por/ })).not.toBeInTheDocument()
 
   const search = screen.getByRole('searchbox', { name: 'Procurar produto' })
@@ -53,32 +53,32 @@ it('encontra produtos com e sem saldo pelo nome, sem perder o filtro de categori
 it('mantém os favoritos visíveis mesmo quando todos estão sem saldo', () => {
   render(<Products products={[portion, unrestricted]} cart={[]} onChange={() => {}} />)
   fireEvent.click(screen.getByRole('button', { name: 'Favoritos' }))
-  expect(screen.getByRole('button', { name: /Adicionar Batata frita por/ })).toBeDisabled()
+  expect(screen.getByRole('button', { name: /Adicionar Batata frita por/ })).toBeEnabled()
   expect(screen.queryByRole('button', { name: /Adicionar Água livre por/ })).not.toBeInTheDocument()
 })
 
-it.each([0, 0.5, -1])('exibe saldo %s sem permitir adicionar uma unidade inteira', available => {
+it.each([0, 0.5, -1])('exibe saldo %s e permite adicionar uma unidade', available => {
   const change = vi.fn()
   render(<Products products={[{ ...portion, available }]} cart={[]} onChange={change} />)
   const add = screen.getByRole('button', { name: /Adicionar Batata frita por/ })
   expect(add).toBeVisible()
-  expect(add).toBeDisabled()
+  expect(add).toBeEnabled()
   fireEvent.click(add)
-  expect(change).not.toHaveBeenCalled()
+  expect(change).toHaveBeenCalledExactlyOnceWith([{ productId: portion.id, quantity: 1 }])
 })
 
-it('permite retirar um produto que esgotou do rascunho sem aumentar a quantidade', () => {
+it('permite aumentar ou retirar um produto sem saldo do rascunho', () => {
   const change = vi.fn()
   render(<Products products={[portion]} cart={[{ productId: portion.id, quantity: 1 }]} onChange={change} />)
 
-  expect(screen.getByRole('button', { name: 'Adicionar uma unidade de Batata frita' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Adicionar uma unidade de Batata frita' })).toBeEnabled()
   fireEvent.click(screen.getByRole('button', { name: 'Retirar uma unidade de Batata frita' }))
   expect(change).toHaveBeenCalledExactlyOnceWith([])
 })
 
-it('preserva o cardápio do cliente: esgotados fora do rascunho continuam ocultos', () => {
+it('mostra no cardápio do cliente produtos disponíveis para venda mesmo sem saldo', () => {
   render(<Products client products={[portion, unrestricted]} cart={[]} onChange={() => {}} />)
-  expect(screen.queryByRole('button', { name: /Adicionar Batata frita por/ })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /Adicionar Batata frita por/ })).toBeEnabled()
   expect(screen.getByRole('button', { name: /Adicionar Água livre por/ })).toBeEnabled()
 })
 
@@ -115,7 +115,7 @@ it.each([
   try {
     render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><SellPage /></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
     fireEvent.change(await screen.findByRole('searchbox', { name: 'Procurar produto' }), { target: { value: 'batata' } })
-    expect(await screen.findByRole('button', { name: /Adicionar Batata frita por/ })).toBeDisabled()
+    expect(await screen.findByRole('button', { name: /Adicionar Batata frita por/ })).toBeEnabled()
     fireEvent.change(screen.getByRole('searchbox', { name: 'Procurar produto' }), { target: { value: 'agua' } })
     const add = screen.getByRole('button', { name: /Adicionar Água livre por/ })
     expect(add).toBeEnabled()
