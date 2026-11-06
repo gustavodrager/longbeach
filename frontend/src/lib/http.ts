@@ -5,10 +5,11 @@ const CSRF_COOKIE = 'lb_csrf'
 
 type RefreshResponse = Pick<LoginResponse, 'accessToken' | 'csrfToken' | 'user'>
 type RefreshedSession = { token: string; version: number }
+type RefreshResult = { session: RefreshedSession | null; unavailable?: ApiError }
 
 let accessToken: string | null = null
 let csrfToken: string | null = null
-let refreshRequest: Promise<RefreshedSession | null> | null = null
+let refreshRequest: Promise<RefreshResult> | null = null
 let sessionVersion = 0
 let identityRequest: { version: number; request: Promise<void> } | null = null
 const sessionListeners = new Set<(user: AuthUser | null) => void>()
@@ -47,18 +48,24 @@ export class ApiError extends Error {
 
 export function setAccessToken(token: string | null) {
   accessToken = token
+  invalidateSessionRequests()
+}
+
+/** Explicit account actions take precedence over an older background restore. */
+export function invalidateSessionRequests() {
   sessionVersion++
   sessionVersionListeners.forEach(listener => listener())
 }
 
 export function getCsrfToken() {
-  if (csrfToken) return csrfToken
-  if (typeof document === 'undefined') return null
+  if (typeof document === 'undefined') return csrfToken
 
-  const cookie = document.cookie
-    .split('; ')
-    .find((entry) => entry.startsWith(`${CSRF_COOKIE}=`))
-  if (!cookie) return null
+  // Another tab can rotate the shared refresh/CSRF cookies while this page stays open.
+  let cookie: string | undefined
+  try {
+    cookie = document.cookie.split('; ').find(entry => entry.startsWith(`${CSRF_COOKIE}=`))
+  } catch { return csrfToken }
+  if (!cookie) return csrfToken
 
   const encodedValue = cookie.slice(CSRF_COOKIE.length + 1)
   try {
@@ -93,38 +100,45 @@ async function readError(response: Response) {
   }
 }
 
+async function performRefresh(version: number): Promise<RefreshResult> {
+  if (version !== sessionVersion) return { session: null }
+  const headers = new Headers({ Accept: 'application/json' })
+  const currentCsrf = getCsrfToken()
+  if (currentCsrf) headers.set('X-CSRF-Token', currentCsrf)
+  const response = await fetch(`${API_URL}/api/v1/auth/refresh`, { method: 'POST', credentials: 'include', headers })
+  if (version !== sessionVersion) return { session: null }
+  if (!response.ok) {
+    if ([401, 403].includes(response.status)) { expireSession(); return { session: null } }
+    if (response.status === 400) return { session: null } // No refresh cookie on a first visit.
+    return { session: null, unavailable: new ApiError(response.status, 'Não foi possível retomar seu acesso. Tente novamente.') }
+  }
+  const data = (await response.json()) as RefreshResponse
+  if (version !== sessionVersion) return { session: null }
+  if (!data || typeof data.accessToken !== 'string' || !data.accessToken || typeof data.csrfToken !== 'string' || !data.csrfToken
+    || !data.user || typeof data.user.id !== 'string' || !Array.isArray(data.user.roles) || !Array.isArray(data.user.permissions))
+    throw new ApiError(502, 'Não foi possível retomar seu acesso. Tente novamente.')
+  setAccessToken(data.accessToken)
+  setCsrfToken(data.csrfToken)
+  const session = { token: data.accessToken, version: sessionVersion }
+  notifySession(data.user)
+  return { session }
+}
+
+/** Cookie rotations and explicit account changes share a lock across browser tabs. */
+export async function withSessionCookieLock<T>(work: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks
+  return locks ? locks.request('longbeach-auth-refresh', work) : work()
+}
+
 async function refreshAccessToken() {
   if (!refreshRequest) {
     const version = sessionVersion
-    const headers = new Headers({ Accept: 'application/json' })
-    const csrfToken = getCsrfToken()
-    if (csrfToken) headers.set('X-CSRF-Token', csrfToken)
-
-    refreshRequest = fetch(`${API_URL}/api/v1/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-      headers,
-    })
-      .then(async (response) => {
-        if (version !== sessionVersion) return null
-        if (!response.ok) {
-          if ([401, 403].includes(response.status)) expireSession()
-          return null
-        }
-        const data = (await response.json()) as RefreshResponse
-        if (version !== sessionVersion) return null
-        setAccessToken(data.accessToken)
-        setCsrfToken(data.csrfToken)
-        const refreshed = { token: data.accessToken, version: sessionVersion }
-        notifySession(data.user)
-        return refreshed
-      })
-      .catch(() => null)
-      .finally(() => {
-        refreshRequest = null
-      })
+    // Read the current CSRF cookie only after acquiring the cross-tab lock.
+    const pending = withSessionCookieLock(() => performRefresh(version)).catch((cause): RefreshResult => version !== sessionVersion ? { session: null } : {
+      session: null, unavailable: cause instanceof ApiError ? cause : new ApiError(0, 'Não foi possível retomar seu acesso. Tente novamente.'),
+    }).finally(() => { if (refreshRequest === pending) refreshRequest = null })
+    refreshRequest = pending
   }
-
   return refreshRequest
 }
 
@@ -158,11 +172,12 @@ export async function apiFetch<T>(path: string, init?: RequestInit, canRefresh =
 
   const authentication = path.startsWith('/api/v1/auth/')
   if (response.status === 401 && canRefresh && version === sessionVersion) {
-    const refreshed = await refreshAccessToken()
+    const { session: refreshed } = await refreshAccessToken()
     if (refreshed && refreshed.version === sessionVersion && refreshed.token === accessToken) return apiFetch<T>(path, init, false, responseType)
   }
 
   if (response.status === 401 && !canRefresh && version === sessionVersion && (!authentication || path === '/api/v1/auth/me')) expireSession()
+  if (response.status === 403 && !canRefresh && version === sessionVersion && path === '/api/v1/auth/me') expireSession()
   if (response.status === 403 && !authentication && version === sessionVersion && sessionListeners.size > 0) await revalidateSession(version)
 
   if (!response.ok) {
@@ -178,6 +193,12 @@ export async function apiFetch<T>(path: string, init?: RequestInit, canRefresh =
 export const apiFetchBlob = (path: string, signal?: AbortSignal) => apiFetch<Blob>(path, { signal }, true, 'blob')
 
 export async function restoreSession() {
-  const refreshed = await refreshAccessToken()
+  const { session: refreshed, unavailable } = await refreshAccessToken()
+  if (unavailable) throw unavailable
   return refreshed?.version === sessionVersion && refreshed.token === accessToken ? refreshed.token : null
+}
+
+/** A PWA reload must also await this tab's refresh in browsers without Web Locks. */
+export async function waitForPendingSessionRefresh() {
+  await refreshRequest
 }

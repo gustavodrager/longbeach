@@ -8,9 +8,10 @@ import { GoogleSignInButton } from '../features/auth/GoogleSignInButton'
 import { passwordRequirementError } from '../features/auth/passwordRequirements'
 import './auth-entry.css'
 import { formatPhone } from '../lib/inputFormatting'
+import { SessionRestoreNotice } from '../features/auth/SessionRestoreNotice'
 
 export function FirstAccessPage() {
-  const { user, isBootstrapping, changePassword, completeFirstAccessWithGoogle, signOut } = useAuth()
+  const { user, isBootstrapping, sessionRestoreError, retrySessionRestore, changePassword, completeFirstAccessWithGoogle, signOut } = useAuth()
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
@@ -23,6 +24,7 @@ export function FirstAccessPage() {
   const googleEnabled = !passwordRequired && Boolean(googleClientId)
 
   if (isBootstrapping) return <main className="session-loading" role="status">Carregando seu acesso…</main>
+  if (sessionRestoreError) return <SessionRestoreNotice message={sessionRestoreError} onRetry={retrySessionRestore} />
   if (!user) return <Navigate to="/login" replace />
   if (!user.requiresFirstAccess) return <Navigate to="/" replace />
 

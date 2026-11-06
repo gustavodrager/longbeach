@@ -1,4 +1,4 @@
-import { ApiError, apiFetch, expireSession, getCsrfToken, getSessionVersion, setAccessToken, setCsrfToken, subscribeSessionVersion } from '../../lib/http'
+import { ApiError, apiFetch, expireSession, getCsrfToken, getSessionVersion, invalidateSessionRequests, setAccessToken, setCsrfToken, subscribeSessionVersion, withSessionCookieLock } from '../../lib/http'
 import type {
   AuthUser,
   LoginCredentials,
@@ -10,6 +10,7 @@ import type {
 let pendingAuthentication: AbortController | null = null
 function authenticationAttempt() {
   pendingAuthentication?.abort()
+  invalidateSessionRequests()
   const controller = new AbortController()
   pendingAuthentication = controller
   const version = getSessionVersion()
@@ -31,7 +32,7 @@ function authenticationAttempt() {
 export async function login(credentials: LoginCredentials) {
   const attempt = authenticationAttempt()
   try {
-    const response = await apiFetch<LoginResponse>(
+    const response = await withSessionCookieLock(() => apiFetch<LoginResponse>(
       '/api/v1/auth/login',
       {
         method: 'POST',
@@ -39,7 +40,7 @@ export async function login(credentials: LoginCredentials) {
         signal: attempt.signal,
       },
       false,
-    )
+    ))
     return attempt.accept(response)
   } finally { attempt.finish() }
 }
@@ -47,12 +48,12 @@ export async function login(credentials: LoginCredentials) {
 export async function loginWithGoogle(credential: string) {
   const attempt = authenticationAttempt()
   try {
-    const response = await fetch(`${(import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')}/api/v1/auth/google`, {
+    const response = await withSessionCookieLock(() => fetch(`${(import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')}/api/v1/auth/google`, {
       method: 'POST',
       credentials: 'include',
       headers: { Authorization: `Bearer ${credential}`, Accept: 'application/json' },
       signal: attempt.signal,
-    })
+    }))
     if (!response.ok) throw new Error(response.status === 429
       ? 'Muitas tentativas. Aguarde um minuto e tente novamente.'
       : response.status >= 500
@@ -70,10 +71,10 @@ export async function getCurrentUser() {
 export async function completeFirstAccessWithGoogle(credential: string) {
   const attempt = authenticationAttempt()
   try {
-    const session = await apiFetch<LoginResponse>('/api/v1/auth/first-access/google', {
+    const session = await withSessionCookieLock(() => apiFetch<LoginResponse>('/api/v1/auth/first-access/google', {
       method: 'POST', headers: { 'X-Google-Id-Token': credential },
       signal: attempt.signal,
-    }, false)
+    }, false))
     return attempt.accept(session)
   } finally { attempt.finish() }
 }
@@ -84,20 +85,23 @@ export async function logout() {
   expireSession()
   const attempt = authenticationAttempt()
   try {
-    const headers = new Headers()
-    if (csrfToken) headers.set('X-CSRF-Token', csrfToken)
-    await apiFetch<void>('/api/v1/auth/logout', { method: 'POST', headers, signal: attempt.signal }, false)
+    await withSessionCookieLock(() => {
+      const headers = new Headers()
+      const currentCsrf = getCsrfToken() ?? csrfToken
+      if (currentCsrf) headers.set('X-CSRF-Token', currentCsrf)
+      return apiFetch<void>('/api/v1/auth/logout', { method: 'POST', headers, signal: attempt.signal }, false)
+    })
   } finally { attempt.finish() }
 }
 
 export async function changePassword(passwords: PasswordChange) {
   const attempt = authenticationAttempt()
   try {
-    const response = await apiFetch<PasswordChangeResponse>('/api/v1/auth/change-password', {
+    const response = await withSessionCookieLock(() => apiFetch<PasswordChangeResponse>('/api/v1/auth/change-password', {
       method: 'POST',
       body: JSON.stringify(passwords),
       signal: attempt.signal,
-    }, false)
+    }, false))
     attempt.clear()
     return response
   } finally { attempt.finish() }
@@ -124,5 +128,6 @@ export async function publicAuthRequest<T>(path: string, body: unknown, googleCr
 export const registerClient = (input: RegistrationInput) => publicAuthRequest<void>('/register', input)
 export const registerGoogleClient = (input: Pick<RegistrationInput, 'name' | 'phone'>, credential: string) => {
   pendingAuthentication?.abort()
+  invalidateSessionRequests()
   return publicAuthRequest<void>('/google/register', input, credential)
 }

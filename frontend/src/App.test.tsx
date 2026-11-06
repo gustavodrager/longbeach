@@ -269,14 +269,16 @@ describe('autenticação e shell', () => {
       permissions: ['arena.manage'],
     }
     const authFetch = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
-      .mockResolvedValueOnce(
-        jsonResponse({
+      .mockImplementationOnce(async () => {
+        // Browsers apply Set-Cookie from the refresh response before exposing its body.
+        document.cookie = 'lb_csrf=csrf-rotacionado; Path=/'
+        return jsonResponse({
           accessToken: 'access-token-rotacionado',
           accessTokenExpiresAtUtc: '2026-10-01T16:15:00Z',
           csrfToken: 'csrf-rotacionado',
           user: authenticatedUser,
-        }),
-      )
+        })
+      })
       .mockResolvedValueOnce(jsonResponse(authenticatedUser))
     withOperationalReads(authFetch)
 

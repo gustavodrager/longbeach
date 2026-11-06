@@ -4,6 +4,8 @@ import type { AuthUser, LoginCredentials, PasswordChange } from './types'
 export type AuthContextValue = {
   user: AuthUser | null
   isBootstrapping: boolean
+  sessionRestoreError?: string | null
+  retrySessionRestore?: () => void
   signIn: (credentials: LoginCredentials) => Promise<void>
   signInWithGoogle: (credential: string, registration?: { name: string; phone: string }) => Promise<void>
   signOut: () => Promise<void>
