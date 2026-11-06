@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { apiFetch, restoreSession, subscribeSession } from '../../lib/http'
+import { ApiError, apiFetch, restoreSession, subscribeSession } from '../../lib/http'
 import { changePassword, completeFirstAccessWithGoogle, getCurrentUser, login, loginWithGoogle, logout, registerGoogleClient } from './authApi'
 import { AuthContext } from './authContext'
 import type { AuthUser, LoginCredentials, PasswordChange } from './types'
@@ -13,6 +13,8 @@ export function AuthProvider({ children, demoMode = false }: AuthProviderProps) 
   const queryClient = useQueryClient()
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isBootstrapping, setIsBootstrapping] = useState(!demoMode)
+  const [sessionRestoreError, setSessionRestoreError] = useState<string | null>(null)
+  const [restoreAttempt, setRestoreAttempt] = useState(0)
   const currentUser = useRef<AuthUser | null>(null)
   const sessionEpoch = useRef(0)
   const updateSession = useCallback((next: AuthUser | null) => {
@@ -20,7 +22,18 @@ export function AuthProvider({ children, demoMode = false }: AuthProviderProps) 
     if (accessScope(currentUser.current) !== accessScope(next)) queryClient.clear()
     currentUser.current = next
     setUser(next)
+    setSessionRestoreError(null)
   }, [queryClient])
+  const beginAuthentication = useCallback(() => {
+    setSessionRestoreError(null)
+    setIsBootstrapping(false)
+    return ++sessionEpoch.current
+  }, [])
+  const retrySessionRestore = useCallback(() => {
+    setSessionRestoreError(null)
+    setIsBootstrapping(true)
+    setRestoreAttempt(attempt => attempt + 1)
+  }, [])
 
   useEffect(() => {
     if (demoMode) {
@@ -29,20 +42,29 @@ export function AuthProvider({ children, demoMode = false }: AuthProviderProps) 
     }
 
     let active = true
+    const started = sessionEpoch.current
     const unsubscribe = subscribeSession(next => { if (active) updateSession(next) })
+    setIsBootstrapping(true)
+    setSessionRestoreError(null)
 
     async function bootstrap() {
-      const token = await restoreSession()
-      if (token) {
-        const restoringUser = currentUser.current
+      try {
+        const token = await restoreSession()
+        if (!active || !token) return
+        const restoredEpoch = sessionEpoch.current
         try {
           const restoredUser = await getCurrentUser()
-          if (active && currentUser.current === restoringUser) updateSession(restoredUser)
-        } catch {
-          if (active && currentUser.current === restoringUser) updateSession(null)
+          if (active && sessionEpoch.current === restoredEpoch) updateSession(restoredUser)
+        } catch (error) {
+          // The refresh has already validated this user. A temporary /me
+          // failure must not discard that session or override a newer login.
+          if (active && sessionEpoch.current === restoredEpoch && error instanceof ApiError && [401, 403].includes(error.status)) updateSession(null)
         }
+      } catch {
+        if (active && sessionEpoch.current === started && !currentUser.current) setSessionRestoreError('Não foi possível retomar seu acesso.')
+      } finally {
+        if (active) setIsBootstrapping(false)
       }
-      if (active) setIsBootstrapping(false)
     }
 
     void bootstrap()
@@ -50,19 +72,21 @@ export function AuthProvider({ children, demoMode = false }: AuthProviderProps) 
       active = false
       unsubscribe()
     }
-  }, [demoMode, updateSession])
+  }, [demoMode, restoreAttempt, updateSession])
 
   const value = useMemo(
     () => ({
       user,
       isBootstrapping,
+      sessionRestoreError,
+      retrySessionRestore,
       signIn: async (credentials: LoginCredentials) => {
-        const started = ++sessionEpoch.current
+        const started = beginAuthentication()
         const authenticatedUser = await login(credentials)
         if (sessionEpoch.current === started) updateSession(authenticatedUser)
       },
       signInWithGoogle: async (credential: string, registration?: { name: string; phone: string }) => {
-        const started = ++sessionEpoch.current
+        const started = beginAuthentication()
         if (registration) {
           await registerGoogleClient(registration, credential)
           if (sessionEpoch.current !== started) return
@@ -77,7 +101,7 @@ export function AuthProvider({ children, demoMode = false }: AuthProviderProps) 
         if (sessionEpoch.current === started) updateSession(authenticatedUser)
       },
       signOut: async () => {
-        const started = ++sessionEpoch.current
+        const started = beginAuthentication()
         try {
           await logout()
         } finally {
@@ -85,7 +109,7 @@ export function AuthProvider({ children, demoMode = false }: AuthProviderProps) 
         }
       },
       completeFirstAccessWithGoogle: async (credential: string) => {
-        const started = ++sessionEpoch.current
+        const started = beginAuthentication()
         const authenticatedUser = await completeFirstAccessWithGoogle(credential)
         if (sessionEpoch.current === started) updateSession(authenticatedUser)
       },
@@ -94,7 +118,7 @@ export function AuthProvider({ children, demoMode = false }: AuthProviderProps) 
         if (current?.needsCustomerProfile) updateSession({ ...current, needsCustomerProfile: false })
       },
       changePassword: async (passwords: PasswordChange) => {
-        const started = ++sessionEpoch.current
+        const started = beginAuthentication()
         await changePassword(passwords)
         if (sessionEpoch.current !== started) return
         try {
@@ -105,7 +129,7 @@ export function AuthProvider({ children, demoMode = false }: AuthProviderProps) 
         updateSession(null)
       },
     }),
-    [isBootstrapping, user, updateSession],
+    [isBootstrapping, user, updateSession, sessionRestoreError, retrySessionRestore, beginAuthentication],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

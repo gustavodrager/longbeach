@@ -1,9 +1,10 @@
 import { hasStaffScope, profileRole, staffPathAllowed, workHome } from './access'
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from './authContext'
+import { SessionRestoreNotice } from './SessionRestoreNotice'
 
 export function AuthGuard() {
-  const { user, isBootstrapping } = useAuth()
+  const { user, isBootstrapping, sessionRestoreError, retrySessionRestore } = useAuth()
   const location = useLocation()
 
   if (isBootstrapping) {
@@ -14,6 +15,8 @@ export function AuthGuard() {
       </main>
     )
   }
+
+  if (sessionRestoreError) return <SessionRestoreNotice message={sessionRestoreError} onRetry={retrySessionRestore} />
 
   if (!user) {
     return <Navigate to={location.pathname === '/' ? '/visitante' : '/login'} replace state={{ from: location }} />
