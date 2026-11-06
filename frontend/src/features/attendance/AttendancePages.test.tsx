@@ -503,6 +503,16 @@ it('traduz todos os eventos de histórico enviados pela API de comandas',async()
   expect(screen.getByText('Acesso do cliente encerrado')).toBeInTheDocument()
   expect(screen.getByText('Taxa registrada')).toBeInTheDocument()
 })
+it('mostra Pagamento ao lado da autorização de desconto no fim dos detalhes',async()=>{
+ server({tab:makeTab(),pixEnabled:false});mount('/atendimento/comandas/tab-a',{...actor,roles:['Manager'],permissions:[...actor.permissions,'bar:supervise']});
+ await screen.findByRole('heading',{name:'Comanda 104'});
+ const discount=screen.getByRole('button',{name:'Autorizar desconto ou cortesia'});
+ const payment=screen.getByRole('link',{name:'Pagamento'});
+ expect(payment).toHaveAttribute('href','/atendimento/receber/tab-a');
+ expect(payment.parentElement).toBe(discount.parentElement);
+ expect(payment.parentElement).toHaveClass('lb-tab-payment-actions');
+ expect(screen.queryByRole('link',{name:'Receber'})).not.toBeInTheDocument();
+})
 
 it.each(['cliente'])('Pix parcial confirmado pelo POST bloqueia nova cobrança quando consulta falha: %s',async scene=>{
   const tab={...makeTab(),total:100,due:100,payable:100};let posted=false

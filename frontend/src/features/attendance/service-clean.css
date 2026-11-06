@@ -30,6 +30,9 @@
 .lb-tabs-page .lb-open-tab .customer-picker legend { font-size:16px; }
 .lb-tabs-page .lb-open-tab .customer-picker :is(input,.secondary-link,.text-button,.primary-button) { min-height:48px; }
 .lb-tab-detail .lb-tab-context { gap:6px; }
+.lb-tab-detail .lb-tab-payment-actions { margin:16px 0; }
+.lb-tab-detail .lb-tab-payment-actions:empty { display:none; }
+.lb-tab-detail .lb-tab-payment-link { margin-left:auto; }
 .lb-service-payment .lb-payment-destination h2 { margin:0 0 8px; }
 .lb-service-payment .lb-payment-destination p { margin:6px 0; }
 :is(.lb-tab-detail,.lb-service-payment,.lb-service-receipt,.lb-service-cash,.lb-service-recovery) .ux-summary { gap:10px; }
