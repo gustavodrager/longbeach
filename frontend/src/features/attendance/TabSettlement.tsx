@@ -127,7 +127,6 @@ function Settlement({ tab, unavailable, showDetailsLink, cancellationOnly, inlin
 export function PaymentDestination({ tab }: { tab: Tab }) {
   return <div className="lb-payment-destination">
     <h2>{tabTitle(tab)}</h2>
-    <p>{tab.responsible ? `Responsável: ${tab.responsible.name}` : 'Sem responsável vinculado à área do cliente.'}</p>
-    <p className="ux-note">O recebimento será registrado somente nesta comanda.</p>
+    {tab.responsible && <p>Responsável: {tab.responsible.name}</p>}
   </div>
 }

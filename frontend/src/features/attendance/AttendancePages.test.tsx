@@ -902,7 +902,21 @@ it('identificação cadastral opcional abre comanda sem criar responsável finan
  const bodies:Record<string,unknown>[]=[];const state:Server={tab:makeTab(),pixEnabled:false,customerLookups:[identified],post:(_,body)=>{bodies.push(body);state.tab.customer=identified;return json(state.tab)}}
  const calls=server(state);mount('/atendimento/comandas');fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));await chooseIdentified('Buscar cliente identificado')
  expect(screen.getByText('Acesso à comanda (opcional)',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');expect(calls.mock.calls.some(([url])=>String(url).includes('/tabs/customers?'))).toBe(false)
- fireEvent.click(screen.getByRole('button',{name:'Abrir sem vínculo financeiro'}));await screen.findByRole('heading',{name:'Comanda 104 - Pessoa de exemplo'});expect(bodies).toHaveLength(1);expect(bodies[0]).toMatchObject({customerId:identified.id,mode:'Tab'});expect(bodies[0]).not.toHaveProperty('responsibleUserId');expect(screen.getByText('Sem responsável vinculado à área do cliente.')).toBeInTheDocument();expect(screen.queryByRole('heading',{name:'Cliente identificado'})).not.toBeInTheDocument()
+ fireEvent.click(screen.getByRole('button',{name:'Abrir sem vínculo financeiro'}));await screen.findByRole('heading',{name:'Comanda 104 - Pessoa de exemplo'});expect(bodies).toHaveLength(1);expect(bodies[0]).toMatchObject({customerId:identified.id,mode:'Tab'});expect(bodies[0]).not.toHaveProperty('responsibleUserId');expect(screen.queryByText('Sem responsável vinculado à área do cliente.')).not.toBeInTheDocument();expect(screen.queryByRole('heading',{name:'Cliente identificado'})).not.toBeInTheDocument()
+})
+it('comanda com nome dispensa identificação e avisos no recebimento',async()=>{
+ server({tab:{...makeTab(),name:'Gabriel'},pixEnabled:false});mount('/atendimento/receber/tab-a');
+ expect(await screen.findByRole('heading',{name:'Receber · Comanda 104 - Gabriel'})).toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Identificar cliente (opcional)'})).not.toBeInTheDocument();
+ expect(screen.queryByText('Sem responsável vinculado à área do cliente.')).not.toBeInTheDocument();
+ expect(screen.queryByText('O recebimento será registrado somente nesta comanda.')).not.toBeInTheDocument();
+})
+it('detalhes de comanda com nome oferecem alteração sem aviso de responsável ausente',async()=>{
+ server({tab:{...makeTab(),name:'Gabriel'},pixEnabled:false});mount('/atendimento/comandas/tab-a');
+ expect(await screen.findByRole('heading',{level:1,name:'Comanda 104 - Gabriel'})).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Alterar identificação'})).toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Identificar cliente (opcional)'})).not.toBeInTheDocument();
+ expect(screen.queryByText('Sem responsável vinculado à área do cliente.')).not.toBeInTheDocument();
 })
 it('venda avulsa preserva cliente e operação incerta após remontar sem vincular Google',async()=>{
  const opens:Record<string,unknown>[]=[];let fail=true

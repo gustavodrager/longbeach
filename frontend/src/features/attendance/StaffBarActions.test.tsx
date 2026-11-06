@@ -64,7 +64,7 @@ it('Receber sem Comandas oferece recebimento e encerramento sem links ou altera�
 it('operar Comandas permite abrir e identificar sem oferecer inclusão de produtos ou recebimento', async () => {
   const fetch = server()
   mount(<><TabSettlement tab={tab({ due: 10, payable: 10 })} /><TabCustomerIdentification tab={tab()} /><OpenTabForm /></>, actor(['bar.tabs'], ['bar.tabs']))
-  expect(screen.getByRole('button', { name: 'Identificar cliente (opcional)' })).toBeEnabled()
+  expect(screen.queryByRole('button', { name: 'Identificar cliente (opcional)' })).not.toBeInTheDocument()
   expect(screen.queryByRole('link', { name: /Receber restante/ })).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Abrir comanda' }))
   const submit = screen.getByRole('button', { name: 'Abrir sem vínculo financeiro' })
