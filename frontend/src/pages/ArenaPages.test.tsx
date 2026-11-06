@@ -68,6 +68,7 @@ it('exibe os próximos três horários em ordem, incluindo o atual e omitindo en
     const links = within(section).getAllByRole('link')
     expect(links).toHaveLength(3)
     expect(links.map(link => link.querySelector('time')?.textContent)).toEqual(['10:00–11:00', '12:00–13:00', '14:00–15:00'])
+    expect(within(section).queryByText(court.name)).not.toBeInTheDocument()
     expect(within(links[0]).getByText('Em andamento')).toBeInTheDocument()
     expect(links.every(link => link.getAttribute('href') === `/agenda?date=${today()}&view=day&court=${court.id}`)).toBe(true)
   } finally { vi.useRealTimers() }
