@@ -4,16 +4,20 @@ import { MemoryRouter } from 'react-router-dom'
 import { AuthContext, type AuthContextValue } from '../auth/authContext'
 import { OrdersPage } from './OrdersPage'
 import type { Tab, TabItem } from './api'
+import { ITEM_REMOVAL_REASON } from './ItemRemovalConfirmation'
 
 const item = (id: string, state = 'Requested'): TabItem => ({ id, tabId: 'tab', productId: id, name: `Produto ${id}`, quantity: 1, unitPrice: 5, total: 5, state, source: 'Client', createdAtUtc: '2026-10-19T12:00:00Z', allowedActions: state === 'Requested' ? ['accept', 'reject'] : ['fulfill'] })
 const tab = (items = [item('a'), item('b')]): Tab => ({ id: 'tab', number: 104, name: 'Mesa teste', state: 'Open', mode: 'Tab', locationId: 'bar', actorId: 'operator', total: 10, paid: 0, pending: 0, due: 10, payable: 10, createdAtUtc: '2026-10-19T12:00:00Z', items, payments: [], history: [], allowedActions: [] })
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 const clients: QueryClient[] = []
-function mount(path = '/atendimento/pedidos', operate = true) {
+function mount(path = '/atendimento/pedidos', operate = true, supervise = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } }); clients.push(client)
-  const auth: AuthContextValue = { user: { id: 'operator', name: 'Teste', email: 'teste@example.com', roles: ['Operations'], permissions: operate ? ['bar:sales:read', 'bar:sales:operate'] : ['bar:sales:read'] }, isBootstrapping: false, signIn: async () => {}, signInWithGoogle: async () => {}, signOut: async () => {}, changePassword: async () => {}, completeFirstAccessWithGoogle: async () => {} }
-  render(<QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><OrdersPage /></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
-  return client
+  const view = (supervisor: boolean) => {
+    const auth: AuthContextValue = { user: { id: 'operator', name: 'Teste', email: 'teste@example.com', roles: supervisor ? ['Manager'] : ['Operations'], permissions: [...(operate ? ['bar:sales:read', 'bar:sales:operate'] : ['bar:sales:read']), ...(supervisor ? ['bar:supervise'] : [])] }, isBootstrapping: false, signIn: async () => {}, signInWithGoogle: async () => {}, signOut: async () => {}, changePassword: async () => {}, completeFirstAccessWithGoogle: async () => {} }
+    return <QueryClientProvider client={client}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><OrdersPage /></MemoryRouter></AuthContext.Provider></QueryClientProvider>
+  }
+  const result = render(view(supervise))
+  return { client, changeSupervision: (next: boolean) => result.rerender(view(next)) }
 }
 afterEach(() => { clients.splice(0).forEach(client => client.clear()); sessionStorage.clear() })
 
@@ -30,21 +34,19 @@ it('agrupa produtos por comanda e aplica busca/filtro antes da paginação sem p
   expect((await screen.findByRole('link', { name: 'Comanda 104 - Mesa teste' })).getAttribute('href')).toContain('busca%3DProduto')
 })
 
-it('recusa no contexto, foca motivo e limpa o texto ao cancelar ou trocar de item', async () => {
-  vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ items: [tab()], total: 1 }))
+it('confirma exclusão no contexto sem motivo e devolve o foco ao manter o item', async () => {
+  const calls = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => json({ items: [tab()], total: 1 }))
   mount(); const a = within(await screen.findByRole('article', { name: '1 × Produto a' })); const b = within(screen.getByRole('article', { name: '1 × Produto b' }))
-  fireEvent.click(a.getByRole('button', { name: 'Recusar' }))
-  expect(a.getByLabelText('Motivo da recusa')).toHaveFocus()
-  expect(a.getByText('Recusar 1 × Produto a · Comanda 104 - Mesa teste')).toBeInTheDocument()
-  fireEvent.change(a.getByLabelText('Motivo da recusa'), { target: { value: 'Sem produto' } })
-  fireEvent.click(b.getByRole('button', { name: 'Recusar' }))
-  expect(b.getByLabelText('Motivo da recusa')).toHaveValue('')
-  fireEvent.change(b.getByLabelText('Motivo da recusa'), { target: { value: '   ' } })
-  expect(b.getByRole('button', { name: 'Confirmar recusa' })).toBeDisabled()
-  fireEvent.click(b.getByRole('button', { name: 'Cancelar' }))
-  expect(b.getByRole('button', { name: 'Recusar' })).toHaveFocus()
-  fireEvent.click(b.getByRole('button', { name: 'Recusar' }))
-  expect(b.getByLabelText('Motivo da recusa')).toHaveValue('')
+  fireEvent.click(a.getByRole('button', { name: 'Excluir item' }))
+  expect(a.queryByRole('textbox')).not.toBeInTheDocument()
+  expect(a.getByRole('button', { name: 'Manter item' })).toHaveFocus()
+  expect(a.getByText('Excluir 1 × Produto a · Comanda 104 - Mesa teste?')).toBeInTheDocument()
+  fireEvent.click(b.getByRole('button', { name: 'Excluir item' }))
+  expect(a.queryByRole('button', { name: 'Confirmar exclusão' })).not.toBeInTheDocument()
+  expect(b.getByRole('button', { name: 'Confirmar exclusão' })).toBeEnabled()
+  fireEvent.click(b.getByRole('button', { name: 'Manter item' }))
+  expect(b.getByRole('button', { name: 'Excluir item' })).toHaveFocus()
+  expect(calls.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0)
 })
 
 it('libera os demais itens durante rede lenta e mescla só o item confirmado em respostas fora de ordem', async () => {
@@ -68,7 +70,7 @@ it('libera os demais itens durante rede lenta e mescla só o item confirmado em 
   expect(mock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(2)
 })
 
-it('preserva recusa na falha e reutiliza operação e motivo na tentativa seguinte', async () => {
+it('reutiliza a mesma exclusão auditada após falha e bloqueia outra ação nesse item', async () => {
   let attempts = 0; let current = tab([item('a')])
   const mock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
     if (init?.method === 'POST') {
@@ -77,15 +79,34 @@ it('preserva recusa na falha e reutiliza operação e motivo na tentativa seguin
     }
     return json({ items: [current], total: 1 })
   })
-  mount(); fireEvent.click(await screen.findByRole('button', { name: 'Recusar' }))
-  fireEvent.change(screen.getByLabelText('Motivo da recusa'), { target: { value: 'Produto indisponível' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Confirmar recusa' }))
+  mount(); fireEvent.click(await screen.findByRole('button', { name: 'Excluir item' }))
+  expect(screen.queryByLabelText('Motivo da recusa')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Confirmar exclusão' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Rede indisponível')
-  expect(screen.getByLabelText('Motivo da recusa')).toHaveValue('Produto indisponível')
+  expect(screen.getByRole('button', { name: 'Aceitar' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Excluir item' })).toBeDisabled()
   fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
-  await screen.findByText(/pedido recusado\./)
+  await screen.findByText(/item excluído\./)
   const writes = mock.mock.calls.filter(([, init]) => init?.method === 'POST').map(([, init]) => JSON.parse(String(init?.body)))
-  expect(writes).toHaveLength(2); expect(writes[1]).toEqual(writes[0]); expect(writes[1].reason).toBe('Produto indisponível')
+  expect(writes).toHaveLength(2); expect(writes[1]).toEqual(writes[0]); expect(writes[1].reason).toBe(ITEM_REMOVAL_REASON)
+})
+
+it.each([false, true])('item aceito só pode ser excluído em Pedidos com supervisão (%s)', async supervise => {
+  let current = tab([{ ...item('a', 'Accepted'), allowedActions: ['fulfill', 'reverse'] }])
+  const mock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+    if (init?.method === 'POST') { current = tab([{ ...item('a'), state: 'Reversed', allowedActions: [] }]); return json(current) }
+    return json({ items: [current], total: 1 })
+  })
+  mount('/atendimento/pedidos', true, supervise); await screen.findByRole('article', { name: '1 × Produto a' })
+  if (!supervise) { expect(screen.queryByRole('button', { name: 'Excluir item' })).not.toBeInTheDocument(); return }
+  fireEvent.click(screen.getByRole('button', { name: 'Excluir item' }))
+  expect(screen.getByText(/Retira R\$\s*5,00 do consumo/)).toBeInTheDocument()
+  expect(screen.queryByRole('textbox', { name: /Motivo/ })).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Confirmar exclusão' }))
+  await screen.findByText(/item excluído\./)
+  const writes = mock.mock.calls.filter(([, init]) => init?.method === 'POST')
+  expect(writes).toHaveLength(1); expect(writes[0][0]).toBe('/api/v1/bar/tabs/tab/items/a/reverse')
+  expect(JSON.parse(String(writes[0][1]?.body))).toMatchObject({ reason: ITEM_REMOVAL_REASON, returnStock: false, operationId: expect.any(String) })
 })
 
 it('entrega em um clique e respeita permissões e ações permitidas', async () => {
@@ -102,7 +123,7 @@ it('consulta sem permissão de operação não oferece ações', async () => {
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ items: [tab()], total: 1 }))
   mount('/atendimento/pedidos', false); await screen.findByRole('article', { name: '1 × Produto a' })
   expect(screen.queryByRole('button', { name: 'Aceitar' })).not.toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Recusar' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Excluir item' })).not.toBeInTheDocument()
 })
 
 it('identifica o cliente no cabeçalho do grupo sem usar o responsável de outra pessoa',async()=>{
@@ -110,3 +131,25 @@ it('identifica o cliente no cabeçalho do grupo sem usar o responsável de outra
  mount();expect(await screen.findByRole('heading',{level:2,name:'Comanda 01 - Cliente Exemplo'})).toBeInTheDocument();
  expect(screen.queryByRole('heading',{name:/Outra pessoa/})).not.toBeInTheDocument();
 });
+
+it('mantém a exclusão incerta bloqueada ao perder supervisão e repete os mesmos dados após recuperar o acesso', async () => {
+  let attempts = 0; let current = tab([{ ...item('a', 'Accepted'), allowedActions: ['fulfill', 'reverse'] }])
+  const calls = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+    if (init?.method === 'POST') {
+      if (++attempts === 1) return json({ detail: 'Resposta interrompida.' }, 503)
+      current = tab([{ ...item('a'), state: 'Reversed', allowedActions: [] }]); return json(current)
+    }
+    return json({ items: [current], total: 1 })
+  })
+  const { changeSupervision } = mount('/atendimento/pedidos', true, true)
+  fireEvent.click(await screen.findByRole('button', { name: 'Excluir item' })); fireEvent.click(screen.getByRole('button', { name: 'Confirmar exclusão' }))
+  await screen.findByRole('alert'); changeSupervision(false)
+  expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeDisabled()
+  expect(screen.getByText('Seu acesso não permite confirmar esta exclusão. Peça ajuda à gestão.')).toBeVisible()
+  expect(screen.getByRole('button', { name: 'Entregar' })).toBeDisabled()
+  expect(calls.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
+  changeSupervision(true); fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
+  await screen.findByText(/item excluído\./)
+  const bodies = calls.mock.calls.filter(([, init]) => init?.method === 'POST').map(([, init]) => JSON.parse(String(init?.body)))
+  expect(bodies).toHaveLength(2); expect(bodies[1]).toEqual(bodies[0])
+})
