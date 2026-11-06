@@ -362,6 +362,19 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         else tab.Touch();
         db.Add(new BarTabHistory(tab.Id, "PaymentRefunded", refund.ActorId, refund.Amount, refund.Reason, paymentId: payment.Id));
     }
+    public Task<TabResponse> AddCharge(Guid id, TabChargeInput input, Guid actor, CancellationToken ct) => Run(input.OperationId, Hash(new { action = "charge", id, input, actor }), async () =>
+    {
+        var tab = await Lock(id, ct); tab.EnsureOpen();
+        var amount = BarRules.Money(input.Amount);
+        if (amount <= 0) throw new BarRuleException("Informe um valor maior que zero.");
+        var description = string.IsNullOrWhiteSpace(input.Description) ? null : BarRules.Text(input.Description, 500, "Descrição");
+        var totals = await Totals(id, ct);
+        BarRules.Money(totals.Total + tab.Discount + amount);
+        db.Add(new BarTabHistory(id, "ChargeAdded", actor, amount, description));
+        tab.Touch();
+        await db.SaveChangesAsync(ct);
+        return await Public(tab, false, false, ct);
+    }, ct);
     public Task<TabResponse> Adjust(Guid id, TabAdjustmentInput input, Guid actor, CancellationToken ct) => Run(input.OperationId, Hash(new { action = "adjust", id, input, actor }), async () =>
     {
         var tab = await Lock(id, ct); tab.EnsureOpen(); var totals = await Totals(id, ct);
@@ -506,18 +519,22 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     private async Task<TabTotals> Totals(Guid id, CancellationToken ct)
     {
         var items = await db.Set<BarTabItem>().AsNoTracking().Where(x => x.TabId == id).ToListAsync(ct); var payments = await db.Set<BarTabPayment>().AsNoTracking().Where(x => x.TabId == id).ToListAsync(ct);
-        var discount = await db.Set<BarTab>().Where(x => x.Id == id).Select(x => x.Discount).SingleAsync(ct); return Calculate(items, payments, discount);
+        var tab = await db.Set<BarTab>().Where(x => x.Id == id).Select(x => new { x.Discount, x.State }).SingleAsync(ct);
+        var charges = tab.State == "Cancelled" ? 0 : await db.Set<BarTabHistory>().Where(x => x.TabId == id && x.Kind == "ChargeAdded").SumAsync(x => (decimal?)x.Amount, ct) ?? 0;
+        return Calculate(items, payments, tab.Discount, charges);
     }
-    public static TabTotals Calculate(IEnumerable<BarTabItem> items, IEnumerable<BarTabPayment> payments, decimal discount = 0)
+    public static TabTotals Calculate(IEnumerable<BarTabItem> items, IEnumerable<BarTabPayment> payments, decimal discount = 0, decimal charges = 0)
     {
-        var total = items.Where(x => x.State is "Accepted" or "Fulfilled").Sum(x => x.Total) - discount;
+        var total = items.Where(x => x.State is "Accepted" or "Fulfilled").Sum(x => x.Total) + charges - discount;
         var rows = payments.ToArray(); var paid = rows.Where(x => x.State == "Approved").Sum(x => x.Amount - x.Refunded); var pending = rows.Where(x => x.State == "Pending").Sum(x => x.Amount); var due = Math.Max(0, total - paid);
         return new(total, paid, pending, due, Math.Max(0, due - pending));
     }
     private async Task<TabResponse> Public(BarTab tab, bool costs, bool client, CancellationToken ct, bool supervisor = false)
     {
         var items = await db.Set<BarTabItem>().AsNoTracking().Where(x => x.TabId == tab.Id).OrderBy(x => x.CreatedAtUtc).ToListAsync(ct);
-        var payments = await db.Set<BarTabPayment>().AsNoTracking().Where(x => x.TabId == tab.Id).OrderBy(x => x.CreatedAtUtc).ToListAsync(ct); var totals = Calculate(items, payments, tab.Discount);
+        var payments = await db.Set<BarTabPayment>().AsNoTracking().Where(x => x.TabId == tab.Id).OrderBy(x => x.CreatedAtUtc).ToListAsync(ct);
+        var charges = tab.State == "Cancelled" ? 0 : await db.Set<BarTabHistory>().AsNoTracking().Where(x => x.TabId == tab.Id && x.Kind == "ChargeAdded").SumAsync(x => (decimal?)x.Amount, ct) ?? 0;
+        var totals = Calculate(items, payments, tab.Discount, charges);
         var recipeIds=items.Where(x=>x.RecipeId!=null).Select(x=>x.RecipeId!.Value).Distinct().ToArray();
         var recipeVersions=costs?await db.Set<BarRecipeVersion>().AsNoTracking().Where(x=>recipeIds.Contains(x.Id)).ToDictionaryAsync(x=>x.Id,x=>x.Version,ct):new Dictionary<Guid,int>();
         var paymentRows = new List<TabPaymentResponse>(); foreach (var payment in payments)

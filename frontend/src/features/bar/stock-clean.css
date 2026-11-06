@@ -17,3 +17,5 @@
   .stock-clean .stock-actions { display:flex; flex-wrap:wrap; }
   .stock-clean .stock-actions a { flex:1 1 140px; }
 }
+
+.bar-page-actions .stock-actions { flex:1 1 100%; margin-bottom:0; }

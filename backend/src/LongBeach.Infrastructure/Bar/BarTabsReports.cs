@@ -107,9 +107,10 @@ public sealed partial class BarTabsService
                 title = "Falta receber agora"; explanation = "Saldos das comandas abertas, incluindo Pix pendentes.";
                 query = from t in tabs where t.State == "Open"
                         let consumed = items.Where(i => i.TabId == t.Id && (i.State == "Accepted" || i.State == "Fulfilled")).Sum(i => (decimal?)i.Total) ?? 0
+                        let charges = db.Set<BarTabHistory>().Where(h => h.TabId == t.Id && h.Kind == "ChargeAdded").Sum(h => (decimal?)h.Amount) ?? 0
                         let paid = payments.Where(p => p.TabId == t.Id && p.State == "Approved").Sum(p => (decimal?)(p.Amount - p.Refunded)) ?? 0
-                        where consumed - t.Discount > paid
-                        select new ReportProjection { Id = t.Id, Label = "Comanda " + t.Number + (t.Name == "" ? "" : " · " + t.Name), Detail = "Saldo ainda não confirmado", Date = now, Amount = consumed - t.Discount - paid, Count = null, Resource = "tab", ResourceId = t.Id }; break;
+                        where consumed + charges - t.Discount > paid
+                        select new ReportProjection { Id = t.Id, Label = "Comanda " + t.Number + (t.Name == "" ? "" : " · " + t.Name), Detail = "Saldo ainda não confirmado", Date = now, Amount = consumed + charges - t.Discount - paid, Count = null, Resource = "tab", ResourceId = t.Id }; break;
             case "lowStock":
             case "low-stock-bar":
                 Guid? barLocationId = null;
