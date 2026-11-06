@@ -17,6 +17,18 @@ public sealed class BarRulesTests
         Assert.Equal(5, b.Quantity); Assert.Equal(2, b.Available);
     }
     [Fact]
+    public void Sales_can_overdraw_stock_but_regular_withdrawals_remain_guarded()
+    {
+        var b = new StockBalance(Guid.NewGuid(), Guid.NewGuid());
+        b.ReserveForSale(2);
+        var sale = new StockMovement(b, -2, 1, "TabDelivery", "Venda", Guid.NewGuid(), Guid.NewGuid());
+        b.Release(2);
+        Assert.Equal(-2, b.Quantity); Assert.Equal(-2, b.Available); Assert.Equal(0, b.Reserved);
+        Assert.Equal(0, sale.Before); Assert.Equal(-2, sale.After);
+        Assert.Throws<BarRuleException>(() => b.Move(-1));
+        b.Move(3); Assert.Equal(1, b.Quantity);
+    }
+    [Fact]
     public void Movement_records_origin_actor_and_balance()
     {
         var b = new StockBalance(Guid.NewGuid(), Guid.NewGuid()); b.Move(10); var actor = Guid.NewGuid(); var origin = Guid.NewGuid();

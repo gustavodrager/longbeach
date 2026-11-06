@@ -46,17 +46,18 @@ function mount(path:string,user=actor,realReceipt=false,staleTime=0){
 beforeEach(()=>{sessionStorage.clear();localStorage.clear();setAccessToken(null);setCsrfToken(null)})
 afterEach(()=>{clients.splice(0).forEach(query=>query.clear());setAccessToken(null);setCsrfToken(null)})
 
-it('permite alterar quantidade e impede adicionar produto esgotado ou acima do estoque',async()=>{
+it('permite vender produtos disponíveis para venda mesmo sem saldo no estoque',async()=>{
   server({tab:makeTab(),pixEnabled:false});mount('/atendimento/vender')
   const add=await screen.findByRole('button',{name:/Adicionar Água por/})
-  expect(screen.getByRole('button',{name:/Adicionar Suco por/})).toBeDisabled()
+  expect(screen.getByRole('button',{name:/Adicionar Suco por/})).toBeEnabled()
   fireEvent.click(add);expect(screen.getByLabelText('Quantidade de Água')).toHaveTextContent('1')
   fireEvent.click(screen.getByRole('button',{name:'Adicionar uma unidade de Água'}))
   expect(screen.getByLabelText('Quantidade de Água')).toHaveTextContent('2')
-  expect(screen.getByRole('button',{name:'Adicionar uma unidade de Água'})).toBeDisabled()
+  fireEvent.click(screen.getByRole('button',{name:'Adicionar uma unidade de Água'}))
+  expect(screen.getByLabelText('Quantidade de Água')).toHaveTextContent('3')
   fireEvent.click(screen.getByRole('button',{name:'Retirar uma unidade de Água'}))
   fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}))
-  expect(screen.getByText('1 × Água')).toBeInTheDocument()
+  expect(screen.getByText('2 × Água')).toBeInTheDocument()
   expect(screen.getByRole('button',{name:'Salvar'})).toBeEnabled()
   expect(screen.queryByRole('button',{name:'Enviar para preparo'})).not.toBeInTheDocument()
 })
@@ -120,21 +121,19 @@ it('abre meu caixa no Bar mesmo quando Almoxarifado vem primeiro',async()=>{
   expect(fetchMock.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(1)
 })
 
-it('vende produtos sem controle; permite retirar um item esgotado do carrinho',async()=>{
+it('mantém produtos sem saldo e sem controle disponíveis para venda',async()=>{
   const state:Server={tab:makeTab(),pixEnabled:false,catalog:[...products,{...products[1],id:'untracked',name:'Sem controle',shortName:'Sem controle',available:null}]}
   const fetchMock=server(state);const query=mount('/atendimento/vender')
   fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}))
   expect(screen.getByRole('button',{name:/Adicionar Sem controle/})).toBeEnabled()
   state.catalog=state.catalog!.map(product=>({...product,available:0}))
   await act(async()=>{await query.invalidateQueries({queryKey:['bar-runtime']})})
-  await waitFor(()=>expect(screen.getByRole('button',{name:'Adicionar uma unidade de Água'})).toBeDisabled())
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Adicionar uma unidade de Água'})).toBeEnabled())
   fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}))
-  fireEvent.click(screen.getByRole('button',{name:'Salvar'}))
-  expect(screen.getByRole('alert')).toHaveTextContent('O estoque mudou')
   expect(fetchMock.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0)
   fireEvent.click(screen.getByRole('button',{name:'Mais produtos'}))
   fireEvent.click(screen.getByRole('button',{name:'Retirar uma unidade de Água'}))
-  expect(screen.getByRole('button',{name:/Adicionar Água por/})).toBeDisabled()
+  expect(screen.getByRole('button',{name:/Adicionar Água por/})).toBeEnabled()
   expect(screen.queryByRole('heading',{name:'Nenhum produto disponível'})).not.toBeInTheDocument()
 })
 
@@ -1039,7 +1038,7 @@ it.each(['atendente','cliente'] as const)('retira da venda após atualizar o cat
  expect(screen.getByText('1 × Produto indisponível')).toBeInTheDocument();
  if(scene==='cliente')fireEvent.click(screen.getByRole('button',{name:'Enviar pedido'}));
  else fireEvent.click(screen.getByRole('button',{name:'Salvar'}));
- expect(screen.getByRole('alert')).toHaveTextContent(scene==='cliente'?'não está mais disponível':'O estoque mudou');
+ expect(screen.getByRole('alert')).toHaveTextContent(scene==='cliente'?'não está mais disponível':'Um produto saiu da venda');
  expect(screen.getByText('1 × Produto indisponível')).toBeInTheDocument();
  expect(calls.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
 });

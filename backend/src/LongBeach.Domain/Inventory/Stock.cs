@@ -19,11 +19,18 @@ public sealed class StockBalance : Entity
     public decimal Available => Quantity - Reserved;
     public void Move(decimal delta)
     {
-        if (delta == 0 || decimal.Round(delta, 3) != delta || Quantity + delta < Reserved) throw new BarRuleException("Movimentação inválida ou estoque disponível insuficiente.");
-        BarRules.Quantity(Quantity + delta, true);
+        if (delta == 0 || decimal.Round(delta, 3) != delta || (delta < 0 && Quantity + delta < Reserved)) throw new BarRuleException("Movimentação inválida ou estoque disponível insuficiente.");
+        if (Quantity + delta > 99999999 || (delta < 0 && Quantity + delta < 0)) throw new BarRuleException("Movimentação inválida ou estoque disponível insuficiente.");
         Quantity += delta; Version++;
     }
     public void Reserve(decimal quantity) { BarRules.Quantity(quantity); if (quantity > Available) throw new BarRuleException("Estoque insuficiente."); Reserved += quantity; Version++; }
+    public void ReserveForSale(decimal quantity) { BarRules.Quantity(quantity); if (Reserved + quantity > 99999999) throw new BarRuleException("Quantidade reservada inválida."); Reserved += quantity; Version++; }
+    public void MoveForSale(decimal delta)
+    {
+        if (delta >= 0 || decimal.Round(delta, 3) != delta || Quantity + delta < -99999999) throw new BarRuleException("Quantidade de venda inválida.");
+        BarRules.Quantity(-delta);
+        Quantity += delta; Version++;
+    }
     public void Release(decimal quantity) { BarRules.Quantity(quantity); if (quantity > Reserved) throw new BarRuleException("Reserva inválida."); Reserved -= quantity; Version++; }
 }
 public sealed class StockMovement : Entity
@@ -33,7 +40,9 @@ public sealed class StockMovement : Entity
     {
         Kind = BarRules.Text(kind, 40, "Tipo"); Reason = BarRules.Text(reason, 500, "Motivo");
         ProductId = balance.ProductId; LocationId = balance.LocationId; Before = balance.Quantity;
-        balance.Move(delta); After = balance.Quantity; Quantity = delta; UnitCost = unitCost;
+        if (kind is "Sale" or "Courtesy" or "TabDelivery") balance.MoveForSale(delta);
+        else balance.Move(delta);
+        After = balance.Quantity; Quantity = delta; UnitCost = unitCost;
         Kind = BarRules.Text(kind, 40, "Tipo"); Reason = BarRules.Text(reason, 500, "Motivo"); OriginId = origin; ActorId = actor;
     }
     public Guid ProductId { get; private set; }

@@ -57,7 +57,7 @@ function SellOrder({ tabId }: { tabId: string | null }) {
   const changeCart = (next: typeof cart) => { setCart(next); if (!next.length) setReview(false) }
   const identifiedName = personName(identifiedCustomer?.name)
   const fingerprint = `${locationId}:${identifiedCustomer?`customer:${identifiedCustomer.id}:`:''}${cart.map(row => row.notes ? JSON.stringify([row.productId, row.quantity, row.notes]) : `${row.productId}:${row.quantity}`).sort().join('|')}`
-  const currentSnapshot = JSON.stringify([connection.generation, locationId, identifiedCustomer?.id, cart, cart.map(row => { const p = products.find(p => p.id === row.productId); return [p?.id, p?.salePrice, p?.available, p?.prepared] }), target.data?.state])
+  const currentSnapshot = JSON.stringify([connection.generation, locationId, identifiedCustomer?.id, cart, cart.map(row => { const p = products.find(p => p.id === row.productId); return [p?.id, p?.salePrice, p?.prepared] }), target.data?.state])
   const canOperate = Boolean(hasPermission(user, 'bar:sales:operate') && hasStaffMenu(user,'bar.sell') && hasStaffAction(user,'bar.sell'))
   const writeBlocked = storageError || !connection.online || !canOperate || catalog.isFetching || catalog.isError || target.isFetching || !targetReady
   function checkOrder() { checkedSnapshot.current = currentSnapshot; setReview(true) }
@@ -65,11 +65,11 @@ function SellOrder({ tabId }: { tabId: string | null }) {
     if (pendingOrder === 'deliver' && !canDeliver) { command.setError('Uma pessoa com acesso a Pedidos precisa conferir a entrega pendente. O registro foi preservado.'); return }
     deliver = deliver && canDeliver
     if (writeBlocked) { command.setError('Reconecte e aguarde a atualização dos produtos e da comanda.'); return }
-    if (!pendingOrder && checkedSnapshot.current !== currentSnapshot) { checkOrder(); command.setError('O pedido ou a disponibilidade mudou. Confira o resumo e confirme novamente.'); return }
+    if (!pendingOrder && checkedSnapshot.current !== currentSnapshot) { checkOrder(); command.setError('O pedido ou o catálogo mudou. Confira o resumo e confirme novamente.'); return }
 
     if (!targetReady) { command.setError('Confira uma comanda aberta antes de registrar o pedido.'); return }
-    if (!locationId || !catalog.data || catalog.isError) { command.setError('Confira o estoque do Bar antes de continuar.'); return }
-    if (!pendingOrder && cart.some(row => !products.some(product => product.id === row.productId && (product.available == null || product.available >= row.quantity)))) { command.setError('O estoque mudou. Altere o pedido para conferir as quantidades disponíveis.'); return }
+    if (!locationId || !catalog.data || catalog.isError) { command.setError('Confira o cadastro do Bar antes de continuar.'); return }
+    if (!pendingOrder && cart.some(row => !products.some(product => product.id === row.productId))) { command.setError('Um produto saiu da venda. Confira o pedido.'); return }
     if (pendingOrder && pendingOrder !== (deliver ? 'deliver' : 'queue')) return
     const result = await command.run(async () => {
       // Fail before sending if the durable draft/keys cannot survive a reload.
@@ -96,7 +96,7 @@ function SellOrder({ tabId }: { tabId: string | null }) {
     {Boolean(locationId) && targetReady && <div className={`lb-sale-workspace ${review && cart.length ? 'is-review' : ''}`}>
       <div className="lb-sale-catalog"><Products products={products} cart={cart} onChange={changeCart} disabled={command.busy || Boolean(pendingOrder) || !canOperate} /></div>
       {cart.length > 0 && <aside ref={summary} className="lb-sale-summary" aria-label="Resumo do rascunho"><CartReview products={products} cart={cart} onChange={changeCart} disabled={command.busy || Boolean(pendingOrder)} />
-        {review ? <><div className="ux-actions lb-review-secondary"><button className="ux-button secondary" disabled={command.busy || Boolean(pendingOrder)} onClick={() => setReview(false)}>Mais produtos</button>{ready && tabId && <button className="ux-button secondary" disabled={command.busy || writeBlocked || pendingOrder === 'deliver' || !cart.length} onClick={() => void submit(false)}>Adicionar à comanda</button>}</div><div className="ux-actions lb-review-actions"><strong>{money(cartTotal(products, cart))}</strong><button className="ux-button primary" disabled={command.busy || writeBlocked || pendingOrder === (ready ? 'queue' : 'deliver') || !cart.length} onClick={() => void submit(ready)}><Icon name={ready ? 'check' : 'orders'} />{tabId ? ready ? 'Adicionar e entregar' : 'Adicionar à comanda' : 'Salvar'}</button></div><p className="ux-note">O estoque é baixado na entrega. Registrar não confirma pagamento.</p></> : <button className="ux-button primary" disabled={command.busy || writeBlocked} onClick={checkOrder}>Conferir pedido<Icon name="arrow" /></button>}
+        {review ? <><div className="ux-actions lb-review-secondary"><button className="ux-button secondary" disabled={command.busy || Boolean(pendingOrder)} onClick={() => setReview(false)}>Mais produtos</button>{ready && tabId && <button className="ux-button secondary" disabled={command.busy || writeBlocked || pendingOrder === 'deliver' || !cart.length} onClick={() => void submit(false)}>Adicionar à comanda</button>}</div><div className="ux-actions lb-review-actions"><strong>{money(cartTotal(products, cart))}</strong><button className="ux-button primary" disabled={command.busy || writeBlocked || pendingOrder === (ready ? 'queue' : 'deliver') || !cart.length} onClick={() => void submit(ready)}><Icon name={ready ? 'check' : 'orders'} />{tabId ? ready ? 'Adicionar e entregar' : 'Adicionar à comanda' : 'Salvar'}</button></div><p className="ux-note">O estoque é atualizado na entrega. Registrar não confirma pagamento.</p></> : <button className="ux-button primary" disabled={command.busy || writeBlocked} onClick={checkOrder}>Conferir pedido<Icon name="arrow" /></button>}
 
       </aside>}
     </div>}

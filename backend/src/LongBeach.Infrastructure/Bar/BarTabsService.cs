@@ -153,7 +153,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             {
                 var product = await db.Set<BarProduct>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == request.ProductId, ct) ?? throw new BarRuleException("Produto inexistente.");
                 var item = new BarTabItem(tab.Id, product, request.Quantity, actor, actor is null, request.Notes);
-                await EnsureAvailable(item, tab.LocationId, ct);
+                await EnsureSellableRecipe(item, ct);
                 db.Add(item); db.Add(new BarTabHistory(tab.Id, "Requested", actor, item.Total, itemId: item.Id));
                 if (actor is not null)
                 {

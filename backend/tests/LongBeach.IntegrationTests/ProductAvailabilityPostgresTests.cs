@@ -38,7 +38,7 @@ public sealed class ProductAvailabilityPostgresTests
     }
 
     [PostgresFact]
-    public async Task Sale_catalog_keeps_visible_zero_stock_and_untracked_products_without_bypassing_stock_checks()
+    public async Task Sale_catalog_sells_visible_zero_stock_and_untracked_products()
     {
         await using var f = await Fixture.Create();
         var empty = await Seed(f.Db);
@@ -65,15 +65,29 @@ public sealed class ProductAvailabilityPostgresTests
         Assert.Equal(0, clientCatalog.Single(x => x.Id == prepared.Id).Available);
         Assert.DoesNotContain(clientCatalog, x => x.Id == f.Product.Id);
 
-        var stockError = await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Add(tab.Id,
-            new(Guid.NewGuid(), [new(empty.Id, 1)]), f.Actor, null, default));
-        Assert.Contains("insuficiente", stockError.Message);
-        var recipeError = await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Add(tab.Id,
-            new(Guid.NewGuid(), [new(prepared.Id, 1)]), f.Actor, null, default));
-        Assert.Contains("insuficiente", recipeError.Message);
+        var direct = await f.Tabs.Add(tab.Id, new(Guid.NewGuid(), [new(empty.Id, 1)]), f.Actor, null, default);
+        var directItem = Assert.Single(direct.Items);
+        await f.Tabs.ItemAction(tab.Id, directItem.Id, "fulfill", new(Guid.NewGuid()), f.Actor, false, default);
+        var preparedSale = await f.Tabs.Add(tab.Id, new(Guid.NewGuid(), [new(prepared.Id, 1)]), f.Actor, null, default);
+        var preparedItem = preparedSale.Items.Single(x => x.ProductId == prepared.Id);
+        await f.Tabs.ItemAction(tab.Id, preparedItem.Id, "fulfill", new(Guid.NewGuid()), f.Actor, false, default);
         var saved = await f.Tabs.Add(tab.Id, new(Guid.NewGuid(), [new(untracked.Id, 1)]), f.Actor, null, default);
-        Assert.Equal(untracked.Id, Assert.Single(saved.Items).ProductId);
+        Assert.Contains(saved.Items, x => x.ProductId == untracked.Id);
+        Assert.Equal(-2, await f.Db.Set<StockBalance>().Where(x => x.ProductId == empty.Id).SumAsync(x => x.Quantity));
         Assert.Equal(0, await f.Db.Set<StockBalance>().Where(x => x.ProductId == empty.Id).SumAsync(x => x.Reserved));
+    }
+
+    [PostgresFact]
+    public async Task Legacy_cash_sale_records_negative_stock_when_product_is_for_sale()
+    {
+        await using var f = await Fixture.Create();
+        var sale = new BarSalesService(f.Db);
+        await sale.Create(new(f.Session.Id, [new(f.Product.Id, 11)]), f.Actor, default);
+        var created = await f.Db.Set<BarSale>().SingleAsync();
+        var saleId = created.Id;
+        await sale.Pay(saleId, new(Guid.NewGuid(), created.Total, null), "Cash", f.Actor, default);
+        Assert.Equal(-1, await f.Db.Set<StockBalance>().Where(x => x.ProductId == f.Product.Id).SumAsync(x => x.Quantity));
+        Assert.Equal(1, await f.Db.Set<StockMovement>().CountAsync(x => x.OriginId == saleId && x.Kind == "Sale"));
     }
 
     [PostgresFact]

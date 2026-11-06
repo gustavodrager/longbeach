@@ -30,7 +30,7 @@ public sealed class BarPaymentsService(LongBeachDbContext db,IPaymentGateway gat
                 var session=await db.Set<CashSession>().SingleAsync(x=>x.Id==sale.SessionId,ct);session.EnsureOpen();sale.AwaitPayment();
                 payment=new BarPayment(saleId,sale.Total,"Pix",input.OperationId,actor);payment.Pending(time.GetUtcNow().AddMinutes(10));db.Add(payment);
                 var stock=new BarStockService(db);
-                foreach(var item in sale.Items){if(!await db.Set<BarProduct>().AnyAsync(x=>x.Id==item.ProductId&&x.Active,ct))throw new BarRuleException("Produto desativado desde a criação da venda.");if(!item.ControlsStock)continue;var balance=await stock.Balance(item.ProductId,sale.LocationId,ct);balance.Reserve(item.Quantity);db.Add(new StockReservation(saleId,item.ProductId,sale.LocationId,item.Quantity));}
+                foreach(var item in sale.Items){if(!await db.Set<BarProduct>().AnyAsync(x=>x.Id==item.ProductId&&x.Active,ct))throw new BarRuleException("Produto desativado desde a criação da venda.");if(!item.ControlsStock)continue;var balance=await stock.Balance(item.ProductId,sale.LocationId,ct);balance.ReserveForSale(item.Quantity);db.Add(new StockReservation(saleId,item.ProductId,sale.LocationId,item.Quantity));}
                 await db.SaveChangesAsync(ct);
             }
             await tx.CommitAsync(ct);

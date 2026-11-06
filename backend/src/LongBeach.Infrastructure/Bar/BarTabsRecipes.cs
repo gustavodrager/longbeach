@@ -31,33 +31,28 @@ public sealed partial class BarTabsService
     },ct);
     private static RecipeVersionResponse PublicRecipe(BarRecipeVersion recipe)=>new(recipe.Id,recipe.ProductId,recipe.ProductName,recipe.Version,recipe.YieldQuantity,recipe.Reason,recipe.ActorId,recipe.CreatedAtUtc,recipe.Ingredients.OrderBy(x=>x.Name).ThenBy(x=>x.Id).Select(x=>new RecipeIngredientResponse(x.Id,x.ProductId,x.Name,x.Quantity,x.Unit,x.ConversionFactor,x.StockUnit,x.StockQuantity)).ToArray());
     private Task<BarRecipeVersion?> LatestRecipe(Guid productId,CancellationToken ct)=>db.Set<BarRecipeVersion>().AsNoTracking().Include(x=>x.Ingredients).Where(x=>x.ProductId==productId).OrderByDescending(x=>x.Version).FirstOrDefaultAsync(ct);
-    private async Task EnsureAvailable(BarTabItem item,Guid locationId,CancellationToken ct)
+    private async Task EnsureSellableRecipe(BarTabItem item,CancellationToken ct)
     {
         var recipe=item.Prepared?await LatestRecipe(item.ProductId,ct):null;
-        if(recipe is null)
-        {
-            if(item.ControlsStock&&(await Balance(item.ProductId,locationId,ct)).Available<item.Quantity)throw new BarRuleException($"{item.Name}: estoque disponível insuficiente.");
-            return;
-        }
+        if(recipe is null)return;
         foreach(var ingredient in recipe.Ingredients.OrderBy(x=>x.ProductId))
         {
             var current=await db.Set<BarProduct>().AsNoTracking().SingleAsync(x=>x.Id==ingredient.ProductId,ct);
             if(!current.Active||!current.ControlsStock||current.Prepared||current.SaleUnit!=ingredient.StockUnit)throw new BarRuleException($"{ingredient.Name}: confira o ingrediente e sua unidade de estoque na ficha técnica.");
-            var required=BarRecipeIngredient.Required(ingredient.StockQuantity,recipe.YieldQuantity,item.Quantity);
-            if((await Balance(ingredient.ProductId,locationId,ct)).Available<required)throw new BarRuleException($"{item.Name}: ingrediente {ingredient.Name} insuficiente neste local.");
+            BarRecipeIngredient.Required(ingredient.StockQuantity,recipe.YieldQuantity,item.Quantity);
         }
     }
     private async Task SnapshotAndReserve(BarTab tab,BarTabItem item,CancellationToken ct)
     {
         var recipe=item.Prepared?await LatestRecipe(item.ProductId,ct):null;
-        if(recipe is null) {if(item.ControlsStock)(await Balance(item.ProductId,tab.LocationId,ct)).Reserve(item.Quantity);return;}
+        if(recipe is null) {if(item.ControlsStock)(await Balance(item.ProductId,tab.LocationId,ct)).ReserveForSale(item.Quantity);return;}
         decimal cost=0;
         foreach(var ingredient in recipe.Ingredients.OrderBy(x=>x.ProductId))
         {
             var product=await db.Set<BarProduct>().AsNoTracking().SingleAsync(x=>x.Id==ingredient.ProductId,ct);
             if(!product.Active||!product.ControlsStock||product.Prepared||product.SaleUnit!=ingredient.StockUnit)throw new BarRuleException($"{ingredient.Name}: ingrediente indisponível ou unidade alterada. Revise a ficha técnica.");
             var quantity=BarRecipeIngredient.Required(ingredient.StockQuantity,recipe.YieldQuantity,item.Quantity);
-            (await Balance(product.Id,tab.LocationId,ct)).Reserve(quantity);
+            (await Balance(product.Id,tab.LocationId,ct)).ReserveForSale(quantity);
             db.Add(new BarTabIngredientSnapshot(item.Id,ingredient,quantity,product.AverageCost)); cost+=quantity*product.AverageCost;
         }
         item.SnapshotRecipe(recipe.Id,decimal.Round(cost/item.Quantity,6,MidpointRounding.AwayFromZero));

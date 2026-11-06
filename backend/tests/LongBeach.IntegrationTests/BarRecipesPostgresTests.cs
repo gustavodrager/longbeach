@@ -52,14 +52,16 @@ public sealed class BarRecipesPostgresTests
         Assert.Equal(24,(await f.Balance(f.Ingredient)).Quantity); Assert.Equal(1,await f.Db.Set<StockMovement>().CountAsync(x=>x.OriginId==item.Id&&x.Kind=="TabReturn"));
     }
     [PostgresFact]
-    public async Task Recipes_are_append_only_replay_once_and_failed_acceptance_leaves_no_partial_reservation()
+    public async Task Recipes_are_append_only_replay_once_and_accept_sale_above_stock()
     {
         await using var f=await Fixture.Create(); var input=new SaveRecipeInput(Guid.NewGuid(),f.Prepared.Id,1,"Versão inicial",[new(f.Ingredient.Id,1)]);
         var recipe=await f.Tabs.SaveRecipe(input,f.Actor,default); Assert.Equal(recipe.Id,(await f.Tabs.SaveRecipe(input,f.Actor,default)).Id);
         await Assert.ThrowsAsync<BarRuleException>(()=>f.Tabs.SaveRecipe(input with {YieldQuantity=2},f.Actor,default));
         var tab=await f.Open(); var access=await f.Tabs.IssueAccess(tab.Id,new(Guid.NewGuid()),f.Actor,default); tab=await f.Tabs.Add(tab.Id,new(Guid.NewGuid(),[new(f.Prepared.Id,1)]),null,access.Token,default); var item=Assert.Single(tab.Items);
-        await f.Save(25,"Sale",1); await Assert.ThrowsAsync<BarRuleException>(()=>f.Tabs.ItemAction(tab.Id,item.Id,"accept",new(Guid.NewGuid()),f.Actor,false,default));
-        Assert.Equal(0,(await f.Balance(f.Ingredient)).Reserved); Assert.False(await f.Db.Set<BarTabIngredientSnapshot>().AnyAsync(x=>x.ItemId==item.Id)); Assert.Equal("Requested",Assert.Single((await f.Tabs.Get(tab.Id,false,default)).Items).State);
+        await f.Save(25,"Sale",1); await f.Tabs.ItemAction(tab.Id,item.Id,"accept",new(Guid.NewGuid()),f.Actor,false,default);
+        Assert.Equal(25,(await f.Balance(f.Ingredient)).Reserved); Assert.True(await f.Db.Set<BarTabIngredientSnapshot>().AnyAsync(x=>x.ItemId==item.Id)); Assert.Equal("Accepted",Assert.Single((await f.Tabs.Get(tab.Id,false,default)).Items).State);
+        await f.Tabs.ItemAction(tab.Id,item.Id,"fulfill",new(Guid.NewGuid()),f.Actor,false,default);
+        Assert.Equal(-1,(await f.Balance(f.Ingredient)).Quantity); Assert.Equal(0,(await f.Balance(f.Ingredient)).Reserved);
         Assert.Equal(2,(await f.Tabs.Recipes(f.Prepared.Id,1,1,default)).Total);
         await Assert.ThrowsAsync<Npgsql.PostgresException>(()=>f.Db.Database.ExecuteSqlInterpolatedAsync($"UPDATE bar_recipe_versions SET \"YieldQuantity\" = 10 WHERE \"Id\" = {recipe.Id}"));
     }

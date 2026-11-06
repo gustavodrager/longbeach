@@ -11,7 +11,7 @@ public static class StockModel
         var l = m.Entity<StockLocation>(); l.ToTable("stock_locations"); l.HasKey(x => x.Id); l.Property(x => x.Id).ValueGeneratedNever();
         l.Property(x => x.Name).HasMaxLength(100); l.HasIndex(x => x.Name).IsUnique();
         l.HasData(new StockLocation("Almoxarifado", Warehouse), new StockLocation("Bar", Bar));
-        var b = m.Entity<StockBalance>(); b.ToTable("stock_balances", t => t.HasCheckConstraint("CK_stock_balance", "\"Quantity\" >= \"Reserved\" AND \"Reserved\" >= 0"));
+        var b = m.Entity<StockBalance>(); b.ToTable("stock_balances", t => t.HasCheckConstraint("CK_stock_balance", "\"Quantity\" >= -99999999 AND \"Reserved\" >= 0"));
         b.HasKey(x => x.Id); b.Ignore(x => x.Available); b.Property(x => x.Id).ValueGeneratedNever();
         b.Property(x => x.Quantity).HasPrecision(12, 3); b.Property(x => x.Reserved).HasPrecision(12, 3); b.Property(x => x.Version).IsConcurrencyToken();
         b.HasIndex(x => new { x.ProductId, x.LocationId }).IsUnique();
