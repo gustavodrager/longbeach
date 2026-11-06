@@ -483,7 +483,7 @@ it('fonte indisponível nunca aparece como zero nas métricas globais do bar',as
 it('atendente sem permissão de operar não oferece abrir comanda e preserva busca e página ao voltar',async()=>{
   const fetchMock=server({tab:makeTab(),pixEnabled:false});const filters='/atendimento/comandas?busca=104&pagina=2'
   mount(filters,{...actor,roles:['Operations'],permissions:['bar:sales:read','bar:finance:read']})
-  const card=await screen.findByRole('link',{name:/104.*Abrir comanda/})
+  const card=await screen.findByRole('link',{name:/Detalhes da Comanda 104/})
   expect(screen.queryByRole('button',{name:'Abrir comanda'})).not.toBeInTheDocument()
   fireEvent.click(card)
   expect(await screen.findByRole('heading',{name:'Comanda 104'})).toBeInTheDocument()
@@ -502,6 +502,16 @@ it('traduz todos os eventos de histórico enviados pela API de comandas',async()
   expect(screen.getByText('Pedido recebido, aguardando aceite')).toBeInTheDocument()
   expect(screen.getByText('Acesso do cliente encerrado')).toBeInTheDocument()
   expect(screen.getByText('Taxa registrada')).toBeInTheDocument()
+})
+it('mostra Pagamento ao lado da autorização de desconto no fim dos detalhes',async()=>{
+ server({tab:makeTab(),pixEnabled:false});mount('/atendimento/comandas/tab-a',{...actor,roles:['Manager'],permissions:[...actor.permissions,'bar:supervise']});
+ await screen.findByRole('heading',{name:'Comanda 104'});
+ const discount=screen.getByRole('button',{name:'Autorizar desconto ou cortesia'});
+ const payment=screen.getByRole('link',{name:'Pagamento'});
+ expect(payment).toHaveAttribute('href','/atendimento/receber/tab-a');
+ expect(payment.parentElement).toBe(discount.parentElement);
+ expect(payment.parentElement).toHaveClass('lb-tab-payment-actions');
+ expect(screen.queryByRole('link',{name:'Receber'})).not.toBeInTheDocument();
 })
 
 it.each(['cliente'])('Pix parcial confirmado pelo POST bloqueia nova cobrança quando consulta falha: %s',async scene=>{
@@ -628,7 +638,7 @@ it('consulta encerradas preservando situação e busca na paginação e no retor
  await waitFor(()=>expect(requests.mock.calls.some(([url])=>String(url).includes('state=Closed&search=104&page=1'))).toBe(true));
  fireEvent.click(await screen.findByRole('button',{name:'Próxima'}));
  await waitFor(()=>expect(requests.mock.calls.some(([url])=>String(url).includes('state=Closed&search=104&page=2'))).toBe(true));
- fireEvent.click(await screen.findByRole('link',{name:/104.*Consultar comanda/}));
+ fireEvent.click(await screen.findByRole('link',{name:/Detalhes da Comanda 104/}));
  await screen.findByRole('heading',{name:'Comanda 104'});
  const back=new URL(screen.getByRole('link',{name:'Voltar'}).getAttribute('href')!,'https://test.invalid');
  expect(back.searchParams.get('situacao')).toBe('Closed');expect(back.searchParams.get('busca')).toBe('104');expect(back.searchParams.get('pagina')).toBe('2');
@@ -807,10 +817,12 @@ it('recebe uma divisão com centavos usando o saldo disponível', async () => {
 })
 
 
-it('oferece atalhos na lista sem registrar consumo nem pagamento', async()=>{
+it('abre os detalhes pela única ação da comanda sem registrar consumo nem pagamento', async()=>{
  const calls=server({tab:makeTab(),pixEnabled:false});mount('/atendimento/comandas');
- expect(await screen.findByRole('link',{name:'Adicionar produtos à comanda 104'})).toHaveAttribute('href','/atendimento/vender?comanda=tab-a');
- expect(screen.getByRole('link',{name:'Receber comanda 104'})).toHaveAttribute('href','/atendimento/receber/tab-a');
+ const details=await screen.findByRole('link',{name:'Detalhes da Comanda 104'});
+ expect(details).toHaveAttribute('href',expect.stringContaining('/atendimento/comandas/tab-a?retorno='));
+ expect(screen.queryByRole('link',{name:'Adicionar produtos à comanda 104'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('link',{name:'Receber comanda 104'})).not.toBeInTheDocument();
  expect(calls.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
 });
 it('abre e vai direto aos produtos com uma única gravação',async()=>{
@@ -829,7 +841,7 @@ it('seleciona saldo disponível ao receber sem criar pagamento',async()=>{
 });
 it('reconsulta a lista ao voltar mesmo dentro dos 30 segundos do cache global',async()=>{
  const state={tab:makeTab(),pixEnabled:false};server(state);mount('/atendimento/comandas',actor,false,30000);
- fireEvent.click(await screen.findByRole('link',{name:/104.*Abrir comanda/}));await screen.findByRole('heading',{name:'Comanda 104'});
+ fireEvent.click(await screen.findByRole('link',{name:/Detalhes da Comanda 104/}));await screen.findByRole('heading',{name:'Comanda 104'});
  state.tab={...state.tab,due:25,total:25,payable:25};fireEvent.click(screen.getByRole('link',{name:'Voltar'}));
  await waitFor(()=>expect(screen.getByText(/25,00/)).toBeInTheDocument());
 });
@@ -900,7 +912,21 @@ it('identificação cadastral opcional abre comanda sem criar responsável finan
  const bodies:Record<string,unknown>[]=[];const state:Server={tab:makeTab(),pixEnabled:false,customerLookups:[identified],post:(_,body)=>{bodies.push(body);state.tab.customer=identified;return json(state.tab)}}
  const calls=server(state);mount('/atendimento/comandas');fireEvent.click(await screen.findByRole('button',{name:'Abrir comanda'}));await chooseIdentified('Buscar cliente identificado')
  expect(screen.getByText('Acesso à comanda (opcional)',{selector:'summary'}).closest('details')).not.toHaveAttribute('open');expect(calls.mock.calls.some(([url])=>String(url).includes('/tabs/customers?'))).toBe(false)
- fireEvent.click(screen.getByRole('button',{name:'Abrir sem vínculo financeiro'}));await screen.findByRole('heading',{name:'Comanda 104 - Pessoa de exemplo'});expect(bodies).toHaveLength(1);expect(bodies[0]).toMatchObject({customerId:identified.id,mode:'Tab'});expect(bodies[0]).not.toHaveProperty('responsibleUserId');expect(screen.getByText('Sem responsável vinculado à área do cliente.')).toBeInTheDocument();expect(screen.queryByRole('heading',{name:'Cliente identificado'})).not.toBeInTheDocument()
+ fireEvent.click(screen.getByRole('button',{name:'Abrir sem vínculo financeiro'}));await screen.findByRole('heading',{name:'Comanda 104 - Pessoa de exemplo'});expect(bodies).toHaveLength(1);expect(bodies[0]).toMatchObject({customerId:identified.id,mode:'Tab'});expect(bodies[0]).not.toHaveProperty('responsibleUserId');expect(screen.queryByText('Sem responsável vinculado à área do cliente.')).not.toBeInTheDocument();expect(screen.queryByRole('heading',{name:'Cliente identificado'})).not.toBeInTheDocument()
+})
+it('comanda com nome dispensa identificação e avisos no recebimento',async()=>{
+ server({tab:{...makeTab(),name:'Gabriel'},pixEnabled:false});mount('/atendimento/receber/tab-a');
+ expect(await screen.findByRole('heading',{name:'Receber · Comanda 104 - Gabriel'})).toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Identificar cliente (opcional)'})).not.toBeInTheDocument();
+ expect(screen.queryByText('Sem responsável vinculado à área do cliente.')).not.toBeInTheDocument();
+ expect(screen.queryByText('O recebimento será registrado somente nesta comanda.')).not.toBeInTheDocument();
+})
+it('detalhes de comanda com nome oferecem alteração sem aviso de responsável ausente',async()=>{
+ server({tab:{...makeTab(),name:'Gabriel'},pixEnabled:false});mount('/atendimento/comandas/tab-a');
+ expect(await screen.findByRole('heading',{level:1,name:'Comanda 104 - Gabriel'})).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Alterar identificação'})).toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Identificar cliente (opcional)'})).not.toBeInTheDocument();
+ expect(screen.queryByText('Sem responsável vinculado à área do cliente.')).not.toBeInTheDocument();
 })
 it('venda avulsa preserva cliente e operação incerta após remontar sem vincular Google',async()=>{
  const opens:Record<string,unknown>[]=[];let fail=true
@@ -1099,7 +1125,7 @@ it('avulsa identificada mostra o nome sem inventar número e React mantém nomes
 
 it.each(['/atendimento/comandas','/atendimento/receber'])('lista com o nome identificado junto ao número: %s',async path=>{
  server({tab:{...makeTab(),number:1,name:'Grupo da tarde',customer:{id:'customer-example',name:'Cliente Exemplo',incomplete:false}},pixEnabled:false});mount(path);
- expect(await screen.findByRole('link',{name:/^Comanda 01 - Cliente Exemplo/})).toBeInTheDocument();
+ expect(await screen.findByRole('link',{name:path==='/atendimento/comandas'?/^Detalhes da Comanda 01 - Cliente Exemplo/:/^Comanda 01 - Cliente Exemplo/})).toBeInTheDocument();
 });
 
 

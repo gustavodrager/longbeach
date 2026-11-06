@@ -64,7 +64,7 @@ it('Receber sem Comandas oferece recebimento e encerramento sem links ou altera�
 it('operar Comandas permite abrir e identificar sem oferecer inclusão de produtos ou recebimento', async () => {
   const fetch = server()
   mount(<><TabSettlement tab={tab({ due: 10, payable: 10 })} /><TabCustomerIdentification tab={tab()} /><OpenTabForm /></>, actor(['bar.tabs'], ['bar.tabs']))
-  expect(screen.getByRole('button', { name: 'Identificar cliente (opcional)' })).toBeEnabled()
+  expect(screen.queryByRole('button', { name: 'Identificar cliente (opcional)' })).not.toBeInTheDocument()
   expect(screen.queryByRole('link', { name: /Receber restante/ })).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Abrir comanda' }))
   const submit = screen.getByRole('button', { name: 'Abrir sem vínculo financeiro' })
@@ -104,11 +104,11 @@ it.each([
   else expect(screen.queryByText('Acesso do cliente', { selector: 'summary' })).not.toBeInTheDocument()
 })
 
-it.each(['bar.sell', 'bar.receive'])('a lista de comandas mostra somente a ação liberada (%s)', async action => {
+it.each(['bar.sell', 'bar.receive'])('a lista de comandas mantém somente Detalhes (%s)', async action => {
   server(tab({ due: 10, payable: 10 })); mount(<TabsPage />, actor(['bar.tabs', action], [action]))
-  await screen.findByRole('link', { name: 'Comanda 10 - Visitante teste · Abrir comanda' })
-  expect(screen.queryByRole('link', { name: 'Adicionar produtos à comanda 10' }) !== null).toBe(action === 'bar.sell')
-  expect(screen.queryByRole('link', { name: 'Receber comanda 10' }) !== null).toBe(action === 'bar.receive')
+  expect(await screen.findByRole('link', { name: 'Detalhes da Comanda 10 - Visitante teste' })).toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Adicionar produtos à comanda 10' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Receber comanda 10' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Abrir comanda' })).not.toBeInTheDocument()
 })
 
