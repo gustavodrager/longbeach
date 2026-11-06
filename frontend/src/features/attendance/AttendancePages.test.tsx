@@ -49,7 +49,7 @@ afterEach(()=>{clients.splice(0).forEach(query=>query.clear());setAccessToken(nu
 it('permite alterar quantidade e impede adicionar produto esgotado ou acima do estoque',async()=>{
   server({tab:makeTab(),pixEnabled:false});mount('/atendimento/vender')
   const add=await screen.findByRole('button',{name:/Adicionar Água por/})
-  expect(screen.queryByRole('button',{name:/Adicionar Suco por/})).not.toBeInTheDocument()
+  expect(screen.getByRole('button',{name:/Adicionar Suco por/})).toBeDisabled()
   fireEvent.click(add);expect(screen.getByLabelText('Quantidade de Água')).toHaveTextContent('1')
   fireEvent.click(screen.getByRole('button',{name:'Adicionar uma unidade de Água'}))
   expect(screen.getByLabelText('Quantidade de Água')).toHaveTextContent('2')
@@ -134,7 +134,8 @@ it('vende produtos sem controle; permite retirar um item esgotado do carrinho',a
   expect(fetchMock.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0)
   fireEvent.click(screen.getByRole('button',{name:'Mais produtos'}))
   fireEvent.click(screen.getByRole('button',{name:'Retirar uma unidade de Água'}))
-  expect(screen.getByRole('heading',{name:'Nenhum produto disponível'})).toBeInTheDocument()
+  expect(screen.getByRole('button',{name:/Adicionar Água por/})).toBeDisabled()
+  expect(screen.queryByRole('heading',{name:'Nenhum produto disponível'})).not.toBeInTheDocument()
 })
 
 it.each([false,true])('recupera pedido após resposta perdida e mudança no catálogo (inativo=%s)',async inactive=>{

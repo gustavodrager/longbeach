@@ -38,6 +38,45 @@ public sealed class ProductAvailabilityPostgresTests
     }
 
     [PostgresFact]
+    public async Task Sale_catalog_keeps_visible_zero_stock_and_untracked_products_without_bypassing_stock_checks()
+    {
+        await using var f = await Fixture.Create();
+        var empty = await Seed(f.Db);
+        var untracked = new BarProduct(Guid.NewGuid().ToString(), "Porção sem controle", "Porção", empty.CategoryId,
+            "un", "un", 1, 20, 2, 0, false, false, 0);
+        var prepared = new BarProduct(Guid.NewGuid().ToString(), "Porção com ingredientes", "Preparado", empty.CategoryId,
+            "un", "un", 1, 20, 2, 0, false, false, 0);
+        prepared.SetPreparation(true);
+        var recipe = new BarRecipeVersion(prepared.Id, prepared.Name, 1, 1, "Receita fictícia", f.Actor);
+        recipe.Ingredients.Add(new BarRecipeIngredient(recipe.Id, empty, 1, "Sale"));
+        f.Product.SetSaleAvailability(false);
+        f.Db.AddRange(untracked, prepared, recipe); await f.Db.SaveChangesAsync();
+
+        var catalog = await f.Tabs.Catalog(StockModel.Bar, default);
+        Assert.Equal(0, catalog.Single(x => x.Id == empty.Id).Available);
+        Assert.Null(catalog.Single(x => x.Id == untracked.Id).Available);
+        Assert.Equal(0, catalog.Single(x => x.Id == prepared.Id).Available);
+        Assert.DoesNotContain(catalog, x => x.Id == f.Product.Id);
+        var tab = await f.Open();
+        var access = await f.Tabs.IssueAccess(tab.Id, new(Guid.NewGuid()), f.Actor, default);
+        var clientCatalog = await f.Tabs.ClientCatalog(access.Token, default);
+        Assert.Equal(0, clientCatalog.Single(x => x.Id == empty.Id).Available);
+        Assert.Null(clientCatalog.Single(x => x.Id == untracked.Id).Available);
+        Assert.Equal(0, clientCatalog.Single(x => x.Id == prepared.Id).Available);
+        Assert.DoesNotContain(clientCatalog, x => x.Id == f.Product.Id);
+
+        var stockError = await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Add(tab.Id,
+            new(Guid.NewGuid(), [new(empty.Id, 1)]), f.Actor, null, default));
+        Assert.Contains("insuficiente", stockError.Message);
+        var recipeError = await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.Add(tab.Id,
+            new(Guid.NewGuid(), [new(prepared.Id, 1)]), f.Actor, null, default));
+        Assert.Contains("insuficiente", recipeError.Message);
+        var saved = await f.Tabs.Add(tab.Id, new(Guid.NewGuid(), [new(untracked.Id, 1)]), f.Actor, null, default);
+        Assert.Equal(untracked.Id, Assert.Single(saved.Items).ProductId);
+        Assert.Equal(0, await f.Db.Set<StockBalance>().Where(x => x.ProductId == empty.Id).SumAsync(x => x.Reserved));
+    }
+
+    [PostgresFact]
     public async Task Hidden_products_reject_direct_sales_and_new_Qr_or_operator_requests()
     {
         await using var f = await Fixture.Create(); var tab = await f.Open(); var access = await f.Tabs.IssueAccess(tab.Id, new(Guid.NewGuid()), f.Actor, default);
