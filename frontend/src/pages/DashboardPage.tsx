@@ -67,7 +67,7 @@ export function DashboardPage() {
       <ol>{nextBlocks.map(block => <li key={`${block.courtId}:${block.source}:${block.sourceId}:${block.startTime}`}>
         <Link to={`${agenda}&court=${encodeURIComponent(block.courtId)}`}>
           <time>{block.startTime}–{block.endTime}</time>
-          <span>{block.source}<small>{data.courts.find(court => court.id === block.courtId)?.name ?? 'Quadra'}</small></span>
+          <span>{block.source}</span>
           {block.startTime <= time && <span className="dashboard-badge">Em andamento</span>}
           <span className="dashboard-row-arrow" aria-hidden="true">→</span>
         </Link>
