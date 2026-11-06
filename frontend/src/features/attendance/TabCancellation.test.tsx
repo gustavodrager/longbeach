@@ -93,8 +93,8 @@ it('permissão antiga sem a ação de supervisão não permite cancelar',async()
 it('filtra canceladas e mostra o histórico de motivo e concessão sem abrir operação',async()=>{
  const state:State={tab:{...cancelled(tab(),'Pedido duplicado'),history:[{id:'concession',kind:'ConcessionVoided',reason:'Concessão encerrada no cancelamento',amount:5,createdAtUtc}]}};const api=server(state);mount('/atendimento/comandas')
  fireEvent.click(await screen.findByRole('button',{name:'Canceladas'}));await waitFor(()=>expect(api.mock.calls.some(([path])=>String(path).includes('state=Cancelled'))).toBe(true))
- expect(screen.getByText('Cancelada')).toBeInTheDocument();expect(screen.getByRole('link',{name:'Comanda 01 - Cliente Exemplo · Consultar comanda'})).toBeInTheDocument()
- fireEvent.click(screen.getByRole('link',{name:'Ver detalhes'}));await screen.findByRole('heading',{level:1,name:'Comanda 01 - Cliente Exemplo'});fireEvent.click(screen.getByText('Histórico da comanda',{selector:'summary'}))
+ expect(screen.getByText('Cancelada')).toBeInTheDocument();expect(screen.getByRole('link',{name:'Detalhes da Comanda 01 - Cliente Exemplo'})).toBeInTheDocument()
+ fireEvent.click(screen.getByRole('link',{name:'Detalhes da Comanda 01 - Cliente Exemplo'}));await screen.findByRole('heading',{level:1,name:'Comanda 01 - Cliente Exemplo'});fireEvent.click(screen.getByText('Histórico da comanda',{selector:'summary'}))
  expect(screen.getByText(/Desconto ou cortesia anulados/)).toBeInTheDocument();expect(screen.queryByRole('link',{name:'Adicionar produtos'})).not.toBeInTheDocument()
 })
 

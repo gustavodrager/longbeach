@@ -108,7 +108,7 @@ function SellOrder({ tabId }: { tabId: string | null }) {
 const tabViews = [['Open', 'Abertas'], ['Orders', 'Com pedidos'], ['Closed', 'Encerradas'], ['Cancelled', 'Canceladas'], ['All', 'Todas']] as const
 
 export function TabsPage() {
-  const { user } = useAuth(); const canOperate = hasPermission(user, 'bar:sales:operate') && hasStaffMenu(user,'bar.tabs') && hasStaffAction(user,'bar.tabs'); const canSell = hasPermission(user, 'bar:sales:operate') && hasStaffMenu(user,'bar.sell') && hasStaffAction(user,'bar.sell'); const canReceive = hasPermission(user, 'bar:sales:operate') && hasStaffMenu(user,'bar.receive') && hasStaffAction(user,'bar.receive')
+  const { user } = useAuth(); const canOperate = hasPermission(user, 'bar:sales:operate') && hasStaffMenu(user,'bar.tabs') && hasStaffAction(user,'bar.tabs')
   const [params, setParams] = useSearchParams(); const search = params.get('busca') ?? ''; const page = Math.max(1, Number(params.get('pagina')) || 1)
   const state = tabViews.some(([value]) => value === params.get('situacao')) ? params.get('situacao')! : 'Open'
   const now = useAttentionClock()
@@ -126,12 +126,11 @@ export function TabsPage() {
     {state === 'Orders' && <p className="ux-note">Pedidos pendentes mais antigos primeiro.</p>}
     <LoadState query={query} />
     <div className="lb-tab-list">{query.data?.items.map(tab => <article className="ux-account-card lb-tab-card" key={tab.id}>
-      <Link className="lb-tab-card-title" aria-label={`${tabTitle(tab)} · ${tab.state === 'Open' ? 'Abrir comanda' : 'Consultar comanda'}`} to={`/atendimento/comandas/${tab.id}?retorno=${encodeURIComponent(`/atendimento/comandas${params.size ? `?${params}` : ''}`)}`}><strong>{tabTitle(tab)}</strong></Link>
+      <strong className="lb-tab-card-title">{tabTitle(tab)}</strong>
       {tab.responsible && tab.responsible.name !== tab.name && <small>Responsável: {tab.responsible.name}</small>}
       <TabAttention tab={tab} now={now} />
       <span className="ux-total">{tab.state === 'Open' ? 'Falta pagar' : 'Total da comanda'}<strong>{money(tab.state === 'Open' ? tab.due : tab.total)}</strong></span>
-      <div className="ux-actions lb-tab-primary-actions">{tab.state === 'Open' && <>{canSell && <Link className="ux-button primary" to={`/atendimento/vender?comanda=${tab.id}`} aria-label={`Adicionar produtos à comanda ${tab.number}`}>Adicionar produtos</Link>}{canReceive && tab.payable > 0 && <Link className="ux-button secondary" to={`/atendimento/receber/${tab.id}`} aria-label={`Receber comanda ${tab.number}`}>Receber</Link>}</>}
-      <Link className="ux-button secondary" to={`/atendimento/comandas/${tab.id}?retorno=${encodeURIComponent(`/atendimento/comandas${params.size ? `?${params}` : ''}`)}`}>Ver detalhes</Link></div>
+      <div className="ux-actions lb-tab-primary-actions"><Link className="ux-button secondary lb-tab-details-link" to={`/atendimento/comandas/${tab.id}?retorno=${encodeURIComponent(`/atendimento/comandas${params.size ? `?${params}` : ''}`)}`} aria-label={`Detalhes da ${tabTitle(tab)}`}>Detalhes</Link></div>
     </article>)}</div>
     {!query.isError && query.data?.total === 0 && <Empty title={state === 'Cancelled' ? 'Nenhuma comanda cancelada encontrada' : state === 'Closed' ? 'Nenhuma comanda encerrada encontrada' : state === 'Orders' ? 'Nenhuma comanda com pedidos aguardando' : 'Nenhuma comanda encontrada'} />}
     {query.data && <div className="ux-pagination"><button className="ux-button secondary" disabled={page === 1} onClick={() => filters({ pagina: String(page - 1) })}>Anterior</button><span>{query.data.total} comandas · Página {page}</span><button className="ux-button secondary" disabled={page * 24 >= query.data.total} onClick={() => filters({ pagina: String(page + 1) })}>Próxima</button></div>}

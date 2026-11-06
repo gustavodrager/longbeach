@@ -18,6 +18,11 @@
 :is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash,.lb-service-recovery) .ux-empty-symbol { display:none; }
 :is(.lb-tabs-page,.lb-tab-detail,.lb-orders-page,.lb-service-payment,.lb-service-receipt,.lb-service-cash,.lb-service-recovery) :is(a,button,input,textarea,select,summary):focus-visible { outline:3px solid #7b5d12; outline-offset:3px; }
 .lb-tabs-page .lb-tab-card { background:var(--ux-paper); border-radius:12px; box-shadow:none; padding:18px; }
+.lb-tabs-page .lb-tab-card { position:relative; cursor:pointer; }
+.lb-tabs-page .lb-tab-card:hover { border-color:#a77b20; }
+.lb-tabs-page .lb-tab-details-link::after { content:""; position:absolute; inset:0; border-radius:12px; }
+.lb-tabs-page .lb-tab-details-link:focus-visible { outline:none; }
+.lb-tabs-page .lb-tab-card:has(.lb-tab-details-link:focus-visible) { outline:3px solid #a77b20; outline-offset:3px; }
 .lb-tabs-page .lb-tab-card-title { min-height:48px; }
 .lb-tabs-page .lb-tab-filters { margin:20px 0 12px; }
 .lb-tabs-page .customer-search-label-compact { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }

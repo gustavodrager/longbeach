@@ -483,7 +483,7 @@ it('fonte indisponível nunca aparece como zero nas métricas globais do bar',as
 it('atendente sem permissão de operar não oferece abrir comanda e preserva busca e página ao voltar',async()=>{
   const fetchMock=server({tab:makeTab(),pixEnabled:false});const filters='/atendimento/comandas?busca=104&pagina=2'
   mount(filters,{...actor,roles:['Operations'],permissions:['bar:sales:read','bar:finance:read']})
-  const card=await screen.findByRole('link',{name:/104.*Abrir comanda/})
+  const card=await screen.findByRole('link',{name:/Detalhes da Comanda 104/})
   expect(screen.queryByRole('button',{name:'Abrir comanda'})).not.toBeInTheDocument()
   fireEvent.click(card)
   expect(await screen.findByRole('heading',{name:'Comanda 104'})).toBeInTheDocument()
@@ -628,7 +628,7 @@ it('consulta encerradas preservando situação e busca na paginação e no retor
  await waitFor(()=>expect(requests.mock.calls.some(([url])=>String(url).includes('state=Closed&search=104&page=1'))).toBe(true));
  fireEvent.click(await screen.findByRole('button',{name:'Próxima'}));
  await waitFor(()=>expect(requests.mock.calls.some(([url])=>String(url).includes('state=Closed&search=104&page=2'))).toBe(true));
- fireEvent.click(await screen.findByRole('link',{name:/104.*Consultar comanda/}));
+ fireEvent.click(await screen.findByRole('link',{name:/Detalhes da Comanda 104/}));
  await screen.findByRole('heading',{name:'Comanda 104'});
  const back=new URL(screen.getByRole('link',{name:'Voltar'}).getAttribute('href')!,'https://test.invalid');
  expect(back.searchParams.get('situacao')).toBe('Closed');expect(back.searchParams.get('busca')).toBe('104');expect(back.searchParams.get('pagina')).toBe('2');
@@ -807,10 +807,12 @@ it('recebe uma divisão com centavos usando o saldo disponível', async () => {
 })
 
 
-it('oferece atalhos na lista sem registrar consumo nem pagamento', async()=>{
+it('abre os detalhes pela única ação da comanda sem registrar consumo nem pagamento', async()=>{
  const calls=server({tab:makeTab(),pixEnabled:false});mount('/atendimento/comandas');
- expect(await screen.findByRole('link',{name:'Adicionar produtos à comanda 104'})).toHaveAttribute('href','/atendimento/vender?comanda=tab-a');
- expect(screen.getByRole('link',{name:'Receber comanda 104'})).toHaveAttribute('href','/atendimento/receber/tab-a');
+ const details=await screen.findByRole('link',{name:'Detalhes da Comanda 104'});
+ expect(details).toHaveAttribute('href',expect.stringContaining('/atendimento/comandas/tab-a?retorno='));
+ expect(screen.queryByRole('link',{name:'Adicionar produtos à comanda 104'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('link',{name:'Receber comanda 104'})).not.toBeInTheDocument();
  expect(calls.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
 });
 it('abre e vai direto aos produtos com uma única gravação',async()=>{
@@ -829,7 +831,7 @@ it('seleciona saldo disponível ao receber sem criar pagamento',async()=>{
 });
 it('reconsulta a lista ao voltar mesmo dentro dos 30 segundos do cache global',async()=>{
  const state={tab:makeTab(),pixEnabled:false};server(state);mount('/atendimento/comandas',actor,false,30000);
- fireEvent.click(await screen.findByRole('link',{name:/104.*Abrir comanda/}));await screen.findByRole('heading',{name:'Comanda 104'});
+ fireEvent.click(await screen.findByRole('link',{name:/Detalhes da Comanda 104/}));await screen.findByRole('heading',{name:'Comanda 104'});
  state.tab={...state.tab,due:25,total:25,payable:25};fireEvent.click(screen.getByRole('link',{name:'Voltar'}));
  await waitFor(()=>expect(screen.getByText(/25,00/)).toBeInTheDocument());
 });
@@ -1099,7 +1101,7 @@ it('avulsa identificada mostra o nome sem inventar número e React mantém nomes
 
 it.each(['/atendimento/comandas','/atendimento/receber'])('lista com o nome identificado junto ao número: %s',async path=>{
  server({tab:{...makeTab(),number:1,name:'Grupo da tarde',customer:{id:'customer-example',name:'Cliente Exemplo',incomplete:false}},pixEnabled:false});mount(path);
- expect(await screen.findByRole('link',{name:/^Comanda 01 - Cliente Exemplo/})).toBeInTheDocument();
+ expect(await screen.findByRole('link',{name:path==='/atendimento/comandas'?/^Detalhes da Comanda 01 - Cliente Exemplo/:/^Comanda 01 - Cliente Exemplo/})).toBeInTheDocument();
 });
 
 
