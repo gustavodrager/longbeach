@@ -598,10 +598,5 @@ a { color: #654b19; }
 .bar-bottom-nav a { position:relative; }
 .bar-bottom-nav .bar-menu-badge { position:absolute; top:1px; right:8px; }
 .bar-bottom-nav > button[aria-expanded="true"] { background:var(--gold); border-radius:9px; }
-.product-stock-tools { flex:1; min-width:160px; }
-.product-stock-tools summary { min-height:48px; display:flex; align-items:center; padding:12px 16px; border:1px solid var(--line); border-radius:10px; background:#fff; cursor:pointer; font-weight:700; }
-.product-stock-tools summary::after { content:'⌄'; margin-left:auto; }
-.product-stock-tools[open] { flex-basis:100%; }
-.product-stock-tools .stock-actions { margin-top:10px; }
 
 .bar-bottom-nav button.is-active { color:#171717; background:var(--gold); border-radius:9px; }

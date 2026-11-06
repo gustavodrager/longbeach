@@ -17,12 +17,12 @@ function restore(raw: string): Identification | null {
   } catch { return null }
 }
 
-export function TabCustomerIdentification({ tab, disabled = false }: { tab: Tab; disabled?: boolean }) {
+export function TabCustomerIdentification({ tab, disabled = false, inline = false }: { tab: Tab; disabled?: boolean; inline?: boolean }) {
   const { user } = useAuth()
-  return <IdentificationForm key={`${user?.id}:${tab.id}`} tab={tab} disabled={disabled} />
+  return <IdentificationForm key={`${user?.id}:${tab.id}`} tab={tab} disabled={disabled} inline={inline} />
 }
 
-function IdentificationForm({ tab, disabled }: { tab: Tab; disabled: boolean }) {
+function IdentificationForm({ tab, disabled, inline }: { tab: Tab; disabled: boolean; inline: boolean }) {
   const { user } = useAuth()
   const [raw, setPending] = useConfirmationGate(`tab-customer:${user?.id}:${tab.id}`)
   const pending = restore(raw)
@@ -47,7 +47,7 @@ function IdentificationForm({ tab, disabled }: { tab: Tab; disabled: boolean }) 
       }
     } finally { request.current = false }
   }
-  return <section className="ux-panel lb-customer-identification" aria-label="Identificação do cliente">
+  if (!inline) return <section className="ux-panel lb-customer-identification" aria-label="Identificação do cliente">
     <h2>Cliente identificado</h2><p>{tab.customer?.name ?? 'Atendimento sem cliente identificado'}</p>
     {tab.customer?.incomplete && <p className="ux-note">Telefone pendente no cadastro anterior. O atendimento continua disponível.</p>}
     <Feedback {...command} />
@@ -58,4 +58,16 @@ function IdentificationForm({ tab, disabled }: { tab: Tab; disabled: boolean }) 
     </> : ready && <button type="button" className="ux-button secondary" disabled={disabled || command.busy} onClick={() => { setSelected(tab.customer ?? null); setEditing(true) }}>{tab.customer ? 'Alterar identificação' : 'Identificar cliente (opcional)'}</button>}
     {allowed && tab.state === 'Open' && tab.pending > 0 && <p className="ux-note">Aguarde a confirmação dos pagamentos pendentes para alterar a identificação.</p>}
   </section>
+  return <>
+    {!editing && <Feedback {...command} />}
+    {ready && !editing && <button type="button" className="ux-button secondary" disabled={disabled || command.busy} onClick={() => { setSelected(tab.customer ?? null); setEditing(true) }}>{tab.customer ? 'Alterar identificação' : 'Identificar cliente (opcional)'}</button>}
+    {editing && allowed && <section className="ux-panel lb-customer-identification" aria-label="Identificação do cliente">
+      <h2>{tab.customer ? 'Alterar identificação' : 'Identificar cliente'}</h2>
+      {tab.customer?.incomplete && <p className="ux-note">Telefone pendente no cadastro anterior. O atendimento continua disponível.</p>}
+      <Feedback {...command} />
+      <p className="ux-note">A identificação cadastral não concede acesso à comanda nem altera quem responde pelo pagamento.</p>
+      {pending ? <p role="status">A identificação aguarda confirmação. Repita os mesmos dados antes de trocar o cliente.</p> : <CustomerPicker scope="bar" contextKey={`tab-identify:${tab.id}`} label="Cliente da comanda" value={selected} onChange={setSelected} disabled={disabled || command.busy} />}
+      <div className="ux-actions"><button type="button" className="ux-button primary" disabled={disabled || command.busy || !allowed || !pending && !ready} onClick={() => void save()}>{pending ? 'Conferir identificação' : 'Salvar identificação'}</button>{!pending && <button type="button" className="ux-button secondary" disabled={command.busy} onClick={() => setEditing(false)}>Voltar</button>}</div>
+    </section>}
+  </>
 }

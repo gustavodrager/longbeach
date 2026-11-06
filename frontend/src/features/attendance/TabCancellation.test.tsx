@@ -42,13 +42,13 @@ afterEach(()=>{cleanup();clients.splice(0).forEach(client=>client.clear());setAc
 
 it('exige motivo e confirma uma única operação versionada sem estorno ou pagamento automático',async()=>{
  const state:State={tab:tab({items:[item('Requested')]})};state.post=body=>{state.tab=cancelled(state.tab,String(body.reason));return json(state.tab)}
- const api=server(state);mount();fireEvent.click(await screen.findByRole('button',{name:'Cancelar comanda'}))
+ const api=server(state);mount();const cancelButton=await screen.findByRole('button',{name:'Cancelar comanda'});expect(cancelButton.closest('.ux-account-header')).toBeInTheDocument();expect(screen.queryByRole('heading',{name:'Situação da comanda'})).not.toBeInTheDocument();fireEvent.click(cancelButton)
  const reason=screen.getByLabelText('Motivo do cancelamento');expect(reason).toHaveFocus();expect(reason).toHaveAttribute('maxlength','450')
  const confirm=screen.getByRole('button',{name:'Confirmar cancelamento'});expect(confirm).toBeDisabled()
  fireEvent.change(reason,{target:{value:'  '}});expect(confirm).toBeDisabled();fireEvent.change(reason,{target:{value:' ab '}});expect(confirm).toBeDisabled()
  fireEvent.change(reason,{target:{value:'  Pedido duplicado  '}});const form=confirm.closest('form')!
  act(()=>{fireEvent.submit(form);fireEvent.submit(form)})
- expect(await screen.findByRole('heading',{name:'Comanda cancelada'})).toBeInTheDocument();expect(screen.getByText('Motivo: Pedido duplicado')).toBeInTheDocument()
+ expect(await screen.findByText('Comanda cancelada.')).toBeInTheDocument()
  const writes=api.mock.calls.filter(([,init])=>init?.method==='POST');expect(writes).toHaveLength(1)
  expect(writes[0][0]).toBe('/api/v1/bar/tabs/tab-example/cancel');expect(JSON.parse(String(writes[0][1]?.body))).toEqual({operationId:expect.any(String),expectedVersion:3,reason:'Pedido duplicado'})
  expect(screen.queryByRole('button',{name:/Cancelar comanda|Gerar QR Code|Encerrar comanda|Alterar identificação/})).not.toBeInTheDocument()
@@ -66,7 +66,7 @@ it('recarregar após resposta perdida recupera o mesmo cancelamento mesmo se o e
  let attempts=0;const state:State={tab:tab()};state.post=body=>{if(++attempts===1){state.tab=cancelled(state.tab,String(body.reason));return json({detail:'Resposta interrompida.'},503)}return json(state.tab)}
  const api=server(state);const client=mount();fireEvent.click(await screen.findByRole('button',{name:'Cancelar comanda'}));fireEvent.change(screen.getByLabelText('Motivo do cancelamento'),{target:{value:'Pedido duplicado'}});fireEvent.click(screen.getByRole('button',{name:'Confirmar cancelamento'}))
  await screen.findByRole('alert');expect(screen.getByLabelText('Motivo do cancelamento')).toBeDisabled();expect(screen.queryByRole('button',{name:'Voltar'})).not.toBeInTheDocument()
- cleanup();client.clear();mount();expect(await screen.findByRole('heading',{name:'Comanda cancelada'})).toBeInTheDocument();expect(screen.getByLabelText('Motivo do cancelamento')).toHaveValue('Pedido duplicado')
+ cleanup();client.clear();mount();expect(await screen.findByRole('heading',{level:1,name:'Comanda 01 - Cliente Exemplo'})).toBeInTheDocument();expect(screen.getByLabelText('Motivo do cancelamento')).toHaveValue('Pedido duplicado')
  const retry=screen.getByRole('button',{name:'Consultar ou repetir cancelamento'});await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry)
  await waitFor(()=>expect(screen.queryByRole('button',{name:'Consultar ou repetir cancelamento'})).not.toBeInTheDocument())
  const writes=api.mock.calls.filter(([,init])=>init?.method==='POST').map(([,init])=>JSON.parse(String(init?.body)));expect(writes).toHaveLength(2);expect(writes[1]).toEqual(writes[0])
@@ -94,7 +94,7 @@ it('filtra canceladas e mostra o histórico de motivo e concessão sem abrir ope
  const state:State={tab:{...cancelled(tab(),'Pedido duplicado'),history:[{id:'concession',kind:'ConcessionVoided',reason:'Concessão encerrada no cancelamento',amount:5,createdAtUtc}]}};const api=server(state);mount('/atendimento/comandas')
  fireEvent.click(await screen.findByRole('button',{name:'Canceladas'}));await waitFor(()=>expect(api.mock.calls.some(([path])=>String(path).includes('state=Cancelled'))).toBe(true))
  expect(screen.getByText('Cancelada')).toBeInTheDocument();expect(screen.getByRole('link',{name:'Comanda 01 - Cliente Exemplo · Consultar comanda'})).toBeInTheDocument()
- fireEvent.click(screen.getByRole('link',{name:'Ver detalhes'}));await screen.findByRole('heading',{name:'Comanda cancelada'});fireEvent.click(screen.getByText('Histórico da comanda',{selector:'summary'}))
+ fireEvent.click(screen.getByRole('link',{name:'Ver detalhes'}));await screen.findByRole('heading',{level:1,name:'Comanda 01 - Cliente Exemplo'});fireEvent.click(screen.getByText('Histórico da comanda',{selector:'summary'}))
  expect(screen.getByText(/Desconto ou cortesia anulados/)).toBeInTheDocument();expect(screen.queryByRole('link',{name:'Adicionar produtos'})).not.toBeInTheDocument()
 })
 
@@ -113,7 +113,7 @@ it('falha ao guardar confirmação preserva motivo e não envia o cancelamento',
 
 it('cancelada em cache não oferece pedir, pagar, QR ou entrega',async()=>{
  const state:State={tab:{...cancelled(tab({items:[item('Accepted')]}),'Pedido duplicado'),payable:10}};const api=server(state);const client=mount()
- await screen.findByRole('heading',{name:'Comanda cancelada'});expect(screen.queryByRole('button',{name:/Gerar QR Code|Entregar|Cancelar comanda/})).not.toBeInTheDocument()
+ await screen.findByRole('heading',{level:1,name:'Comanda 01 - Cliente Exemplo'});expect(screen.queryByRole('button',{name:/Gerar QR Code|Entregar|Cancelar comanda/})).not.toBeInTheDocument()
  cleanup();client.clear();mount('/cliente#token=synthetic-only-tab-token')
  expect(await screen.findByRole('heading',{name:'Comanda cancelada'})).toBeInTheDocument();expect(screen.getByRole('button',{name:'Pedir'})).toBeDisabled();expect(screen.getByRole('button',{name:'Pagar'})).toBeDisabled()
  expect(api.mock.calls.some(([,init])=>init?.method==='POST')).toBe(false)
@@ -126,8 +126,8 @@ it('cancela venda entregue ainda não recebida com aviso de estoque e sem retorn
  const api=server(state);mount();fireEvent.click(await screen.findByRole('button',{name:'Cancelar comanda'}));
  expect(screen.getByText('Produtos entregues não voltam ao estoque. Se houve devolução, corrija os itens antes de cancelar.')).toBeInTheDocument();
  fireEvent.change(screen.getByLabelText('Motivo do cancelamento'),{target:{value:'Lançamento duplicado'}});fireEvent.click(screen.getByRole('button',{name:'Confirmar cancelamento'}));
- await screen.findByRole('heading',{name:'Comanda cancelada'});const writes=api.mock.calls.filter(([,init])=>init?.method==='POST');expect(writes).toHaveLength(1);expect(String(writes[0][0])).toMatch(/\/cancel$/);
- expect(JSON.parse(String(writes[0][1]?.body))).not.toHaveProperty('returnStock');expect(screen.getByText(/Cancelado sem devolução física/)).toBeInTheDocument();
+ await screen.findByRole('heading',{level:1,name:'Comanda 01 - Cliente Exemplo'});const writes=api.mock.calls.filter(([,init])=>init?.method==='POST');expect(writes).toHaveLength(1);expect(String(writes[0][0])).toMatch(/\/cancel$/);
+ expect(JSON.parse(String(writes[0][1]?.body))).not.toHaveProperty('returnStock');
 });
 
 

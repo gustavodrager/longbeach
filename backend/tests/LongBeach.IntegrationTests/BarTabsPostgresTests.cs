@@ -35,6 +35,32 @@ public sealed class BarTabsPostgresTests
     }
 
     [PostgresFact]
+    public async Task Additional_value_is_idempotent_visible_payable_and_voided_on_cancellation()
+    {
+        await using var f = await Fixture.Create();
+        var tab = await f.Tabs.Open(new(Guid.NewGuid(), f.Location.Id), f.Actor, default);
+        var input = new TabChargeInput(Guid.NewGuid(), 17.50m, " Churrasco dividido ");
+        var charged = await f.Tabs.AddCharge(tab.Id, input, f.Actor, default);
+        Assert.Equal(17.50m, charged.Total);
+        Assert.Equal(17.50m, charged.Due);
+        Assert.Empty(charged.Items);
+        Assert.Equal("Churrasco dividido", Assert.Single(charged.History, x => x.Kind == "ChargeAdded").Reason);
+        Assert.Equal(charged.Total, (await f.Tabs.AddCharge(tab.Id, input, f.Actor, default)).Total);
+        Assert.Single((await f.Tabs.Get(tab.Id, false, default)).History, x => x.Kind == "ChargeAdded");
+        await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.AddCharge(tab.Id, input with { Amount = 20 }, f.Actor, default));
+        await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.AddCharge(tab.Id, new(Guid.NewGuid(), 0), f.Actor, default));
+        var anonymous = await f.Tabs.AddCharge(tab.Id, new(Guid.NewGuid(), 2), f.Actor, default);
+        Assert.Equal(19.50m, anonymous.Total);
+        Assert.Null(anonymous.History.Last(x => x.Kind == "ChargeAdded").Reason);
+        var report = await f.Tabs.Report("receivable", null, null, 1, 50, default);
+        Assert.Equal(19.50m, Assert.Single(report.Rows.Items, x => x.Id == tab.Id).Amount);
+        var cancelled = await f.Tabs.Cancel(tab.Id, new(Guid.NewGuid(), anonymous.Version, "Evento cancelado"), f.Actor, default);
+        Assert.Equal(0, cancelled.Total);
+        Assert.Equal(0, cancelled.Due);
+        Assert.Equal(2, cancelled.History.Count(x => x.Kind == "ChargeAdded"));
+    }
+
+    [PostgresFact]
     public async Task Customer_identification_is_versioned_replayable_and_cannot_change_during_pending_payment()
     {
         await using var f = await Fixture.Create();

@@ -49,6 +49,11 @@ public static class BarTabsEndpoints
         tabs.MapPost("/{id:guid}/payments", (Guid id, TabPaymentInput i, HttpContext h, IBarTabs s, CancellationToken ct) => s.Pay(id, i, Actor(h), null, ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
         tabs.MapPost("/{id:guid}/payments/{paymentId:guid}/refresh", (Guid id, Guid paymentId, HttpContext h, IBarTabs s, CancellationToken ct) => s.Refresh(id, paymentId, Actor(h), null, ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
         tabs.MapPost("/{id:guid}/payments/{paymentId:guid}/refund", (Guid id, Guid paymentId, TabRefundInput i, HttpContext h, IBarTabs s, CancellationToken ct) => s.Refund(id, paymentId, i, Actor(h), ct)).RequireAuthorization(SystemPermissions.BarRefundApprove);
+        tabs.MapPost("/{id:guid}/charges", async (Guid id, TabChargeInput i, HttpContext h, IBarTabs s, CancellationToken ct) =>
+        {
+            if (Managed(h) && !StaffAction(h, "bar.tabs")) return Results.Forbid();
+            return Results.Ok(await s.AddCharge(id, i, Actor(h), ct));
+        }).RequireAuthorization(SystemPermissions.BarSalesOperate);
         tabs.MapPost("/{id:guid}/adjustments", (Guid id, TabAdjustmentInput i, HttpContext h, IBarTabs s, CancellationToken ct) => s.Adjust(id, i, Actor(h), ct)).RequireAuthorization(SystemPermissions.BarSupervise);
         tabs.MapPost("/{id:guid}/cancel", (Guid id, TabCancelInput i, HttpContext h, IBarTabs s, CancellationToken ct) => s.Cancel(id, i, Actor(h), ct)).RequireAuthorization(SystemPermissions.BarSupervise);
         tabs.MapPost("/{id:guid}/close", (Guid id, TabActionInput i, HttpContext h, IBarTabs s, CancellationToken ct) => s.Close(id, i, Actor(h), ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
