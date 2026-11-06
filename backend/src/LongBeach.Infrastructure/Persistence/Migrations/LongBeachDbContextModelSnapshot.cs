@@ -2597,7 +2597,7 @@ namespace LongBeach.Infrastructure.Persistence.Migrations
 
                     b.ToTable("stock_balances", null, t =>
                         {
-                            t.HasCheckConstraint("CK_stock_balance", "\"Quantity\" >= \"Reserved\" AND \"Reserved\" >= 0");
+                            t.HasCheckConstraint("CK_stock_balance", "\"Quantity\" >= -99999999 AND \"Reserved\" >= 0");
                         });
                 });
 
