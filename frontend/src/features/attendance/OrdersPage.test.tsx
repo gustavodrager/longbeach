@@ -126,9 +126,9 @@ it('consulta sem permissão de operação não oferece ações', async () => {
   expect(screen.queryByRole('button', { name: 'Excluir item' })).not.toBeInTheDocument()
 })
 
-it('identifica o cliente no cabeçalho do grupo sem usar o responsável de outra pessoa',async()=>{
+it('mantém o nome salvo no cabeçalho do grupo sem usar outro cadastro ou responsável',async()=>{
  vi.spyOn(globalThis,'fetch').mockResolvedValue(json({items:[{...tab(),number:1,customer:{id:'customer-a',name:' Cliente  Exemplo ',incomplete:false},responsible:{id:'payer',name:'Outra pessoa'}}],total:1}));
- mount();expect(await screen.findByRole('heading',{level:2,name:'Comanda 01 - Cliente Exemplo'})).toBeInTheDocument();
+ mount();expect(await screen.findByRole('heading',{level:2,name:'Comanda 01 - Mesa teste'})).toBeInTheDocument();
  expect(screen.queryByRole('heading',{name:/Outra pessoa/})).not.toBeInTheDocument();
 });
 
