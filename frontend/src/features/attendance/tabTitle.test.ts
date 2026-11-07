@@ -1,7 +1,8 @@
 import { personName, tabCustomerName, tabTitle } from './tabTitle'
 
-it('usa cliente identificado antes do nome manual e normaliza espaços', () => {
-  expect(tabTitle({ number: 1, name: 'Grupo da tarde', customer: { id: 'customer-a', name: '  Cliente\n  Exemplo  ', incomplete: false } })).toBe('Comanda 01 - Cliente Exemplo')
+it('mantém o nome salvo na comanda antes do cadastro e normaliza espaços', () => {
+  expect(tabTitle({ number: 1, name: '  Grupo\n da tarde ', customer: { id: 'customer-a', name: 'Cliente Exemplo', incomplete: false } })).toBe('Comanda 01 - Grupo da tarde')
+  expect(tabTitle({ number: 1, name: 'Visitante', customer: { id: 'customer-a', name: 'Cliente Exemplo', incomplete: false } })).toBe('Comanda 01 - Cliente Exemplo')
 })
 it.each(['', '  ', 'Visitante', ' visitante '])('mantém só o número sem nome real (%j)', name => {
   expect(tabTitle({ number: 1, name })).toBe('Comanda 01')

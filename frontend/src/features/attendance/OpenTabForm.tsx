@@ -1,5 +1,3 @@
-import { CustomerPicker } from '../customers/CustomerPicker'
-import type { CustomerSelection } from '../customers/api'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../../lib/http'
@@ -32,7 +30,6 @@ export function OpenTabForm() {
   const [submittedSearch, setSubmittedSearch] = useState('')
   const [customer, setCustomer] = useState<TabCustomer | null>(null)
   const [confirmed, setConfirmed] = useState(false)
-  const [identifiedCustomer, setIdentifiedCustomer] = useState<CustomerSelection | null>(null)
   const locations = useBarData<Named[]>('/tabs/locations', canOpen && opening && !pending)
   const customers = useBarData<TabCustomer[]>(`/tabs/customers?search=${encodeURIComponent(submittedSearch)}`, canOpen && opening && kind === 'customer' && submittedSearch.length >= 3 && !pending)
   const location = barLocation(locations.data)?.id
@@ -51,7 +48,7 @@ export function OpenTabForm() {
     if (openingRequest.current || !canOpen || addProducts && !canSell) return
     if (!pending && (!location || locations.isError || (kind === 'customer' && (!customer || !confirmed)))) return
     openingRequest.current = true
-    const input: Opening = pending ?? { addProducts, operationId: crypto.randomUUID(), locationId: location!, name: name.trim() || (kind === 'customer' ? customer!.name.slice(0, 80) : ''), mode: 'Tab', ...(notes.trim() ? { notes: notes.trim() } : {}), ...(identifiedCustomer ? {customerId:identifiedCustomer.id} : {}), ...(kind === 'customer' ? { responsibleUserId: customer!.id } : {}) }
+    const input: Opening = pending ?? { addProducts, operationId: crypto.randomUUID(), locationId: location!, name: name.trim() || (kind === 'customer' ? customer!.name.slice(0, 80) : ''), mode: 'Tab', ...(notes.trim() ? { notes: notes.trim() } : {}), ...(kind === 'customer' ? { responsibleUserId: customer!.id } : {}) }
     setSaved(JSON.stringify(input))
     const result = await command.run(() => postBar<Tab>('/tabs', { ...input, addProducts: undefined }))
     openingRequest.current = false
@@ -66,7 +63,6 @@ export function OpenTabForm() {
     {opening && <form className="ux-panel lb-open-tab" onSubmit={event => { event.preventDefault(); void open() }}>
       <h2>Nova comanda</h2>
       {pending ? <p className="ux-notice warning" role="status">{command.busy ? `Abrindo a comanda de ${pending.name || 'Visitante'}… Aguarde a confirmação.` : `Estamos conferindo a abertura de ${pending.name || 'Visitante'}. Repita a confirmação para recuperar a mesma comanda. Os dados ficam preservados até a resposta.`}</p> : <>
-        <CustomerPicker compact scope="bar" contextKey="bar-tab:new" label="Cliente identificado" value={identifiedCustomer} onChange={setIdentifiedCustomer} disabled={locked} />
         <details className="lb-tab-options"><summary>{kind === 'customer' ? `Acesso à comanda · ${customer?.name || 'escolher responsável'}` : 'Acesso à comanda (opcional)'}</summary>
         <fieldset disabled={locked}>
           <legend>Responsável com acesso</legend>
@@ -83,7 +79,7 @@ export function OpenTabForm() {
         </section>}
         </details>
         {kind === 'customer' && customer && <label className="ux-check"><input type="checkbox" checked={confirmed} disabled={locked} onChange={event => setConfirmed(event.target.checked)} />Confirmo que {customer.name} responde pelo total e poderá ver o consumo e os pagamentos desta comanda na sua área.</label>}
-        <label className="ux-field">Nome da pessoa ou do grupo (opcional)<input value={name} maxLength={80} disabled={locked} onChange={event => setName(event.target.value)} placeholder={customer && kind === 'customer' ? customer.name : 'Ex.: Visitante ou Turma de quinta'} /></label>
+        <label className="ux-field">Nome do cliente ou grupo (opcional)<input value={name} maxLength={80} disabled={locked} onChange={event => setName(event.target.value)} placeholder={customer && kind === 'customer' ? customer.name : 'Ex.: Gabriel ou Turma de quinta'} /></label>
         <details className="lb-tab-options"><summary>Observações</summary><label className="ux-field">Observações da comanda (opcional)<textarea value={notes} maxLength={500} disabled={locked} onChange={event => setNotes(event.target.value)} placeholder="Ex.: Mesa 3, perto da quadra" /></label>
         <p className="ux-note">Os demais integrantes não recebem acesso à comanda. O consumo é separado da mensalidade da quadra.</p>
         {kind === 'visitor' && <p className="ux-note">Sem vínculo automático à área de um cliente. A equipe poderá fornecer o QR desta comanda.</p>}
