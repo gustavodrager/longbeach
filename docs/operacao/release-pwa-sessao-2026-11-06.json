@@ -1,0 +1,48 @@
+{
+  "api_deployment_performed": false,
+  "branch": "codex/pwa-sessao-20261105",
+  "cleanup": {
+    "browser_test_tabs_closed": true,
+    "original_policy_ids": [
+      64559591
+    ],
+    "removed_only_temporary_policy": 65721787
+  },
+  "database_or_permissions_or_google_changes_performed": false,
+  "prerequisite_publication71_complete_sha256": "907d940db789d4ad5e1669163e46ffc7f9a57db99a8030a75018a3a0b1d19613",
+  "private_evidence_directory": "evidencias/publicacao-pwa-sessao-2026-11-06/cee1976",
+  "production_run_id": 42191753505,
+  "published_at": "2026-11-06T09:35:52.147Z",
+  "published_at_sao_paulo": "2026-11-06T06:35:52.147000-03:00",
+  "review_url": "https://github.com/gustavodrager/longbeach/pull/72",
+  "revision": 72,
+  "run_attempt": 1,
+  "scope": "web-only",
+  "source_commit": "cee1976699944d6ad39ca36f2d0c9859b162fdbc",
+  "status": "published-and-verified",
+  "validation": {
+    "anonymous_private_api_checks": 4,
+    "backend_build_passed": true,
+    "entry": "/assets/index-Dxy1_LIb.js",
+    "frontend_build_passed": true,
+    "frontend_local_tests": 1435,
+    "frontend_test_files": 117,
+    "new_regression_cases": 47,
+    "production_authenticated_session_preserved": true,
+    "public_failures": 0,
+    "public_gets": 132,
+    "pwa_update_verified": true,
+    "spa_routes": 13
+  },
+  "web": {
+    "active_files": 113,
+    "application_files": 111,
+    "configuration_sha256": "cef1ccb938ce3c635701cae66b8fdac027b14b5834b797a5c2797523feac62c9",
+    "full_active_map_sha256": "4e2161ee5c0f327344dc568adb10fb0bea3d7d37b0ea2daf3649636870347675",
+    "previous_release": "sites/parsero-prod-20261022/channels/live/releases/1793929775393000",
+    "previous_version": "sites/parsero-prod-20261022/versions/bf710e2d4d49e779",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793957752147000",
+    "tree_sha256": "c68e284ced9b549fceb7ecc1fcf16d1881590bb18805a1a4fdef91d968c263d6",
+    "version": "sites/parsero-prod-20261022/versions/3ad8edbcfa42d394"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "api_deployment_performed": false,
+  "branch": "codex/bar-catalogo-venda-20261105",
+  "cleanup": {
+    "browser_test_tab_closed": true,
+    "original_policy_ids": [
+      64559591
+    ],
+    "removed_only_temporary_policy": 65684600
+  },
+  "database_or_permissions_or_google_changes_performed": false,
+  "private_evidence_directory": "evidencias/publicacao-bar-catalogo-2026-11-05/3154420",
+  "production_run_id": 42136974549,
+  "published_at": "2026-11-06T01:05:33.525Z",
+  "published_at_sao_paulo": "2026-11-05T22:05:33.525000-03:00",
+  "review_url": "https://github.com/gustavodrager/longbeach/pull/70",
+  "revision": 70,
+  "run_attempt": 1,
+  "scope": "web-only",
+  "source_commit": "31544206317def70e0f99b70f5a11b84ff1401c6",
+  "status": "published-and-verified",
+  "validation": {
+    "anonymous_private_api_checks": 4,
+    "backend_local_availability_integrations": 12,
+    "entry": "/assets/index-D4mimlHu.js",
+    "frontend_build_passed": true,
+    "frontend_local_tests": 1369,
+    "public_failures": 0,
+    "public_gets": 132,
+    "pwa_update_verified": true,
+    "spa_routes": 13
+  },
+  "web": {
+    "active_files": 113,
+    "application_files": 111,
+    "configuration_sha256": "cef1ccb938ce3c635701cae66b8fdac027b14b5834b797a5c2797523feac62c9",
+    "full_active_map_sha256": "1fdb0c566d952453e3e681d9b71f4891fed77120ef445ef17ea91137f6785518",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793927133525000",
+    "tree_sha256": "275c7a32a5f0f1c57be1abeccd733c0abac1f1a08a661ba8fac93aba427130bb",
+    "version": "sites/parsero-prod-20261022/versions/ad3be2fc92c4183a"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "api_deployment_performed": false,
+  "branch": "codex/bar-itens-remocao-simples-20261105",
+  "cleanup": {
+    "browser_test_tab_closed": true,
+    "original_policy_ids": [
+      64559591
+    ],
+    "removed_only_temporary_policy": 65687501
+  },
+  "database_or_permissions_or_google_changes_performed": false,
+  "prerequisite_publication70_complete_sha256": "232b6cad6f169a882c2144c14544bf2590b0d19cdbc71c69fdcbf90ee2580d70",
+  "private_evidence_directory": "evidencias/publicacao-bar-itens-2026-11-05/ca548dd",
+  "production_run_id": 42142301090,
+  "published_at": "2026-11-06T01:49:35.393Z",
+  "published_at_sao_paulo": "2026-11-05T22:49:35.393000-03:00",
+  "review_url": "https://github.com/gustavodrager/longbeach/pull/71",
+  "revision": 71,
+  "run_attempt": 1,
+  "scope": "web-only",
+  "source_commit": "ca548dd8ba5de57cc189f5d9f8fa9f96890bfcee",
+  "status": "published-and-verified",
+  "validation": {
+    "anonymous_private_api_checks": 4,
+    "entry": "/assets/index-DZi1TJ7m.js",
+    "frontend_affected_tests": 172,
+    "frontend_build_passed": true,
+    "frontend_local_tests": 1388,
+    "public_failures": 0,
+    "public_gets": 132,
+    "pwa_update_verified": true,
+    "spa_routes": 13
+  },
+  "web": {
+    "active_files": 113,
+    "application_files": 111,
+    "configuration_sha256": "cef1ccb938ce3c635701cae66b8fdac027b14b5834b797a5c2797523feac62c9",
+    "full_active_map_sha256": "b90f5a73666fb93ad2018629a3a8712e8dc16f0e896ba193c826dce4a5fcda73",
+    "previous_release": "sites/parsero-prod-20261022/channels/live/releases/1793927133525000",
+    "previous_version": "sites/parsero-prod-20261022/versions/ad3be2fc92c4183a",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793929775393000",
+    "tree_sha256": "c9e12d06dfc98598e5dc2de9936eb1cf5393dfd32ca0ed5ee510c15fd6b868a4",
+    "version": "sites/parsero-prod-20261022/versions/bf710e2d4d49e779"
+  }
+}

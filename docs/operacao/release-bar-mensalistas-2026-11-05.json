@@ -1,0 +1,70 @@
+{
+  "revision": 69,
+  "source_commit": "cb4a42d9b0ebeb8e02f73bfcdeb3b4db7c35d5df",
+  "branch": "codex/bar-produtos-venda-20261105",
+  "review_url": "https://github.com/gustavodrager/longbeach/pull/69",
+  "production_run_id": 42128261813,
+  "run_attempt": 1,
+  "published_at": "2026-11-06T00:00:44.867Z",
+  "published_at_sao_paulo": "2026-11-05T21:00:44.867000-03:00",
+  "status": "published-and-verified",
+  "api": {
+    "image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:bacdf8c8b75afa55b82a091d46d3f64af6c1cd72ed15e2ce40544792b44685cd",
+    "index_digest": "sha256:bacdf8c8b75afa55b82a091d46d3f64af6c1cd72ed15e2ce40544792b44685cd",
+    "config_digest": "sha256:8adc1b0346363800e405727003899e12d499f28a0e72c35d2bdd236a564f3953",
+    "schema": {
+      "count": 35,
+      "latest": "20261105223240_BarTabCancellation",
+      "sha256": "cb2c806d612a3c32ce18b2cfdae79b26a4640f71475d9a7c2c9ffec8971048fd"
+    },
+    "api_ready_receipt_sha256": "742890a0287dd2f0ea1b414bc859377652c8e743532813e8e0f4470b44e86345"
+  },
+  "web": {
+    "version": "sites/parsero-prod-20261022/versions/a5860ab860a70ae2",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1793923244867000",
+    "application_files": 111,
+    "active_files": 113,
+    "configuration_sha256": "cef1ccb938ce3c635701cae66b8fdac027b14b5834b797a5c2797523feac62c9",
+    "full_active_map_sha256": "aa9ac14d3c8e63b253c604d17c1fea071b7bb1356e9ff2cec7f227e358aa3e97",
+    "tree_sha256": "a95a3f3a3543b10974bd315d5010b5dffde9e04bd24e3a53b48d312a2bfa8161"
+  },
+  "validation": {
+    "frontend_tests": 1359,
+    "backend_unit_tests_per_postgresql_matrix": 719,
+    "backend_integration_tests_per_postgresql_matrix": 716,
+    "postgresql_matrices": [
+      17,
+      18
+    ],
+    "public_gets": 132,
+    "public_failures": 0,
+    "spa_routes": 13,
+    "anonymous_private_api_checks": 4,
+    "recent_real_restore_passed": true,
+    "atomic_rollback_and_replay_verified_locally": true,
+    "frozen_full_row_sequence_acl_equality_verified": true,
+    "frozen_backup_integrally_parsed": true,
+    "pwa_update_verified": true,
+    "new_entry": "/assets/index-BzLCjAvL.js"
+  },
+  "preserved": [
+    "existing users, credentials, profiles and staff access",
+    "four confirmed owners",
+    "business history and balances",
+    "Google configuration",
+    "PostgreSQL and proxy container identities",
+    "existing WhatsApp image, container and pairing",
+    "original environment reviewers and protections"
+  ],
+  "cleanup": {
+    "removed_only_temporary_policy": 65680131,
+    "original_policy_ids": [
+      64559591
+    ],
+    "own_vm_release_lease_removed": true,
+    "local_temporary_test_containers_remaining": 0,
+    "browser_test_tab_closed": true
+  },
+  "private_evidence_directory": "evidencias/publicacao-bar-mensalistas-2026-11-05/cb4a42d",
+  "automatic_down_or_old_api_rollback_allowed": false
+}
