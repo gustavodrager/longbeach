@@ -48,6 +48,16 @@ public static class OperationalValidation
         if (body.TryGetProperty("version", out var version) && (version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var v) || v < 0)) return "A versão do cadastro é inválida.";
         JsonElement[] Rows(string key) => records.TryGetValue(key, out var list) ? list : [];
         bool Exists(string key, string field) => Rows(key).Any(row => Id(row) == Id(body, field) && Id(body, field) != Guid.Empty);
+        if (kind is "classes" or "enrollments" or "reservations")
+        {
+            if (Rows(kind).Any(row => Id(row) == id && (ClassDeletionRules.IsDeleted(row) || ClassDeletionRules.IsDerivedHistory(row))))
+                return ClassDeletionRules.ReadOnlyMessage;
+            if (ClassDeletionRules.HasReservedMetadata(body)) return "Os dados de exclusão são preenchidos somente pelo sistema.";
+        }
+        if (kind is "enrollments" or "presences" or "reservations"
+            && Rows("classes").Any(row => ClassDeletionRules.IsDeleted(row) && (Id(row) == Id(body, "classId")
+                || Rows(kind).Any(previous => Id(previous) == id && Id(previous, "classId") == Id(row)))))
+            return ClassDeletionRules.ReadOnlyMessage;
         var others = Rows(kind).Where(row => Id(row) != id).ToArray();
         switch (kind)
         {
@@ -105,10 +115,10 @@ public static class OperationalValidation
                     if (Text(body, "status") == "Cancelada") break;
                     if (date > today && Status(body, "Chegou", "Concluída")) return "A chegada ou conclusão só pode ser registrada na data da reserva ou depois dela.";
                     if (Text(court, "status") != "Disponível") return "Esta quadra está em manutenção.";
-                    if (others.Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "date") == Text(body, "date") && Text(row, "status") != "Cancelada" && Overlaps(row, body)) || Rows("classes").Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "status") == "Ativa" && ClassStartedOn(row, date) && Number(row, "weekDay") == (int)date.DayOfWeek && Overlaps(row, body))) return "Este horário já está ocupado por uma reserva ou aula nesta quadra.";
+                    if (others.Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "date") == Text(body, "date") && Text(row, "status") != "Cancelada" && Overlaps(row, body)) || Rows("classes").Any(row => Id(row, "courtId") == Id(body, "courtId") && ClassDeletionRules.IsScheduledOn(row, date) && Number(row, "weekDay") == (int)date.DayOfWeek && Overlaps(row, body))) return "Este horário já está ocupado por uma reserva ou aula nesta quadra.";
                     if (activity == "SingleLesson" &&
                         (others.Any(row => Id(row, "teacherId") == Id(body, "teacherId") && Text(row, "date") == Text(body, "date") && Text(row, "status") != "Cancelada" && Overlaps(row, body)) ||
-                         Rows("classes").Any(row => Id(row, "teacherId") == Id(body, "teacherId") && Text(row, "status") == "Ativa" && ClassStartedOn(row, date) && Number(row, "weekDay") == (int)date.DayOfWeek && Overlaps(row, body))))
+                         Rows("classes").Any(row => Id(row, "teacherId") == Id(body, "teacherId") && ClassDeletionRules.IsScheduledOn(row, date) && Number(row, "weekDay") == (int)date.DayOfWeek && Overlaps(row, body))))
                         return "O professor já tem uma atividade neste horário.";
                 }
                 else
@@ -147,10 +157,16 @@ public static class OperationalValidation
             case "presences":
                 if (!Exists("students", "studentId") || !Exists("classes", "classId") || !Date(body, "date", out var attendedDate) || !Status(body, "Presente", "Ausente")) return "Confira o aluno, a turma, a data e a presença.";
                 if (attendedDate > today) return "A presença só pode ser registrada na data da aula ou depois dela.";
-                if (!Rows("enrollments").Any(row => Id(row, "studentId") == Id(body, "studentId") && Id(row, "classId") == Id(body, "classId") && Date(row, "startDate", out var start) && start <= attendedDate && (Text(row, "status") == "Ativa" || (Date(row, "endDate", out var end) && attendedDate <= end)))) return "O aluno não tem matrícula nesta turma para a data informada.";
+                if (!Rows("enrollments").Any(row => !ClassDeletionRules.Flag(row, "cancelledBeforeStart") && Id(row, "studentId") == Id(body, "studentId") && Id(row, "classId") == Id(body, "classId") && Date(row, "startDate", out var start) && start <= attendedDate && (Text(row, "status") == "Ativa" || (Date(row, "endDate", out var end) && attendedDate <= end)))) return "O aluno não tem matrícula nesta turma para a data informada.";
                 if (others.Any(row => Id(row, "studentId") == Id(body, "studentId") && Id(row, "classId") == Id(body, "classId") && Text(row, "date") == Text(body, "date"))) return "Esta presença já foi registrada. Abra o registro para corrigir.";
                 break;
             case "financeEntries":
+                var storedEntry = Rows(kind).FirstOrDefault(row => Id(row) == id);
+                if (storedEntry.ValueKind == JsonValueKind.Object && Text(storedEntry, "sourceKind") == "enrollments"
+                    && Rows("enrollments").Any(enrollment => Id(enrollment) == Id(storedEntry, "sourceId")
+                        && Rows("classes").Any(lesson => Id(lesson) == Id(enrollment, "classId") && ClassDeletionRules.IsDeleted(lesson)))
+                    && new[] { "sourceKind", "sourceId", "month" }.Any(field => Text(storedEntry, field) != Text(body, field)))
+                    return "Preserve a matrícula e a competência desta cobrança histórica. A turma foi excluída.";
                 var allocationError = LongBeach.Application.Finance.BusinessAllocationRules.Validate(body);
                 if (allocationError is not null) return allocationError;
                 var receiptError = LongBeach.Application.Finance.FinancialReceiptRules.Validate(body);
@@ -171,6 +187,14 @@ public static class OperationalValidation
                     if (sourceKind == "enrollments")
                     {
                         if (Text(body, "origin") != "Escola" || Text(body, "direction") != "Receber" || !DateOnly.TryParseExact(Text(body, "month") + "-01", "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)) return "A mensalidade deve ter origem Escola e competência no formato ano-mês.";
+                        var enrollment = Rows("enrollments").Single(row => Id(row) == Id(body, "sourceId"));
+                        var deletedClass = Rows("classes").FirstOrDefault(row => Id(row) == Id(enrollment, "classId") && ClassDeletionRules.IsDeleted(row));
+                        var sameHistoricalCharge = storedEntry.ValueKind == JsonValueKind.Object
+                            && new[] { "sourceKind", "sourceId", "month" }.All(field => Text(storedEntry, field) == Text(body, field));
+                        if (!sameHistoricalCharge && deletedClass.ValueKind == JsonValueKind.Object
+                            && (ClassDeletionRules.Flag(enrollment, "cancelledBeforeStart") || !Date(deletedClass, "deletedEffectiveDate", out var deletedOn)
+                                || string.CompareOrdinal(Text(body, "month"), deletedOn.ToString("yyyy-MM", CultureInfo.InvariantCulture)) > 0))
+                            return "Esta turma foi excluída. Preserve as cobranças anteriores; não gere novas competências após a exclusão.";
                         if (Text(body, "status") != "Cancelado" && others.Any(row => Text(row, "sourceKind") == "enrollments" && Id(row, "sourceId") == Id(body, "sourceId") && Text(row, "month") == Text(body, "month") && Text(row, "status") != "Cancelado")) return "Já existe uma mensalidade desta matrícula para a competência informada.";
                     }
                 }

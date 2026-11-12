@@ -27,7 +27,7 @@ public static class CourtScheduleQuery
             foreach (var record in Records("reservations").Where(row => OperationalValidation.Text(row, "courtId") == courtId.ToString() && OperationalValidation.Text(row, "date") == date.ToString("yyyy-MM-dd") && OperationalValidation.Text(row, "status") != "Cancelada"))
                 AddBlock(record, OperationalValidation.Text(record, "status") == "Bloqueio" ? "Bloqueio" : OperationalValidation.Text(record, "activityKind") switch
                 { "Trial" => "Aula experimental", "SingleLesson" => "Aula avulsa", _ => "Reserva" }, true);
-            foreach (var record in Records("classes").Where(row => OperationalValidation.Text(row, "courtId") == courtId.ToString() && OperationalValidation.Text(row, "status") == "Ativa" && OperationalValidation.ClassStartedOn(row, date) && row.TryGetProperty("weekDay", out var weekday) && weekday.TryGetInt32(out var value) && value == (int)date.DayOfWeek))
+            foreach (var record in Records("classes").Where(row => OperationalValidation.Text(row, "courtId") == courtId.ToString() && ClassDeletionRules.IsScheduledOn(row, date) && row.TryGetProperty("weekDay", out var weekday) && weekday.TryGetInt32(out var value) && value == (int)date.DayOfWeek))
                 AddBlock(record, "Aula", includeClassIds);
             var used = 0; var cursor = begin; var free = new List<CourtFreeInterval>();
             string Time(int minutes) => $"{minutes / 60:00}:{minutes % 60:00}";

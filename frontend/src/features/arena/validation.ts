@@ -4,6 +4,7 @@ import { allocationError } from '../finance/businessUnits'
 import { receiptError } from '../finance/receiptSources'
 import type { OperationalData, OperationalKind } from '../operations/DemoDataProvider'
 import type { ArenaClass, Court, Enrollment, FinanceEntry, Presence, Reservation } from './types'
+import { classScheduledOn, enrollmentCoversDate, reservationIsClassHistory } from './classLifecycle'
 
 const validTime = (time: string, end = false) => /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(time) || end && time === '24:00'
 const validWeekDay = (day: number) => Number.isInteger(day) && day >= 0 && day <= 6
@@ -41,6 +42,7 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
     if (!court) return 'Escolha uma quadra cadastrada.'
     if (kind === 'classes') {
       const lesson = record as ArenaClass
+      if (lesson.deletedAt || data.classes.find(row => row.id === lesson.id)?.deletedAt) return 'Esta turma foi excluída. O histórico está disponível para consulta.'
       if (!validWeekDay(lesson.weekDay) || lesson.startDate && !validDate(lesson.startDate)) return 'Confira o dia da semana e a data de início da turma.'
     }
     if (kind === 'reservations') {
@@ -52,6 +54,7 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
         if (reservation.rentalGroupId || reservation.groupId || reservation.status === 'Bloqueio') return 'A aula avulsa deve ser um encontro individual, sem grupo mensalista ou bloqueio.'
       }
       const previous = data.reservations.find(row => row.id === reservation.id)
+      if (reservationIsClassHistory(reservation, data.classes) || reservationIsClassHistory(previous, data.classes)) return 'Esta reserva pertence ao histórico de uma turma excluída.'
       if (previous && previous.activityKind !== reservation.activityKind && (previous.activityKind === 'Trial' || previous.rentalGroupId || previous.groupId || !previous.activityKind && previous.teacherId)) return 'O tipo deste encontro não pode ser alterado.'
     }
     if (!validTime(record.startTime) || !validTime(record.endTime, true) || record.startTime >= record.endTime || record.startTime < court.openingTime || record.endTime > court.closingTime) return 'O horário deve ficar dentro do funcionamento da quadra, com término depois do início.'
@@ -59,7 +62,7 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
       if (court.status !== 'Disponível') return 'Esta quadra está em manutenção.'
       if (kind === 'reservations' && (record as Reservation).date > today && (record.status === 'Chegou' || record.status === 'Concluída')) return 'A chegada ou conclusão só pode ser registrada na data da reserva ou depois dela.'
       const weekday = kind === 'classes' ? (record as ArenaClass).weekDay : new Date(`${(record as Reservation).date}T12:00:00`).getDay()
-      if (data.classes.some(row => row.id !== record.id && row.courtId === record.courtId && row.status === 'Ativa' && (kind === 'classes' || !row.startDate || row.startDate <= (record as Reservation).date) && row.weekDay === weekday && overlaps(row, record)) || data.reservations.some(row => row.id !== record.id && row.courtId === record.courtId && row.status !== 'Cancelada' && (kind === 'reservations' ? row.date === (record as Reservation).date : row.date >= today && (!(record as ArenaClass).startDate || row.date >= (record as ArenaClass).startDate!) && new Date(`${row.date}T12:00:00`).getDay() === weekday) && overlaps(row, record))) return 'Este horário já está ocupado por uma reserva ou aula nesta quadra.'
+      if (data.classes.some(row => row.id !== record.id && row.courtId === record.courtId && (kind === 'classes' ? !row.deletedAt && row.status === 'Ativa' : classScheduledOn(row, (record as Reservation).date)) && row.weekDay === weekday && overlaps(row, record)) || data.reservations.some(row => row.id !== record.id && row.courtId === record.courtId && row.status !== 'Cancelada' && (kind === 'reservations' ? row.date === (record as Reservation).date : row.date >= today && (!(record as ArenaClass).startDate || row.date >= (record as ArenaClass).startDate!) && new Date(`${row.date}T12:00:00`).getDay() === weekday) && overlaps(row, record))) return 'Este horário já está ocupado por uma reserva ou aula nesta quadra.'
     }
     if (kind === 'classes') {
       const arenaClass = record as ArenaClass
@@ -80,6 +83,8 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
     const enrollment = input as Enrollment
     const arenaClass = data.classes.find(row => row.id === enrollment.classId)
     if (!arenaClass || !data.students.some(row => row.id === enrollment.studentId)) return 'Escolha um aluno e uma turma cadastrados.'
+    const previous = data.enrollments.find(row => row.id === enrollment.id)
+    if (arenaClass.deletedAt || enrollment.closedByClassDeletion || previous?.closedByClassDeletion || previous && data.classes.find(row => row.id === previous.classId)?.deletedAt) return 'Esta matrícula pertence ao histórico de uma turma excluída.'
     if (enrollment.status === 'Encerrada' && (!enrollment.endDate || enrollment.endDate < enrollment.startDate)) return 'Informe uma data de encerramento a partir do início da matrícula.'
     if (enrollment.status === 'Ativa' && enrollment.endDate) return 'Uma matrícula ativa deve ficar sem data de encerramento.'
     if (enrollment.status === 'Ativa') {
@@ -92,8 +97,11 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
   }
   if (kind === 'presences') {
     const presence = input as Presence
+    const lesson = data.classes.find(row => row.id === presence.classId)
+    const previous = data.presences.find(row => row.id === presence.id)
+    if (lesson?.deletedAt || previous && data.classes.find(row => row.id === previous.classId)?.deletedAt) return 'Esta turma foi excluída. As presenças estão disponíveis somente para consulta.'
     if (presence.date > today) return 'A presença só pode ser registrada na data da aula ou depois dela.'
-    if (!data.enrollments.some(row => row.classId === presence.classId && row.studentId === presence.studentId && row.startDate <= presence.date && (row.status === 'Ativa' || Boolean(row.endDate && presence.date <= row.endDate)))) return 'O aluno não tem matrícula nesta turma para a data informada.'
+    if (!data.enrollments.some(row => row.classId === presence.classId && row.studentId === presence.studentId && enrollmentCoversDate(row, presence.date))) return 'O aluno não tem matrícula nesta turma para a data informada.'
     if (data.presences.some(row => row.id !== presence.id && row.classId === presence.classId && row.studentId === presence.studentId && row.date === presence.date)) return 'Esta presença já foi registrada. Abra o registro para corrigir.'
   }
   if (kind === 'financeEntries') {

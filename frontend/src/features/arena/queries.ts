@@ -4,6 +4,7 @@ import { staffScopeKey } from '../auth/staffScope'
 import { useAuth } from '../auth/authContext'
 import { useOperations } from '../operations/DemoDataProvider'
 import type { CourtSchedule, CourtScheduleBlock, CourtScheduleRange } from './types'
+import { classScheduledOn } from './classLifecycle'
 
 const minute = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5))
 export function useCourtSchedule(date: string, enabled = true) {
@@ -24,11 +25,10 @@ export function useCourtSchedule(date: string, enabled = true) {
 }
 
 function demoSchedule(date: string, data: ReturnType<typeof useOperations>): CourtSchedule {
-  const weekday = new Date(`${date}T12:00:00Z`).getUTCDay()
   return { date, updatedAtUtc: data.dataUpdatedAt ?? new Date().toISOString(), courts: data.courts.map(court => {
     const blocks: CourtScheduleBlock[] = [
       ...data.reservations.filter(row => row.courtId === court.id && row.date === date && row.status !== 'Cancelada').map(row => ({ source: row.status === 'Bloqueio' ? 'Bloqueio' as const : row.activityKind === 'Trial' ? 'Aula experimental' as const : row.activityKind === 'SingleLesson' ? 'Aula avulsa' as const : 'Reserva' as const, startTime: row.startTime, endTime: row.endTime, sourceId: row.id })),
-      ...data.classes.filter(row => row.courtId === court.id && row.weekDay === weekday && row.status === 'Ativa' && (!row.startDate || row.startDate <= date)).map(row => ({ source: 'Aula' as const, startTime: row.startTime, endTime: row.endTime, sourceId: row.id })),
+      ...data.classes.filter(row => row.courtId === court.id && classScheduledOn(row, date)).map(row => ({ source: 'Aula' as const, startTime: row.startTime, endTime: row.endTime, sourceId: row.id })),
     ].sort((a,b) => a.startTime.localeCompare(b.startTime))
     const begin = minute(court.openingTime), end = minute(court.closingTime)
     let cursor = begin, used = 0

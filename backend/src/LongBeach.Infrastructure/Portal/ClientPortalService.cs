@@ -192,13 +192,13 @@ public sealed class ClientPortalService(LongBeachDbContext db, TimeProvider time
         }
         foreach(var enrollment in rows.Where(r=>r.Kind=="enrollments"))
         {
-            var e=Data(enrollment);if(!links.Contains(("students",Id(e,"studentId"))))continue;
+            var e=Data(enrollment);if(!links.Contains(("students",Id(e,"studentId")))||ClassDeletionRules.Flag(e,"cancelledBeforeStart"))continue;
             var cls=rows.FirstOrDefault(r=>r.Kind=="classes"&&r.Id==Id(e,"classId"));if(cls is null)continue;
-            var p=Data(cls);if(Text(p,"status")!="Ativa")continue;
+            var p=Data(cls);var classData=JsonSerializer.Deserialize<JsonElement>(cls.Payload);
             for(var day=Today.AddDays(-30);day<=Today.AddDays(60);day=day.AddDays(1))
             {
                 var date=day.ToString("yyyy-MM-dd");
-                if((int)day.DayOfWeek!=p["weekDay"]?.GetValue<int>()||string.CompareOrdinal(date,Text(e,"startDate"))<0||string.CompareOrdinal(date,Text(p,"startDate"))<0)continue;
+                if(!ClassDeletionRules.IsScheduledOn(classData,day)||(int)day.DayOfWeek!=p["weekDay"]?.GetValue<int>()||string.CompareOrdinal(date,Text(e,"startDate"))<0||string.CompareOrdinal(date,Text(p,"startDate"))<0)continue;
                 if(Text(e,"status")!="Ativa"&&(Text(e,"endDate")==""||string.CompareOrdinal(date,Text(e,"endDate"))>0))continue;
                 Add($"class:{enrollment.Id}:{date}",cls,p,"Aula",date,cls.Name,"Confirmada");
             }
@@ -329,7 +329,7 @@ public sealed class ClientPortalService(LongBeachDbContext db, TimeProvider time
             var day=DateOnly.ParseExact(request.Date,"yyyy-MM-dd");
             bool Overlaps(JsonObject other)=>string.CompareOrdinal(Text(other,"startTime"),request.EndTime)<0&&string.CompareOrdinal(Text(other,"endTime"),request.StartTime)>0;
             Require(!rows.Where(r=>r.Kind is "classes" or "reservations" && r.Id!=id).Select(Data).Any(other=>Id(other,"teacherId")==request.TeacherId&&Overlaps(other)&&
-                (Text(other,"date")==request.Date&&Text(other,"status")!="Cancelada"||other["weekDay"] is not null&&other["weekDay"]!.GetValue<int>()==(int)day.DayOfWeek&&Text(other,"status")=="Ativa"&&string.CompareOrdinal(Text(other,"startDate"),request.Date)<=0)),"O professor já tem uma atividade neste horário.");
+                (Text(other,"date")==request.Date&&Text(other,"status")!="Cancelada"||other["weekDay"] is not null&&other["weekDay"]!.GetValue<int>()==(int)day.DayOfWeek&&ClassDeletionRules.IsScheduledOn(JsonSerializer.SerializeToElement(other),day))),"O professor já tem uma atividade neste horário.");
         }
         var error=OperationalValidation.Validate("reservations",id,JsonSerializer.SerializeToElement(p),snapshot,Today);Require(error is null,error??"");
         var registry = new CustomerService(db, time);

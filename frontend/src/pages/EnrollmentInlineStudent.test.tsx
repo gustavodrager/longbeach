@@ -38,7 +38,7 @@ function server({ students = [], studentWrite, lookups = [person] }: { students?
       }
       data.enrollments = [write.body as unknown as OperationalData['enrollments'][number]]; return json(write.body, 201)
     }
-    const kind = path.split('/').pop() as keyof OperationalData
+    const kind = new URL(path, 'https://test.invalid').pathname.split('/').pop() as keyof OperationalData
     return json(data[kind] ?? [])
   })
   return { writes, fetch }

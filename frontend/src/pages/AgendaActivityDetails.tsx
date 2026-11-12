@@ -3,6 +3,7 @@ import { ModalPanel, ContextLink } from '../components/managementUi'
 import { useOperations } from '../features/operations/DemoDataProvider'
 import type { ArenaClass, Reservation } from '../features/arena/types'
 import type { RentalAgendaPreview } from '../features/arena/rentalAgendaPreviews'
+import { classStatus, enrollmentCoversDate } from '../features/arena/classLifecycle'
 import { DetailList, displayDate, useFilters } from './arenaUi'
 
 export type AgendaSelection = { date: string; startTime: string; endTime: string; lesson?: ArenaClass; reservation?: Reservation; isClass?: boolean; rentalPreview?: RentalAgendaPreview }
@@ -15,7 +16,7 @@ export function AgendaActivityDetails({ selected, onClose, returnLabel = 'Agenda
   const groupId = reservation?.rentalGroupId ?? preview?.group.id
   const group = data.canRead('rentalGroups') && groupId ? data.rentalGroups.find(row => row.id === groupId) : undefined
   const month = data.canRead('rentalMonths') && group ? data.rentalMonths.find(row => row.rentalGroupId === group.id && row.month === (reservation?.rentalMonth ?? selected.date.slice(0, 7))) : undefined
-  const enrolled = lesson && data.canRead('enrollments') ? data.enrollments.filter(row => row.classId === lesson.id && row.status === 'Ativa') : undefined
+  const enrolled = lesson && data.canRead('enrollments') ? data.enrollments.filter(row => row.classId === lesson.id && (lesson.deletedAt ? enrollmentCoversDate(row, selected.date) : row.status === 'Ativa')) : undefined
   const participants = month?.members ?? group?.members.filter(row => row.status === 'Ativo')
   const title = selected.isClass ? lesson?.name ?? 'Aula' : group?.name ?? reservation?.name ?? (preview ? 'Horário previsto' : 'Horário ocupado')
   return <ModalPanel title={title} onClose={onClose} className="agenda-detail-panel">
@@ -27,9 +28,9 @@ export function AgendaActivityDetails({ selected, onClose, returnLabel = 'Agenda
         <DetailList items={[["Responsável", group.members.find(row => row.id === group.organizerId)?.name ?? 'A confirmar']]} />
         <ContextLink className="primary-link" state={{ returnLabel }} to={filters.href(`/mensalistas/${group.id}`, { month: selected.date.slice(0, 7) })}>Ver grupo</ContextLink>
       </> : <p>Detalhes do grupo indisponíveis para seu acesso.</p> : selected.isClass ? lesson ? <>
-        <h3>Turma e matrículas atuais</h3>
-        <DetailList items={[["Professor", (data.canLookup?.('team') ?? data.canRead('team')) ? data.team.find(row => row.id === lesson.teacherId)?.name ?? 'Não informado' : 'Acesso restrito'], ["Situação", lesson.status], ["Capacidade", String(lesson.capacity)], ["Matrículas ativas", enrolled ? String(enrolled.length) : 'Acesso restrito'], ["Vagas no cadastro atual", enrolled ? String(Math.max(0, lesson.capacity - enrolled.length)) : 'Acesso restrito']]} />
-        <h3>Alunos</h3>{!data.canRead('students') || !enrolled ? <p>Acesso restrito aos alunos.</p> : enrolled.length ? <ul>{enrolled.map(row => <li key={row.id}>{data.students.find(student => student.id === row.studentId)?.name ?? 'Aluno não disponível'}</li>)}</ul> : <p>Nenhuma matrícula ativa no cadastro atual.</p>}
+        <h3>{lesson.deletedAt ? 'Histórico da turma' : 'Turma e matrículas atuais'}</h3>
+        <DetailList items={[["Professor", (data.canLookup?.('team') ?? data.canRead('team')) ? data.team.find(row => row.id === lesson.teacherId)?.name ?? 'Não informado' : 'Acesso restrito'], ["Situação", classStatus(lesson)], ["Capacidade", String(lesson.capacity)], [lesson.deletedAt ? "Matrículas na data" : "Matrículas ativas", enrolled ? String(enrolled.length) : 'Acesso restrito'], ...(!lesson.deletedAt ? [["Vagas no cadastro atual", enrolled ? String(Math.max(0, lesson.capacity - enrolled.length)) : 'Acesso restrito']] as [string, string][] : [])]} />
+        <h3>Alunos</h3>{!data.canRead('students') || !enrolled ? <p>Acesso restrito aos alunos.</p> : enrolled.length ? <ul>{enrolled.map(row => <li key={row.id}>{data.students.find(student => student.id === row.studentId)?.name ?? 'Aluno não disponível'}</li>)}</ul> : <p>{lesson.deletedAt ? 'Nenhuma matrícula elegível nesta data.' : 'Nenhuma matrícula ativa no cadastro atual.'}</p>}
         {lesson.notes && <><h3>Observações</h3><p className="detail-notes">{lesson.notes}</p></>}
         <ContextLink className="primary-link" state={{ returnLabel }} to={`/escola/turmas/${lesson.id}`}>Ver turma</ContextLink>
       </> : <p>Detalhes da aula indisponíveis para seu acesso.</p> : reservation ? <>

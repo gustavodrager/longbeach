@@ -6,7 +6,7 @@ import { apiFetch, ApiError } from '../../lib/http'
 import { validateArenaRecord } from '../arena/validation'
 import { expandRecurringReservations, validateRecurringInput } from '../arena/recurring'
 import { useAuth } from '../auth/authContext'
-import type { ArenaClass, Court, Enrollment, FinanceEntry, Maintenance, Presence, RecurringReservationInput, RecurringReservationResponse, Reservation } from '../arena/types'
+import type { ArenaClass, ClassDeletionResponse, Court, Enrollment, FinanceEntry, Maintenance, Presence, RecurringReservationInput, RecurringReservationResponse, Reservation } from '../arena/types'
 import { canCompleteMaterialUnit, readDemoMaterialOperations, sameMaterialOperation, validMaterialQuantity, type DemoMaterialOperations, type MaterialAttempt, type MaterialHistory, type MaterialMovementInput, type MaterialMovementRow, type MaterialNature, type MaterialSnapshot } from './materialStock'
 
 export type Student = {
@@ -87,6 +87,11 @@ function readDemo(): OperationalData {
   } catch { return empty() }
 }
 const makeId = () => globalThis.crypto.randomUUID()
+function mergeRecords<T extends { id: string }>(rows: T[], changes: T[]): T[] {
+  const byId = new Map(rows.map(row => [row.id, row]))
+  for (const change of changes) byId.set(change.id, change)
+  return [...byId.values()]
+}
 type DemoRecurringOperations = Record<string, { fingerprint: string; ids: string[] }>
 function readDemoRecurring(): DemoRecurringOperations {
   try { return JSON.parse(localStorage.getItem(storageKey) ?? '{}').__recurringOperations ?? {} } catch { return {} }
@@ -142,7 +147,7 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
     const isCurrent = () => ownerRef.current === requestOwner && sessionEpoch.current === requestEpoch && loadEpoch.current === requestLoad && mutationEpoch.current === requestMutation
     try {
       const allowedKinds = kinds.filter(canLoad).filter(kind => !demoMode || ['students', 'team', 'inventory', 'projects'].includes(kind))
-      const entries = await Promise.all(allowedKinds.map(async kind => [kind, await apiFetch<OperationalData[typeof kind]>(`/api/v1/operations/${kind}`)] as const))
+      const entries = await Promise.all(allowedKinds.map(async kind => [kind, await apiFetch<OperationalData[typeof kind]>(`/api/v1/operations/${kind}${kind === 'classes' ? '?includeDeleted=true' : ''}`)] as const))
       if (!isCurrent()) return
       const next = { ...empty(), ...Object.fromEntries(entries) }
       setData(next); dataRef.current = next
@@ -236,11 +241,16 @@ export function DemoDataProvider({ enabled, demoMode = false, children }: { enab
     if (pending.current.has(key)) throw new ApiError(425, 'Aguarde a confirmação da alteração desta turma.')
     pending.current.add(key); mutationEpoch.current += 1; activeLoad.current = null; setSaving(true)
     try {
-      await apiFetch<void>(`/api/v1/operations/classes/${encodeURIComponent(id)}?version=${version}`, { method: 'DELETE' })
+      const deleted = await apiFetch<ClassDeletionResponse>(`/api/v1/operations/classes/${encodeURIComponent(id)}?version=${version}`, { method: 'DELETE' })
       if (ownerRef.current !== requestOwner || sessionEpoch.current !== requestEpoch) throw new Error('A sessão mudou. Atualize os dados antes de continuar.')
-      const next = { ...dataRef.current, classes: dataRef.current.classes.filter(row => row.id !== id) }
+      const next = {
+        ...dataRef.current,
+        classes: mergeRecords(dataRef.current.classes, [deleted.class]),
+        enrollments: mergeRecords(dataRef.current.enrollments, deleted.enrollments),
+        reservations: mergeRecords(dataRef.current.reservations, deleted.reservations),
+      }
       dataRef.current = next; setData(next); setScheduleRevision(value => value + 1)
-      setPersistenceMessage('Turma excluída.')
+      setPersistenceMessage('Turma excluída. Histórico preservado.')
     } catch (error) {
       if (ownerRef.current === requestOwner && sessionEpoch.current === requestEpoch) setPersistenceMessage(error instanceof Error ? error.message : 'Não foi possível excluir a turma.')
       throw error

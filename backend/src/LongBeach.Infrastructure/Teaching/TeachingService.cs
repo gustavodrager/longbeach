@@ -26,7 +26,7 @@ public sealed class TeachingService(LongBeachDbContext db, TimeProvider clock) :
         var team=Id(links[0],"teamId");
         return rows.Any(r=>r.Kind=="team" && r.Id==team && Text(Data(r),"status")!="Inativo") ? team : Guid.Empty;
     }
-    private static bool Enrolled(JsonObject row, Guid cls, DateOnly date) => Id(row,"classId")==cls && DateOnly.TryParse(Text(row,"startDate"),out var start) && start<=date && (Text(row,"status")=="Ativa" || Text(row,"status")=="Encerrada" && DateOnly.TryParse(Text(row,"endDate"),out var end) && end>=date);
+    private static bool Enrolled(JsonObject row, Guid cls, DateOnly date) => !ClassDeletionRules.Flag(row,"cancelledBeforeStart") && Id(row,"classId")==cls && DateOnly.TryParse(Text(row,"startDate"),out var start) && start<=date && (Text(row,"status")=="Ativa" || Text(row,"status")=="Encerrada" && DateOnly.TryParse(Text(row,"endDate"),out var end) && end>=date);
     private TeachingClass Summary(OperationalRecord row,List<OperationalRecord> rows)
     {
         var data=Data(row);
@@ -39,7 +39,7 @@ public sealed class TeachingService(LongBeachDbContext db, TimeProvider clock) :
             .Where(p => Id(p,"teacherId") == teacher && Text(p,"status") is ("Confirmada" or "Chegou" or "Concluída") && DateOnly.TryParse(Text(p,"date"),out var date) && date >= Today && date <= Today.AddDays(60))
             .Select(p => new TeachingAppointment(Id(p,"id"), Text(p,"name"), Text(p,"customerName"), Text(p,"date"), Text(p,"startTime"), Text(p,"endTime"), Text(p,"status")))
             .OrderBy(a=>a.Date).ThenBy(a=>a.StartTime).ToArray();
-        return new(teacher!=Guid.Empty, teacher==Guid.Empty ? [] : rows.Where(r=>r.Kind=="classes"&&Id(Data(r),"teacherId")==teacher).Select(r=>Summary(r,rows)).OrderBy(r=>r.WeekDay==0?7:r.WeekDay).ThenBy(r=>r.StartTime).ToArray(), appointments);
+        return new(teacher!=Guid.Empty, teacher==Guid.Empty ? [] : rows.Where(r=>r.Kind=="classes"&&Id(Data(r),"teacherId")==teacher&&Text(Data(r),"deletedAt")=="").Select(r=>Summary(r,rows)).OrderBy(r=>r.WeekDay==0?7:r.WeekDay).ThenBy(r=>r.StartTime).ToArray(), appointments);
     }
     private TeachingRoster BuildRoster(List<OperationalRecord> rows,Guid user,Guid classId,DateOnly date)
     {
