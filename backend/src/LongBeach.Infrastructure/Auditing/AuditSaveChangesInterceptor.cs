@@ -1,5 +1,6 @@
 using System.Text.Json;
 using LongBeach.Application.Abstractions;
+using LongBeach.Application.Operations;
 using LongBeach.Domain.Auditing;
 using LongBeach.Domain.Operations;
 using Microsoft.EntityFrameworkCore;
@@ -55,7 +56,7 @@ public sealed class AuditSaveChangesInterceptor(
 
         var audits = candidates.Select(entry => AuditLog.Create(
             auditContext.UserId,
-            entry.State.ToString(),
+            IsClassDeletion(entry) ? "ClassSoftDeleted" : entry.State.ToString(),
             entry.Metadata.ClrType.Name,
             GetPrimaryKey(entry),
             JsonSerializer.Serialize(BuildChanges(entry)),
@@ -80,6 +81,20 @@ public sealed class AuditSaveChangesInterceptor(
 
     private static object BuildChanges(EntityEntry entry)
     {
+        if (IsClassDeletion(entry) && entry.Entity is OperationalRecord deletedClass)
+        {
+            var payload = JsonSerializer.Deserialize<JsonElement>(deletedClass.Payload);
+            var changed = entry.Context.ChangeTracker.Entries<OperationalRecord>()
+                .Where(row => row.State == EntityState.Modified && row.Entity.Id != deletedClass.Id)
+                .Select(row => (row.Entity.Kind, Payload: JsonSerializer.Deserialize<JsonElement>(row.Entity.Payload)))
+                .Where(row => ClassDeletionRules.References(row.Payload, deletedClass.Id)).ToArray();
+            return new { deletedClass.Kind,
+                DeletedAt = OperationalValidation.Text(payload, "deletedAt"),
+                DeletedBy = OperationalValidation.Text(payload, "deletedBy"),
+                ClosedEnrollments = changed.Count(row => row.Kind == "enrollments" && ClassDeletionRules.Flag(row.Payload, "closedByClassDeletion")),
+                CancelledReservations = changed.Count(row => row.Kind == "reservations" && ClassDeletionRules.Flag(row.Payload, "cancelledByClassDeletion")),
+                Data = "[OMITTED: may contain personal data]" };
+        }
         if (entry.Entity.GetType().Namespace == "LongBeach.Domain.Messaging")
             return entry.Properties.Where(property => property.Metadata.IsPrimaryKey() || property.Metadata.Name is
                 "ConversationId" or "OperationId" or "AuthorUserId" or "UploadedBy" or "ResourceId" or "Version" or "State" or "Status" or "Mode" or "Approved" or "AutomationProcessed")
@@ -131,6 +146,12 @@ public sealed class AuditSaveChangesInterceptor(
                 property.Metadata.Name,
                 useOriginal ? property.OriginalValue : property.CurrentValue));
     }
+
+    private static bool IsClassDeletion(EntityEntry entry) => entry.State == EntityState.Modified
+        && entry.Entity is OperationalRecord { Kind: "classes" } record
+        && ClassDeletionRules.IsDeleted(JsonSerializer.Deserialize<JsonElement>(record.Payload))
+        && entry.Property(nameof(OperationalRecord.Payload)).OriginalValue is string original
+        && !ClassDeletionRules.IsDeleted(JsonSerializer.Deserialize<JsonElement>(original));
 
     private static object? Classification(string? payload)
     {

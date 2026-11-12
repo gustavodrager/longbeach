@@ -94,3 +94,20 @@ it('preferências musicais são opcionais e independentes do acordo e dos integr
   expect(check('rentalGroups',{...group,musicPreferences:[]},data())).toBeNull()
   expect(check('rentalGroups',{...group,musicPreferences:['rock','pagode']},data())).toBeNull()
 })
+
+
+it('preserva conflito de uma ocorrência que começou antes da exclusão e libera a seguinte', () => {
+  const snapshot = data()
+  snapshot.classes = [{ ...lesson, startDate: '2026-01-01', weekDay: 4, status: 'Encerrada', deletedAt: '2026-11-12T21:30:00Z', deletedEffectiveDate: '2026-11-12', deletedPreviousStatus: 'Ativa' }]
+  expect(check('reservations', { ...reservation, date: '2026-11-12', startTime: '18:45' }, snapshot)).toMatch(/já está ocupado/)
+  expect(check('reservations', { ...reservation, date: '2026-11-19', startTime: '18:45' }, snapshot)).toBeNull()
+})
+
+it('mantém presenças de turma excluída somente para consulta, inclusive ao tentar reatribuir o registro', () => {
+  const snapshot = data()
+  snapshot.classes = [{ ...lesson, deletedAt: '2026-11-12T21:30:00Z' }, { ...lesson, id: 'active-class' }]
+  const presence = { id: 'presence', name: 'Presença', classId: lesson.id, studentId: 'student', date: '2026-11-05', status: 'Presente' as const }
+  snapshot.presences = [presence]
+  expect(check('presences', presence, snapshot)).toMatch(/somente para consulta/)
+  expect(check('presences', { ...presence, classId: 'active-class' }, snapshot)).toMatch(/somente para consulta/)
+})

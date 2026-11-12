@@ -7,6 +7,7 @@ export type Reservation = {
   customerName: string; phone: string; amount: number; status: 'Confirmada' | 'Chegou' | 'Concluída' | 'Cancelada' | 'Bloqueio'; notes: string
   activityKind?: 'Trial' | 'SingleLesson'; teacherId?: string;
   rentalGroupId?: string; rentalMonth?: string; groupId?: string; groupTitle?: string; occurrenceIndex?: number
+  classId?: string; cancelledByClassDeletion?: boolean
 }
 export type RecurringReservationInput = {
   customerId?: string | null
@@ -17,8 +18,10 @@ export type RecurringReservationResponse = { groupId: string; groupTitle: string
 export type ArenaClass = {
   id: string; version?: number; costsVisible?: boolean; name: string; sport: string; courtId: string; weekDay: number; startTime: string; endTime: string
   startDate?: string; teacherId: string; capacity: number; studentIds: string[]; status: 'Ativa' | 'Pausada' | 'Encerrada'; notes: string
+  deletedAt?: string; deletedBy?: string; deletedEffectiveDate?: string; deletedPreviousStatus?: 'Ativa' | 'Pausada' | 'Encerrada'
 }
-export type Enrollment = { id: string; version?: number; costsVisible?: boolean; name: string; studentId: string; classId: string; startDate: string; endDate?: string; status: 'Ativa' | 'Encerrada'; monthlyAmount: number | null }
+export type Enrollment = { id: string; version?: number; costsVisible?: boolean; name: string; studentId: string; classId: string; startDate: string; endDate?: string; status: 'Ativa' | 'Encerrada'; monthlyAmount: number | null; closedByClassDeletion?: boolean; cancelledBeforeStart?: boolean }
+export type ClassDeletionResponse = { class: ArenaClass; enrollments: Enrollment[]; reservations: Reservation[] }
 export type Presence = { id: string; version?: number; costsVisible?: boolean; name: string; classId: string; studentId: string; date: string; status: 'Presente' | 'Ausente' }
 export type FinanceEntry = BusinessAllocation & FinancialReceipt & {
   id: string; version?: number; costsVisible?: boolean; name: string; direction: 'Receber' | 'Pagar'; origin: 'Bar' | 'Escola' | 'Locações' | 'Arena'

@@ -27,7 +27,7 @@ export function DashboardPage() {
   const unavailable = data.persistenceStatus === 'error' ? 'Falha ao carregar' : 'Carregando…'
   const count = (kind: OperationalKind, value: number, empty: string) => !readable(kind) ? unavailable : data[kind].length === 0 ? empty : quantity(value)
   const agenda = `/agenda?${new URLSearchParams({ date: day, view: 'day' })}`
-  const activeClasses = data.classes.filter(item => item.status === 'Ativa' && (!item.startDate || item.startDate <= day))
+  const activeClasses = data.classes.filter(item => !item.deletedAt && item.status === 'Ativa' && (!item.startDate || item.startDate <= day))
   const scheduleCourts = schedule.data?.courts ?? []
   const availabilityReady = readable('courts') && data.courts.length > 0 && scheduleCourts.length === data.courts.length && !schedule.isError && scheduleCourts.every(court => typeof court.availableMinutes === 'number')
   const availability = !loaded ? unavailable : !data.courts.length ? 'Sem quadras' : schedule.isError ? 'Falha ao carregar' : schedule.isPending ? 'Carregando…' : 'Agenda a conferir'

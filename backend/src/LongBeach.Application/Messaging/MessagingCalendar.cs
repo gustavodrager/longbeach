@@ -44,16 +44,16 @@ public static class MessagingCalendar
         foreach (var enrollment in records.Where(row => row.Kind == "enrollments"))
         {
             var e = rows[enrollment.Id]; var studentId = Id(e, "studentId");
-            if (!students.Contains(studentId)) continue;
+            if (!students.Contains(studentId) || ClassDeletionRules.Flag(e, "cancelledBeforeStart")) continue;
             var student = records.FirstOrDefault(row => row.Id == studentId && row.Kind == "students");
             if (student is null || Text(rows[studentId], "status") is "Inativo" or "Pausado") continue;
             var lesson = records.FirstOrDefault(row => row.Id == Id(e, "classId") && row.Kind == "classes");
             if (lesson is null) continue;
             var c = rows[lesson.Id];
-            if (Text(c, "status") != "Ativa" || !ValidTime(c) || !c.TryGetProperty("weekDay", out var dayOfWeek) || !dayOfWeek.TryGetInt32(out var weekday)) continue;
+            if (!ValidTime(c) || !c.TryGetProperty("weekDay", out var dayOfWeek) || !dayOfWeek.TryGetInt32(out var weekday)) continue;
             for (var date = from; date <= until; date = date.AddDays(1))
             {
-                if ((int)date.DayOfWeek != weekday || !Begins(e, "startDate", date) || !Begins(c, "startDate", date)
+                if ((int)date.DayOfWeek != weekday || !ClassDeletionRules.IsScheduledOn(c, date) || !Begins(e, "startDate", date) || !Begins(c, "startDate", date)
                     || !Ends(e, "endDate", date) || Text(e, "status") is not ("Ativa" or "Encerrada")
                     || Text(e, "status") == "Encerrada" && !DateOnly.TryParse(Text(e, "endDate"), out _)
                     || exceptions.Contains($"class:{enrollment.Id}:{date:yyyy-MM-dd}")) continue;

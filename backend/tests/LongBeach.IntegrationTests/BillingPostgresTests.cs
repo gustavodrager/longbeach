@@ -29,6 +29,87 @@ public sealed class BillingPostgresTests
     }
     private static PayAccountInput Input(string method = "Pix") => new(Guid.NewGuid(), method, "Aluno teste", "billing@example.invalid", "12345678909", method == "CreditCard" ? "encrypted-card-only" : null);
     [PostgresFact]
+    public async Task Concurrent_ClassDeletion_and_subscription_cannot_leave_an_automatic_charge_for_an_archived_class()
+    {
+        var gateway = new Gateway(); var recurring = new Recurring();
+        Guid accountId, userId, classId = Guid.NewGuid(), enrollmentId;
+        SubscribeInput input;
+        await using (var setup = Database())
+        {
+            var seed = await Seed(setup, gateway, recurring); accountId = seed.Account; userId = seed.User;
+            var finance = await setup.OperationalRecords.SingleAsync(row => row.Id == seed.Entry);
+            enrollmentId = Guid.Parse(JsonNode.Parse(finance.Payload)!["sourceId"]!.GetValue<string>());
+            var enrollment = await setup.OperationalRecords.SingleAsync(row => row.Id == enrollmentId);
+            var payload = JsonNode.Parse(enrollment.Payload)!.AsObject();
+            payload["classId"] = classId.ToString(); payload["status"] = "Ativa";
+            payload["startDate"] = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-3)).AddDays(-7).ToString("yyyy-MM-dd");
+            enrollment.Update(enrollment.Name, payload.ToJsonString());
+            setup.Add(new OperationalRecord(classId, "classes", "Turma concorrente", JsonSerializer.Serialize(new { id = classId, name = "Turma concorrente", status = "Ativa", version = 1 })));
+            await setup.SaveChangesAsync();
+            var account = await Service(setup, gateway, recurring).Account(accountId, userId, default);
+            input = new(Guid.NewGuid(), "Aluno teste", "billing@example.invalid", "12345678909", "11999999999", "encrypted", true, account.Total, account.DueDate!.Value, "123");
+        }
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        async Task<ClassDeletionResult> Delete()
+        {
+            await start.Task; await using var db = Database();
+            return await ClassDeletionService.DeleteAsync(db, classId, 1, userId, DateTimeOffset.UtcNow, default);
+        }
+        async Task<(SubscriptionDto? Subscription, BarRuleException? Error)> Subscribe()
+        {
+            await start.Task; await using var db = Database();
+            try { return (await Service(db, gateway, recurring).Subscribe(accountId, input, userId, default), null); }
+            catch (BarRuleException error) { return (null, error); }
+        }
+        var deletion = Delete(); var subscription = Subscribe(); start.SetResult();
+        await Task.WhenAll(deletion, subscription);
+        await using var verify = Database();
+        var lesson = JsonNode.Parse((await verify.OperationalRecords.SingleAsync(row => row.Id == classId)).Payload)!;
+        var enrollmentAfter = JsonNode.Parse((await verify.OperationalRecords.SingleAsync(row => row.Id == enrollmentId)).Payload)!;
+        if (deletion.Result.Error is null)
+        {
+            Assert.NotNull(subscription.Result.Error); Assert.Null(subscription.Result.Subscription);
+            Assert.NotNull(lesson["deletedAt"]); Assert.Equal("Encerrada", enrollmentAfter["status"]!.GetValue<string>());
+            Assert.False(await verify.Set<BillingSubscription>().AnyAsync(row => row.AccountId == accountId));
+            Assert.Equal(0, recurring.CreateCalls);
+        }
+        else
+        {
+            Assert.Equal(LongBeach.Application.Operations.ClassDeletionRules.SubscriptionMessage, deletion.Result.Error);
+            Assert.Null(subscription.Result.Error); Assert.NotNull(subscription.Result.Subscription);
+            Assert.Null(lesson["deletedAt"]); Assert.Equal("Ativa", enrollmentAfter["status"]!.GetValue<string>());
+            Assert.Equal(1, await verify.Set<BillingSubscription>().CountAsync(row => row.AccountId == accountId));
+            Assert.Equal(1, recurring.CreateCalls);
+        }
+    }
+
+    [PostgresFact]
+    public async Task ClassDeletion_preserves_existing_debt_but_cannot_start_a_new_recurring_subscription()
+    {
+        await using var db = Database(); var gateway = new Gateway(); var recurring = new Recurring();
+        var seed = await Seed(db, gateway, recurring); var service = Service(db, gateway, recurring);
+        var entry = await db.OperationalRecords.SingleAsync(row => row.Id == seed.Entry);
+        var financeBefore = entry.Payload;
+        var enrollmentId = Guid.Parse(JsonNode.Parse(entry.Payload)!["sourceId"]!.GetValue<string>());
+        var enrollment = await db.OperationalRecords.SingleAsync(row => row.Id == enrollmentId);
+        var enrollmentBody = JsonNode.Parse(enrollment.Payload)!.AsObject(); var classId = Guid.NewGuid();
+        enrollmentBody["classId"] = classId.ToString(); enrollmentBody["status"] = "Ativa";
+        enrollmentBody["startDate"] = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-3)).AddDays(-7).ToString("yyyy-MM-dd");
+        enrollment.Update(enrollment.Name, enrollmentBody.ToJsonString());
+        db.Add(new OperationalRecord(classId, "classes", "Turma teste", JsonSerializer.Serialize(new { id = classId, name = "Turma teste", status = "Ativa", version = 1 })));
+        await db.SaveChangesAsync();
+        Assert.True((await service.Account(seed.Account, seed.User, default)).RecurringEligible);
+        var deleted = await ClassDeletionService.DeleteAsync(db, classId, 1, seed.User, DateTimeOffset.UtcNow, default);
+        Assert.Null(deleted.Error);
+        var account = await service.Account(seed.Account, seed.User, default);
+        Assert.False(account.RecurringEligible); Assert.Equal(100, account.Payable);
+        Assert.Equal(financeBefore, (await db.OperationalRecords.SingleAsync(row => row.Id == seed.Entry)).Payload);
+        var input = new SubscribeInput(Guid.NewGuid(), "Aluno teste", "billing@example.invalid", "12345678909", "11999999999", "encrypted", true, account.Total, account.DueDate!.Value, "123");
+        await Assert.ThrowsAsync<BarRuleException>(() => service.Subscribe(seed.Account, input, seed.User, default));
+        Assert.False(await db.Set<BillingSubscription>().AnyAsync(row => row.AccountId == seed.Account));
+    }
+
+    [PostgresFact]
     public async Task Assigned_court_account_preserves_classification_before_and_after_payment_creation()
     {
         await using var db = Database(); var gateway = new Gateway(); var seed = await Seed(db, gateway);
@@ -248,10 +329,10 @@ public sealed class BillingPostgresTests
     private sealed class Recurring : IRecurringGateway
     {
         public bool Enabled => true; private RecurringState state = new("SUBS_test", "", "ACTIVE", 10000, "BRL"); public RecurringInvoice[] Rows = [];
-        public bool WrongAmount, FailInvoices; public int GetCalls;
+        public bool WrongAmount, FailInvoices; public int GetCalls; public int CreateCalls;
         public Task<string?> PublicKey(CancellationToken ct) => Task.FromResult<string?>("test");
         public Task<string> CreatePlan(Guid reference, decimal amount, int trial, CancellationToken ct) => Task.FromResult("PLAN_test");
-        public Task<RecurringState> Create(Guid reference, Guid op, string plan, SubscribeInput input, CancellationToken ct) { state = state with { Id = "SUBS_" + reference, Reference = reference.ToString() }; return Task.FromResult(state); }
+        public Task<RecurringState> Create(Guid reference, Guid op, string plan, SubscribeInput input, CancellationToken ct) { Interlocked.Increment(ref CreateCalls); state = state with { Id = "SUBS_" + reference, Reference = reference.ToString() }; return Task.FromResult(state); }
         public Task<RecurringState> Get(string id, CancellationToken ct) { GetCalls++; return Task.FromResult(WrongAmount ? state with { Amount = state.Amount + 1 } : state); }
         public Task<RecurringState> Cancel(string id, Guid operation, CancellationToken ct) { state = state with { State = "CANCELED" }; return Task.FromResult(state); }
         public Task<IReadOnlyList<RecurringInvoice>> Invoices(string id, CancellationToken ct) => FailInvoices ? throw new HttpRequestException("Callback must not fetch invoices") : Task.FromResult<IReadOnlyList<RecurringInvoice>>(Rows);

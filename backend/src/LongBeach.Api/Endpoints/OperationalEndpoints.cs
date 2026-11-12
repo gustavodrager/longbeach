@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using LongBeach.Application.Operations;
 using LongBeach.Application.Customers;
 using LongBeach.Infrastructure.Customers;
+using LongBeach.Infrastructure.Operations;
 using LongBeach.Contracts.Operations;
 using LongBeach.Domain.Identity;
 using LongBeach.Domain.Operations;
@@ -23,7 +24,7 @@ public static class OperationalEndpoints
         if (publicDemo) group.AllowAnonymous();
         else group.RequireAuthorization();
 
-        group.MapGet("/", async (string kind, HttpContext http, LongBeachDbContext db, ICustomerRegistry customers, CancellationToken ct) =>
+        group.MapGet("/", async (string kind, bool? includeDeleted, HttpContext http, LongBeachDbContext db, ICustomerRegistry customers, CancellationToken ct) =>
         {
             if (!OperationalValidation.Permissions.ContainsKey(kind)) return Results.NotFound();
             if (!Allowed(http, kind, false, publicDemo)) return Denied(http);
@@ -31,7 +32,10 @@ public static class OperationalEndpoints
                 .OrderBy(item => item.Name).Select(item => new { item.Id, item.Payload }).ToListAsync(ct);
             var payloads = new List<string>();
             foreach (var row in rows)
+            {
+                if (kind == "classes" && includeDeleted != true && ClassDeletionRules.IsDeleted(ParsePayload(row.Payload))) continue;
                 payloads.Add(StaffDependencyPayload(VisiblePayload(publicDemo ? row.Payload : await CustomerOperationalRecords.ProjectAsync(customers, kind, row.Id, row.Payload, ct), kind, http, publicDemo), kind, http));
+            }
             return Results.Content($"[{string.Join(',', payloads)}]", "application/json");
         });
 
@@ -85,6 +89,11 @@ public static class OperationalEndpoints
                 grouping => grouping.Select(row => ParsePayload(row.Payload)).ToArray());
             if (records.Any(row => row.Id == id && row.Kind != kind)) return Results.Conflict(new { message = "Este identificador já pertence a outra área." });
             var record = records.SingleOrDefault(row => row.Id == id && row.Kind == kind);
+            if (record is not null && (kind == "classes" && ClassDeletionRules.IsDeleted(ParsePayload(record.Payload))
+                || (kind is "enrollments" or "reservations") && ClassDeletionRules.IsDerivedHistory(ParsePayload(record.Payload))))
+                return Results.Conflict(new { message = ClassDeletionRules.ReadOnlyMessage });
+            if (kind is "classes" or "enrollments" or "reservations" && ClassDeletionRules.HasReservedMetadata(body))
+                return Results.BadRequest(new { message = "Os dados de exclusão são preenchidos somente pelo sistema." });
             if (kind == "team" && await db.Set<StaffMembership>().AnyAsync(member => member.TeamId == id, ct))
                 return Results.Conflict(new { message = "Esta pessoa possui conta de acesso. Atualize a ficha e a conta juntas na Equipe." });
             if (kind == "classes" && record is null)
@@ -178,28 +187,28 @@ public static class OperationalEndpoints
             return Results.Content(VisiblePayload(json, kind, http, publicDemo), "application/json", statusCode: record is null ? 201 : 200);
         }).RequireRateLimiting("public-demo-write");
 
-        group.MapDelete("/{id:guid}", async (string kind, Guid id, int? version, HttpContext http, LongBeachDbContext db, CancellationToken ct) =>
+        group.MapDelete("/{id:guid}", async (string kind, Guid id, int? version, HttpContext http, LongBeachDbContext db, ICustomerRegistry customers, TimeProvider clock, CancellationToken ct) =>
         {
             if (kind != "classes") return Results.NotFound();
             if (!Allowed(http, kind, true, publicDemo) || !ProfileAccess.IsManagement(http.User.FindAll(ClaimTypes.Role).Select(row => row.Value)))
                 return Denied(http);
             if (version is null or < 0) return Results.BadRequest(new { message = "Informe a versão da turma antes de excluir." });
-
-            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-            await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(724031904)", ct);
-            var records = await db.OperationalRecords.ToListAsync(ct);
-            var record = records.SingleOrDefault(row => row.Id == id && row.Kind == "classes");
-            if (record is null) return Results.NotFound(new { message = "Turma não encontrada. Atualize a página." });
-            var lesson = ParsePayload(record.Payload);
-            if (OperationalValidation.Version(lesson) != version)
-                return Results.Conflict(new { message = "Esta turma mudou depois que você a abriu. Atualize os dados antes de excluir." });
-            var error = ClassDeletionRules.Validate(id, lesson, records.Select(row => ParsePayload(row.Payload)));
-            if (error is not null) return Results.Conflict(new { message = error });
-
-            db.OperationalRecords.Remove(record);
-            await db.SaveChangesAsync(ct);
-            await transaction.CommitAsync(ct);
-            return Results.NoContent();
+            if (!Guid.TryParse(http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? http.User.FindFirstValue("sub"), out var actor))
+                return Results.Unauthorized();
+            var result = await ClassDeletionService.DeleteAsync(db, id, version.Value, actor, clock.GetUtcNow(), ct);
+            if (result.NotFound) return Results.NotFound(new { message = result.Error });
+            if (result.Error is not null) return Results.Conflict(new { message = result.Error });
+            async Task<JsonElement> Project(OperationalRecord row) => ParsePayload(StaffDependencyPayload(VisiblePayload(
+                await CustomerOperationalRecords.ProjectAsync(customers, row.Kind, row.Id, row.Payload, ct), row.Kind, http, publicDemo), row.Kind, http));
+            async Task<JsonElement[]> Visible(OperationalRecord[] rows, string recordKind)
+            {
+                if (!Allowed(http, recordKind, false, publicDemo)) return [];
+                var visible = new List<JsonElement>();
+                foreach (var row in rows) visible.Add(await Project(row));
+                return visible.ToArray();
+            }
+            return Results.Ok(new { @class = await Project(result.Class!),
+                enrollments = await Visible(result.Enrollments, "enrollments"), reservations = await Visible(result.Reservations, "reservations") });
         }).RequireAuthorization("Management").RequireRateLimiting("public-demo-write");
 
         return endpoints;
@@ -283,7 +292,7 @@ public static class OperationalEndpoints
         {
             "team" when !http.User.HasClaim("can_manage_staff", "true") => ["id", "version", "name", "role", "status"],
             "students" when !Menu("students") => ["id", "version", "name", "status", "customerId"],
-            "classes" when !Menu("classes") => ["id", "version", "name", "status", "teacherId", "courtId", "weekDay", "weekDays", "startTime", "endTime", "startDate", "endDate", "capacity", "studentIds"],
+            "classes" when !Menu("classes") => ["id", "version", "name", "status", "teacherId", "courtId", "weekDay", "weekDays", "startTime", "endTime", "startDate", "endDate", "capacity", "studentIds", "deletedAt", "deletedEffectiveDate", "deletedPreviousStatus"],
             "courts" when !Menu("agenda.settings") => ["id", "version", "name", "status", "openingTime", "closingTime", "operatingDays", "scheduleConfirmed"],
             "reservations" when !Menu("agenda") => ["id", "version", "name", "courtId", "date", "startTime", "endTime", "status", "activityKind", "teacherId", "rentalGroupId"],
             _ => null

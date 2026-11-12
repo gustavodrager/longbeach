@@ -192,7 +192,21 @@ public sealed partial class BillingService(LongBeachDbContext db, IPaymentGatewa
         var pending=payments.Where(x=>x.State=="Pending").Sum(x=>x.Amount);
         var (kind,source)=await BillingSource(db,p,ct);
         var subscriptionId=await db.Set<BillingSubscription>().Where(x=>x.SourceKind==kind&&x.SourceId==source&&x.State!="CANCELED"&&x.State!="EXPIRED"&&x.State!="Rejected").Select(x=>(Guid?)x.Id).SingleOrDefaultAsync(ct);
-        return new(a.Id,a.Kind,a.SourceId,Text(p,"name"),Date(p,"dueDate"),total,paid,pending,Text(p,"status")=="Cancelado"?0:Math.Max(0,total-paid-pending),Text(p,"status"),payments.Select(p=>Dto(p) with { RefundPending=refunds.Where(r=>r.PaymentId==p.Id).Sum(r=>r.Amount) }).ToArray(),Eligible(p) && Text(p,"sourceKind") is "enrollments" or "rentalMonths",a.UserId,Text(p,"month"),subscriptionId);
+        var recurringEligible = Eligible(p) && (Text(p,"sourceKind") is "enrollments" or "rentalMonths")
+            && (kind != "enrollments" || await EnrollmentAllowsSubscription(source,ct));
+        return new(a.Id,a.Kind,a.SourceId,Text(p,"name"),Date(p,"dueDate"),total,paid,pending,Text(p,"status")=="Cancelado"?0:Math.Max(0,total-paid-pending),Text(p,"status"),payments.Select(p=>Dto(p) with { RefundPending=refunds.Where(r=>r.PaymentId==p.Id).Sum(r=>r.Amount) }).ToArray(),recurringEligible,a.UserId,Text(p,"month"),subscriptionId);
+    }
+    private async Task<bool> EnrollmentAllowsSubscription(Guid enrollmentId,CancellationToken ct)
+    {
+        var enrollment = await db.OperationalRecords.AsNoTracking().SingleOrDefaultAsync(row=>row.Id==enrollmentId&&row.Kind=="enrollments",ct);
+        if(enrollment is null)return false;
+        var payload=Payload(enrollment);
+        if(Text(payload,"status")=="Encerrada"||ClassDeletionRules.Flag(payload,"closedByClassDeletion")||ClassDeletionRules.Flag(payload,"cancelledBeforeStart"))return false;
+        // Old financial imports may not have a school class. Keep those existing
+        // accounts usable, while an explicit deleted class can never resubscribe.
+        if(!Guid.TryParse(Text(payload,"classId"),out var classId))return true;
+        var lesson=await db.OperationalRecords.AsNoTracking().SingleOrDefaultAsync(row=>row.Id==classId&&row.Kind=="classes",ct);
+        return lesson is not null && !ClassDeletionRules.IsDeleted(JsonSerializer.Deserialize<JsonElement>(lesson.Payload));
     }
     private static AccountPaymentDto Dto(BillingPayment p)=>new(p.Id,p.OperationId,p.Method,p.Amount,p.State,p.Refunded,p.PixText,p.QrImageUrl,p.ExpiresAtUtc,p.PaidAtUtc,p.State=="Pending"&&p.ProviderId==null);
     private static void ValidatePayer(PayAccountInput i)

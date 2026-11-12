@@ -6,7 +6,7 @@ import { useOperations } from '../features/operations/DemoDataProvider'
 
 export function ClassDeletionNotice() {
   const location = useLocation()
-  return location.state?.classDeleted === true ? <p className="arena-message" role="status">Turma excluída.</p> : null
+  return location.state?.classDeleted === true ? <p className="arena-message" role="status">Turma excluída. Histórico preservado.</p> : null
 }
 
 export function ClassDeletionAction({ lesson, returnTo, returnState }: { lesson: ArenaClass; returnTo: string; returnState?: Record<string, unknown> }) {
@@ -36,18 +36,19 @@ export function ClassDeletionAction({ lesson, returnTo, returnState }: { lesson:
       setError(cause instanceof Error ? cause.message : 'Não foi possível excluir a turma. Tente novamente.')
     } finally { locked.current = false; setBusy(false) }
   }
-  if (!data.canDeleteClass) return null
+  if (!data.canDeleteClass || lesson.deletedAt) return null
   return <>
     <button type="button" className="text-button" disabled={unavailable} onClick={() => { setError(''); setSelected({ ...lesson }) }}>Excluir turma</button>
     {selected && <EditorPanel title="Excluir turma?" className="arena-entry-editor" busy={busy} onClose={close}>
       <p><strong>{selected.name}</strong></p>
-      <p>A turma será removida da lista e da agenda. Esta ação não pode ser desfeita.</p>
-      <p className="arena-hint">Turmas com alunos ou histórico devem ser encerradas.</p>
+      <p>A turma sairá da lista principal e da agenda futura. As matrículas ativas serão encerradas.</p>
+      <p>O histórico da turma, as presenças e os registros financeiros serão preservados e poderão ser consultados em Excluídas.</p>
+      <p className="arena-hint">A exclusão não quita nem estorna valores. Cobranças recorrentes ativas precisam ser resolvidas antes de excluir.</p>
       {error && <p className="arena-message arena-error" role="alert">{error}</p>}
       {busy && <p role="status">Excluindo turma…</p>}
       <div className="form-actions">
         <button ref={cancel} type="button" className="secondary-link" disabled={busy} onClick={close}>Cancelar</button>
-        <button type="button" className="primary-button" disabled={unavailable} onClick={() => void remove()}>{busy ? 'Excluindo…' : 'Excluir definitivamente'}</button>
+        <button type="button" className="primary-button" disabled={unavailable} onClick={() => void remove()}>{busy ? 'Excluindo…' : 'Excluir turma'}</button>
       </div>
     </EditorPanel>}
   </>

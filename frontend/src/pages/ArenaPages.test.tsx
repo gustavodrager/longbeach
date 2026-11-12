@@ -753,7 +753,7 @@ it.each(['Manager', 'Operations'] as const)('matrículas mantêm aluno, turma e 
   const actor: AuthUser = { ...owner, roles: [role], permissions: ['students:read', 'students:write', 'projects:read', 'finance:read', 'finance:write'] }
   vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
     const path = String(input)
-    return json(path.endsWith('/students') ? [cleanStudent] : path.endsWith('/classes') ? [cleanLesson] : path.endsWith('/enrollments') ? [cleanEnrollment] : [])
+    return json(path.endsWith('/students') ? [cleanStudent] : new URL(path, 'https://test.invalid').pathname.endsWith('/classes') ? [cleanLesson] : path.endsWith('/enrollments') ? [cleanEnrollment] : [])
   })
   start('/escola/matriculas', false, actor)
   expect(await screen.findByText(cleanStudent.name, { exact: true })).toBeInTheDocument()

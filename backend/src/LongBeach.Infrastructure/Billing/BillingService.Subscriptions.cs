@@ -40,6 +40,7 @@ public sealed partial class BillingService
                 Require(account.DueDate.HasValue&&account.DueDate.Value>=Today&&account.Total==input.ExpectedAmount&&account.DueDate.Value==input.ExpectedFirstDue,"Valor ou vencimento mudou. Confira antes de autorizar.");
                 Require(account.Competence==input.ExpectedFirstDue.ToString("yyyy-MM"),"A primeira cobrança deve pertencer à competência do vencimento.");
                 var (kind,source)=await BillingSource(db,p,ct);
+                if(kind=="enrollments")Require(await EnrollmentAllowsSubscription(source,ct),"Esta matrícula foi encerrada ou sua turma foi excluída. Não é possível iniciar uma cobrança recorrente.");
                 if(kind=="rentalGroups")
                 {
                     var group=Payload(await db.OperationalRecords.SingleAsync(x=>x.Id==source&&x.Kind==kind,ct));
