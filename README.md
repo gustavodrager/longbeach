@@ -25,7 +25,7 @@ Importações, backups, configurações privadas e evidências ficam fora deste 
 
 ## Desenvolvimento e validação
 
-Requisitos: SDK de `backend/global.json`, Node.js 24 e pnpm 11.25. PostgreSQL 17 e 18 são cobertos no CI; preserve a versão principal do volume local existente.
+Requisitos: SDK de `backend/global.json`, Node.js 24 e pnpm 11.25. O CI usa PostgreSQL 18, alinhado à versão principal documentada para produção; preserve a versão principal do volume local existente.
 
 ```bash
 cd backend

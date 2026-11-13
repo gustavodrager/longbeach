@@ -18,7 +18,7 @@ Após a configuração controlada, verificar: primeira leitura completa dos quat
 
 ## Restauração
 
-O CI usa PostgreSQL 17 e 18. Depois de aplicar migrations e testar readiness, executa auditoria somente leitura e `scripts/verificar-restauracao-ci.sh` dentro do contêiner PostgreSQL descartável. O script rejeita serviço sem `POSTGRES_DB=longbeach_ci` e `POSTGRES_USER=longbeach_ci`, gera backup custom, cria um banco separado e compara contagens e hashes de conteúdo de todas as tabelas públicas, incluindo migrations. Não sobrepõe banco existente nem usa dump de produção.
+O CI usa PostgreSQL 18. Depois de aplicar migrations e testar readiness, executa auditoria somente leitura e `scripts/verificar-restauracao-ci.sh` dentro do contêiner PostgreSQL descartável. O script rejeita serviço sem `POSTGRES_DB=longbeach_ci` e `POSTGRES_USER=longbeach_ci`, gera backup custom, cria um banco separado e compara contagens e hashes de conteúdo de todas as tabelas públicas, incluindo migrations. Não sobrepõe banco existente nem usa dump de produção.
 
 O resultado desse teste comprova restauração sintética da versão; **não comprova backup ou recuperação dos dados reais**. Para produção, ainda é necessário obter o backup autorizado, restaurar em ambiente isolado sem credenciais externas/coletores ativos, conferir migrations, contagens, integridade e fluxos críticos, medir duração e idade do último dado recuperado e registrar aprovação do responsável. RPO e RTO precisam ser definidos; não há valor presumido.
 
