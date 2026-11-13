@@ -94,9 +94,10 @@ public sealed class ClassDeletionHistoryPostgresTests
         await using var isolated = await IsolatedMaterialDatabase.Create();
         await using var factory = Factory(isolated); using var client = Client(factory);
         var lesson = await CreateClass(client); var id = Id(lesson);
-        if (legacyVersionZero)
+        // Seed an existing class: newly created classes now start today and have no past schedule.
+        lesson["startDate"] = Today.AddDays(-14).ToString("yyyy-MM-dd");
+        if (legacyVersionZero) lesson.Remove("version");
         {
-            lesson.Remove("version");
             await using var scope = factory.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<LongBeachDbContext>();
             (await db.OperationalRecords.SingleAsync(row => row.Id == id)).Update(lesson["name"]!.GetValue<string>(), lesson.ToJsonString());
             await db.SaveChangesAsync();
@@ -128,6 +129,19 @@ public sealed class ClassDeletionHistoryPostgresTests
         Assert.Contains("classes", audit.MetadataJson); Assert.DoesNotContain("Turma exclusiva", audit.MetadataJson);
         Assert.True(await auditDb.OperationalRecords.AnyAsync(row => row.Id == id));
         Assert.False(await auditDb.AuditLogs.AnyAsync(row => row.ResourceId == id.ToString() && row.Action == "Deleted"));
+    }
+
+    [PostgresFact]
+    public async Task Newly_created_class_starts_today_without_retroactive_schedule()
+    {
+        await using var isolated = await IsolatedMaterialDatabase.Create();
+        await using var factory = Factory(isolated); using var client = Client(factory);
+        var lesson = await CreateClass(client); var id = Id(lesson);
+        Assert.Equal(Today.ToString("yyyy-MM-dd"), lesson["startDate"]!.GetValue<string>());
+        Assert.False(await Scheduled(client, id, Today.AddDays(-7)));
+        Assert.False(await Scheduled(client, id, Today.AddDays(-7), range: true));
+        Assert.True(await Scheduled(client, id, Today));
+        Assert.True(await Scheduled(client, id, Today.AddDays(7)));
     }
 
     [PostgresFact]
