@@ -659,11 +659,7 @@ it('reserva a partir do dia retorna ao mesmo dia ao cancelar', async () => {
 })
 
 
-it.each([
-  { typedName: '', expectedName: 'Futevôlei · Segunda-feira · 18:00–19:00' },
-  { typedName: '   ', expectedName: 'Futevôlei · Segunda-feira · 18:00–19:00' },
-  { typedName: 'Iniciantes', expectedName: 'Iniciantes' },
-])('cadastra turma com nome opcional: "$typedName"', async ({ typedName, expectedName }) => {
+it.each(['Iniciante', 'Intermediário', 'Amador', 'Profissional'])('cadastra turma com nível %s', async (expectedName) => {
   vi.stubEnv('VITE_DEMO_MODE', 'false')
   const teacher = { id: '12345678-1234-1234-1234-123456789abc', name: 'Professor Teste', status: 'Ativo' }
   const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
@@ -676,11 +672,11 @@ it.each([
   start('/escola/novo', false)
   const user = userEvent.setup()
   await screen.findByRole('option', { name: teacher.name })
-  const name = screen.getByLabelText('Nome da turma (opcional)')
-  expect(name).not.toBeRequired()
-  if (typedName) await user.type(name, typedName)
+  const name = screen.getByLabelText('Nível')
+  expect(name).toBeRequired()
+  for (const removed of ['Quadra', 'Situação', 'Início da grade', 'Limite de vagas']) expect(screen.queryByLabelText(removed)).not.toBeInTheDocument()
+  await user.selectOptions(name, expectedName)
   await user.selectOptions(screen.getByLabelText('Professor'), teacher.id)
-  await user.selectOptions(screen.getByLabelText('Quadra'), court.id)
   await user.click(screen.getByRole('button', { name: 'Salvar turma' }))
   expect(await screen.findByRole('heading', { name: expectedName })).toBeInTheDocument()
   const writes = fetchMock.mock.calls.filter(([, init]) => init?.method === 'PUT')
@@ -696,16 +692,17 @@ it('permite limpar o nome na edição mantendo a turma e usando o horário atual
   start('/escola/turmas/turma')
   const user = userEvent.setup()
   await user.click(screen.getByRole('button', { name: 'Editar turma' }))
-  const name = screen.getByLabelText('Nome da turma (opcional)')
-  expect(name).not.toBeRequired()
-  await user.clear(name)
+  const name = screen.getByLabelText('Nível')
+  expect(name).toBeRequired()
+  for (const removed of ['Quadra', 'Situação', 'Início da grade', 'Limite de vagas']) expect(screen.queryByLabelText(removed)).not.toBeInTheDocument()
+  await user.selectOptions(name, 'Amador')
   fireEvent.change(screen.getByLabelText('Começa às'), { target: { value: '20:00' } })
   fireEvent.change(screen.getByLabelText('Termina às'), { target: { value: '21:00' } })
   await user.click(screen.getByRole('button', { name: 'Salvar turma' }))
-  expect(await screen.findByRole('heading', { name: 'Beach tennis · Quarta-feira · 20:00–21:00' })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'Amador' })).toBeInTheDocument()
   const saved = JSON.parse(localStorage.getItem('longbeach-os-demo-v1') ?? '{}').classes
   expect(saved).toHaveLength(1)
-  expect(saved[0]).toMatchObject({ ...lesson, name: 'Beach tennis · Quarta-feira · 20:00–21:00', startTime: '20:00', endTime: '21:00' })
+  expect(saved[0]).toMatchObject({ ...lesson, name: 'Amador', startTime: '20:00', endTime: '21:00' })
 })
 
 it('aluno mantém ID e vínculos próprios ao salvar cliente legado sem telefone',async()=>{
@@ -744,8 +741,8 @@ it('turmas abrem com título e ação curtos, mantendo horário, situação e lo
   expect(screen.queryByText('Gestão da arena')).not.toBeInTheDocument()
   const card = screen.getByRole('link', { name: /Turma de demonstração/ })
   expect(card).toHaveTextContent('Segunda-feira · 18:00–19:00')
-  expect(card).toHaveTextContent('1/8 vagas ocupadas')
-  expect(card).toHaveTextContent('Ativa')
+  expect(card).toHaveTextContent('1 alunos')
+  expect(card).not.toHaveTextContent('Ativa')
 })
 
 it.each(['Manager', 'Operations'] as const)('matrículas mantêm aluno, turma e datas sem ampliar acesso a valores de %s', async role => {
@@ -895,4 +892,34 @@ it.each([false, true])('fonte de aula avulsa carregada depois respeita edição 
   await waitFor(() => expect(screen.getByLabelText('Valor (R$)')).toHaveDisplayValue(new RegExp('R\\$\\s*' + record.amount + ',00')))
   expect(screen.getByLabelText('Origem')).toHaveValue(changed ? 'Bar' : 'Escola'); expect(screen.getByLabelText('Descrição do lançamento')).toHaveValue(changed ? 'Descrição escolhida' : `Aula avulsa · ${record.name}`)
   expect(fetchMock.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true)
+})
+
+it('ordena todas as turmas por dia e horário sem esconder turmas pausadas', () => {
+  const lessons = [
+    {...cleanLesson,id:'sun',name:'Domingo',weekDay:0,startTime:'08:00'},
+    {...cleanLesson,id:'mon-late',name:'Segunda tarde',weekDay:1,startTime:'19:00'},
+    {...cleanLesson,id:'wed',name:'Quarta',weekDay:3,startTime:'07:00',status:'Pausada'},
+    {...cleanLesson,id:'mon-early',name:'Segunda manhã',weekDay:1,startTime:'06:00'},
+  ]
+  localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({courts:[court],classes:lessons}))
+  start('/escola?status=Ativa')
+  const links=screen.getAllByRole('link').filter(link=>link.getAttribute('href')?.startsWith('/escola/turmas/'))
+  expect(links.map(link=>link.getAttribute('href')?.split('?')[0])).toEqual(['/escola/turmas/mon-early','/escola/turmas/mon-late','/escola/turmas/wed','/escola/turmas/sun'])
+  expect(screen.queryByLabelText('Situação')).not.toBeInTheDocument()
+})
+
+it('inclui aluno existente diretamente na turma e preserva o vínculo ao retirar', async () => {
+  localStorage.setItem('longbeach-os-demo-v1', JSON.stringify({courts:[court],classes:[cleanLesson],students:[cleanStudent],enrollments:[]}))
+  start(`/escola/turmas/${cleanLesson.id}`)
+  const user=userEvent.setup()
+  await user.click(screen.getByRole('button',{name:'Incluir aluno'}))
+  await user.selectOptions(screen.getByLabelText('Aluno já cadastrado'),cleanStudent.id)
+  await user.click(screen.getByRole('button',{name:'Confirmar inclusão'}))
+  expect(await screen.findByRole('button',{name:'Retirar da turma'})).toBeInTheDocument()
+  const saved=JSON.parse(localStorage.getItem('longbeach-os-demo-v1')!).enrollments
+  expect(saved).toHaveLength(1)
+  expect(saved[0]).toMatchObject({classId:cleanLesson.id,studentId:cleanStudent.id,status:'Ativa'})
+  await user.click(screen.getByRole('button',{name:'Retirar da turma'}))
+  await waitFor(()=>expect(JSON.parse(localStorage.getItem('longbeach-os-demo-v1')!).enrollments[0].status).toBe('Encerrada'))
+  expect(JSON.parse(localStorage.getItem('longbeach-os-demo-v1')!).enrollments[0].id).toBe(saved[0].id)
 })

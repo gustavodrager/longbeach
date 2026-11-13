@@ -158,6 +158,7 @@ public static class OperationalEndpoints
             if (!publicDemo)
                 await CustomerOperationalRecords.PrepareWriteAsync(customers, kind, id, incoming, record?.Payload, ct,
                     allowReassignment: ProfileAccess.IsManagement(http.User.FindAll(ClaimTypes.Role).Select(x => x.Value)) && http.User.HasClaim("permission", SystemPermissions.CustomersMerge));
+            if (kind == "classes") ClassScheduleDefaults.Prepare(incoming, record?.Payload, DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-3)));
             body = JsonSerializer.SerializeToElement(incoming);
             var error = OperationalValidation.Validate(kind, id, body, snapshot, DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-3)));
             if (error is not null) return Results.BadRequest(new { message = error });

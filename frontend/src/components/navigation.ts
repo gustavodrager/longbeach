@@ -28,8 +28,7 @@ export const managementNavigation: NavigationGroup[] = [
   ] },
   { label: 'Mensalistas', icon: 'people', href: '/mensalistas', kind: 'rentalGroups' },
   { label: 'Aulas', icon: 'school', href: '/escola', children: [
-    { label: 'Turmas', href: '/escola', kind: 'classes' }, { label: 'Alunos', href: '/alunos', kind: 'students' },
-    { label: 'Matrículas', href: '/escola/matriculas', kind: 'enrollments' }, { label: 'Presenças', href: '/escola/presencas', kind: 'presences' },
+    { label: 'Turmas', href: '/escola', kind: 'classes' },
   ] },
   { label: 'Financeiro', icon: 'wallet', href: '/financeiro/despesas', children: [
     { label: 'Despesas e pagamentos', href: '/financeiro/despesas', kind: 'financeEntries' },

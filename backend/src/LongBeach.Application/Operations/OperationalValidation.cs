@@ -124,14 +124,13 @@ public static class OperationalValidation
                 else
                 {
                     if (body.TryGetProperty("startDate", out var classStart) && (classStart.ValueKind != JsonValueKind.String || Text(body, "startDate") != "" && !Date(body, "startDate", out _))) return "Confira a data de início da grade.";
-                    var weekday = Number(body, "weekDay"); var capacity = Number(body, "capacity");
-                    if (weekday < 0 || weekday > 6 || decimal.Truncate(weekday) != weekday || capacity < 1 || capacity > 500 || decimal.Truncate(capacity) != capacity || !Status(body, "Ativa", "Pausada", "Encerrada")) return "Confira o dia da semana, o estado e o número de vagas da turma.";
+                    var weekday = Number(body, "weekDay");
+                    if (weekday < 0 || weekday > 6 || decimal.Truncate(weekday) != weekday || !Status(body, "Ativa", "Pausada", "Encerrada")) return "Confira o dia da semana e o estado da turma.";
                     if (!Exists("team", "teacherId")) return "Escolha um professor cadastrado na equipe.";
-                    if (!body.TryGetProperty("studentIds", out var studentIds) || studentIds.ValueKind != JsonValueKind.Array || studentIds.GetArrayLength() > capacity) return "Confira os alunos e a capacidade da turma.";
+                    if (!body.TryGetProperty("studentIds", out var studentIds) || studentIds.ValueKind != JsonValueKind.Array) return "Confira os alunos da turma.";
                     if (studentIds.GetArrayLength() > 0) return "Registre os alunos pelo cadastro de matrículas, para preservar vagas e histórico.";
                     var students = studentIds.EnumerateArray().Select(value => value.ValueKind == JsonValueKind.String && Guid.TryParse(value.GetString(), out var parsed) ? parsed : Guid.Empty).ToArray();
                     if (students.Distinct().Count() != students.Length || students.Any(student => student == Guid.Empty || !Rows("students").Any(row => Id(row) == student))) return "A turma contém alunos inválidos ou repetidos.";
-                    if (Rows("enrollments").Count(row => Id(row, "classId") == id && Text(row, "status") == "Ativa") > capacity) return "A capacidade não pode ficar abaixo do número de matrículas ativas.";
                     if (Text(body, "status") != "Ativa") break;
                     if (Text(court, "status") != "Disponível") return "Esta quadra está em manutenção.";
                     if (others.Any(row => Id(row, "courtId") == Id(body, "courtId") && Number(row, "weekDay") == weekday && Text(row, "status") == "Ativa" && Overlaps(row, body)) || Rows("reservations").Any(row => Id(row, "courtId") == Id(body, "courtId") && Text(row, "status") != "Cancelada" && Date(row, "date", out var day) && day >= today && ClassStartedOn(body, day) && (int)day.DayOfWeek == weekday && Overlaps(row, body))) return "A aula conflita com uma reserva ou turma nesta quadra.";
@@ -150,9 +149,7 @@ public static class OperationalValidation
                 if (!string.IsNullOrEmpty(Text(body, "endDate"))) return "Uma matrícula ativa deve ficar sem data de encerramento.";
                 var selectedClass = Rows("classes").Single(row => Id(row) == Id(body, "classId"));
                 if (Date(body, "startDate", out var enrolledOn) && !ClassStartedOn(selectedClass, enrolledOn)) return "A matrícula não pode começar antes da turma.";
-                if (Text(selectedClass, "status") != "Ativa") return "Só é possível matricular em uma turma ativa.";
                 if (others.Any(row => Id(row, "studentId") == Id(body, "studentId") && Id(row, "classId") == Id(body, "classId") && Text(row, "status") == "Ativa")) return "Este aluno já possui matrícula ativa nesta turma.";
-                if (others.Count(row => Id(row, "classId") == Id(body, "classId") && Text(row, "status") == "Ativa") >= Number(selectedClass, "capacity")) return "Esta turma não possui vagas disponíveis.";
                 break;
             case "presences":
                 if (!Exists("students", "studentId") || !Exists("classes", "classId") || !Date(body, "date", out var attendedDate) || !Status(body, "Presente", "Ausente")) return "Confira o aluno, a turma, a data e a presença.";

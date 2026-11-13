@@ -22,9 +22,9 @@ it('organiza os grupos da gestão e mantém uma única seção ativa para rotas 
   expect(destinationFor('/whatsapp/conversas/pessoa',managementNavigation)?.group.label).toBe('WhatsApp')
   expect(destinationFor('/whatsapp/envios',managementNavigation)?.item.label).toBe('Envios')
   expect(destinationFor('/bar/receitas/produto',managementNavigation)?.destination.label).toBe('Fichas técnicas')
-  expect(destinationFor('/escola/matriculas',managementNavigation)?.item.label).toBe('Matrículas')
+  expect(destinationFor('/escola/matriculas',managementNavigation)?.item.label).toBe('Turmas')
   expect(destinationFor('/financeiro/historico',managementNavigation)?.destination.label).toBe('Histórico')
-  expect(visibleNavigation(item => !item.owner && item.kind === 'students').flatMap(g => g.children ?? [g]).map(x=>x.label)).toEqual(['Alunos'])
+  expect(visibleNavigation(item => !item.owner && item.kind === 'classes').flatMap(g => g.children ?? [g]).map(x=>x.label)).toEqual(['Turmas'])
 })
 
 it('mantém zero e recusa retornos externos', () => {

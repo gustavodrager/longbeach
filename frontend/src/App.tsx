@@ -1,3 +1,4 @@
+const SchoolLegacyRedirect = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.SchoolLegacyRedirect })))
 import { LegacyDestination, BarDestination, MissingDestination } from './components/RouteDestinations'
 import { canManageStaff, hasPermission, workHome } from './features/auth/access'
 const BillingPage = lazy(() => import("./features/billing/BillingPages").then(m => ({ default: m.BillingPage })))
@@ -30,7 +31,6 @@ const BarPurchasesPage = lazy(() => import('./features/bar/BarPages').then(modul
 const BarRecipesPage = lazy(() => import('./features/bar/RecipePage').then(module => ({ default: module.BarRecipesPage })))
 import { AccountPage } from './pages/AccountPage'
 import { DemoDataProvider } from './features/operations/DemoDataProvider'
-const StudentsPage = lazy(() => import('./pages/OperationsPages').then(module => ({ default: module.StudentsPage })))
 const StudentDetailsPage = lazy(() => import('./pages/OperationsPages').then(module => ({ default: module.StudentDetailsPage })))
 const TeamPage = lazy(() => import('./pages/OperationsPages').then(module => ({ default: module.TeamPage })))
 const TeamDetailsPage = lazy(() => import('./pages/OperationsPages').then(module => ({ default: module.TeamDetailsPage })))
@@ -51,8 +51,6 @@ const RecurringReservationsPage = lazy(() => import('./pages/RecurringReservatio
 const ReservationDetailsPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.ReservationDetailsPage })))
 const SchoolPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.SchoolPage })))
 const ClassDetailsPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.ClassDetailsPage })))
-const EnrollmentsPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.EnrollmentsPage })))
-const PresencesPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.PresencesPage })))
 const FinancePage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.FinancePage })))
 const FinanceDetailsPage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.FinanceDetailsPage })))
 const MaintenancePage = lazy(() => import('./pages/ArenaPages').then(module => ({ default: module.MaintenancePage })))
@@ -145,7 +143,7 @@ function OperationalRoutes() {
     {!demoMode && <Route path="clientes" element={<Permission permission="customers:read"><CustomersPage /></Permission>} />}
     {!demoMode && <Route path="clientes/:customerId" element={<Permission permission="customers:read"><CustomerDetailsPage /></Permission>} />}
     {!demoMode && <Route path="whatsapp/*" element={<Permission permission="messaging:read"><MessagingPage /></Permission>} />}
-    <Route path="alunos" element={arena('students', <StudentsPage />)} />
+    <Route path="alunos" element={<SchoolLegacyRedirect />} />
     <Route path="alunos/:studentId" element={arena('students', <StudentDetailsPage />)} />
     <Route path="equipe" element={arena('team', <TeamPage />)} />
     <Route path="equipe/:memberId" element={arena('team', <TeamDetailsPage />)} />
@@ -167,8 +165,8 @@ function OperationalRoutes() {
     <Route path="escola/agenda" element={arena('classes', <SchoolAgendaPage />)} />
     <Route path="escola/turmas/:classId" element={arena('classes', <ClassDetailsPage />)} />
     <Route path="escola/:classId" element={<LegacyDestination to="/escola/turmas" parameter="classId" />} />
-    <Route path="escola/matriculas" element={arena('enrollments', <EnrollmentsPage />)} />
-    <Route path="escola/presencas" element={arena('presences', <PresencesPage />)} />
+    <Route path="escola/matriculas" element={<SchoolLegacyRedirect />} />
+    <Route path="escola/presencas" element={<SchoolLegacyRedirect />} />
     <Route path="financeiro" element={arena('financeEntries', <FinancePage />)} />
     <Route path="financeiro/:entryId" element={arena('financeEntries', <FinanceDetailsPage />)} />
     <Route path="manutencao" element={arena('maintenance', <MaintenancePage />)} />

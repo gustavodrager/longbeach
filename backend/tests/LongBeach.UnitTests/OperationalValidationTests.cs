@@ -115,7 +115,7 @@ public sealed class OperationalValidationTests
         Assert.Contains("conflita", OperationalValidation.Validate("classes", id, input, records, Today));
     }
     [Fact]
-    public void Enrollment_prevents_duplicate_and_full_classes()
+    public void Enrollment_prevents_duplicates_without_legacy_capacity_limit()
     {
         var id = Guid.NewGuid(); var records = Records();
         records["enrollments"] = [Json(new { id = Guid.NewGuid(), studentId = StudentId, classId = ClassId, status = "Ativa" })];
@@ -123,7 +123,7 @@ public sealed class OperationalValidationTests
         Assert.Contains("já possui", OperationalValidation.Validate("enrollments", id, input, records, Today));
         var otherStudent = Guid.NewGuid(); records["students"] = [Json(new { id = StudentId }), Json(new { id = otherStudent })];
         input = Json(new { id, name = "Matrícula", studentId = otherStudent, classId = ClassId, status = "Ativa", startDate = "2026-10-04", monthlyAmount = 120 });
-        Assert.Contains("vagas", OperationalValidation.Validate("enrollments", id, input, records, Today));
+        Assert.Null(OperationalValidation.Validate("enrollments", id, input, records, Today));
     }
     [Fact]
     public void Attendance_requires_existing_enrollment_and_unique_date()

@@ -5,7 +5,7 @@ import { AuthContext, type AuthContextValue } from '../features/auth/authContext
 import type { AuthUser } from '../features/auth/types'
 import { DemoDataProvider, useOperations, type OperationalData, type Student } from '../features/operations/DemoDataProvider'
 import { blankStudent } from '../features/operations/studentDraft'
-import { EnrollmentsPage } from './ArenaPages'
+import { ClassDetailsPage, EnrollmentsPage } from './ArenaPages'
 
 const owner: AuthUser = { id: 'enrollment-manager', name: 'Gestão de teste', email: 'manager@example.invalid', roles: ['Manager'], permissions: [] }
 const lesson = { id: 'class-a', name: 'Turma de exemplo', sport: 'Futevôlei', courtId: 'court-a', weekDay: 1, startTime: '18:00', endTime: '19:00', teacherId: 'teacher-a', capacity: 8, studentIds: [], status: 'Ativa' as const, notes: '' }
@@ -14,10 +14,10 @@ const clients: QueryClient[] = []
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 function Probe() { const data = useOperations(); return <output data-testid="records">{JSON.stringify({ students: data.students, enrollments: data.enrollments })}</output> }
 function Navigation() { const navigate = useNavigate(); return <button onClick={() => navigate('/escola/matriculas?class=class-a')}>Sair da edição</button> }
-function mount(demoMode = false, user = owner) {
+function mount(demoMode = false, user = owner, inClass = false) {
   const query = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }); clients.push(query)
   const auth: AuthContextValue = { user, isBootstrapping: false, signIn: async () => {}, signInWithGoogle: async () => {}, signOut: async () => {}, changePassword: async () => {}, completeFirstAccessWithGoogle: async () => {} }
-  return render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><DemoDataProvider enabled demoMode={demoMode}><MemoryRouter initialEntries={['/escola/matriculas?class=class-a&acao=novo']}><Routes><Route path="/escola/matriculas" element={<><EnrollmentsPage /><Probe /><Navigation /></>} /></Routes></MemoryRouter></DemoDataProvider></AuthContext.Provider></QueryClientProvider>)
+  return render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><DemoDataProvider enabled demoMode={demoMode}><MemoryRouter initialEntries={[inClass ? '/escola/turmas/class-a' : '/escola/matriculas?class=class-a&acao=novo']}><Routes><Route path="/escola/turmas/:classId" element={<><ClassDetailsPage /><Probe /></>} /><Route path="/escola/matriculas" element={<><EnrollmentsPage /><Probe /><Navigation /></>} /></Routes></MemoryRouter></DemoDataProvider></AuthContext.Provider></QueryClientProvider>)
 }
 function records(): { students: Student[]; enrollments: { studentId: string; classId: string; startDate: string; monthlyAmount: number }[] } { return JSON.parse(screen.getByTestId('records').textContent!) }
 type Write = { path: string; body: Record<string, unknown> }
@@ -229,4 +229,37 @@ it('não oferece criação ou matrícula para consulta sem students:write', asyn
   expect(screen.queryByRole('dialog', { name: 'Matrícula' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: '+ Cadastrar aluno' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Matricular aluno' })).not.toBeInTheDocument()
+})
+
+it.each([false,true])('inclui cliente na própria turma, com cadastro na hora: %s',async(create)=>{
+ const api=server();mount(false,owner,true)
+ fireEvent.click(await screen.findByRole('button',{name:'Incluir aluno'}))
+ expect(screen.queryByLabelText('Situação do novo aluno')).not.toBeInTheDocument()
+ expect(screen.queryByLabelText('Aluno já cadastrado')).not.toBeInTheDocument()
+ if(create){
+  fireEvent.click(screen.getByRole('button',{name:'+ Cadastrar cliente'}))
+  fireEvent.change(screen.getByLabelText('Nome do novo cliente'),{target:{value:person.name}})
+  fireEvent.change(screen.getByLabelText('Telefone do novo cliente'),{target:{value:'11988887777'}})
+  fireEvent.click(screen.getByRole('button',{name:'Cadastrar e selecionar'}))
+  await screen.findByRole('button',{name:'Trocar cliente'})
+ } else await chooseCustomer()
+ fireEvent.click(screen.getByRole('button',{name:'Cadastrar aluno e selecionar'}))
+ fireEvent.click(await screen.findByRole('button',{name:'Confirmar inclusão'}))
+ await waitFor(()=>expect(records().enrollments).toHaveLength(1))
+ expect(records().enrollments[0].classId).toBe(lesson.id)
+ expect(records().students[0].customerId).toBe(person.id)
+ expect(api.writes.filter(write=>write.path.includes('/customers?'))).toHaveLength(create?1:0)
+ expect(api.writes.filter(write=>write.path.includes('/students/'))).toHaveLength(1)
+})
+
+it('reutiliza ficha do cliente ao incluí-lo pela turma',async()=>{
+ const student={...blankStudent(),id:'existing-student',name:person.name,customerId:person.id}
+ const api=server({students:[student]});mount(false,owner,true)
+ fireEvent.click(await screen.findByRole('button',{name:'Incluir aluno'}))
+ await chooseCustomer()
+ fireEvent.click(screen.getByRole('button',{name:'Selecionar aluno cadastrado'}))
+ fireEvent.click(await screen.findByRole('button',{name:'Confirmar inclusão'}))
+ await waitFor(()=>expect(records().enrollments).toHaveLength(1))
+ expect(records().enrollments[0].studentId).toBe(student.id)
+ expect(api.writes.filter(write=>write.path.includes('/students/'))).toHaveLength(0)
 })

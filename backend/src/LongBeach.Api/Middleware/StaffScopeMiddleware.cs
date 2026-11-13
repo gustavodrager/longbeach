@@ -55,10 +55,10 @@ public static class StaffApiScope
             return kind switch
             {
                 "team" => Owner() || read && Menu("classes", "enrollments", "presences", "agenda", "recurring", "administration"),
-                "students" => read ? Menu("students", "classes", "enrollments", "presences") : Area("students"),
+                "students" => read ? Menu("students", "classes", "enrollments", "presences") : Area("students") || Area("classes"),
                 "classes" => read ? Menu("classes", "enrollments", "presences", "agenda") : Area("classes"),
-                "enrollments" => read ? Menu("enrollments", "presences", "classes") : Area("enrollments"),
-                "presences" => Area("presences"),
+                "enrollments" => read ? Menu("enrollments", "presences", "classes") : Area("enrollments") || Area("classes"),
+                "presences" => Area("presences") || Area("classes"),
                 "courts" => path.Contains("/schedule", StringComparison.Ordinal)
                     ? read && Menu("agenda", "recurring", "classes")
                     : read ? Menu("agenda.settings", "agenda", "classes", "enrollments", "recurring") : Area("agenda.settings"),
@@ -80,7 +80,7 @@ public static class StaffApiScope
                 var related = customerScope switch
                 {
                     "bar" => read ? AnyBar() : Bar("bar.sell", "bar.tabs"),
-                    "students" => read ? Menu("students", "enrollments", "presences", "classes") : Area("students"),
+                    "students" => read ? Menu("students", "enrollments", "presences", "classes") : Area("students") || Area("classes"),
                     "projects" => read ? Menu("projects", "recurring") : Area("projects") || Area("recurring"),
                     "reservations" => read ? Menu("agenda", "recurring") : Area("agenda") || Area("recurring"),
                     "messaging" => read && Menu("messaging", "messaging.sends"),

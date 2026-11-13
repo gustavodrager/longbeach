@@ -226,24 +226,23 @@ it('exclui com alunos e mantém matrículas, presenças e financeiro acessíveis
   await userEvent.click(await screen.findByRole('link', { name: /Turma de teste.*Consultar histórico/ }))
   expect(await screen.findByText(/Turma excluída em/)).toBeVisible()
   expect(screen.getByRole('heading', { name: 'Histórico de matrículas' })).toBeVisible()
-  expect(screen.getByText('Aluna teste')).toBeVisible()
+  expect(screen.getAllByText('Aluna teste').some(element=>element.closest('.record-row'))).toBe(true)
   expect(screen.queryByRole('button', { name: 'Editar turma' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Excluir turma' })).not.toBeInTheDocument()
   expect(screen.queryByRole('link', { name: 'Registrar presença' })).not.toBeInTheDocument()
   expect(api.fetch.mock.calls.some(([input]) => String(input) === '/api/v1/operations/classes?includeDeleted=true')).toBe(true)
-  await userEvent.click(screen.getByRole('link', { name: 'Ver matrículas →' }))
-  expect(await screen.findByText('Histórico da turma excluída')).toBeVisible()
+  expect(screen.getByRole('heading', { name: 'Histórico de matrículas' })).toBeVisible()
   expect(screen.queryByRole('button', { name: 'Editar matrícula' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Matricular aluno' })).not.toBeInTheDocument()
   expect(screen.queryByRole('link', { name: 'Criar mensalidade →' })).not.toBeInTheDocument()
-  expect(screen.getByRole('link', { name: 'Ver cobranças →' })).toHaveAttribute('href', `/financeiro?origin=Escola&source=${enrollment.id}&sourceKind=enrollments&range=all`)
+  expect(screen.getByRole('link', { name: 'Ver cobranças' })).toHaveAttribute('href', `/financeiro?origin=Escola&source=${enrollment.id}&sourceKind=enrollments&range=all`)
 })
 
 it('consulta presenças preservadas mesmo sem matrícula válida e não oferece nova chamada', async () => {
   const api = fixture(); api.state.rows = [archivedLesson]
   api.state.presences = [{ id: 'legacy-presence', name: 'Presença importada', classId: lesson.id, studentId: 'missing-student', date: '2026-10-19', status: 'Ausente' }]
   start({ path: `/escola/turmas/${lesson.id}?acao=editar` })
-  await userEvent.click(await screen.findByRole('link', { name: 'Ver histórico de presenças →' }))
+  await userEvent.click(await screen.findByText('Histórico de presenças', {selector:'summary'}))
   expect(await screen.findByRole('heading', { name: 'Histórico de presenças' })).toBeVisible()
   expect(screen.getByText('Presença importada')).toBeVisible()
   expect(screen.getByText('19/10/2026')).toBeVisible()

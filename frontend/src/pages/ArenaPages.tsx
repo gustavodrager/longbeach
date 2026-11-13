@@ -1,9 +1,10 @@
+import { ClassStudents } from '../features/arena/ClassStudents'
 import { formatMonth, formatPhone } from '../lib/inputFormatting'
 import { CustomerPicker } from '../features/customers/CustomerPicker'
 import { EnrollmentStudentPicker } from '../features/arena/EnrollmentStudentPicker'
 import { SchoolViewNavigation } from './AgendaViewNavigation'
 import { ClassDeletionAction, ClassDeletionNotice } from './ClassDeletionAction'
-import { classStatus, deletionDateLabel, enrollmentCoversDate, reservationIsClassHistory } from '../features/arena/classLifecycle'
+import { deletionDateLabel, enrollmentCoversDate, reservationIsClassHistory } from '../features/arena/classLifecycle'
 import { isManagement } from '../features/auth/access'
 import { allocationChoice, allocationFields, allocationLabel, allocationOptions } from '../features/finance/businessUnits'
 import { BusinessAllocationField } from '../features/finance/BusinessAllocationField'
@@ -26,7 +27,7 @@ import '../features/finance/finance-clean.css'
 const weekdays=['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado']
 const blankCourt=():Omit<Court,'id'>=>({name:'',sport:'Futevôlei',status:'Disponível',openingTime:'07:00',closingTime:'23:00',operatingDays:[0,1,2,3,4,5,6],scheduleConfirmed:false})
 const blankReservation=(date:string):Omit<Reservation,'id'>=>({name:'',courtId:'',date,startTime:'18:00',endTime:'19:00',customerName:'',phone:'',amount:0,status:'Confirmada',notes:''})
-const blankClass=():Omit<ArenaClass,'id'>=>({name:'',sport:'Futevôlei',courtId:'',weekDay:1,startTime:'18:00',endTime:'19:00',teacherId:'',capacity:8,studentIds:[],status:'Ativa',notes:''})
+const blankClass=():Omit<ArenaClass,'id'>=>({name:'Iniciante',sport:'Futevôlei',courtId:'',startDate:today(),weekDay:1,startTime:'18:00',endTime:'19:00',teacherId:'',capacity:8,studentIds:[],status:'Ativa',notes:''})
 const blankFinance=():Omit<FinanceEntry,'id'>=>({name:'',direction:'Receber',origin:'Arena',amount:0,dueDate:today(),status:'Pendente',paidDate:'',notes:''})
 const blankMaintenance=():Omit<Maintenance,'id'>=>({name:'',area:'',owner:'',dueDate:'',status:'Aberta',priority:'Normal',notes:''})
 function useEditor<T extends { id: string }>(existing:T|undefined,blank:()=>Omit<T,'id'>,isNew:boolean){
@@ -71,7 +72,8 @@ export function SchoolPage() {
   const showingDeleted = filters.status === 'Excluída'
   const rows = data.classes.filter(item =>
     `${item.name} ${item.sport}`.toLocaleLowerCase('pt-BR').includes(filters.query.toLocaleLowerCase('pt-BR'))
-    && (showingDeleted ? Boolean(item.deletedAt) : !item.deletedAt && (!filters.status || item.status === filters.status)))
+    && (showingDeleted ? Boolean(item.deletedAt) : !item.deletedAt))
+    .sort((a, b) => ((a.weekDay + 6) % 7) - ((b.weekDay + 6) % 7) || a.startTime.localeCompare(b.startTime) || a.endTime.localeCompare(b.endTime) || a.name.localeCompare(b.name, 'pt-BR'))
   return <main className="operation-page arena-page arena-entry-clean">
     <Heading eyebrow="" title="Turmas" action={data.canWrite('classes') && <Link className="primary-link" to="/escola/novo">Nova turma</Link>} />
     <ClassDeletionNotice /><SchoolViewNavigation active="records" disabled={!data.canRead('reservations') || !(data.canLookup?.('courts') ?? data.canRead('courts'))} /><Feedback />
@@ -79,37 +81,75 @@ export function SchoolPage() {
       {data.canRead('financeEntries') && <Link className="secondary-link" to="/financeiro?origin=Escola&range=all">Mensalidades →</Link>}
       <Link className="secondary-link" to={filters.href('/escola', { status: showingDeleted ? '' : 'Excluída' })}>{showingDeleted ? 'Voltar às turmas' : 'Consultar turmas excluídas'}</Link>
     </div>
-    <div className="arena-toolbar"><Search filters={filters} /><Field label="Situação" value={filters.status} onChange={value => filters.set('status', value)} options={[{ value: '', label: 'Todas' }, 'Ativa', 'Pausada', 'Encerrada', { value: 'Excluída', label: 'Excluídas' }]} /></div>
+    <div className="arena-toolbar"><Search filters={filters} /></div>
     {showingDeleted && <p className="arena-hint">Turmas excluídas ficam disponíveis para consulta, com seus vínculos e registros preservados.</p>}
     <ListSummary count={rows.length} label="turmas" />
     {rows.length ? <div className="project-grid">{rows.map(item => {
       const enrolled = data.enrollments.filter(enrollment => enrollment.classId === item.id && (item.deletedAt || enrollment.status === 'Ativa')).length
       return <Link className="arena-module" to={filters.href(`/escola/turmas/${item.id}`)} key={item.id}>
-        <Status>{classStatus(item)}</Status><h3>{item.name}</h3>
-        <p>{item.sport} · {weekdays[item.weekDay]} · {item.startTime}–{item.endTime}<br />{(data.canLookup?.('courts') ?? data.canRead('courts')) ? data.courts.find(court => court.id === item.courtId)?.name ?? 'Quadra não definida' : 'Quadra · acesso restrito'}</p>
-        <strong>{item.deletedAt ? `${enrolled} matrículas no histórico` : `${enrolled}/${item.capacity} vagas ocupadas`}</strong>
+        <h3>{weekdays[item.weekDay]} · {item.startTime}–{item.endTime}</h3>
+        <p>{item.name} · {item.sport}</p>
+        <strong>{item.deletedAt ? `${enrolled} matrículas no histórico` : `${enrolled} alunos`}</strong>
         {item.deletedAt && <small>Excluída em {deletionDateLabel(item.deletedAt)}</small>}
         <span className="arena-link-label">{item.deletedAt ? 'Consultar histórico →' : 'Ver turma →'}</span>
       </Link>
     })}</div> : <Empty>Nenhuma turma nesta seleção.</Empty>}
   </main>
 }
+const classLevels = ['Iniciante', 'Intermediário', 'Amador', 'Profissional']
 export function ClassDetailsPage(){
-  const{classId}=useParams();const navigate=useNavigate();const location=useLocation();const data=useOperations();const filters=useFilters();const save=useSave();const existing=data.classes.find(item=>item.id===classId);const isNew=classId==='novo';const editor=useEditor(existing,blankClass,isNew);const{form,setForm}=editor
+  const {classId}=useParams(); const navigate=useNavigate(); const location=useLocation(); const data=useOperations(); const filters=useFilters(); const save=useSave()
+  const existing=data.classes.find(item=>item.id===classId); const isNew=classId==='novo'
+  const editor=useEditor(existing,blankClass,isNew); const {form,setForm}=editor
+  useEffect(()=>{if(isNew && data.courts.length===1 && !form.courtId)setForm(current=>({...current,courtId:data.courts[0].id}))},[isNew,data.courts,form.courtId,setForm])
   const returnTo=safeReturn(location.state?.returnTo)&&/^\/escola(?:\/agenda)?(?:\?[^#\u0000-\u0020\u007f]*)?$/.test(location.state.returnTo)?location.state.returnTo:filters.href('/escola')
   const closeEditor=()=>isNew?navigate(returnTo,{state:location.state?.returnState}):editor.setEditing(false)
   if(!data.canRead('classes'))return <NoAccess />
   async function submit(event:FormEvent){
     event.preventDefault()
     if(existing?.deletedAt)return
-    const name=form.name.trim() || `${form.sport.trim()} · ${weekdays[form.weekDay]} · ${form.startTime}–${form.endTime}`
-    const id=await save.run(()=>data.saveClass({...form,name},isNew?editor.draftId.current:classId))
+    const id=await save.run(()=>data.saveClass({...form,name:form.name.trim(),...(isNew?{startDate:today(),status:'Ativa' as const}:{})},isNew?editor.draftId.current:classId))
     if(id){if(isNew)navigate(filters.href(`/escola/turmas/${id}`),{state:location.state});else editor.setEditing(false)}
   }
-  const enrolled=data.enrollments.filter(item=>item.classId===classId&&(existing?.deletedAt||item.status==='Ativa'));const attendance=data.presences.filter(item=>item.classId===classId);const present=attendance.filter(item=>item.status==='Presente').length
-  return <main className="operation-page arena-page arena-entry-clean"><Breadcrumb to={filters.href('/escola')} label="Turmas" /><Heading eyebrow="" title={isNew?'Nova turma':existing?.name??'Turma'} action={!editor.editing&&existing&&!existing.deletedAt&&data.canWrite('classes')&&<button className="secondary-link" onClick={()=>editor.setEditing(true)}>Editar turma</button>} />{!editor.editing&&<Feedback action={save} />}
-    {editor.editing&&!existing?.deletedAt&&data.canWrite('classes')?<EditorPanel className="arena-entry-editor" title={isNew?'Nova turma':'Editar turma'} busy={save.busy} onClose={closeEditor}><Feedback action={save} /><form className="operation-card operation-form" onSubmit={submit}><p className="arena-hint">Nome em branco: esporte, dia e horário.</p><Group title="Turma e equipe"><Field label="Nome da turma (opcional)" placeholder="Ex.: Iniciantes" value={form.name} onChange={v=>setForm({...form,name:v})} /><Field label="Esporte" required value={form.sport} onChange={v=>setForm({...form,sport:v})} /><Field label="Professor" required disabled={!(data.canLookup?.('team') ?? data.canRead('team'))} value={form.teacherId} onChange={v=>setForm({...form,teacherId:v})} options={[{value:'',label:'Escolha a pessoa da equipe'},...((data.canLookup?.('team') ?? data.canRead('team'))?data.team.filter(item=>item.status==='Ativo').map(item=>({value:item.id,label:item.name})):form.teacherId?[{value:form.teacherId,label:'Professor atual · acesso restrito'}]:[])]} /><Field label="Limite de vagas" type="number" step="1" min={1} required value={form.capacity} onChange={v=>setForm({...form,capacity:Number(v)})} /><Field label="Situação" value={form.status} onChange={v=>setForm({...form,status:v as ArenaClass['status']})} options={['Ativa','Pausada','Encerrada']} /></Group><Group title="Quadra e horário"><Field label="Quadra" required disabled={!(data.canLookup?.('courts') ?? data.canRead('courts'))} value={form.courtId} onChange={v=>setForm({...form,courtId:v})} options={[{value:'',label:'Escolha a quadra'},...((data.canLookup?.('courts') ?? data.canRead('courts'))?data.courts.map(item=>({value:item.id,label:item.name})):form.courtId?[{value:form.courtId,label:'Quadra atual · acesso restrito'}]:[])]} /><Field label="Início da grade" type="date" value={form.startDate ?? ''} onChange={v=>setForm({...form,startDate:v})} /><Field label="Dia da semana" value={form.weekDay} onChange={v=>setForm({...form,weekDay:Number(v)})} options={weekdays.map((label,index)=>({value:String(index),label}))} /><Field label="Começa às" required type="time" value={form.startTime} onChange={v=>setForm({...form,startTime:v})} /><Field label="Termina às" required type="end-time" placeholder="HH:mm ou 24:00" value={form.endTime} onChange={v=>setForm({...form,endTime:v})} /><Notes value={form.notes} onChange={v=>setForm({...form,notes:v})} /></Group>{isNew&&(!(data.canLookup?.('team') ?? data.canRead('team'))||!(data.canLookup?.('courts') ?? data.canRead('courts')))&&<p className="arena-message">Peça à gestão para cadastrar esta turma ou liberar a escolha do professor e da quadra.</p>}<SaveRow label="Salvar turma" disabled={isNew&&(!(data.canLookup?.('team') ?? data.canRead('team'))||!(data.canLookup?.('courts') ?? data.canRead('courts')))} busy={save.busy} onCancel={closeEditor} /></form></EditorPanel>:existing?<><section className="operation-card"><Status>{classStatus(existing)}</Status>{existing.deletedAt&&<p className="arena-message">Turma excluída em {deletionDateLabel(existing.deletedAt)}. Este histórico está disponível para consulta. Presenças e registros financeiros foram preservados.</p>}<h2>{existing.deletedAt?'Dados da turma':'Horário e capacidade'}</h2><DetailList items={[["Esporte",existing.sport],["Professor",(data.canLookup?.('team') ?? data.canRead('team'))?data.team.find(item=>item.id===existing.teacherId)?.name:'Acesso restrito'],["Quadra",(data.canLookup?.('courts') ?? data.canRead('courts'))?data.courts.find(item=>item.id===existing.courtId)?.name:'Acesso restrito'],["Horário",`${weekdays[existing.weekDay]} · ${existing.startTime}–${existing.endTime}`],...(existing.deletedAt?[["Matrículas no histórico",String(enrolled.length)],["Capacidade cadastrada",String(existing.capacity)]] as [string,string][]:[["Vagas ocupadas",`${enrolled.length} de ${existing.capacity}`],["Vagas livres",String(Math.max(0,existing.capacity-enrolled.length))]] as [string,string][]),["Frequência registrada",attendance.length?`${present} presenças em ${attendance.length} registros (${Math.round(present/attendance.length*100)}%)`:'Ainda não disponível · sem presenças registradas']]} />{existing.notes&&<Disclosure title="Observações e origem"><p className="detail-notes">{existing.notes}</p></Disclosure>}{existing.deletedAt&&Array.isArray(existing.studentIds)&&existing.studentIds.length>0&&<Disclosure title="Alunos vinculados no cadastro anterior">{data.canRead('students')?<ul>{existing.studentIds.map(studentId=>{const student=data.students.find(item=>item.id===studentId);return <li key={studentId}>{student?<Link to={`/alunos/${student.id}`}>{student.name}</Link>:'Cadastro de aluno não disponível'}</li>})}</ul>:<p>Acesso restrito aos alunos.</p>}</Disclosure>}<div className="arena-actions"><Link className="secondary-link" to={`/escola/matriculas?class=${existing.id}`}>Ver matrículas →</Link><Link className="primary-link" to={`/escola/presencas?class=${existing.id}`}>{existing.deletedAt?'Ver histórico de presenças →':'Registrar presença'}</Link><ClassDeletionAction key={existing.id} lesson={existing} returnTo={returnTo} returnState={location.state?.returnState} /></div></section><section className="operation-card"><h2>{existing.deletedAt?'Histórico de matrículas':'Alunos matriculados'}</h2>{enrolled.length?<div className="record-list">{enrolled.map(item=><ContextLink className="record-row" key={item.id} to={`/alunos/${item.studentId}`} state={{returnLabel: existing.name}}><span className="record-main"><strong>{data.students.find(student=>student.id===item.studentId)?.name??item.name}</strong><small>{item.cancelledBeforeStart?'Cancelada antes do início':`Desde ${displayDate(item.startDate)}${item.endDate?` · até ${displayDate(item.endDate)}`:''}`}{existing.deletedAt&&` · ${item.status}`}</small></span><span>Ver ficha →</span></ContextLink>)}</div>:<Empty>{existing.deletedAt?'Nenhuma matrícula registrada nesta turma.':'Esta turma ainda não tem matrículas ativas.'}</Empty>}</section></>:<Empty>{data.persistenceStatus==='connecting'?'Carregando turma…':'Turma não encontrada.'}</Empty>}
+  const canChooseTeacher=data.canLookup?.('team') ?? data.canRead('team')
+  const missingCourt=isNew && data.courts.length!==1
+  return <main className="operation-page arena-page arena-entry-clean">
+    <Breadcrumb to={returnTo} label="Turmas" />
+    <Heading eyebrow="" title={isNew?'Nova turma':existing?.name??'Turma'} action={!editor.editing&&existing&&!existing.deletedAt&&data.canWrite('classes')&&<button className="secondary-link" onClick={()=>editor.setEditing(true)}>Editar turma</button>} />
+    {!editor.editing&&<Feedback action={save} />}
+    {editor.editing&&!existing?.deletedAt&&data.canWrite('classes')?<EditorPanel className="arena-entry-editor" title={isNew?'Nova turma':'Editar turma'} busy={save.busy} onClose={closeEditor}>
+      <Feedback action={save} /><form className="operation-card operation-form" onSubmit={submit}>
+        <Group title="Turma e professor">
+          <Field label="Nível" required value={form.name} onChange={name=>setForm({...form,name})} options={[...(!classLevels.includes(form.name)?[{value:form.name,label:`${form.name} (cadastro anterior)`}]:[]),...classLevels]} />
+          <Field label="Esporte" required value={form.sport} onChange={sport=>setForm({...form,sport})} />
+          <Field label="Professor" required disabled={!canChooseTeacher} value={form.teacherId} onChange={teacherId=>setForm({...form,teacherId})} options={[{value:'',label:'Escolha o professor'},...(canChooseTeacher?data.team.filter(item=>item.status==='Ativo'||item.id===form.teacherId).map(item=>({value:item.id,label:item.name})):form.teacherId?[{value:form.teacherId,label:'Professor atual'}]:[])]} />
+        </Group>
+        <Group title="Dia e horário">
+          <Field label="Dia da semana" value={form.weekDay} onChange={v=>setForm({...form,weekDay:Number(v)})} options={[1,2,3,4,5,6,0].map(day=>({value:String(day),label:weekdays[day]}))} />
+          <Field label="Começa às" required type="time" value={form.startTime} onChange={startTime=>setForm({...form,startTime})} />
+          <Field label="Termina às" required type="end-time" placeholder="HH:mm ou 24:00" value={form.endTime} onChange={endTime=>setForm({...form,endTime})} />
+          <Notes value={form.notes} onChange={notes=>setForm({...form,notes})} />
+        </Group>
+        {missingCourt&&<p role="alert">Não foi possível identificar a quadra única da arena. Confira o funcionamento antes de cadastrar a turma.</p>}
+        <SaveRow label="Salvar turma" disabled={missingCourt||!canChooseTeacher} busy={save.busy} onCancel={closeEditor} />
+      </form>
+    </EditorPanel>:existing?<>
+      <section className="operation-card">
+        {existing.deletedAt&&<p className="arena-message">Turma excluída em {deletionDateLabel(existing.deletedAt)}. Alunos, presenças e registros financeiros preservados para consulta.</p>}
+        <h2>Dia e horário</h2>
+        <DetailList items={[["Nível",existing.name],["Esporte",existing.sport],["Professor",canChooseTeacher?data.team.find(item=>item.id===existing.teacherId)?.name:'Acesso restrito'],["Horário",`${weekdays[existing.weekDay]} · ${existing.startTime}–${existing.endTime}`]]} />
+        {existing.notes&&<Disclosure title="Observações"><p className="detail-notes">{existing.notes}</p></Disclosure>}
+        <ClassDeletionAction key={existing.id} lesson={existing} returnTo={returnTo} returnState={location.state?.returnState} />
+      </section>
+      <ClassStudents key={existing.id} lesson={existing} />
+      {data.canRead('presences')&&<Disclosure title={existing.deletedAt?'Histórico de presenças':'Presenças da turma'}><PresencesPage embeddedClassId={existing.id} /></Disclosure>}
+    </>:<Empty>{data.persistenceStatus==='connecting'?'Carregando turma…':'Turma não encontrada.'}</Empty>}
   </main>
+}
+
+export function SchoolLegacyRedirect() {
+  const location=useLocation(); const classId=new URLSearchParams(location.search).get('class')
+  return <Navigate replace to={classId ? `/escola/turmas/${encodeURIComponent(classId)}` : '/escola'} />
 }
 
 export function EnrollmentsPage(){
@@ -146,9 +186,9 @@ export function EnrollmentsPage(){
   </main>
 }
 
-export function PresencesPage() {
+export function PresencesPage({ embeddedClassId }: { embeddedClassId?: string } = {}) {
   const data = useOperations(), filters = useFilters(), save = useSave()
-  const classId = filters.params.get('class') ?? ''
+  const classId = embeddedClassId ?? filters.params.get('class') ?? ''
   const lesson = data.classes.find(item => item.id === classId)
   const archived = Boolean(lesson?.deletedAt)
   const date = filters.params.get('date') ?? (archived ? '' : today())
@@ -156,10 +196,11 @@ export function PresencesPage() {
   const rows = data.enrollments.filter(item => item.classId === classId && enrollmentCoversDate(item, date))
   const registered = data.presences.filter(item => item.classId === classId && (!date || item.date === date))
     .sort((first, second) => second.date.localeCompare(first.date))
-  return <main className="operation-page arena-page arena-entry-clean">
-    <Breadcrumb to="/escola" label="Turmas" /><Heading eyebrow="" title={archived ? 'Histórico de presenças' : 'Presenças'} /><Feedback action={save} />
+  const Container = embeddedClassId ? 'section' : 'main'
+  return <Container className="operation-page arena-page arena-entry-clean">
+    {!embeddedClassId && <Breadcrumb to="/escola" label="Turmas" />}<Heading eyebrow="" title={archived ? 'Histórico de presenças' : 'Presenças'} /><Feedback action={save} />
     <div className="arena-toolbar">
-      <Field label="Turma" value={classId} onChange={value => filters.set('class', value)} options={[{ value: '', label: 'Escolha a turma' }, ...data.classes.map(item => ({ value: item.id, label: `${item.name}${item.deletedAt ? ' · Excluída' : ''}` }))]} />
+      {!embeddedClassId && <Field label="Turma" value={classId} onChange={value => filters.set('class', value)} options={[{ value: '', label: 'Escolha a turma' }, ...data.classes.map(item => ({ value: item.id, label: `${item.name}${item.deletedAt ? ' · Excluída' : ''}` }))]} />}
       <Field label="Data da aula" type="date" value={date} onChange={value => filters.set('date', value)} />
       {archived && date && <button className="text-button" onClick={() => filters.set('date', '')}>Ver todas as datas</button>}
     </div>
@@ -178,7 +219,7 @@ export function PresencesPage() {
             onClick={() => void save.run(() => data.savePresence({ ...presence, name: `${student?.name ?? 'Aluno'} · ${displayDate(date)}`, classId, studentId: item.studentId, date, status }, presence?.id), 'Presença registrada.')}>{status}</button>)}</span>
       </article>
     })}</div> : <Empty>Esta turma ainda não tem matrículas ativas.</Empty>}
-  </main>
+  </Container>
 }
 
 export function FinancePage(){

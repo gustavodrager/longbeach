@@ -68,7 +68,6 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
       const arenaClass = record as ArenaClass
       if (!data.team.some(row => row.id === arenaClass.teacherId)) return 'Escolha um professor cadastrado na equipe.'
       if (arenaClass.studentIds.length) return 'Registre os alunos pelo cadastro de matrículas, para preservar vagas e histórico.'
-      if (!Number.isInteger(arenaClass.capacity) || arenaClass.capacity < 1 || arenaClass.capacity < data.enrollments.filter(row => row.classId === record.id && row.status === 'Ativa').length) return 'Confira a capacidade da turma e suas matrículas ativas.'
     }
   }
   if (kind === 'courts') {
@@ -89,10 +88,8 @@ export function validateArenaRecord(kind: OperationalKind, input: { id: string }
     if (enrollment.status === 'Ativa' && enrollment.endDate) return 'Uma matrícula ativa deve ficar sem data de encerramento.'
     if (enrollment.status === 'Ativa') {
       if (arenaClass.startDate && enrollment.startDate < arenaClass.startDate) return 'A matrícula não pode começar antes da turma.'
-      if (arenaClass.status !== 'Ativa') return 'Só é possível matricular em uma turma ativa.'
       const others = data.enrollments.filter(row => row.id !== enrollment.id && row.classId === enrollment.classId && row.status === 'Ativa')
       if (others.some(row => row.studentId === enrollment.studentId)) return 'Este aluno já possui matrícula ativa nesta turma.'
-      if (others.length >= arenaClass.capacity) return 'Esta turma não possui vagas disponíveis.'
     }
   }
   if (kind === 'presences') {

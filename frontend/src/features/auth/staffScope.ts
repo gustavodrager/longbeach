@@ -55,6 +55,7 @@ export function staffKindAllowed(user: AuthUser | null | undefined, kind: string
   if (kind === 'team' && write) return canManageStaff(user)
   if (!hasStaffScope(user)) return true
   if (kind === 'team' && canManageStaff(user)) return true
+  if (['students','enrollments','presences'].includes(kind) && hasStaffMenu(user, 'classes') && (!write || hasStaffAction(user, 'classes.operate'))) return true
   const menu = kinds[kind]
   return Boolean(menu && hasStaffMenu(user, menu) && (!write || hasStaffAction(user, menu + '.operate')))
 }

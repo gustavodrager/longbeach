@@ -79,3 +79,15 @@ describe('isolamento de acesso da equipe',()=>{
     expect(staffScopeKey({...user,staffAccess:{...user.staffAccess!,actions:[]}})).not.toBe(original)
   })
 })
+
+it('Turmas concentra alunos, matrículas e presenças mantendo a ação de operação obrigatória',()=>{
+ const user=bar();user.staffAccess!.menus=['classes'];user.staffAccess!.actions=[]
+ for(const kind of ['students','enrollments','presences']) {
+  expect(staffKindAllowed(user,kind)).toBe(true)
+  expect(staffKindAllowed(user,kind,true)).toBe(false)
+ }
+ user.staffAccess!.actions=['classes.operate']
+ for(const kind of ['students','enrollments','presences']) expect(staffKindAllowed(user,kind,true)).toBe(true)
+ expect(staffKindAllowed(user,'financeEntries',true)).toBe(false)
+ expect(staffKindAllowed(user,'team',true)).toBe(false)
+})
