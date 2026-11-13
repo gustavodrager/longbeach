@@ -66,7 +66,7 @@ Esse Compose usa PostgreSQL 17. Web: `http://localhost:4173`; API: `http://local
 
 Consulte a [ADR-001](docs/adr/ADR-001-produto-standalone.md), as [convenções](docs/arquitetura/convencoes-backend-frontend.md) e a [ADR-016](docs/adr/ADR-016-consolidacao-do-repositorio-local.md).
 
-O [manifesto de fontes Google](deploy/google/source-revisions.json) fixa o commit `b71dbf2` da API e do frontend, publicados em 27/10/2026 com schema 28. O [registro atual da release na VM](docs/operacao/release-google-vm.json) identifica as imagens, a versão do Firebase e a validação. O build web reconhece `app/` dos commits antigos e `frontend/` dos novos.
+Comece pelo [estado de desenvolvimento e publicação](docs/operacao/estado-desenvolvimento-publicacao.md). O código integrado fica em `main`; a versão publicada deve ser conferida por componente nos recibos e no ambiente. `deploy/google/source-revisions.json` e `docs/operacao/release-google-vm.json` contêm registros históricos e não são, isoladamente, prova da versão atual. O build web reconhece `app/` dos commits antigos e `frontend/` dos novos.
 
 A [ADR-015](docs/adr/ADR-015-google-vm-economia.md) e o [runbook da VM](docs/operacao/google-vm.md) registram a evolução econômica da hospedagem. Consulte os recibos finais da operação para seu estado de implantação. `estado-atual.md`, `release-producao.json` e `.railway/` permanecem como fotografias históricas datadas.
 
