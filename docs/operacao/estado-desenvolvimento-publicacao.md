@@ -26,16 +26,16 @@ A revisão #78 integrou a exclusão de turmas com histórico (`24ca888`). A revi
 
 ## Publicação concluída
 
-Fonte publicada: `d149a82dcfbd90db15565f6881ff6e7bea78562c`.
-Pipeline: https://github.com/gustavodrager/longbeach/actions/runs/43337610172
+Fonte publicada: `baa727ccc8f0eaa75695ba273d10e2b7c2a3bd23` (PR #80, simplificação de Aulas).
+Pipeline: https://github.com/gustavodrager/longbeach/actions/runs/43437472900
 
-O environment Production permite `main` e mantém aprovação obrigatória. `release-images.yml` testa e publica imagens OCI; ele **não faz deploy** da VM ou do Firebase. Só promover os artefatos do commit aprovado, por digest, após conferir a versão realmente instalada.
+API e frontend publicados e verificados em 13/11/2026 (Brasília). O [recibo desta release](release-simplificacao-aulas-2026-11-13.json) registra digests, versão Firebase e verificações. A API está saudável; os 111 arquivos públicos do frontend correspondem ao artefato oficial. PostgreSQL, Caddy e WhatsApp conservaram seus containers. Foram aplicadas zero migrations; schema 36 preservado.
 
-A observação inicial confirmou API, PostgreSQL, Caddy e WhatsApp saudáveis e preflight aprovado. O banco tem 36 migrations, até `20261106150000_BarSalesWithoutStock`; a candidata usa o mesmo schema. Nenhuma migration é necessária para esta release.
+Validação oficial: 736 testes unitários, 736 de integração e 1457 de frontend aprovados. A rota privada de turmas rejeita acesso anônimo com HTTP 401. O formulário foi conferido visualmente no ambiente local. Não foi feita exclusão real de turma nem validação autenticada em produção.
 
-API e frontend publicados e verificados em 13/11/2026 UTC (12/11 em Brasília). O [recibo desta release](release-turmas-historico-2026-11-12.json) registra digests, versão Firebase e verificações. A API está saudável; os 111 arquivos públicos do frontend correspondem ao artefato oficial. PostgreSQL, Caddy e WhatsApp conservaram seus containers. Foram aplicadas zero migrations.
+O environment Production permite `main` e mantém aprovação obrigatória. `release-images.yml` testa e publica imagens OCI; ele **não faz deploy** da VM ou do Firebase. A implantação promove os artefatos aprovados por digest. Não confundir sucesso de merge ou build com atualização de produção.
 
-Validação: 733 testes unitários, 732 de integração e 1.450 de frontend aprovados no pipeline. A rota privada de turmas rejeita acesso anônimo com HTTP 401. Não foi feita exclusão real de turma nem validação da interface autenticada em produção. O sucesso do merge ou da geração de imagens, por si só, não comprova deploy.
+A release anterior, de exclusão com histórico, está em [release-turmas-historico-2026-11-12.json](release-turmas-historico-2026-11-12.json).
 
 ## Ferramenta Google Cloud local
 

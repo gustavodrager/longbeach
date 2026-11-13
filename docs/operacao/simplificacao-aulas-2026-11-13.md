@@ -1,6 +1,6 @@
 # Simplificação do fluxo de Aulas — 13/11/2026
 
-Implementação na branch `codex/simplificar-aulas-20261113`. Este documento não é recibo de publicação: a versão em produção continua identificada em `estado-desenvolvimento-publicacao.md`.
+Integrado na `main` pelo PR #80 e publicado em 13/11/2026. O [recibo de publicação](release-simplificacao-aulas-2026-11-13.json) identifica fonte, imagens e verificações.
 
 ## Fluxo
 
@@ -19,4 +19,8 @@ O menu Turmas concentra leitura de alunos, matrículas e presenças; gravar exig
 
 ## Validação
 
-Build do frontend aprovado; suíte completa com 1.454 testes aprovada. Depois de acrescentar três cenários de cliente na turma, os 98 testes dos dois arquivos afetados passaram. Backend: 68 testes direcionados de validação, data inicial e exclusão; 3 testes de escopo de equipe aprovados. A suíte .NET completa encontrou restrições locais do macOS (Keychain e processos MSBuild); conferir o CI antes de promover qualquer artefato.
+Build do frontend aprovado; suíte completa com 1.454 testes aprovada. Depois de acrescentar três cenários de cliente na turma, os 98 testes dos dois arquivos afetados passaram. Backend: 68 testes direcionados de validação, data inicial e exclusão; 3 testes de escopo de equipe aprovados. A suíte .NET completa encontrou restrições locais do macOS (Keychain e processos MSBuild); a validação completa foi concluída no CI Linux antes da publicação.
+
+A validação inicial detectou duas expectativas antigas de agenda retroativa em turmas recém-criadas. O commit `baa727c` corrigiu a fixture para representar uma turma histórica e adicionou cobertura de início automático sem agenda no passado.
+
+Validação oficial da publicação: 736 testes unitários, 736 testes de integração e 1.457 testes de frontend aprovados, além da verificação do WhatsApp.

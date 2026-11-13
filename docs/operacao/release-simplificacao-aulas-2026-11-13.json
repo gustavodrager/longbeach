@@ -1,0 +1,44 @@
+{
+  "recorded_at_utc": "2026-11-13T14:46:50.654646+00:00",
+  "source_commit": "baa727ccc8f0eaa75695ba273d10e2b7c2a3bd23",
+  "pr": 80,
+  "workflow_run": 43437472900,
+  "workflow_url": "https://github.com/gustavodrager/longbeach/actions/runs/43437472900",
+  "workflow_conclusion": "success",
+  "tests": {
+    "backend_unit_passed": 736,
+    "backend_integration_passed": 736,
+    "frontend_passed": 1457,
+    "whatsapp_gate": "success"
+  },
+  "google_project": "parsero-prod-20261022",
+  "vm": "longbeach-economy",
+  "zone": "southamerica-east1-a",
+  "api_image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:f1048d76dd3b31b978feddf824cd643c7ca55c8f00f513ee59ca4aded31df485",
+  "web_image_digest": "sha256:b1ec402a0a0efaed810a88dca46e4ec6ed7c54a4637b1d1adaae73e60eb7d788",
+  "firebase": {
+    "file_map_sha256": "7d5964354d736d90eb9ef80c389e622198f2cecc8d9538a0a99537751f90fe9f",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1794581097172000",
+    "run": 43437472900,
+    "source": "baa727ccc8f0eaa75695ba273d10e2b7c2a3bd23",
+    "version": "sites/parsero-prod-20261022/versions/76319d40e7636beb"
+  },
+  "schema_migration_count": 36,
+  "migrations_applied": 0,
+  "preserved_containers": [
+    "postgres",
+    "caddy",
+    "whatsapp-bridge"
+  ],
+  "protected_config_preserved": true,
+  "verification": {
+    "source": "baa727ccc8f0eaa75695ba273d10e2b7c2a3bd23",
+    "public_files_verified": 111,
+    "api_readiness": 200,
+    "anonymous_classes": 401,
+    "business_writes": 0,
+    "authenticated_ui_verified": false
+  },
+  "local_form_visual_check": true,
+  "evidence_relative_to_checkout": "../evidencias/publicacao-aulas-2026-11-13/baa727c"
+}
