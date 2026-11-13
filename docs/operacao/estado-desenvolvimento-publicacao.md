@@ -35,6 +35,10 @@ A observação inicial confirmou API, PostgreSQL, Caddy e WhatsApp saudáveis e 
 
 Não interpretar o sucesso do merge ou da geração de imagens como atualização de produção. A implantação e a validação final ainda precisam de registro próprio.
 
+## Ferramenta Google Cloud local
+
+O Google Cloud SDK 593.0.0 foi recuperado da distribuição oficial para `../dados-locais/ferramentas/google-cloud-sdk/`. Os caminhos antigos em `/private/tmp/*release*-tools/` deixaram de existir e não devem ser tratados como instalação permanente. A instalação não contém credenciais nem pertence ao Git da aplicação. Usar a conta operacional Parsero explicitamente; preservar as credenciais individuais existentes.
+
 ## Procedimento para próximas conversas
 
 1. Ler este documento e `AGENTS.md`, conferir `git status`, remotes, branch e SHA antes de editar.
