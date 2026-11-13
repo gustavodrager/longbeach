@@ -24,16 +24,18 @@ A revisão #78 integrou a exclusão de turmas com histórico (`24ca888`). A revi
 | Site público | https://longbeach.quebranunca.com.br |
 | Banco | PostgreSQL 18 na VM, schema 36 observado em 12/11 |
 
-## Publicação em andamento
+## Publicação concluída
 
-Fonte candidata: `d149a82dcfbd90db15565f6881ff6e7bea78562c`.
+Fonte publicada: `d149a82dcfbd90db15565f6881ff6e7bea78562c`.
 Pipeline: https://github.com/gustavodrager/longbeach/actions/runs/43337610172
 
 O environment Production permite `main` e mantém aprovação obrigatória. `release-images.yml` testa e publica imagens OCI; ele **não faz deploy** da VM ou do Firebase. Só promover os artefatos do commit aprovado, por digest, após conferir a versão realmente instalada.
 
 A observação inicial confirmou API, PostgreSQL, Caddy e WhatsApp saudáveis e preflight aprovado. O banco tem 36 migrations, até `20261106150000_BarSalesWithoutStock`; a candidata usa o mesmo schema. Nenhuma migration é necessária para esta release.
 
-Não interpretar o sucesso do merge ou da geração de imagens como atualização de produção. A implantação e a validação final ainda precisam de registro próprio.
+API e frontend publicados e verificados em 13/11/2026 UTC (12/11 em Brasília). O [recibo desta release](release-turmas-historico-2026-11-12.json) registra digests, versão Firebase e verificações. A API está saudável; os 111 arquivos públicos do frontend correspondem ao artefato oficial. PostgreSQL, Caddy e WhatsApp conservaram seus containers. Foram aplicadas zero migrations.
+
+Validação: 733 testes unitários, 732 de integração e 1.450 de frontend aprovados no pipeline. A rota privada de turmas rejeita acesso anônimo com HTTP 401. Não foi feita exclusão real de turma nem validação da interface autenticada em produção. O sucesso do merge ou da geração de imagens, por si só, não comprova deploy.
 
 ## Ferramenta Google Cloud local
 

@@ -1,0 +1,42 @@
+{
+  "recorded_at_utc": "2026-11-13T01:10:11.660731+00:00",
+  "source_commit": "d149a82dcfbd90db15565f6881ff6e7bea78562c",
+  "workflow_run": 43337610172,
+  "workflow_url": "https://github.com/gustavodrager/longbeach/actions/runs/43337610172",
+  "workflow_conclusion": "success",
+  "tests": {
+    "backend_unit_passed": 733,
+    "backend_integration_passed": 732,
+    "frontend_passed": 1450,
+    "whatsapp_gate": "success"
+  },
+  "google_project": "parsero-prod-20261022",
+  "vm": "longbeach-economy",
+  "zone": "southamerica-east1-a",
+  "api_image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:f21675cabafec26ce14d577f8e16d157a7ba2107d6961eeff539fc86dbba43f6",
+  "web_image_digest": "sha256:ea2241e6211d8d9200c537f3f53f908c61d18a4010851bc87d1272ea5b664794",
+  "firebase": {
+    "file_map_sha256": "ca7762331d55916d3166d3c2da6f9bc634e3976de75865ab31df79fdb11fff31",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1794532107045000",
+    "run": 43337610172,
+    "source": "d149a82dcfbd90db15565f6881ff6e7bea78562c",
+    "version": "sites/parsero-prod-20261022/versions/3b5ba6b9a7ff0255"
+  },
+  "schema_migration_count": 36,
+  "migrations_applied": 0,
+  "preserved_containers": [
+    "postgres",
+    "caddy",
+    "whatsapp-bridge"
+  ],
+  "protected_config_preserved": true,
+  "verification": {
+    "source": "d149a82dcfbd90db15565f6881ff6e7bea78562c",
+    "public_files_verified": 111,
+    "api_readiness": 200,
+    "anonymous_classes": 401,
+    "business_writes": 0,
+    "authenticated_ui_verified": false
+  },
+  "evidence_relative_to_checkout": "../evidencias/sincronizacao-20261112"
+}
