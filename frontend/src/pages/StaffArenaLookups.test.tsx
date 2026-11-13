@@ -31,9 +31,9 @@ beforeEach(()=>{vi.stubEnv('VITE_DEMO_MODE','false');vi.stubEnv('VITE_OPERATIONA
 afterEach(()=>{cleanup();clients.splice(0).forEach(client=>client.clear());vi.unstubAllEnvs();vi.restoreAllMocks()})
 it('Turmas pode escolher professor e quadra sem abrir o cadastro da equipe ou do funcionamento',async()=>{
  const fetch=server();start('/escola/turmas/novo','classes')
- const courtField=await screen.findByRole('combobox',{name:'Quadra'})
- await waitFor(()=>expect(within(courtField).getByRole('option',{name:court.name})).toBeInTheDocument())
- expect(courtField).toBeEnabled();expect(screen.getByRole('combobox',{name:'Professor'})).toBeEnabled()
+ await screen.findByRole('option',{name:teacher.name})
+ expect(screen.queryByRole('combobox',{name:'Quadra'})).not.toBeInTheDocument()
+ expect(screen.getByRole('combobox',{name:'Professor'})).toBeEnabled()
  expect(within(screen.getByRole('combobox',{name:'Professor'})).getByRole('option',{name:teacher.name})).toBeInTheDocument()
  expect(screen.getByTestId('rights')).toHaveTextContent('false:false:false')
  expect(fetch.mock.calls.some(([url])=>String(url).endsWith('/team'))).toBe(true)

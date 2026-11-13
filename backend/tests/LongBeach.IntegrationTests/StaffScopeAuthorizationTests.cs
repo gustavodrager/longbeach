@@ -18,6 +18,19 @@ namespace LongBeach.IntegrationTests;
 
 public sealed class StaffScopeAuthorizationTests
 {
+    [Theory]
+    [InlineData("students")]
+    [InlineData("enrollments")]
+    [InlineData("presences")]
+    public void Classes_menu_requires_operate_for_embedded_school_writes(string kind)
+    {
+        var path = "/api/v1/operations/" + kind + "/11111111-1111-1111-1111-111111111111";
+        Assert.True(StaffApiScope.Allowed(Principal(["classes"], []), "GET", path));
+        Assert.False(StaffApiScope.Allowed(Principal(["classes"], []), "PUT", path));
+        Assert.True(StaffApiScope.Allowed(Principal(["classes"], ["classes.operate"]), "PUT", path));
+        Assert.False(StaffApiScope.Allowed(Principal(["classes"], ["classes.operate"]), "PUT", "/api/v1/operations/financeentries/11111111-1111-1111-1111-111111111111"));
+    }
+
     [Fact]
     public void Cancellation_requires_the_existing_tabs_menu_and_supervision_action()
     {
