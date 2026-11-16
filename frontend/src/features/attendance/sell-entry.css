@@ -46,3 +46,12 @@
   .lb-sell .customer-picker>.secondary-link { grid-column:2; grid-row:1; padding-inline:10px; font-size:13px; }
   .lb-sell .customer-picker>:is(.arena-hint,.customer-selection,.customer-inline-create,.customer-search-results,.customer-merge-review,[role="alert"]) { grid-column:1/-1; }
 }
+
+/* Keep the draft alongside the catalog, including on the tablet. */
+.lb-sell .lb-sale-workspace .lb-sale-summary { display:block; }
+@media (max-width:800px), (max-width:1100px) and (orientation:portrait) {
+  .lb-sell .lb-sale-summary .lb-review-actions { display:flex; align-items:center; justify-content:space-between; position:fixed; bottom:92px; left:16px; right:16px; z-index:10; margin:0; padding:12px; background:var(--ux-surface,#f4eddf); border:1px solid var(--ux-line); border-radius:12px; }
+}
+
+.lb-sell .lb-review-actions>span { display:grid; gap:4px; min-width:0; overflow-wrap:anywhere; }
+.lb-sell .lb-review-actions>span small { font-size:13px; }

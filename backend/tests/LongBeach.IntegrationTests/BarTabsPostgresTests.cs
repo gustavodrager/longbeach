@@ -11,7 +11,7 @@ using LongBeach.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 namespace LongBeach.IntegrationTests;
-public sealed class BarTabsPostgresTests
+public sealed partial class BarTabsPostgresTests
 {
     [PostgresFact]
     public async Task Cadastral_customer_identifies_immediate_sale_without_assigning_payer_or_exposing_identity_to_qr()
@@ -271,7 +271,7 @@ public sealed class BarTabsPostgresTests
         Assert.Equal(18,(await f.Db.Set<StockBalance>().SingleAsync(x=>x.ProductId==f.Product.Id&&x.LocationId==f.Location.Id)).Quantity);
         Assert.Equal(1,await f.Db.Set<StockMovement>().CountAsync(x=>x.OriginId==item.Id&&x.Kind=="TabDelivery"));
         Assert.Equal(107,(await f.Db.Set<CashSession>().SingleAsync(x=>x.Id==f.Session.Id)).Expected);
-        var close=new TabActionInput(Guid.NewGuid()); await f.Tabs.Close(tab.Id,close,f.Actor,default); Assert.Equal("Closed",(await f.Tabs.Close(tab.Id,close,f.Actor,default)).State);
+        Assert.Equal("Closed",tab.State); Assert.Single(tab.History,x=>x.Kind=="Closed");
     }
     [PostgresFact]
     public async Task Qr_request_does_not_charge_or_reserve_and_token_cannot_operate_another_tab()
@@ -338,7 +338,7 @@ public sealed class BarTabsPostgresTests
         await using var f=await Fixture.Create(); var tab=await f.Tabs.Open(new(Guid.NewGuid(),f.Location.Id),f.Actor,default); await f.Tabs.Add(tab.Id,new(Guid.NewGuid(),[new(f.Product.Id,2)],true),f.Actor,null,default);
         var discount=new TabAdjustmentInput(Guid.NewGuid(),"Discount",5,"Desconto autorizado"); tab=await f.Tabs.Adjust(tab.Id,discount,f.Actor,default); Assert.Equal(20,tab.Gross); Assert.Equal(5,tab.Discount); Assert.Equal(15,tab.Total);
         Assert.Equal(5,(await f.Tabs.Adjust(tab.Id,discount,f.Actor,default)).Discount);
-        var payment=await f.Tabs.Pay(tab.Id,new(Guid.NewGuid(),"Cash",15,f.Session.Id),f.Actor,null,default); await f.Tabs.Close(tab.Id,new(Guid.NewGuid()),f.Actor,default);
+        var payment=await f.Tabs.Pay(tab.Id,new(Guid.NewGuid(),"Cash",15,f.Session.Id),f.Actor,null,default); Assert.Equal("Closed",(await f.Tabs.Get(tab.Id,false,default)).State);
         var cash=new BarCashService(f.Db); await cash.Close(f.Session.Id,new(115,null,Guid.NewGuid()),f.Actor,false,default);
         var refund=new TabRefundInput(Guid.NewGuid(),3,"Estorno aprovado");
         await Assert.ThrowsAsync<BarRuleException>(()=>f.Tabs.Refund(tab.Id,payment.Id,refund,f.Actor,default)); Assert.False(await f.Db.Set<BarTabRefund>().AnyAsync(x=>x.OperationId==refund.OperationId));
