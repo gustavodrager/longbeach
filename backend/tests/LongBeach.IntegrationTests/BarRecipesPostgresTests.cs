@@ -104,8 +104,9 @@ public sealed class BarRecipesPostgresTests
         Assert.Equal(item.Id, Assert.Single((await f.Tabs.Add(tab.Id, add, f.Actor, null, default)).Items).Id);
         var payment = new TabPaymentInput(Guid.NewGuid(), "Cash", 50, f.Session.Id);
         await f.Tabs.Pay(tab.Id, payment, f.Actor, null, default); await f.Tabs.Pay(tab.Id, payment, f.Actor, null, default);
-        var closed = await f.Tabs.Close(tab.Id, new(Guid.NewGuid()), f.Actor, default);
+        var closed = await f.Tabs.Get(tab.Id, false, default);
         Assert.Equal("Closed", closed.State); Assert.Equal(0, closed.Due);
+        Assert.Single(closed.History, x => x.Kind == "Closed");
         Assert.Single(await f.Db.Set<BarTabPayment>().Where(x => x.TabId == tab.Id).ToListAsync());
         Assert.Single(await f.Db.Set<StockMovement>().Where(x => x.OriginId == item.Id && x.Kind == "TabDelivery").ToListAsync());
         Assert.Single(await f.Db.Set<BarTabIngredientSnapshot>().Where(x => x.ItemId == item.Id).ToListAsync());
