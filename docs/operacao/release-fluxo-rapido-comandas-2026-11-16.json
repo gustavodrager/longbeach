@@ -1,0 +1,51 @@
+{
+  "recorded_at_utc": "2026-11-16T23:01:33.199212+00:00",
+  "source_commit": "fc74640c8cb2fdf4504d3ad9372d4bef986c29da",
+  "pr": 81,
+  "workflow_run": 43970709307,
+  "workflow_url": "https://github.com/gustavodrager/longbeach/actions/runs/43970709307",
+  "workflow_conclusion": "success",
+  "environment_approval": "Production approved by the authorized owner account; branch protections preserved",
+  "tests": {
+    "backend_unit_passed": 736,
+    "backend_integration_passed": 742,
+    "frontend_passed": 1457,
+    "whatsapp_gate": "success"
+  },
+  "google_project": "parsero-prod-20261022",
+  "vm": "longbeach-economy",
+  "zone": "southamerica-east1-a",
+  "api_image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:0d6167d30b423393b18411ffc7dcdaba485803ce7203fcc40ab7d73ac34853d9",
+  "web_image_digest": "sha256:e7119edbeba9c77a196d4f815938df50627b3431d56869f23be145cd506ef77f",
+  "firebase": {
+    "file_map_sha256": "bd37530abf6b4ae04be5128a5b4f1989a7ae036e123df7d49d6ecf50469d06c7",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1794869919287000",
+    "run": 43970709307,
+    "source": "fc74640c8cb2fdf4504d3ad9372d4bef986c29da",
+    "version": "sites/parsero-prod-20261022/versions/a91917c4d2b282eb"
+  },
+  "schema_migration_count": 36,
+  "migrations_applied": 0,
+  "preserved_containers": [
+    "postgres",
+    "caddy",
+    "whatsapp-bridge"
+  ],
+  "protected_config_preserved": true,
+  "verification": {
+    "source": "fc74640c8cb2fdf4504d3ad9372d4bef986c29da",
+    "public_files_verified": 113,
+    "api_readiness": 200,
+    "anonymous_classes": 401,
+    "business_writes": 0,
+    "authenticated_ui_verified": false
+  },
+  "local_visual_check": {
+    "viewport": "800x1280",
+    "synthetic_data": true,
+    "actual_tablet_checked": false
+  },
+  "pagbank_checkout_in_release": false,
+  "checkout_preserved_branch": "codex/pagbank-checkout-preservado-20261116",
+  "evidence_relative_to_checkout": "../evidencias/publicacao-comandas-2026-11-16/fc74640"
+}
