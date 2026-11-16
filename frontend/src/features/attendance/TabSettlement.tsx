@@ -98,6 +98,7 @@ function Settlement({ tab, unavailable, showDetailsLink, cancellationOnly, inlin
     {!compact && (unavailable ? <p role="status">Atualize a consulta para conferir o saldo e as pendências antes de continuar.</p> : cancelled ? <><p>Histórico disponível para consulta.</p>{cancellation?.reason && <p>Motivo: {cancellation.reason}</p>}</> : tab.state === 'Closed' ? <p>Consumo e pagamentos disponíveis para consulta.</p> : <>
       {tab.due > 0 && <p>Falta pagar: <strong>{money(tab.due)}</strong>.</p>}
       {tab.pending > 0 && <p>{money(tab.pending)} aguardando confirmação. Não cobre esse valor novamente.</p>}
+      {tab.paid > 0 && tab.due === 0 && tab.pending === 0 && (requested > 0 || accepted > 0) && <p><strong>Paga — aguardando entrega.</strong> A comanda será encerrada automaticamente quando tudo for entregue.</p>}
       {requested > 0 && <p>{requested} pedido(s) aguardando aceite.</p>}
       {accepted > 0 && <p>{accepted} item(ns) aguardando entrega. Pagamento não confirma a entrega.</p>}
       {refundPending && <p>Há estorno aguardando confirmação. Confira-o antes de encerrar.</p>}

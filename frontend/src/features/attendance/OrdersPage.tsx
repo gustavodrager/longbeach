@@ -9,7 +9,7 @@ import { useAuth } from '../auth/authContext'
 import { BarFrame, LoadState } from './Core'
 import { Empty, Header, Icon, ItemStatus } from './components'
 import { dateTime, postBar, useIntent, type PageResult, type Tab, type TabItem } from './api'
-import { OrderWaiting, useAttentionClock } from './TabAttention'
+import { OrderWaiting, TabAttention, useAttentionClock } from './TabAttention'
 import './orders.css'
 import './service-clean.css'
 
@@ -56,12 +56,12 @@ export function OrdersPage() {
       if (!confirmed) throw new Error('Resposta sem o item confirmado')
       await cache.cancelQueries(queues)
       // Respostas concorrentes da mesma comanda só confirmam o item desta ação.
-      cache.setQueriesData<PageResult<Tab>>(queues, previous => previous && ({ ...previous, items: previous.items.map(row => row.id === tab.id ? { ...row, items: row.items.map(old => old.id === item.id ? confirmed : old) } : row) }))
+      cache.setQueriesData<PageResult<Tab>>(queues, previous => previous && ({ ...previous, items: previous.items.map(row => row.id === tab.id ? { ...row, ...(typeof result.version === 'number' && result.version >= (row.version ?? 0) ? { state: result.state, version: result.version, closedAtUtc: result.closedAtUtc, paid: result.paid, due: result.due, pending: result.pending, payable: result.payable } : {}), items: row.items.map(old => old.id === item.id ? confirmed : old) } : row) }))
       void cache.invalidateQueries({ queryKey: ['bar-runtime'], refetchType: 'none' })
       void cache.invalidateQueries({ queryKey: ['bar'], refetchType: 'none' })
       setProgress(current => ({ ...current, [item.id]: { busy: false } }))
       setRefusing(current => current === item.id ? null : current)
-      setMessage(`${item.quantity} × ${item.name} · ${tabTitle(tab)}: ${name === 'accept' ? 'pedido aceito.' : name === 'fulfill' ? 'entrega confirmada.' : 'item excluído.'}`)
+      setMessage(`${item.quantity} × ${item.name} · ${tabTitle(tab)}: ${name === 'accept' ? 'pedido aceito.' : name === 'fulfill' ? 'entrega confirmada.' : 'item excluído.'}${result.state === 'Closed' ? ' Comanda encerrada automaticamente.' : ''}`)
       return true
     } catch (cause) {
       setProgress(current => ({ ...current, [item.id]: { busy: false, error: cause instanceof ApiError ? cause.message : 'Não foi possível confirmar. Tente novamente; o registro não será duplicado.', uncertain: ['reject', 'reverse'].includes(name) && !(cause instanceof ApiError && [400, 401, 403, 404, 409, 422].includes(cause.status)), retry: { action: name, reason } } }))
@@ -79,6 +79,7 @@ export function OrdersPage() {
     {message && <p className="ux-notice" role="status">{message}</p>}<LoadState query={query} />
     <div className="lb-orders-groups">{groups.map(({ tab, items }) => <section className="ux-panel lb-orders-group" key={tab.id} aria-label={`Pedidos da comanda ${tab.number}`}>
       <Link className="lb-order-comanda" to={`/atendimento/comandas/${tab.id}?retorno=${encodeURIComponent(`/atendimento/pedidos${params.size ? `?${params}` : ''}`)}`}><h2>{tabTitle(tab)}<Icon name="arrow" /></h2></Link>
+      <TabAttention tab={tab} now={now} />
       {tab.notes && <p className="lb-item-notes">{tab.notes}</p>}
       {items.map(item => <OrderRow key={item.id} item={item} tab={tab} now={now} progress={progress[item.id]} canOperate={Boolean(canOperate) && tab.state === 'Open' && !query.isError} canReverse={canReverse} refusing={refusing === item.id} onRefuse={() => setRefusing(item.id)} onCancel={() => setRefusing(null)} onAction={(name, reason) => action(tab, item, name, reason)} />)}
     </section>)}</div>

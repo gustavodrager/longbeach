@@ -39,7 +39,7 @@ export function tabAttention(tab: Tab, now: number) {
 export function TabAttention({ tab, now }: { tab: Tab; now: number }) {
   const messages = tabAttention(tab, now)
   return <>
-    <span className="lb-tab-state">{tab.state === 'Cancelled' ? 'Cancelada' : tab.state === 'Closed' ? 'Encerrada' : 'Aberta'}</span>
+    <span className="lb-tab-state">{tab.state === 'Cancelled' ? 'Cancelada' : tab.state === 'Closed' ? 'Encerrada' : tab.paid > 0 && tab.due === 0 && tab.pending === 0 && tab.items.some(item => ['Requested', 'Accepted'].includes(item.state)) ? 'Paga — aguardando entrega' : 'Aberta'}</span>
     <small>{tab.state === 'Cancelled' ? `Cancelada em ${dateTime(tab.closedAtUtc ?? undefined)}` : tab.state === 'Closed' ? `Encerrada em ${dateTime(tab.closedAtUtc ?? undefined)}` : `Aberta em ${dateTime(tab.createdAtUtc)}`}</small>
     {messages.length > 0 && <span className="lb-tab-attention" aria-label="Pendências da comanda">{messages.map(message => <Status key={message} tone="warning">{message}</Status>)}</span>}
   </>

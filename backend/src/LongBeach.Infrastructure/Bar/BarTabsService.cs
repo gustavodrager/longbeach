@@ -196,7 +196,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
                 db.Add(new BarTabHistory(id, "Reversed", actor, -item.Total, item.Reason, item.Id)); break;
             default: throw new BarRuleException("Ação inválida.");
         }
-        tab.Touch(); await db.SaveChangesAsync(ct); return await Public(tab, false, false, ct);
+        tab.Touch(); await db.SaveChangesAsync(ct); await AutoClosePaidTab(tab, ct); return await Public(tab, false, false, ct);
     }, ct);
     public async Task<TabPaymentResponse> Pay(Guid id, TabPaymentInput input, Guid? actor, string? accessToken, CancellationToken ct)
     {
@@ -223,7 +223,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             var payment = new BarTabPayment(id, input.OperationId, fingerprint, input.Amount, input.Method, actor, session?.Id ?? terminalSession, input.Tendered, input.Authorization, input.TerminalType);
             payment.ConfirmManual(time.GetUtcNow()); db.Add(payment);
             if (session is not null) db.Add(new CashMovement(session, payment.Amount, "TabPayment", $"Pagamento da comanda {tab.Number}", actor!.Value, payment.Id));
-            db.Add(new BarTabHistory(id, "PaymentApproved", actor, payment.Amount, paymentId: payment.Id)); tab.Touch(); await db.SaveChangesAsync(ct); return await PublicPayment(payment, ct);
+            db.Add(new BarTabHistory(id, "PaymentApproved", actor, payment.Amount, paymentId: payment.Id)); tab.Touch(); await db.SaveChangesAsync(ct); await AutoClosePaidTab(tab, ct); return await PublicPayment(payment, ct);
         }, ct);
     }
     private async Task<TabPaymentResponse> PayPix(Guid id, TabPaymentInput input, Guid? actor, string? accessToken, string fingerprint, CancellationToken ct)
@@ -286,7 +286,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             else if (remote.State is "DECLINED" or "CANCELED") { payment.Decline(); db.Add(new BarTabHistory(tab.Id, "PaymentDeclined", payment.ActorId, payment.Amount, paymentId: payment.Id)); }
             // A local expiry is not proof that an external charge was canceled.
             // The allocation remains reserved until the provider resolves it.
-            tab.Touch(); await db.SaveChangesAsync(ct);
+            tab.Touch(); await db.SaveChangesAsync(ct); await AutoClosePaidTab(tab, ct);
         }
         await tx.CommitAsync(ct); return await PublicPayment(payment, ct);
     }

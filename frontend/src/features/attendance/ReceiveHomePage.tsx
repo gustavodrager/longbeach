@@ -1,3 +1,4 @@
+import { PaymentResultNotice } from './PaymentResultNotice'
 import { tabTitle } from './tabTitle'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -10,7 +11,7 @@ export function ReceiveHomePage() {
   const [page,setPage]=useState(1)
   const query=useBarData<PageResult<Tab>>(`/tabs?state=Open&search=${encodeURIComponent(search)}&page=${page}&pageSize=24`)
   const items=query.data?.items.filter(tab=>tab.payable>0)??[]
-  return <BarFrame className="lb-tabs-page"><Header title="Receber" />
+  return <BarFrame className="lb-tabs-page"><Header title="Receber" /><PaymentResultNotice />
     <label className="ux-search">Buscar comanda<input type="search" value={search} maxLength={80} onChange={event=>{setSearch(event.target.value);setPage(1)}} placeholder="Número ou nome" /></label>
     <LoadState query={query}/>
     {query.data&&!query.isError&&(items.length?<div className="ux-list">{items.map(tab=><Link className="ux-panel ux-list-row" key={tab.id} to={`/atendimento/receber/${tab.id}`}><div><strong>{tabTitle(tab)}</strong></div><strong>{money(tab.payable)}</strong></Link>)}</div>:<Empty title="Nenhuma comanda a receber nesta página" />)}

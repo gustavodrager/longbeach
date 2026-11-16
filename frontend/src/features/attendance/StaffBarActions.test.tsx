@@ -126,7 +126,7 @@ it('somente Receber orienta pedir liberação de caixa e não oferece o menu Cai
   const cash = await screen.findByRole('button', { name: 'Dinheiro' }); await waitFor(() => expect(cash).toBeEnabled()); fireEvent.click(cash)
   expect(screen.getByText('Peça à gestão a liberação do seu caixa para receber em dinheiro.')).toBeVisible()
   expect(screen.queryByRole('link', { name: 'Abrir caixa' })).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Confirmar recebimento' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: /^(Aprovado na maquininha — receber|Recebi)/ })).toBeDisabled()
 })
 
 it('somente Receber volta para os recebimentos ao concluir o saldo sem abrir Comandas', async () => {
@@ -138,8 +138,8 @@ it('somente Receber volta para os recebimentos ao concluir o saldo sem abrir Com
 it('Vender sem Pedidos salva com deliver=false e não amplia acesso de entrega', async () => {
   const api = server(); mount(<SellPage />, actor(['bar.sell'], ['bar.sell']), '/atendimento/vender')
   fireEvent.click(await screen.findByRole('button', { name: /Adicionar Água por/ }))
-  fireEvent.click(screen.getByRole('button', { name: 'Conferir pedido' }))
-  expect(screen.queryByRole('button', { name: /Entregar e receber|Adicionar e entregar/ })).not.toBeInTheDocument()
+
+  expect(screen.queryByRole('button', { name: /Entregar e receber|Lançar e entregar/ })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Enviar para preparo' })).not.toBeInTheDocument()
   const send = screen.getByRole('button', { name: 'Salvar' }); await waitFor(() => expect(send).toBeEnabled()); fireEvent.click(send)
   await waitFor(() => expect(api.mock.calls.filter(([url, init]) => String(url).endsWith('/items') && init?.method === 'POST')).toHaveLength(1))
