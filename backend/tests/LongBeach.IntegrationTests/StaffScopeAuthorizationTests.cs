@@ -32,6 +32,17 @@ public sealed class StaffScopeAuthorizationTests
     }
 
     [Fact]
+    public void Unit_removal_requires_sales_and_orders_access_without_supervision()
+    {
+        const string path = "/api/v1/bar/tabs/11111111-1111-1111-1111-111111111111/items/22222222-2222-2222-2222-222222222222/remove-unit";
+        Assert.True(StaffApiScope.Allowed(Principal(["bar.sell", "bar.orders"], ["bar.sell", "bar.orders"]), "POST", path));
+        Assert.False(StaffApiScope.Allowed(Principal(["bar.sell"], ["bar.sell"]), "POST", path));
+        Assert.False(StaffApiScope.Allowed(Principal(["bar.orders"], ["bar.orders"]), "POST", path));
+        Assert.False(StaffApiScope.Allowed(Principal(["bar.sell", "bar.orders"], []), "POST", path));
+        Assert.False(StaffApiScope.Allowed(Principal(["bar.sell", "bar.orders"], ["bar.sell", "bar.orders"]), "POST", path.Replace("remove-unit", "reverse")));
+    }
+
+    [Fact]
     public void Cancellation_requires_the_existing_tabs_menu_and_supervision_action()
     {
         const string path = "/api/v1/bar/tabs/11111111-1111-1111-1111-111111111111/cancel";

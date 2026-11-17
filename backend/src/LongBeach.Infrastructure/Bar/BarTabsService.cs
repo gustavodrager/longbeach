@@ -192,8 +192,12 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             case "accept": await Accept(tab, item, actor, ct); break;
             case "fulfill": await Fulfill(tab, item, actor, ct); break;
             case "reject": item.Reject(input.Reason); db.Add(new BarTabHistory(id, "Rejected", actor, reason: item.Reason, itemId: item.Id)); break;
+            case "remove-unit":
+                if (actor == Guid.Empty || item.Quantity != 1 || !input.ReturnStock || BarRules.Text(input.Reason, 450, "Motivo").Length < 3)
+                    throw new BarRuleException("Retirada pelo botão menos exige uma unidade, devolução ao estoque e motivo registrado.");
+                goto case "reverse";
             case "reverse":
-                if (!supervisor) throw new BarRuleException("Correção exige supervisor.");
+                if (action != "remove-unit" && !supervisor) throw new BarRuleException("Correção exige supervisor.");
                 var totals = await Totals(id, ct);
                 var remainingGross = totals.Total + tab.Discount - item.Total;
                 var remainingConcession = Math.Min(tab.Discount, Math.Max(0, remainingGross));

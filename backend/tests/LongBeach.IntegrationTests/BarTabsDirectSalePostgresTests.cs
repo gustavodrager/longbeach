@@ -89,4 +89,26 @@ public sealed partial class BarTabsPostgresTests
         Assert.Equal(19, (await f.Db.Set<StockBalance>().SingleAsync(x => x.ProductId == f.Product.Id)).Quantity);
     }
 
+    [PostgresFact]
+    public async Task Attendant_unit_removal_preserves_actor_stock_idempotency_and_payment_guards()
+    {
+        await using var f = await Fixture.Create(); var tab = await f.Tabs.Open(new(Guid.NewGuid(), f.Location.Id), f.Actor, default);
+        for (var n = 0; n < 2; n++) tab = await f.Tabs.Add(tab.Id, new(Guid.NewGuid(), [new(f.Product.Id, 1)], true, true, 10), f.Actor, null, default);
+        var attendant = Guid.NewGuid(); var item = tab.Items.First(); var input = new TabActionInput(Guid.NewGuid(), "Correção pelo atendente", true);
+        await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.ItemAction(tab.Id, item.Id, "remove-unit", input with { ReturnStock = false }, attendant, false, default));
+        await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.ItemAction(tab.Id, item.Id, "remove-unit", input with { Reason = null }, attendant, false, default));
+        tab = await f.Tabs.ItemAction(tab.Id, item.Id, "remove-unit", input, attendant, false, default);
+        await f.Tabs.ItemAction(tab.Id, item.Id, "remove-unit", input, attendant, false, default);
+        Assert.Equal(10, tab.Total); Assert.Equal(attendant, Assert.Single(tab.History, x => x.Kind == "Reversed").ActorId);
+        Assert.Equal(19, (await f.Db.Set<StockBalance>().SingleAsync(x => x.ProductId == f.Product.Id)).Quantity);
+        Assert.Single(await f.Db.Set<StockMovement>().Where(x => x.OriginId == item.Id && x.Kind == "TabReturn").ToListAsync());
+        await f.Tabs.Pay(tab.Id, new(Guid.NewGuid(), "Cash", 5, f.Session.Id), f.Actor, null, default);
+        var remaining = tab.Items.Single(x => x.State == "Fulfilled");
+        await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.ItemAction(tab.Id, remaining.Id, "remove-unit", input with { OperationId = Guid.NewGuid() }, attendant, false, default));
+        Assert.Equal(19, (await f.Db.Set<StockBalance>().SingleAsync(x => x.ProductId == f.Product.Id)).Quantity);
+        var batch = await f.Tabs.Open(new(Guid.NewGuid(), f.Location.Id), f.Actor, default);
+        batch = await f.Tabs.Add(batch.Id, new(Guid.NewGuid(), [new(f.Product.Id, 2)], true), f.Actor, null, default);
+        await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.ItemAction(batch.Id, batch.Items.Single().Id, "remove-unit", input with { OperationId = Guid.NewGuid() }, attendant, false, default));
+    }
+
 }

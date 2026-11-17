@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../../lib/http'
 import { postBar, type CatalogItem, type TabItem, type Tab } from './api'
 
-export type DirectTap = { operationId: string; productId: string; name: string; price: number; attempted: boolean; itemId?: string; returnStock?: boolean; reason?: string }
+export type DirectTap = { operationId: string; productId: string; name: string; price: number; attempted: boolean; itemId?: string; returnStock?: boolean; reason?: string; action?: 'reverse' | 'remove-unit' }
 type Queue = { version: 1; entries: DirectTap[]; paused: boolean; error?: string; rejectedId?: string }
 const empty = (): Queue => ({ version: 1, entries: [], paused: false })
 const eventName = 'lb-direct-sales-change'
@@ -15,8 +15,8 @@ export function readDirectSales(key: string): Queue {
   const value = JSON.parse(raw) as Queue
   if (value.version !== 1 || !Array.isArray(value.entries) || value.entries.length > 500 || typeof value.paused !== 'boolean'
     || !value.entries.every(row => typeof row.operationId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(row.operationId) && typeof row.productId === 'string' && row.productId.length > 0 && row.productId.length <= 100 && typeof row.name === 'string' && row.name.length <= 200 && Number.isFinite(row.price) && row.price > 0 && typeof row.attempted === 'boolean')
-    || (removal && (value.entries.length > 1 || !value.entries.every(row => typeof row.itemId === 'string' && row.itemId.length > 0 && row.itemId.length <= 100 && typeof row.returnStock === 'boolean' && typeof row.reason === 'string' && row.reason.length >= 3 && row.reason.length <= 450)))
-    || (!removal && value.entries.some(row => row.itemId !== undefined || row.returnStock !== undefined || row.reason !== undefined))
+    || (removal && (value.entries.length > 1 || !value.entries.every(row => typeof row.itemId === 'string' && row.itemId.length > 0 && row.itemId.length <= 100 && typeof row.returnStock === 'boolean' && typeof row.reason === 'string' && row.reason.length >= 3 && row.reason.length <= 450 && (row.action === undefined || row.action === 'reverse' || row.action === 'remove-unit'))))
+    || (!removal && value.entries.some(row => row.itemId !== undefined || row.returnStock !== undefined || row.reason !== undefined || row.action !== undefined))
     || (value.error !== undefined && (typeof value.error !== 'string' || value.error.length > 450)) || (value.rejectedId !== undefined && (typeof value.rejectedId !== 'string' || value.rejectedId !== value.entries[0]?.operationId))
     || new Set(value.entries.map(row => row.operationId)).size !== value.entries.length) throw new Error('Fila inválida')
   return value
@@ -58,7 +58,7 @@ export function useDirectSales(owner: string, tabId: string, availability: { aut
           setSaving(true)
           try {
             const result = kind === 'remove'
-              ? await postBar<Tab>(`/tabs/${tabId}/items/${head.itemId}/reverse`, { operationId: head.operationId, reason: head.reason, returnStock: head.returnStock })
+              ? await postBar<Tab>(`/tabs/${tabId}/items/${head.itemId}/${head.action ?? 'reverse'}`, { operationId: head.operationId, reason: head.reason, returnStock: head.returnStock })
               : await postBar<Tab>(`/tabs/${tabId}/items`, { operationId: head.operationId, items: [{ productId: head.productId, quantity: 1 }], deliver: true, directSale: true, expectedUnitPrice: head.price })
             if (!isCurrent()) break
             processed = true
@@ -99,7 +99,7 @@ export function useDirectSales(owner: string, tabId: string, availability: { aut
     return () => { active.current = false; window.removeEventListener('storage', changed); window.removeEventListener(eventName, changed) }
   }, [key])
   useEffect(() => { if (!storageError) void drain() }, [queue, availability.authorized, availability.online, availability.known, availability.open, availability.suspended, storageError])
-  async function enqueue(product: Pick<CatalogItem, 'id' | 'name' | 'shortName' | 'salePrice'>, removal?: Pick<DirectTap, 'itemId' | 'returnStock' | 'reason'>) {
+  async function enqueue(product: Pick<CatalogItem, 'id' | 'name' | 'shortName' | 'salePrice'>, removal?: Pick<DirectTap, 'itemId' | 'returnStock' | 'reason' | 'action'>) {
     if (!isCurrent() || !current.current.accepting || !current.current.authorized || !current.current.online || !current.current.open || storageError) return
     setAdding(value => value + 1); setMessage('')
     try {
@@ -130,7 +130,7 @@ export function useDirectSales(owner: string, tabId: string, availability: { aut
   async function add(product: CatalogItem) { if (kind === 'add') await enqueue(product) }
   async function remove(item: TabItem, returnStock: boolean) {
     if (kind !== 'remove' || item.quantity !== 1 || !['Accepted', 'Fulfilled'].includes(item.state)) return
-    await enqueue({ id: item.productId, name: item.name, shortName: item.name, salePrice: item.unitPrice }, { itemId: item.id, returnStock, reason: 'Correção de lançamento pelo botão menos na venda direta.' })
+    await enqueue({ id: item.productId, name: item.name, shortName: item.name, salePrice: item.unitPrice }, { itemId: item.id, returnStock, action: 'remove-unit', reason: 'Correção de lançamento pelo botão menos na venda direta.' })
   }
   return { queue, saving, adding, message, storageError, add, remove, resume, removeUnsent }
 }

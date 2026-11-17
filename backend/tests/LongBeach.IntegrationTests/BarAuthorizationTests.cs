@@ -1,3 +1,8 @@
+using System.Reflection;
+using LongBeach.Application.Bar;
+using LongBeach.Contracts.Bar;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Net;
 using System.Net.Http.Headers;
 using System.IdentityModel.Tokens.Jwt;
@@ -8,6 +13,35 @@ using Microsoft.Extensions.Configuration;
 namespace LongBeach.IntegrationTests;
 public sealed class BarAuthorizationTests
 {
+    [Fact]
+    public async Task Attendant_can_use_unit_removal_without_gaining_general_reverse_permission()
+    {
+        var probe = DispatchProxy.Create<IBarTabs, TabActionProbe>();
+        await using var factory = new LongBeachWebApplicationFactory().WithWebHostBuilder(b => b.ConfigureServices(services => { services.RemoveAll<IBarTabs>(); services.AddSingleton(probe); }));
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token("bar:sales:operate"));
+        const string path = "/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/items/00000000-0000-0000-0000-000000000002/";
+        using var body = System.Net.Http.Json.JsonContent.Create(new TabActionInput(Guid.NewGuid(), "Correção pelo atendente", true));
+        Assert.True((await client.PostAsync(path + "remove-unit", body)).IsSuccessStatusCode);
+        var captured = (TabActionProbe)probe;
+        Assert.Equal("remove-unit", captured.Action); Assert.False(captured.Supervisor); Assert.Equal(1, captured.Calls);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsync(path + "reverse", JsonBody())).StatusCode);
+        Assert.Equal(1, captured.Calls);
+    }
+
+    public class TabActionProbe : DispatchProxy
+    {
+        public string? Action { get; private set; }
+        public bool Supervisor { get; private set; }
+        public int Calls { get; private set; }
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            Assert.Equal("ItemAction", targetMethod?.Name); Calls++;
+            Action = (string)args![2]!; Supervisor = (bool)args[5]!;
+            return Task.FromResult<TabResponse>(null!);
+        }
+    }
+
     [Theory]
     [InlineData("/api/v1/bar/menu")]
     [InlineData("/api/v1/bar/catalog")]
@@ -88,6 +122,7 @@ public sealed class BarAuthorizationTests
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/payments/00000000-0000-0000-0000-000000000002/refund")]
     [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/items/00000000-0000-0000-0000-000000000002/reverse")]
     [InlineData("/api/v1/bar/purchases/00000000-0000-0000-0000-000000000001/payment-reference")]
+    [InlineData("/api/v1/bar/tabs/00000000-0000-0000-0000-000000000001/items/00000000-0000-0000-0000-000000000002/remove-unit")]
     public async Task Tab_mutations_require_login_and_their_permission(string path)
     {
         await using var factory = new LongBeachWebApplicationFactory();

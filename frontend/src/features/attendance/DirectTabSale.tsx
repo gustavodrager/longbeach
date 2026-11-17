@@ -26,7 +26,7 @@ export function DirectTabSale({ tabId }: { tabId: string }) {
   const known = Boolean(tab?.id === tabId && !query.isError)
   const open = tab?.state === 'Open'
   const accepting = authorized && known && open && !catalog.isError && Boolean(catalog.data)
-  const canReverse = authorized && hasPermission(user, 'bar:supervise')
+  const canReverse = authorized
   const removal = useDirectSales(user?.id ?? '', tabId, { authorized: canReverse, known, open, accepting: canReverse && accepting, online: connection.online }, 'remove')
   const removalSettled = removal.queue.entries.length === 0 && !removal.saving && removal.adding === 0 && !removal.storageError
   const sales = useDirectSales(user?.id ?? '', tabId, { authorized, known, open, accepting: accepting && removalSettled, online: connection.online, suspended: !removalSettled })
@@ -52,7 +52,7 @@ export function DirectTabSale({ tabId }: { tabId: string }) {
     {!connection.online && <p className="ux-notice warning" role="status">Sem conexão. Novos toques estão bloqueados; os registros guardados permanecem nesta comanda.</p>}
     {known && <><SaleDestination tab={tab} locked={!settled || !connection.online} hasDraft={false} />
       {!open && <p className="ux-notice warning" role="status">Esta comanda está {tab?.state === 'Cancelled' ? 'cancelada' : 'encerrada'} e não recebe novos produtos.{pending.length > 0 && ' Os registros pendentes foram preservados para conferência.'}</p>}
-      <p className="ux-note">Cada toque adiciona uma unidade e registra a entrega nesta comanda. O botão − retira uma unidade e devolve ao estoque.</p>{!canReverse && <p className="ux-note">Retirar consumo já entregue exige acesso de supervisão.</p>}
+      <p className="ux-note">Cada toque adiciona uma unidade e registra a entrega nesta comanda. O botão − retira uma unidade e devolve ao estoque.</p>
       <div className="lb-sale-workspace"><div className="lb-sale-catalog">{open && <Products products={catalog.data ?? []} cart={registered} onChange={() => {}} onAdd={product => void sales.add(product)} onRemove={product => { const item = removable.get(product.id); if (canReverse && settled && item) void removal.remove(item, true) }} canRemove={product => canReverse && settled && removable.has(product.id)} disabled={blocked} />}</div>
         <aside className="lb-sale-summary" aria-label="Consumo registrado"><section className="ux-panel"><h2>Na comanda</h2><Summary tab={tab!} />
           {Array.from(consumption,([key,item])=><div className="ux-list-row" key={key}><span>{item.quantity} × {item.name}{item.notes && <small>{item.notes}</small>}{item.state === 'Accepted' && <small>Entrega pendente</small>}</span><strong>{money(item.total)}</strong></div>)}
