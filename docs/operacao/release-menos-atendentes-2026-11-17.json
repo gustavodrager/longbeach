@@ -1,0 +1,53 @@
+{
+  "recorded_at_utc": "2026-11-17T19:20:44.840831+00:00",
+  "source_commit": "00a1ab5b3b872ca284393ccad3f047a73184313b",
+  "pr": 86,
+  "workflow_run": 44150940896,
+  "workflow_url": "https://github.com/gustavodrager/longbeach/actions/runs/44150940896",
+  "workflow_conclusion": "success",
+  "environment_approval": "Production approved through the authorized owner account for this exact main commit following explicit publication authorization; existing protections preserved",
+  "scope": "Attendants may remove one unit with mandatory stock return and actor history; general supervision permissions unchanged",
+  "tests": {
+    "backend_unit_passed": 736,
+    "backend_integration_passed": 753,
+    "frontend_passed": 1484,
+    "whatsapp_gate": "success"
+  },
+  "google_project": "parsero-prod-20261022",
+  "vm": "longbeach-economy",
+  "zone": "southamerica-east1-a",
+  "api_image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:804d7d3534d946ef24b03d3b4d77c2dd37b7d469c59114fd7dbb2476f1117ed9",
+  "web_image_digest": "sha256:aef4b4659b4fc92833c235f4e03d72deaae5aaebe78ed75e65e6ac5b46d0dc01",
+  "firebase": {
+    "file_map_sha256": "7cb81ac8d567e7717a9073b1c0b966e5038c9eee1a8857cefd8f65d5cdd4ac0d",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1794943157513000",
+    "run": 44150940896,
+    "source": "00a1ab5b3b872ca284393ccad3f047a73184313b",
+    "version": "sites/parsero-prod-20261022/versions/7620e8ef68f157a9"
+  },
+  "schema_migration_count": 36,
+  "migrations_applied": 0,
+  "preserved_containers": [
+    "postgres",
+    "caddy",
+    "whatsapp-bridge"
+  ],
+  "protected_config_preserved": true,
+  "verification": {
+    "source": "00a1ab5b3b872ca284393ccad3f047a73184313b",
+    "public_files_verified": 113,
+    "api_readiness": 200,
+    "anonymous_classes": 401,
+    "anonymous_unit_removal": 401,
+    "business_writes": 0,
+    "authenticated_ui_verified": false
+  },
+  "local_validation": {
+    "frontend_passed": 1484,
+    "backend_selected_passed": 158,
+    "synthetic_data": true,
+    "actual_tablet_checked": false
+  },
+  "pagbank_checkout_in_release": false,
+  "evidence_relative_to_checkout": "../evidencias/publicacao-menos-atendentes-2026-11-17/00a1ab5"
+}
