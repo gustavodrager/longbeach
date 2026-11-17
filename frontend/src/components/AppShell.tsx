@@ -7,7 +7,7 @@ import { useOperations } from '../features/operations/DemoDataProvider'
 import { Logo } from './Logo'
 import { NavigationIcon } from './NavigationIcon'
 import { SectionNavigation } from './SectionNavigation'
-import { barNavigation, barNavigationPath, destinationFor, routeMatches, visibleNavigation, type Destination } from './navigation'
+import { attendantNavigation, barNavigation, barNavigationPath, destinationFor, routeMatches, visibleNavigation, type Destination } from './navigation'
 import { ModalPanel, NavigationMemory } from './managementUi'
 import './shell-navigation.css'
 
@@ -25,16 +25,16 @@ export function AppShell({ demoMode = false }: { demoMode?: boolean }) {
   const attendance = !demoMode && (location.pathname.startsWith('/atendimento') || location.pathname.startsWith('/bar'))
   const barPath = barNavigationPath(location.pathname)
   const barItems = barNavigation.filter(can)
-  const attendants = barItems.filter(item => barNavigation.indexOf(item) < 4 || hasStaffScope(user) && item.href === '/atendimento/receber')
+  const attendants = barItems.filter(item => attendantNavigation.includes(item) || hasStaffScope(user) && item.href === '/atendimento/receber')
   const pendingOrders = useBarData<PageResult<Tab>>('/tabs?state=Orders&page=1&pageSize=1',attendance && has('bar:sales:read') && has('bar:sales:operate'))
-  const orderBadge = pendingOrders.data && pendingOrders.data.total > 0 ? <span className="bar-menu-badge" aria-label={`${pendingOrders.data.total} comandas com pedidos pendentes`}>{pendingOrders.data.total}</span> : null
+  const orderBadge = pendingOrders.data && pendingOrders.data.total > 0 ? <span className="bar-menu-badge" aria-label={`${pendingOrders.data.total} ${pendingOrders.data.total === 1 ? 'comanda com pendências' : 'comandas com pendências'}`}>{pendingOrders.data.total}</span> : null
   const secondary = barItems.filter(item => !attendants.includes(item))
   const current = destinationFor(location.pathname, management)
   useEffect(() => { setMenuOpen(false); mainRef.current?.focus({ preventScroll: true }) }, [location.pathname])
   const modeLink = attendance && canManage ? <Link className="shell-mode-link" to="/">Área de trabalho <span aria-hidden="true">→</span></Link> : null
   const nav = <nav aria-label={attendance ? 'Atendimento' : 'Área de trabalho'}>{(attendance ? barItems : management).map(item => {
     const active = attendance ? routeMatches(barPath, item.href) : current?.group.label === item.label
-    return <Link key={item.label} to={item.href} className={'nav-item ' + (active ? 'is-active' : '')} aria-current={active ? 'page' : undefined}><NavigationIcon name={item.icon} /><span>{item.label}{attendance && item.href==='/atendimento/pedidos' && orderBadge}</span></Link>
+    return <Link key={item.label} to={item.href} className={'nav-item ' + (active ? 'is-active' : '')} aria-current={active ? 'page' : undefined}><NavigationIcon name={item.icon} /><span>{item.label}{attendance && item.href==='/atendimento/comandas' && orderBadge}</span></Link>
   })}</nav>
   const accountLinks = !demoMode && <nav className="shell-account-links" aria-label="Minha conta">{!hasStaffScope(user) && <Link to="/minha-area">Minha área</Link>}{profileRole(user) === 'Teacher' && <Link to={workHome(user)}>Minhas aulas</Link>}<Link to="/conta">Segurança</Link><button type="button" onClick={() => void signOut()}>Sair</button></nav>
   return <div className={'app-shell ' + (attendance ? 'app-shell-attendance' : 'app-shell-management')}>
@@ -52,6 +52,6 @@ export function AppShell({ demoMode = false }: { demoMode?: boolean }) {
       {(persistenceMessage && (persistenceStatus === 'error' || demoMode) || refreshFailed) && <div className={'persistence-banner ' + (refreshFailed ? 'warning' : persistenceStatus)} role={persistenceStatus === 'error' || refreshFailed ? 'alert' : 'status'}>{refreshFailed ? 'Não foi possível atualizar os dados. A última leitura foi preservada; confira a conexão e tente novamente.' : persistenceMessage}{(persistenceStatus === 'error' || refreshFailed) && <button type="button" onClick={() => void reload()}>Tentar novamente</button>}</div>}
       <div id="conteudo" ref={mainRef} tabIndex={-1} className="shell-content"><Outlet /></div>
     </div>
-    {attendance && <nav className="bottom-nav bar-bottom-nav" aria-label="Atendimento para celular">{attendants.map(item => <Link key={item.label} to={item.href} className={routeMatches(barPath, item.href) ? 'is-active' : ''} aria-current={routeMatches(barPath, item.href) ? 'page' : undefined}><NavigationIcon name={item.icon} /><small>{item.label}{item.href==='/atendimento/pedidos' && orderBadge}</small></Link>)}{secondary.length > 0 && <button className={secondary.some(item=>routeMatches(barPath,item.href))?'is-active':undefined} type="button" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><NavigationIcon name="menu"/><small>Mais</small></button>}</nav>}
+    {attendance && <nav className="bottom-nav bar-bottom-nav" style={{ gridTemplateColumns: `repeat(${Math.max(1, attendants.length + (secondary.length > 0 ? 1 : 0))}, minmax(0, 1fr))` }} aria-label="Atendimento para celular">{attendants.map(item => <Link key={item.label} to={item.href} className={routeMatches(barPath, item.href) ? 'is-active' : ''} aria-current={routeMatches(barPath, item.href) ? 'page' : undefined}><NavigationIcon name={item.icon} /><small>{item.label}{item.href==='/atendimento/comandas' && orderBadge}</small></Link>)}{secondary.length > 0 && <button className={secondary.some(item=>routeMatches(barPath,item.href))?'is-active':undefined} type="button" aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><NavigationIcon name="menu"/><small>Mais</small></button>}</nav>}
   </div>
 }

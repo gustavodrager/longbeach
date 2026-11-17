@@ -6,7 +6,6 @@ export type NavigationGroup = Destination & { icon: IconName; children?: Destina
 export const barNavigation: NavigationGroup[] = [
   { label: 'Vender', icon: 'plus', href: '/atendimento/vender', permission: 'bar:sales:operate' },
   { label: 'Comandas', icon: 'orders', href: '/atendimento/comandas', permission: 'bar:sales:read' },
-  { label: 'Pedidos', icon: 'check', href: '/atendimento/pedidos', permission: 'bar:sales:operate' },
   { label: 'Caixa', icon: 'wallet', href: '/bar/caixa', anyPermission: ['bar:cash:operate', 'bar:supervise'] },
   { label: 'Receber', icon: 'wallet', href: '/atendimento/receber', permission: 'bar:sales:operate' },
   { label: 'Produtos e estoque', icon: 'bar', href: '/bar/produtos', anyPermission: ['bar:catalog:write', 'bar:stock:read'] },
@@ -14,7 +13,7 @@ export const barNavigation: NavigationGroup[] = [
   { label: 'Compras', icon: 'wallet', href: '/bar/compras', permission: 'bar:purchases:manage' },
   { label: 'Resumo', icon: 'home', href: '/bar/indicadores', permission: 'bar:finance:read' },
 ]
-export const attendantNavigation = barNavigation.slice(0, 4)
+export const attendantNavigation = barNavigation.filter(item => ['/atendimento/vender', '/atendimento/comandas', '/bar/caixa'].includes(item.href))
 export const managementNavigation: NavigationGroup[] = [
   { label: 'Visão geral', icon: 'home', href: '/' },
   { label: 'Clientes', icon: 'people', href: '/clientes', permission: 'customers:read' },
@@ -45,6 +44,7 @@ export const routeMatches = (path: string, href: string) => path === href || hre
 export function barNavigationPath(path: string) {
   if(['/bar/estoque','/bar/inventario','/bar/perdas','/bar/receitas'].some(prefix=>routeMatches(path,prefix))) return '/bar/produtos'
   if(['/atendimento/comprovante','/atendimento/pagamento-online'].some(prefix=>routeMatches(path,prefix))) return '/atendimento/receber'
+  if(routeMatches(path,'/atendimento/pedidos')) return '/atendimento/comandas'
   if(routeMatches(path,'/bar/vendas')) return '/atendimento/comandas'
   if(routeMatches(path,'/bar/registros')) return '/bar/indicadores'
   return path
@@ -55,6 +55,7 @@ export function destinationFor(path: string, groups: NavigationGroup[]) {
   const hidden = [
     ['/bar/receitas','Fichas técnicas','/bar/produtos'], ['/bar/estoque','Movimentações','/bar/produtos'],
     ['/bar/inventario','Contar estoque','/bar/produtos'], ['/bar/perdas','Perdas e consumo','/bar/produtos'],
+    ['/atendimento/pedidos','Pedidos do fluxo anterior','/atendimento/comandas'],
     ['/bar/vendas','Vendas do fluxo anterior','/atendimento/comandas'], ['/bar/registros','Registros','/bar/indicadores'],
   ].find(([prefix])=>routeMatches(path,prefix))
   const group=groups.find(g=>g.label==='Bar'), item=group?.children?.find(c=>c.href===hidden?.[2])

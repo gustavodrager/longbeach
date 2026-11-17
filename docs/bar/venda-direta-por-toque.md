@@ -70,3 +70,15 @@ A fila persiste a ação de cada retirada nova. Uma tentativa anterior sem esse 
 A publicação precisa promover a API compatível antes da interface. Não retornar somente a API enquanto houver clientes ou retiradas pendentes usando remove-unit. Preservar a fila do dispositivo e os registros do servidor.
 
 A liberação para atendentes foi integrada pelo PR #86 e publicada após autorização explícita do proprietário, pelo mesmo commit de API e interface. O [recibo da publicação](../operacao/release-menos-atendentes-2026-11-17.json) registra 736 testes unitários, 753 de integração e 1484 da interface aprovados, zero migrations e preservação do banco, Caddy, WhatsApp e configurações.
+
+## Pendências na comanda e navegação simplificada — evolução de 17/11/2026
+
+Pedidos deixa de aparecer nos menus do atendimento e da gestão. A navegação principal prioriza Vender, Comandas e Caixa; Receber e os demais destinos conservam suas regras de visibilidade, inclusive o acesso direto de perfis gerenciados. O contador de comandas com pendências passa a acompanhar Comandas. A grade móvel se adapta ao número de acessos visíveis.
+
+A lista de Comandas conserva a consulta de pendências pelo estado Orders, com o rótulo Com pendências e os filtros/paginação existentes. O cartão com itens Requested ou Accepted oferece Ver pendências para os detalhes da própria comanda. Ali, uma seção destacada antes dos totais concentra os itens aguardando aceite ou entrega, com as mesmas ações e regras já existentes. Itens concluídos seguem no consumo e no histórico, sem duplicação na seção de pendências. A barra de ações deixa de ficar fixa enquanto houver pendências, para não cobrir Aceitar/Entregar no celular.
+
+O status Accepted é apresentado como Aguardando entrega, sem introduzir uma etapa de preparo. O fluxo direto +/− permanece igual e mantém as permissões atuais de venda e entrega. O identificador interno bar.orders, seus menus e ações de acesso, a rota antiga de Pedidos e a recuperação de URLs anteriores são preservados; ocultar o menu não altera cadastros ou autorizações. A rota anterior é associada visualmente a Comandas e continua disponível para recuperação. Não há mudanças no backend, estoque, pagamentos ou schema.
+
+Validação inclui ausência de Pedidos nos menus, contador em Comandas, acesso ao detalhe preservando filtros, aceite/entrega na própria comanda, conclusão de conta paga, leitura sem permissões de operação e regressão do +/− com atendentes. Prévia com dados fictícios em 390×844 e 800×1280; tablet físico e operações reais de negócio não usados nos testes.
+
+Validação local deste incremento: **1.490 testes da interface aprovados**, em 119 arquivos; compilação TypeScript/Vite/PWA aprovada; navegação e resolução de pendências conferidas em prévia fictícia 390×844 e 800×1280. Os arquivos e o servidor temporário da prévia foram removidos. Nenhuma mudança de API ou de permissões foi necessária.

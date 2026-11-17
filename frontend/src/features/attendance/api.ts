@@ -43,7 +43,7 @@ export const dateTime = (value?: string) => value ? new Intl.DateTimeFormat('pt-
 export function parseAmount(value: string) { return /^\d+(?:[,.]\d{1,2})?$/.test(value.trim()) ? Math.round(Number(value.replace(',', '.')) * 100) / 100 : NaN }
 export const operationId = () => crypto.randomUUID()
 export const isOpen = (session: CashSession) => session.state === 'Open' || session.state === 'Reopened'
-export const itemLabels: Record<string, string> = { Requested: 'Esperando a equipe confirmar', Accepted: 'A preparar / entregar', Fulfilled: 'Entregue', Rejected: 'Recusado', Reversed: 'Consumo corrigido' }
+export const itemLabels: Record<string, string> = { Requested: 'Esperando a equipe confirmar', Accepted: 'Aguardando entrega', Fulfilled: 'Entregue', Rejected: 'Recusado', Reversed: 'Consumo corrigido' }
 export const paymentLabels: Record<string, string> = { CreditCard: 'Crédito à vista', Cash: 'Dinheiro', CardManual: 'Cartão na maquininha (histórico)', TerminalManual: 'Maquininha · confirmação manual', Pix: 'Pix' }
 
 export function useBarData<T>(path: string, enabled = true) {
