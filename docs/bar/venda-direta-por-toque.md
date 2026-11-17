@@ -1,6 +1,6 @@
 # Venda direta por toque — comanda aberta
 
-Implementação local em 17/11/2026, na branch `codex/venda-direta-toque-20261116`. Sem publicação, push ou integração à main nesta etapa.
+Implementação desenvolvida e validada localmente em 17/11/2026, na branch `codex/venda-direta-toque-20261116`. Integrada à main pelo PR #82 e publicada posteriormente, após autorização do proprietário e aprovação de Production. O [recibo da publicação](../operacao/release-venda-direta-2026-11-17.json) identifica o commit, os artefatos e as verificações.
 
 ## Comportamento
 
@@ -32,13 +32,13 @@ Não há alteração de schema ou migration. PagBank permanece fora deste pacote
 ## Validação local
 
 - Interface: **1.474 testes aprovados**, em 119 arquivos, incluindo 17 cenários específicos de venda direta e regressões de autenticação.
-- Backend: **736 testes unitários aprovados**.
+- Backend: **736 testes unitários aprovados**. O gate oficial também aprovou a bateria completa de **747 testes de integração**.
 - PostgreSQL 18 descartável: **45 testes de comanda e receitas aprovados**, incluindo receita preparada, repetição após pagamento/fechamento, preço divergente, acesso de cliente, uma unidade por toque, comprovante compacto e compatibilidade do identificador antigo.
 - Compilação da API verificada pelos testes de integração; compilação TypeScript/Vite/PWA verificada separadamente.
 - Prévia local com dados fictícios: 800×1280 e conferência de 390×844 sem rolagem horizontal. Testados toques sucessivos, resumo/total, recuperação da resposta perdida sem unidade extra e encerramento ao receber. Isso não substitui a conferência no tablet físico.
 
-As imagens e o resumo dos testes ficam em `../evidencias/venda-direta-toque-2026-11-17/`, fora do repositório da aplicação. Nenhum dado de negócio foi escrito em produção.
+As imagens e o resumo dos testes ficam em `../evidencias/venda-direta-toque-2026-11-17/`, fora do repositório da aplicação. Nenhum lançamento de produto ou pagamento real foi feito para testar produção.
 
-## Publicação futura
+## Publicação e retorno
 
-Exige autorização própria. Publicar API compatível antes da interface e conferir a operação com o mesmo commit aprovado. Não retornar somente a API para uma versão anterior enquanto clientes com venda direta estiverem ativos. Em eventual retorno da interface, preservar e resolver as filas guardadas; não apagar armazenamento para ocultar registros incertos.
+A publicação desta release promoveu API compatível antes da interface, pelo mesmo commit aprovado. Novas publicações exigem autorização própria. Não retornar somente a API para uma versão anterior enquanto clientes com venda direta estiverem ativos. Em eventual retorno da interface, preservar e resolver as filas guardadas; não apagar armazenamento para ocultar registros incertos.

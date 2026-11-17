@@ -1,6 +1,6 @@
 # Estado de desenvolvimento e publicação
 
-Conferência iniciada em 12/11/2026 (Brasília). O estado Git e a implantação são independentes.
+Estado conferido em 17/11/2026 (Brasília). O estado Git e a implantação são independentes.
 
 ## Fonte de trabalho
 
@@ -26,16 +26,16 @@ A revisão #78 integrou a exclusão de turmas com histórico (`24ca888`). A revi
 
 ## Publicação concluída
 
-Fonte publicada: `baa727ccc8f0eaa75695ba273d10e2b7c2a3bd23` (PR #80, simplificação de Aulas).
-Pipeline: https://github.com/gustavodrager/longbeach/actions/runs/43437472900
+Fonte publicada: `6cb940bf82e6cab013ff9e67c8f3ce110499d773` (PR #82, venda direta por toque na comanda).
+Pipeline: https://github.com/gustavodrager/longbeach/actions/runs/44097590276
 
-API e frontend publicados e verificados em 13/11/2026 (Brasília). O [recibo desta release](release-simplificacao-aulas-2026-11-13.json) registra digests, versão Firebase e verificações. A API está saudável; os 111 arquivos públicos do frontend correspondem ao artefato oficial. PostgreSQL, Caddy e WhatsApp conservaram seus containers. Foram aplicadas zero migrations; schema 36 preservado.
+API e frontend publicados e verificados em 17/11/2026 (Brasília). O [recibo desta release](release-venda-direta-2026-11-17.json) registra digests, versão Firebase e verificações. A API está saudável; os 113 arquivos públicos correspondem ao artefato oficial. PostgreSQL, Caddy e WhatsApp conservaram seus containers. Foram aplicadas zero migrations; schema 36 preservado.
 
-Validação oficial: 736 testes unitários, 736 de integração e 1457 de frontend aprovados. A rota privada de turmas rejeita acesso anônimo com HTTP 401. O formulário foi conferido visualmente no ambiente local. Não foi feita exclusão real de turma nem validação autenticada em produção.
+Validação oficial: 736 testes unitários, 747 de integração e 1474 de frontend aprovados, além do gate do WhatsApp. A rota privada de turmas rejeita acesso anônimo com HTTP 401. A venda direta, a recuperação sem duplicação e o fechamento após pagamento foram conferidos localmente com dados fictícios. Não foram lançados produtos ou pagamentos reais para testar produção; o tablet físico ainda não foi conferido.
 
 O environment Production permite `main` e mantém aprovação obrigatória. `release-images.yml` testa e publica imagens OCI; ele **não faz deploy** da VM ou do Firebase. A implantação promove os artefatos aprovados por digest. Não confundir sucesso de merge ou build com atualização de produção.
 
-A release anterior, de exclusão com histórico, está em [release-turmas-historico-2026-11-12.json](release-turmas-historico-2026-11-12.json).
+A release anterior, de simplificação do fechamento de comandas, está em [release-fluxo-rapido-comandas-2026-11-16.json](release-fluxo-rapido-comandas-2026-11-16.json).
 
 ## Ferramenta Google Cloud local
 
