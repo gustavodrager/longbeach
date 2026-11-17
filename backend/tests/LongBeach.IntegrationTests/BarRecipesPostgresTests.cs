@@ -14,6 +14,22 @@ namespace LongBeach.IntegrationTests;
 public sealed class BarRecipesPostgresTests
 {
     [PostgresFact]
+    public async Task Minus_on_direct_recipe_tap_restores_the_original_snapshot_once()
+    {
+        await using var f = await Fixture.Create(); await f.Save(3, "Sale", 1); var tab = await f.Open();
+        tab = await f.Tabs.Add(tab.Id, new(Guid.NewGuid(), [new(f.Prepared.Id, 1)], true, true, 25), f.Actor, null, default);
+        var item = Assert.Single(tab.Items); Assert.Equal(21, (await f.Balance(f.Ingredient)).Quantity);
+        await f.Save(7, "Sale", 1);
+        var reverse = new TabActionInput(Guid.NewGuid(), "Correção de lançamento pelo botão menos na venda direta.", true);
+        var corrected = await f.Tabs.ItemAction(tab.Id, item.Id, "reverse", reverse, f.Actor, true, default);
+        await f.Tabs.ItemAction(tab.Id, item.Id, "reverse", reverse, f.Actor, true, default);
+        Assert.Equal(0, corrected.Total); Assert.Equal("Reversed", Assert.Single(corrected.Items).State);
+        Assert.Equal(24, (await f.Balance(f.Ingredient)).Quantity); Assert.Equal(0, (await f.Balance(f.Ingredient)).Reserved);
+        Assert.Equal(10, (await f.Balance(f.Prepared)).Quantity);
+        Assert.Single(await f.Db.Set<StockMovement>().Where(x => x.OriginId == item.Id && x.Kind == "TabReturn").ToListAsync());
+    }
+
+    [PostgresFact]
     public async Task Direct_tap_delivers_recipe_in_regular_tab_and_debits_snapshot_once()
     {
         await using var f = await Fixture.Create(); var recipe = await f.Save(0.5m, "Purchase", 2); var tab = await f.Open();

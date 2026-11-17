@@ -71,4 +71,22 @@ public sealed partial class BarTabsPostgresTests
         Assert.Equal("Sem gelo", Assert.Single(tab.Items).Notes);
     }
 
+    [PostgresFact]
+    public async Task Minus_on_direct_tap_returns_one_stock_unit_once_and_preserves_other_consumption()
+    {
+        await using var f = await Fixture.Create();
+        var tab = await f.Tabs.Open(new(Guid.NewGuid(), f.Location.Id), f.Actor, default);
+        for (var n = 0; n < 2; n++) tab = await f.Tabs.Add(tab.Id, new(Guid.NewGuid(), [new(f.Product.Id, 1)], true, true, 10), f.Actor, null, default);
+        var item = tab.Items.Last(); var reverse = new TabActionInput(Guid.NewGuid(), "Correção de lançamento pelo botão menos na venda direta.", true);
+        await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.ItemAction(tab.Id, item.Id, "reverse", reverse, f.Actor, false, default));
+        tab = await f.Tabs.ItemAction(tab.Id, item.Id, "reverse", reverse, f.Actor, true, default);
+        await f.Tabs.ItemAction(tab.Id, item.Id, "reverse", reverse, f.Actor, true, default);
+        Assert.Equal(10, tab.Total); Assert.Equal("Open", tab.State);
+        Assert.Single(tab.Items, x => x.State == "Reversed"); Assert.Single(tab.Items, x => x.State == "Fulfilled");
+        Assert.Equal(19, (await f.Db.Set<StockBalance>().SingleAsync(x => x.ProductId == f.Product.Id)).Quantity);
+        Assert.Single(await f.Db.Set<StockMovement>().Where(x => x.OriginId == item.Id && x.Kind == "TabReturn").ToListAsync());
+        await Assert.ThrowsAsync<BarRuleException>(() => f.Tabs.ItemAction(tab.Id, item.Id, "reverse", reverse with { OperationId = Guid.NewGuid() }, f.Actor, true, default));
+        Assert.Equal(19, (await f.Db.Set<StockBalance>().SingleAsync(x => x.ProductId == f.Product.Id)).Quantity);
+    }
+
 }

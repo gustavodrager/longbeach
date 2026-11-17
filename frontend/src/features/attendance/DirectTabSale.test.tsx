@@ -20,7 +20,14 @@ function server(post?: (body: Record<string,unknown>, commit: ()=>Response) => P
  const fetch=vi.spyOn(globalThis,'fetch').mockImplementation(async(input,init)=>{
   const path=String(input)
   if(init?.method==='POST'){
-   const body=JSON.parse(String(init.body));const commit=()=>{if(!tab.history.some(row=>row.id===body.operationId)) tab={...tab,version:tab.version!+1,total:tab.total+5,due:tab.due+5,payable:tab.payable+5,items:[...tab.items,{id:body.operationId,tabId:tab.id,productId:'water',name:'Água',quantity:1,unitPrice:5,total:5,state:'Fulfilled',source:'Attendant',createdAtUtc:now,allowedActions:[]}],history:[...tab.history,{id:body.operationId,kind:'Fulfilled',amount:5,createdAtUtc:now}]};return json(tab)}
+   const body=JSON.parse(String(init.body));const commit=()=>{
+    if(path.endsWith('/reverse')) {
+     if(tab.history.some(row=>row.id===body.operationId)) return json(tab)
+     const itemId=path.split('/').at(-2);const item=tab.items.find(row=>row.id===itemId&&row.state==='Fulfilled')
+     if(!item||tab.state!=='Open'||tab.total-5<tab.paid+tab.pending)return json({detail:'Retirada não permitida.'},400)
+     tab={...tab,version:tab.version!+1,total:tab.total-5,due:tab.due-5,payable:tab.payable-5,items:tab.items.map(row=>row.id===itemId?{...row,state:'Reversed'}:row),history:[...tab.history,{id:body.operationId,kind:'Reversed',amount:-5,createdAtUtc:now}]};return json(tab)
+    }
+if(!tab.history.some(row=>row.id===body.operationId)) tab={...tab,version:tab.version!+1,total:tab.total+5,due:tab.due+5,payable:tab.payable+5,items:[...tab.items,{id:body.operationId,tabId:tab.id,productId:'water',name:'Água',quantity:1,unitPrice:5,total:5,state:'Fulfilled',source:'Attendant',createdAtUtc:now,allowedActions:[]}],history:[...tab.history,{id:body.operationId,kind:'Fulfilled',amount:5,createdAtUtc:now}]};return json(tab)}
    return post?post(body,commit):commit()
   }
   if(path.includes('/catalog'))return json([product])
@@ -91,7 +98,7 @@ it('two simultaneous views merge their durable taps and serialize sends without 
  await waitFor(()=>buttons.forEach(button=>expect(button).toBeEnabled()))
  act(()=>{fireEvent.click(buttons[0]);fireEvent.click(buttons[1]);fireEvent.click(buttons[0])})
  await waitFor(()=>expect(api.tab.total).toBe(15));await waitFor(()=>expect(JSON.parse(localStorage.getItem(key)!).entries).toHaveLength(0))
- expect(posts(api.fetch)).toHaveLength(3);expect(new Set(posts(api.fetch).map(row=>row.operationId)).size).toBe(3);expect(await screen.findByText('3 × Água')).toBeInTheDocument()
+ expect(posts(api.fetch)).toHaveLength(3);expect(new Set(posts(api.fetch).map(row=>row.operationId)).size).toBe(3);await waitFor(()=>expect(screen.getAllByText('3 × Água')).toHaveLength(2))
 })
 it('removing an unsent tail never implicitly retries an uncertain head',async()=>{
  let fail:(response:Response)=>void=()=>{};const api=server(()=>new Promise(resolve=>{fail=resolve}));mount();const b=await addButton()
@@ -146,4 +153,63 @@ it('switching owner while a request is in flight cannot send the old owner tail'
  await waitFor(()=>expect(JSON.parse(localStorage.getItem(key)!).entries).toHaveLength(2));await waitFor(()=>expect(posts(api.fetch)).toHaveLength(1))
  view.rerender(<QueryClientProvider client={client}><Harness owner="other-operator"/></QueryClientProvider>)
  await act(async()=>finish());expect(posts(api.fetch)).toHaveLength(1);expect(JSON.parse(localStorage.getItem(key)!).entries).toHaveLength(2)
+})
+
+const supervisor={...auth,user:{...auth.user!,roles:['Manager'] as ['Manager'],permissions:[...auth.user!.permissions,'bar:supervise']}}
+async function minusButton(){const b=await screen.findByRole('button',{name:'Retirar uma unidade de Água'});await waitFor(()=>expect(b).toBeEnabled());return b}
+async function settledQueue(){await waitFor(()=>expect(JSON.parse(localStorage.getItem(key)!).entries).toHaveLength(0))}
+it('minus removes exactly one confirmed unit directly, preserves history and disables at zero',async()=>{
+ const api=server();mount(supervisor);fireEvent.click(await addButton());await settledQueue();fireEvent.click(await addButton());await settledQueue()
+ fireEvent.click(await minusButton());await screen.findByText('Água retirado da comanda.');await waitFor(()=>expect(screen.getByLabelText('Quantidade de Água')).toHaveTextContent('Na comanda: 1'))
+ expect(api.tab.total).toBe(5);expect(api.tab.items.filter(row=>row.state==='Reversed')).toHaveLength(1)
+ expect(posts(api.fetch).at(-1)).toMatchObject({returnStock:true,reason:'Correção de lançamento pelo botão menos na venda direta.'})
+ fireEvent.click(await minusButton());await waitFor(()=>expect(api.tab.total).toBe(0));await waitFor(()=>expect(screen.getByRole('button',{name:'Retirar uma unidade de Água'})).toBeDisabled());expect(screen.queryByRole('link',{name:/Receber/})).not.toBeInTheDocument()
+ expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+})
+it('minus keeps supervision permission while plus remains available',async()=>{
+ const api=server();mount();fireEvent.click(await addButton());await settledQueue()
+ expect(screen.getByRole('button',{name:'Retirar uma unidade de Água'})).toBeDisabled();expect(await addButton()).toBeEnabled();expect(api.tab.total).toBe(5)
+})
+it('uncertain removal blocks new sales and payment and retries the exact item and UUID after reload',async()=>{
+ let removals=0;const api=server((body,commit)=>{const response=commit();return body.returnStock!==undefined&&++removals===1?json({detail:'Resposta da retirada perdida'},503):response})
+ let view=mount(supervisor);fireEvent.click(await addButton());await settledQueue();fireEvent.click(await minusButton());await screen.findByText('Resposta da retirada perdida')
+ expect(api.tab.total).toBe(0);expect(await addDisabled()).toBeDisabled();expect(screen.queryByRole('link',{name:/Receber/})).not.toBeInTheDocument()
+ view.unmount();view=mount(supervisor);const retry=await screen.findByRole('button',{name:'Retomar retirada'});await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry)
+ await waitFor(()=>expect(JSON.parse(localStorage.getItem(directSalesKey('operator','tab-direct','remove'))!).entries).toHaveLength(0));expect(api.tab.total).toBe(0)
+ const calls=posts(api.fetch).filter(body=>body.returnStock!==undefined);expect(calls).toHaveLength(2);expect(calls[0]).toEqual(calls[1]);expect(api.tab.items).toHaveLength(1)
+})
+it('rapid minus taps never remove another unit before the first response is confirmed',async()=>{
+ let finish:()=>void=()=>{};const api=server((body,commit)=>body.returnStock!==undefined?new Promise(resolve=>{finish=()=>resolve(commit())}):commit());mount(supervisor)
+ fireEvent.click(await addButton());await settledQueue();fireEvent.click(await addButton());await settledQueue();const minus=await minusButton()
+ act(()=>{fireEvent.click(minus);fireEvent.click(minus);fireEvent.click(minus)})
+ await waitFor(()=>expect(posts(api.fetch).filter(body=>body.returnStock!==undefined)).toHaveLength(1));expect(await addDisabled()).toBeDisabled()
+ await act(async()=>finish());await screen.findByText('Água retirado da comanda.');expect(api.tab.total).toBe(5)
+})
+it('paid or pending value cannot be removed and refusal can be dismissed without another reversal',async()=>{
+ const api=server();mount(supervisor);fireEvent.click(await addButton());await settledQueue();api.clientState({paid:5,due:0,payable:0})
+ fireEvent.click(await minusButton());await screen.findByText('Retirada não permitida.');expect(api.tab.total).toBe(5)
+ fireEvent.click(screen.getByRole('button',{name:'Descartar retirada recusada'}));await waitFor(()=>expect(JSON.parse(localStorage.getItem(directSalesKey('operator','tab-direct','remove'))!).entries).toHaveLength(0));expect(posts(api.fetch)).toHaveLength(2)
+})
+it('a removal record can never be interpreted as an addition by the add queue',async()=>{
+ localStorage.setItem(key,JSON.stringify({version:1,paused:false,entries:[{operationId:crypto.randomUUID(),productId:'water',name:'Água',price:5,attempted:true,itemId:'old-item',returnStock:false,reason:'Correção'}]}))
+ const api=server();mount(supervisor);await screen.findByRole('alert');expect(posts(api.fetch)).toHaveLength(0)
+})
+
+it('two views share one pending minus and refresh their quantities without duplicate stock returns',async()=>{
+ const api=server();mount(supervisor);fireEvent.click(await addButton());await settledQueue();fireEvent.click(await addButton());await settledQueue();mount(supervisor)
+ await waitFor(()=>expect(screen.getAllByRole('button',{name:'Retirar uma unidade de Água'})).toHaveLength(2))
+ const buttons=screen.getAllByRole('button',{name:'Retirar uma unidade de Água'});await waitFor(()=>buttons.forEach(button=>expect(button).toBeEnabled()))
+ act(()=>{fireEvent.click(buttons[0]);fireEvent.click(buttons[1])})
+ await waitFor(()=>expect(api.tab.total).toBe(5));await waitFor(()=>screen.getAllByLabelText('Quantidade de Água').forEach(output=>expect(output).toHaveTextContent('Na comanda: 1')))
+ expect(posts(api.fetch).filter(body=>body.returnStock!==undefined)).toHaveLength(1)
+})
+it('offline minus is disabled and resumes normal operation on reconnect',async()=>{
+ const api=server();mount(supervisor);fireEvent.click(await addButton());await settledQueue();await minusButton()
+ Object.defineProperty(navigator,'onLine',{configurable:true,value:false});act(()=>window.dispatchEvent(new Event('offline')))
+ expect(screen.getByRole('button',{name:'Retirar uma unidade de Água'})).toBeDisabled();expect(posts(api.fetch)).toHaveLength(1)
+ Object.defineProperty(navigator,'onLine',{configurable:true,value:true});act(()=>window.dispatchEvent(new Event('online')));fireEvent.click(await minusButton());await waitFor(()=>expect(api.tab.total).toBe(0))
+})
+it('malformed removal storage is preserved and blocks additions as well as payment',async()=>{
+ const removalKey=directSalesKey('operator','tab-direct','remove');localStorage.setItem(removalKey,'broken-removal');const api=server();mount(supervisor)
+ await screen.findByRole('alert');expect(await addDisabled()).toBeDisabled();expect(posts(api.fetch)).toHaveLength(0);expect(localStorage.getItem(removalKey)).toBe('broken-removal')
 })

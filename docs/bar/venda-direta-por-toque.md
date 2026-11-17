@@ -42,3 +42,17 @@ As imagens e o resumo dos testes ficam em `../evidencias/venda-direta-toque-2026
 ## Publicação e retorno
 
 A publicação desta release promoveu API compatível antes da interface, pelo mesmo commit aprovado. Novas publicações exigem autorização própria. Não retornar somente a API para uma versão anterior enquanto clientes com venda direta estiverem ativos. Em eventual retorno da interface, preservar e resolver as filas guardadas; não apagar armazenamento para ocultar registros incertos.
+
+## Botão menos — evolução local de 17/11/2026
+
+Desenvolvido na branch `codex/retirar-produto-toque-20261117`, sem nova publicação ou alteração da main. Cada cartão passa a apresentar botões reais − e +, com área de toque de 44×44 px. O cartão e o + continuam adicionando diretamente; o − desfaz uma unidade já registrada, sem confirmação extra. A quantidade e o saldo são atualizados pela resposta do servidor. Em zero, o − fica desabilitado.
+
+O proprietário definiu que a retirada devolve a unidade ao estoque. A interface usa o endpoint existente `reverse` com `returnStock=true`, um motivo fixado no registro da tentativa e UUID persistente. Preserva o histórico, a permissão de supervisão, a trava para valores pagos/Pix pendente e as transações existentes. Receitas devolvem o snapshot original de ingredientes, sem recalcular pela ficha atual. Não há mudança de API, schema ou permissões.
+
+Somente linhas unitárias podem ser retiradas nesse atalho, como todas as criadas pelo fluxo de toque. Lotes anteriores com quantidade maior que um continuam na correção supervisionada de detalhes; o atalho não retira o lote inteiro silenciosamente.
+
+A retirada tem armazenamento separado (`lb-direct-removals-v1`), sem mudar o formato dos lançamentos anteriores. Os dois fluxos compartilham o lock de envio. Enquanto a retirada está em gravação ou conferência, novos toques, Receber e trocar de comanda nessa tela ficam bloqueados. Uma resposta perdida preserva UUID, item, motivo e devolução; Retomar retirada repete exatamente a mesma operação. Cliques rápidos e duas abas compartilham uma única tentativa; nenhuma repetição escolhe automaticamente outro item. Tentativas recusadas e ainda não enviadas podem ser descartadas, sem apagar operações de resultado incerto. Dados inválidos do dispositivo são preservados e bloqueiam a operação.
+
+Os testes incluem devolução única do produto e da receita após mudança da ficha, permissão, zero, resposta perdida/reabertura, cliques repetidos, duas vistas, offline, estoque e valores pagos. A prévia usa dados fictícios em 390×844 e 800×1280; não foi feita operação de negócio em produção nem teste no tablet físico. Evidências em `../evidencias/retirada-produto-toque-2026-11-17/`. Em eventual retorno da interface, preservar também a retirada pendente no dispositivo até sua conferência.
+
+Validação final deste incremento: **1.483 testes da interface aprovados**, em 119 arquivos; **47 testes de comandas/receitas em PostgreSQL 18 aprovados**, sem skips; compilação API e TypeScript/Vite/PWA aprovada. O PostgreSQL descartável, a prévia e seus arquivos temporários foram removidos ao concluir.
