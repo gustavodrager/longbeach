@@ -26,16 +26,16 @@ A revisão #78 integrou a exclusão de turmas com histórico (`24ca888`). A revi
 
 ## Publicação concluída
 
-Fonte publicada: `6cb940bf82e6cab013ff9e67c8f3ce110499d773` (PR #82, venda direta por toque na comanda).
-Pipeline: https://github.com/gustavodrager/longbeach/actions/runs/44097590276
+Interface publicada: `bbf717d537cb1d399ee2f244f85afdbf23e3eb75` (PR #84, botão menos na venda direta com devolução de estoque).
+Pipeline: https://github.com/gustavodrager/longbeach/actions/runs/44132918995
 
-API e frontend publicados e verificados em 17/11/2026 (Brasília). O [recibo desta release](release-venda-direta-2026-11-17.json) registra digests, versão Firebase e verificações. A API está saudável; os 113 arquivos públicos correspondem ao artefato oficial. PostgreSQL, Caddy e WhatsApp conservaram seus containers. Foram aplicadas zero migrations; schema 36 preservado.
+Frontend publicado e verificado em 17/11/2026 (Brasília). A API permanece na fonte `6cb940bf82e6cab013ff9e67c8f3ce110499d773` e no mesmo digest, sem reinício: o diff completo confirma que o runtime não mudou, e os endpoints existentes atendem ao novo fluxo. O [recibo desta release](release-retirada-toque-2026-11-17.json) identifica ambas as fontes, digests, versão Firebase e verificações. Os 113 arquivos públicos correspondem ao artefato aprovado. API, PostgreSQL, Caddy e WhatsApp conservaram seus containers e configurações. Zero migrations; schema 36 preservado.
 
-Validação oficial: 736 testes unitários, 747 de integração e 1474 de frontend aprovados, além do gate do WhatsApp. A rota privada de turmas rejeita acesso anônimo com HTTP 401. A venda direta, a recuperação sem duplicação e o fechamento após pagamento foram conferidos localmente com dados fictícios. Não foram lançados produtos ou pagamentos reais para testar produção; o tablet físico ainda não foi conferido.
+Validação oficial: 736 testes unitários, 749 de integração e 1483 de frontend aprovados, além do gate do WhatsApp. A API está saudável e a rota privada rejeita acesso anônimo com HTTP 401. A retirada e sua retomada sem devolução duplicada foram conferidas localmente com dados fictícios. Não foram lançados produtos ou pagamentos reais para testar produção; o tablet físico ainda não foi conferido.
 
 O environment Production permite `main` e mantém aprovação obrigatória. `release-images.yml` testa e publica imagens OCI; ele **não faz deploy** da VM ou do Firebase. A implantação promove os artefatos aprovados por digest. Não confundir sucesso de merge ou build com atualização de produção.
 
-A release anterior, de simplificação do fechamento de comandas, está em [release-fluxo-rapido-comandas-2026-11-16.json](release-fluxo-rapido-comandas-2026-11-16.json).
+A release anterior, de venda direta por toque, está em [release-venda-direta-2026-11-17.json](release-venda-direta-2026-11-17.json).
 
 ## Ferramenta Google Cloud local
 
