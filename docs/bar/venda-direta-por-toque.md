@@ -59,7 +59,7 @@ Validação final deste incremento: **1.483 testes da interface aprovados**, em 
 
 A publicação do botão menos aprovou a bateria oficial completa de **749 testes de integração**, além dos 736 unitários e 1483 da interface. Promoveu somente os arquivos verificados da interface; API e demais containers permaneceram intactos, sem migrations ou escritas de teste em dados reais.
 
-## Retirada unitária por atendente — evolução de 17/11/2026
+## Retirada unitária por atendente — publicada em 17/11/2026
 
 A pedido do proprietário, o botão menos passa a funcionar também para atendentes com acesso operacional a Vender e Pedidos. Isso não concede a permissão geral de supervisão: o endpoint `remove-unit` exige `bar:sales:operate` e, em contas gerenciadas, menus e ações de venda e pedidos. `reverse`, descontos, cancelamentos e estornos gerais conservam a supervisão existente.
 
@@ -68,3 +68,5 @@ O servidor limita a nova ação a uma linha de exatamente uma unidade, com respo
 A fila persiste a ação de cada retirada nova. Uma tentativa anterior sem esse campo continua no endpoint reverse original, conservando o UUID e o payload para não reinterpretar uma resposta perdida. A repetição do remove-unit usa a mesma ação, item, UUID e devolução, sem escolher outro item ou devolver estoque duas vezes.
 
 A publicação precisa promover a API compatível antes da interface. Não retornar somente a API enquanto houver clientes ou retiradas pendentes usando remove-unit. Preservar a fila do dispositivo e os registros do servidor.
+
+A liberação para atendentes foi integrada pelo PR #86 e publicada após autorização explícita do proprietário, pelo mesmo commit de API e interface. O [recibo da publicação](../operacao/release-menos-atendentes-2026-11-17.json) registra 736 testes unitários, 753 de integração e 1484 da interface aprovados, zero migrations e preservação do banco, Caddy, WhatsApp e configurações.
