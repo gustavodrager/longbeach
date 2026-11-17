@@ -14,6 +14,21 @@ namespace LongBeach.IntegrationTests;
 public sealed class BarRecipesPostgresTests
 {
     [PostgresFact]
+    public async Task Direct_tap_delivers_recipe_in_regular_tab_and_debits_snapshot_once()
+    {
+        await using var f = await Fixture.Create(); var recipe = await f.Save(0.5m, "Purchase", 2); var tab = await f.Open();
+        var input = new AddTabItemsInput(Guid.NewGuid(), [new(f.Prepared.Id, 1)], true, true, 25);
+        tab = await f.Tabs.Add(tab.Id, input, f.Actor, null, default);
+        var item = Assert.Single(tab.Items); Assert.Equal("Fulfilled", item.State);
+        await f.Tabs.Add(tab.Id, input, f.Actor, null, default);
+        var snapshot = Assert.Single(await f.Db.Set<BarTabIngredientSnapshot>().Where(x => x.ItemId == item.Id).ToListAsync());
+        Assert.Equal(recipe.Id, snapshot.RecipeId); Assert.Equal(3, snapshot.Quantity);
+        Assert.Equal(21, (await f.Balance(f.Ingredient)).Quantity); Assert.Equal(0, (await f.Balance(f.Ingredient)).Reserved);
+        Assert.Equal(10, (await f.Balance(f.Prepared)).Quantity);
+        Assert.Single(await f.Db.Set<StockMovement>().Where(x => x.OriginId == item.Id && x.Kind == "TabDelivery").ToListAsync());
+    }
+
+    [PostgresFact]
     public async Task Accepted_recipe_version_freezes_purchase_conversion_and_delivers_ingredients_once()
     {
         await using var f=await Fixture.Create(); var recipe=await f.Save(0.5m,"Purchase",2); Assert.Equal(6,Assert.Single(recipe.Ingredients).StockQuantity);

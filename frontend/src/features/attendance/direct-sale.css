@@ -1,0 +1,12 @@
+.lb-direct-sale .lb-sale-workspace .lb-sale-summary { display:block; }
+.lb-direct-sale .lb-direct-pending { margin:16px 0; padding:12px; border:1px solid var(--ux-line); border-radius:12px; overflow-wrap:anywhere; }
+.lb-direct-sale .lb-direct-pending>div { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:8px 0; }
+.lb-direct-sale .lb-sale-summary .ux-notice { display:block; overflow-wrap:anywhere; }
+
+.lb-direct-sale .lb-direct-count { display:block; padding:8px 14px; font-size:14px; font-weight:600; }
+.lb-direct-sale .lb-direct-actions { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:16px 0; }
+.lb-direct-sale .lb-direct-actions>span { display:grid; gap:4px; min-width:0; overflow-wrap:anywhere; }
+.lb-direct-sale .lb-direct-actions small { font-size:13px; }
+@media (max-width:800px), (max-width:1100px) and (orientation:portrait) {
+  .lb-direct-sale .lb-direct-actions { position:fixed; left:16px; right:16px; bottom:calc(92px + env(safe-area-inset-bottom)); z-index:10; margin:0; padding:12px; background:var(--ux-surface,#fffdf7); border:1px solid var(--ux-line); border-radius:12px; box-shadow:0 4px 18px #1717171a; }
+}
