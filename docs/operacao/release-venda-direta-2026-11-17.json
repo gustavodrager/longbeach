@@ -1,0 +1,54 @@
+{
+  "recorded_at_utc": "2026-11-17T14:32:37.811878+00:00",
+  "source_commit": "6cb940bf82e6cab013ff9e67c8f3ce110499d773",
+  "pr": 82,
+  "workflow_run": 44097590276,
+  "workflow_url": "https://github.com/gustavodrager/longbeach/actions/runs/44097590276",
+  "workflow_conclusion": "success",
+  "environment_approval": "Production approved through the authorized owner account for this exact main commit; existing protections preserved",
+  "tests": {
+    "backend_unit_passed": 736,
+    "backend_integration_passed": 747,
+    "frontend_passed": 1474,
+    "whatsapp_gate": "success"
+  },
+  "google_project": "parsero-prod-20261022",
+  "vm": "longbeach-economy",
+  "zone": "southamerica-east1-a",
+  "api_image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:893496959fbff2f36530791fc98ae2947e5f1c5ba18d7e92210ad37549308481",
+  "web_image_digest": "sha256:b187a6545581c41ffdb967b2fa9112510c68c6b25c0279413f1ae5351d64d101",
+  "firebase": {
+    "file_map_sha256": "fd8edc7acc41cf98132cfb3670cff43a22c03605c1bef22b4dbb16ed11de31e5",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1794925891684000",
+    "run": 44097590276,
+    "source": "6cb940bf82e6cab013ff9e67c8f3ce110499d773",
+    "version": "sites/parsero-prod-20261022/versions/0dcf30058bdd0442"
+  },
+  "schema_migration_count": 36,
+  "migrations_applied": 0,
+  "preserved_containers": [
+    "postgres",
+    "caddy",
+    "whatsapp-bridge"
+  ],
+  "protected_config_preserved": true,
+  "verification": {
+    "source": "6cb940bf82e6cab013ff9e67c8f3ce110499d773",
+    "public_files_verified": 113,
+    "api_readiness": 200,
+    "anonymous_classes": 401,
+    "business_writes": 0,
+    "authenticated_ui_verified": false
+  },
+  "local_visual_check": {
+    "viewports": [
+      "800x1280",
+      "390x844"
+    ],
+    "synthetic_data": true,
+    "actual_tablet_checked": false
+  },
+  "pagbank_checkout_in_release": false,
+  "checkout_preserved_branch": "codex/pagbank-checkout-preservado-20261116",
+  "evidence_relative_to_checkout": "../evidencias/publicacao-venda-direta-2026-11-17/6cb940b"
+}
