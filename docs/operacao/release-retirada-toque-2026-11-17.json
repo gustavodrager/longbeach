@@ -1,0 +1,58 @@
+{
+  "recorded_at_utc": "2026-11-17T17:38:39.547828+00:00",
+  "source_commit": "bbf717d537cb1d399ee2f244f85afdbf23e3eb75",
+  "pr": 84,
+  "workflow_run": 44132918995,
+  "workflow_url": "https://github.com/gustavodrager/longbeach/actions/runs/44132918995",
+  "workflow_conclusion": "success",
+  "environment_approval": "Production approved through the authorized owner account for this exact main commit; existing protections preserved",
+  "web_only": true,
+  "tests": {
+    "backend_unit_passed": 736,
+    "backend_integration_passed": 749,
+    "frontend_passed": 1483,
+    "whatsapp_gate": "success"
+  },
+  "google_project": "parsero-prod-20261022",
+  "vm": "longbeach-economy",
+  "zone": "southamerica-east1-a",
+  "api_source_commit": "6cb940bf82e6cab013ff9e67c8f3ce110499d773",
+  "api_image": "southamerica-east1-docker.pkg.dev/parsero-prod-20261022/longbeach/api@sha256:893496959fbff2f36530791fc98ae2947e5f1c5ba18d7e92210ad37549308481",
+  "api_redeployed": false,
+  "api_runtime_unchanged_verified": true,
+  "web_image_digest": "sha256:3d567c165d93957879d8bb20bd91a90c117f279cd0f9b44da3a6f9f2c40485fa",
+  "firebase": {
+    "file_map_sha256": "10b57f3c5e8eee66e94e74c807ba3af9113252857b76e4b04987c8582762df8b",
+    "release": "sites/parsero-prod-20261022/channels/live/releases/1794937077499000",
+    "run": 44132918995,
+    "source": "bbf717d537cb1d399ee2f244f85afdbf23e3eb75",
+    "version": "sites/parsero-prod-20261022/versions/00faff8b51953c88"
+  },
+  "schema_migration_count": 36,
+  "migrations_applied": 0,
+  "preserved_containers": [
+    "api",
+    "postgres",
+    "caddy",
+    "whatsapp-bridge"
+  ],
+  "protected_config_preserved": true,
+  "verification": {
+    "source": "bbf717d537cb1d399ee2f244f85afdbf23e3eb75",
+    "public_files_verified": 113,
+    "api_readiness": 200,
+    "anonymous_classes": 401,
+    "business_writes": 0,
+    "authenticated_ui_verified": false
+  },
+  "local_visual_check": {
+    "viewports": [
+      "390x844",
+      "800x1280"
+    ],
+    "synthetic_data": true,
+    "actual_tablet_checked": false
+  },
+  "pagbank_checkout_in_release": false,
+  "evidence_relative_to_checkout": "../evidencias/publicacao-retirada-toque-2026-11-17/bbf717d"
+}

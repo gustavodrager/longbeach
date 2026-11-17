@@ -43,9 +43,9 @@ As imagens e o resumo dos testes ficam em `../evidencias/venda-direta-toque-2026
 
 A publicação desta release promoveu API compatível antes da interface, pelo mesmo commit aprovado. Novas publicações exigem autorização própria. Não retornar somente a API para uma versão anterior enquanto clientes com venda direta estiverem ativos. Em eventual retorno da interface, preservar e resolver as filas guardadas; não apagar armazenamento para ocultar registros incertos.
 
-## Botão menos — evolução local de 17/11/2026
+## Botão menos — publicado em 17/11/2026
 
-Desenvolvido na branch `codex/retirar-produto-toque-20261117`, sem nova publicação ou alteração da main. Cada cartão passa a apresentar botões reais − e +, com área de toque de 44×44 px. O cartão e o + continuam adicionando diretamente; o − desfaz uma unidade já registrada, sem confirmação extra. A quantidade e o saldo são atualizados pela resposta do servidor. Em zero, o − fica desabilitado.
+Desenvolvido na branch `codex/retirar-produto-toque-20261117`, integrado à main pelo PR #84 e publicado após autorização do proprietário e aprovação de Production. O [recibo desta publicação](../operacao/release-retirada-toque-2026-11-17.json) identifica a interface nova e a API compatível preservada. Cada cartão passa a apresentar botões reais − e +, com área de toque de 44×44 px. O cartão e o + continuam adicionando diretamente; o − desfaz uma unidade já registrada, sem confirmação extra. A quantidade e o saldo são atualizados pela resposta do servidor. Em zero, o − fica desabilitado.
 
 O proprietário definiu que a retirada devolve a unidade ao estoque. A interface usa o endpoint existente `reverse` com `returnStock=true`, um motivo fixado no registro da tentativa e UUID persistente. Preserva o histórico, a permissão de supervisão, a trava para valores pagos/Pix pendente e as transações existentes. Receitas devolvem o snapshot original de ingredientes, sem recalcular pela ficha atual. Não há mudança de API, schema ou permissões.
 
@@ -56,3 +56,5 @@ A retirada tem armazenamento separado (`lb-direct-removals-v1`), sem mudar o for
 Os testes incluem devolução única do produto e da receita após mudança da ficha, permissão, zero, resposta perdida/reabertura, cliques repetidos, duas vistas, offline, estoque e valores pagos. A prévia usa dados fictícios em 390×844 e 800×1280; não foi feita operação de negócio em produção nem teste no tablet físico. Evidências em `../evidencias/retirada-produto-toque-2026-11-17/`. Em eventual retorno da interface, preservar também a retirada pendente no dispositivo até sua conferência.
 
 Validação final deste incremento: **1.483 testes da interface aprovados**, em 119 arquivos; **47 testes de comandas/receitas em PostgreSQL 18 aprovados**, sem skips; compilação API e TypeScript/Vite/PWA aprovada. O PostgreSQL descartável, a prévia e seus arquivos temporários foram removidos ao concluir.
+
+A publicação do botão menos aprovou a bateria oficial completa de **749 testes de integração**, além dos 736 unitários e 1483 da interface. Promoveu somente os arquivos verificados da interface; API e demais containers permaneceram intactos, sem migrations ou escritas de teste em dados reais.
