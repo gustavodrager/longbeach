@@ -61,3 +61,7 @@
 .lb-tab-detail .lb-tab-inline-settlement { display:contents; }
 .lb-tab-detail .lb-tab-inline-settlement :is(.lb-inline-cancel,.lb-close-confirmation) { flex:1 1 100%; min-width:0; }
 @media (max-width:800px) { .lb-tab-detail .lb-tab-primary-actions:has(.lb-inline-cancel,.lb-close-confirmation) { position:static; padding:0; background:transparent; border:0; } }
+
+.lb-tab-detail .lb-tab-pending { border:2px solid var(--ux-gold,#e6b43c); scroll-margin-top:20px; }
+
+@media (max-width:800px) { .lb-tab-detail.has-pending .lb-tab-primary-actions { position:static; padding:0; background:transparent; border:0; } }

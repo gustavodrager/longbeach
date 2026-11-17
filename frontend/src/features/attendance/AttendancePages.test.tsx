@@ -631,8 +631,8 @@ it('consulta encerradas preservando situação e busca na paginação e no retor
 it('filtra todas e com pedidos no servidor sem descartar a busca',async()=>{
  const requests=server({tab:makeTab(),pixEnabled:false});mount('/atendimento/comandas?busca=104');
  fireEvent.click(screen.getByRole('button',{name:'Todas'}));await waitFor(()=>expect(requests.mock.calls.some(([url])=>String(url).includes('state=&search=104&page=1'))).toBe(true));
- fireEvent.click(screen.getByRole('button',{name:'Com pedidos'}));await waitFor(()=>expect(requests.mock.calls.some(([url])=>String(url).includes('state=Orders&search=104&page=1'))).toBe(true));
- expect(screen.getByRole('button',{name:'Com pedidos'})).toHaveAttribute('aria-pressed','true');
+ fireEvent.click(screen.getByRole('button',{name:'Com pendências'}));await waitFor(()=>expect(requests.mock.calls.some(([url])=>String(url).includes('state=Orders&search=104&page=1'))).toBe(true));
+ expect(screen.getByRole('button',{name:'Com pendências'})).toHaveAttribute('aria-pressed','true');
 })
 
 it('fila mostra espera desde o aceite e retorna à mesma página',async()=>{
@@ -1157,4 +1157,25 @@ it('dinheiro exato não exige digitar o valor e encerra sem abrir comprovante',a
  const writes=calls.mock.calls.filter(([,init])=>init?.method==='POST')
  expect(writes).toHaveLength(1);expect(JSON.parse(String(writes[0][1]?.body))).toMatchObject({method:'Cash',amount:12.5,tendered:12.5})
  expect(screen.getByTestId('route')).toHaveTextContent('/atendimento/comandas')
+})
+
+it('resolve aceite e entrega da solicitação do cliente na própria comanda e reconhece o fechamento pago',async()=>{
+ const tab=makeTab();tab.paid=5;tab.total=5;tab.due=0;tab.payable=0;tab.items=[{id:'pending-a',tabId:tab.id,productId:'water',name:'Água',quantity:1,unitPrice:5,total:5,state:'Requested',source:'Selfservice',createdAtUtc,allowedActions:['accept','reject']}]
+ const state:Server={tab,pixEnabled:false,post:(path)=>{const accepted=path.endsWith('/accept');state.tab={...state.tab,version:(state.tab.version??0)+1,state:accepted?'Open':'Closed',items:state.tab.items.map(item=>({...item,state:accepted?'Accepted':'Fulfilled',allowedActions:accepted?['fulfill']:[]}))};return json(state.tab)}}
+ const requests=server(state);mount('/atendimento/comandas/tab-a')
+ const pending=within(await screen.findByRole('region',{name:'Pendências da comanda'}));expect(pending.getByText('1 × Água')).toBeInTheDocument();expect(screen.getAllByText('1 × Água')).toHaveLength(1)
+ fireEvent.click(pending.getByRole('button',{name:'Aceitar'}));const deliver=await screen.findByRole('button',{name:'Entregar'});await waitFor(()=>expect(deliver).toBeEnabled());fireEvent.click(deliver)
+ await waitFor(()=>expect(screen.queryByRole('region',{name:'Pendências da comanda'})).not.toBeInTheDocument());expect(screen.getByText('Entregue')).toBeInTheDocument();expect(screen.getByText('Encerrada',{exact:true})).toBeInTheDocument()
+ expect(requests.mock.calls.filter(([,init])=>init?.method==='POST').map(([url])=>String(url))).toEqual(['/api/v1/bar/tabs/tab-a/items/pending-a/accept','/api/v1/bar/tabs/tab-a/items/pending-a/fulfill'])
+ expect(screen.getByTestId('route')).toHaveTextContent('/atendimento/comandas/tab-a')
+})
+it('a lista encaminha pendências para a comanda e preserva os filtros de retorno',async()=>{
+ const tab=makeTab();tab.items=[{id:'pending-a',tabId:tab.id,productId:'water',name:'Água',quantity:1,unitPrice:5,total:5,state:'Accepted',source:'Attendant',createdAtUtc,allowedActions:['fulfill']}];server({tab,pixEnabled:false});mount('/atendimento/comandas?situacao=Orders&busca=104&pagina=2')
+ fireEvent.click(await screen.findByRole('link',{name:/Pendências da Comanda 104/}));await screen.findByRole('region',{name:'Pendências da comanda'})
+ const back=new URL(screen.getByRole('link',{name:'Voltar'}).getAttribute('href')!,'https://example.invalid');expect(back.searchParams.get('situacao')).toBe('Orders');expect(back.searchParams.get('busca')).toBe('104');expect(back.searchParams.get('pagina')).toBe('2')
+})
+it('a visualização de pendências não concede ações a quem não tem acesso operacional',async()=>{
+ const tab=makeTab();tab.items=[{id:'pending-a',tabId:tab.id,productId:'water',name:'Água',quantity:1,unitPrice:5,total:5,state:'Requested',source:'Selfservice',createdAtUtc,allowedActions:['accept','reject']}]
+ const requests=server({tab,pixEnabled:false});mount('/atendimento/comandas/tab-a',{...actor,permissions:['bar:sales:read']});await screen.findByRole('region',{name:'Pendências da comanda'})
+ expect(screen.queryByRole('button',{name:'Aceitar'})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'Excluir item'})).not.toBeInTheDocument();expect(requests.mock.calls.every(([,init])=>init?.method!=='POST')).toBe(true)
 })

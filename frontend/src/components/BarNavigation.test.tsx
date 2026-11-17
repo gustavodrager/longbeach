@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { staffPathAllowed } from '../features/auth/staffScope'
 import { AppShell } from './AppShell'
 import { AuthContext, type AuthContextValue } from '../features/auth/authContext'
 import type { AuthUser } from '../features/auth/types'
@@ -14,9 +15,9 @@ function mount(user=owner,path='/bar/produtos'){
  const router=createMemoryRouter([{element:<AppShell/>,children:[{path:'*',element:<h1>Conteúdo</h1>}]}],{initialEntries:[path]})
  render(<QueryClientProvider client={new QueryClient()}><AuthContext.Provider value={{user,signOut:async()=>{}} as AuthContextValue}><RouterProvider router={router}/></AuthContext.Provider></QueryClientProvider>);return router
 }
-it('usa o mesmo menu em gestão e atendimento, com cinco acessos móveis e secundários em Mais',async()=>{
+it('usa o mesmo menu em gestão e atendimento, com acessos móveis simplificados e secundários em Mais',async()=>{
  const router=mount();const nav=within(screen.getByRole('navigation',{name:'Atendimento para celular'}))
- expect(nav.getAllByRole('link').map(link=>link.textContent)).toEqual(['Vender','Comandas','Pedidos2','Caixa'])
+ expect(nav.getAllByRole('link').map(link=>link.textContent)).toEqual(['Vender','Comandas2','Caixa'])
  await userEvent.click(nav.getByRole('button',{name:'Mais'}))
  const dialog=within(screen.getByRole('dialog',{name:'Mais opções do Bar'}))
  expect(dialog.getByRole('link',{name:'Produtos e estoque'})).toHaveAttribute('href','/bar/produtos')
@@ -96,4 +97,22 @@ it('oferece a área de trabalho e a conta no menu móvel do atendente sem permis
  expect(router.state.location.pathname).toBe('/minha-area')
  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
  router.dispose()
+})
+
+it('mantém Pedidos fora dos menus e destaca as pendências em Comandas',async()=>{
+ const router=mount(owner,'/atendimento/comandas')
+ expect(screen.queryByRole('link',{name:/^Pedidos/})).not.toBeInTheDocument()
+ const mobile=within(screen.getByRole('navigation',{name:'Atendimento para celular'}))
+ expect(mobile.getByLabelText('2 comandas com pendências')).toBeInTheDocument()
+ expect(screen.getByRole('navigation',{name:'Atendimento para celular'})).toHaveStyle({gridTemplateColumns:'repeat(4, minmax(0, 1fr))'})
+ await userEvent.click(mobile.getByRole('button',{name:'Mais'}));expect(within(screen.getByRole('dialog')).queryByRole('link',{name:/Pedidos/})).not.toBeInTheDocument();router.dispose()
+})
+it('mantém a rota antiga com Comandas ativa para recuperar pedidos anteriores',()=>{
+ const router=mount(owner,'/atendimento/pedidos');const nav=within(screen.getByRole('navigation',{name:'Atendimento'}))
+ expect(nav.getByRole('link',{name:/Comandas/})).toHaveAttribute('aria-current','page');expect(nav.queryByRole('link',{name:/Pedidos/})).not.toBeInTheDocument();router.dispose()
+})
+
+it('ocultar Pedidos preserva o escopo do atendente e o acesso de recuperação',()=>{
+ const user:AuthUser={...owner,roles:['Operations'],permissions:['bar:sales:read','bar:sales:operate','bar:cash:operate'],staffAccess:{typeId:'bar',name:'Bar',role:'Operations',menus:['bar.sell','bar.tabs','bar.orders','bar.receive','bar.cash'],actions:['bar.sell','bar.tabs','bar.orders','bar.receive','bar.cash'],homePath:'/atendimento/vender'}}
+ const router=mount(user,'/atendimento/vender');expect(screen.queryByRole('link',{name:/^Pedidos/})).not.toBeInTheDocument();expect(staffPathAllowed(user,'/atendimento/pedidos')).toBe(true);expect(user.staffAccess!.actions).toContain('bar.orders');expect(within(screen.getByRole('navigation',{name:'Atendimento para celular'})).getByRole('link',{name:'Vender'})).toBeInTheDocument();router.dispose()
 })
