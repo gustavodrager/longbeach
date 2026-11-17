@@ -40,6 +40,11 @@ public static class BarTabsEndpoints
             if (Managed(h) && i.Deliver && !StaffAction(h, "bar.orders")) return Results.Forbid();
             return Results.Ok(await s.Add(id, i, Actor(h), null, ct));
         }).RequireAuthorization(SystemPermissions.BarSalesOperate);
+        tabs.MapPost("/{id:guid}/items/{itemId:guid}/remove-unit", async (Guid id, Guid itemId, TabActionInput i, HttpContext h, IBarTabs s, CancellationToken ct) =>
+        {
+            if (Managed(h) && (!StaffAction(h, "bar.sell") || !StaffAction(h, "bar.orders"))) return Results.Forbid();
+            return Results.Ok(await s.ItemAction(id, itemId, "remove-unit", i, Actor(h), Has(h, SystemPermissions.BarSupervise), ct));
+        }).RequireAuthorization(SystemPermissions.BarSalesOperate);
         foreach (var action in new[] { "accept", "reject", "fulfill", "reverse" })
         {
             var current = action;

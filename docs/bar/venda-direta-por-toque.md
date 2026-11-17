@@ -58,3 +58,13 @@ Os testes incluem devolução única do produto e da receita após mudança da f
 Validação final deste incremento: **1.483 testes da interface aprovados**, em 119 arquivos; **47 testes de comandas/receitas em PostgreSQL 18 aprovados**, sem skips; compilação API e TypeScript/Vite/PWA aprovada. O PostgreSQL descartável, a prévia e seus arquivos temporários foram removidos ao concluir.
 
 A publicação do botão menos aprovou a bateria oficial completa de **749 testes de integração**, além dos 736 unitários e 1483 da interface. Promoveu somente os arquivos verificados da interface; API e demais containers permaneceram intactos, sem migrations ou escritas de teste em dados reais.
+
+## Retirada unitária por atendente — evolução de 17/11/2026
+
+A pedido do proprietário, o botão menos passa a funcionar também para atendentes com acesso operacional a Vender e Pedidos. Isso não concede a permissão geral de supervisão: o endpoint `remove-unit` exige `bar:sales:operate` e, em contas gerenciadas, menus e ações de venda e pedidos. `reverse`, descontos, cancelamentos e estornos gerais conservam a supervisão existente.
+
+O servidor limita a nova ação a uma linha de exatamente uma unidade, com responsável, motivo registrado e devolução ao estoque obrigatórios. Reutiliza a transação, o lock da comanda, as travas para valores recebidos/Pix pendente, o histórico Reversed e a devolução do snapshot original dos ingredientes. Não há migrations, alteração de cadastros ou atribuição global de permissões.
+
+A fila persiste a ação de cada retirada nova. Uma tentativa anterior sem esse campo continua no endpoint reverse original, conservando o UUID e o payload para não reinterpretar uma resposta perdida. A repetição do remove-unit usa a mesma ação, item, UUID e devolução, sem escolher outro item ou devolver estoque duas vezes.
+
+A publicação precisa promover a API compatível antes da interface. Não retornar somente a API enquanto houver clientes ou retiradas pendentes usando remove-unit. Preservar a fila do dispositivo e os registros do servidor.

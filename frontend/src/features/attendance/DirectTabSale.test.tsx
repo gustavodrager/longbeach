@@ -21,7 +21,7 @@ function server(post?: (body: Record<string,unknown>, commit: ()=>Response) => P
   const path=String(input)
   if(init?.method==='POST'){
    const body=JSON.parse(String(init.body));const commit=()=>{
-    if(path.endsWith('/reverse')) {
+    if(path.endsWith('/reverse') || path.endsWith('/remove-unit')) {
      if(tab.history.some(row=>row.id===body.operationId)) return json(tab)
      const itemId=path.split('/').at(-2);const item=tab.items.find(row=>row.id===itemId&&row.state==='Fulfilled')
      if(!item||tab.state!=='Open'||tab.total-5<tab.paid+tab.pending)return json({detail:'Retirada não permitida.'},400)
@@ -166,9 +166,9 @@ it('minus removes exactly one confirmed unit directly, preserves history and dis
  fireEvent.click(await minusButton());await waitFor(()=>expect(api.tab.total).toBe(0));await waitFor(()=>expect(screen.getByRole('button',{name:'Retirar uma unidade de Água'})).toBeDisabled());expect(screen.queryByRole('link',{name:/Receber/})).not.toBeInTheDocument()
  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 })
-it('minus keeps supervision permission while plus remains available',async()=>{
+it('an attendant can remove one unit without supervision and gets stock return',async()=>{
  const api=server();mount();fireEvent.click(await addButton());await settledQueue()
- expect(screen.getByRole('button',{name:'Retirar uma unidade de Água'})).toBeDisabled();expect(await addButton()).toBeEnabled();expect(api.tab.total).toBe(5)
+ fireEvent.click(await minusButton());await waitFor(()=>expect(api.tab.total).toBe(0));expect(posts(api.fetch).at(-1)).toMatchObject({returnStock:true});expect(api.fetch.mock.calls.some(([path])=>String(path).endsWith('/remove-unit'))).toBe(true)
 })
 it('uncertain removal blocks new sales and payment and retries the exact item and UUID after reload',async()=>{
  let removals=0;const api=server((body,commit)=>{const response=commit();return body.returnStock!==undefined&&++removals===1?json({detail:'Resposta da retirada perdida'},503):response})
@@ -212,4 +212,11 @@ it('offline minus is disabled and resumes normal operation on reconnect',async()
 it('malformed removal storage is preserved and blocks additions as well as payment',async()=>{
  const removalKey=directSalesKey('operator','tab-direct','remove');localStorage.setItem(removalKey,'broken-removal');const api=server();mount(supervisor)
  await screen.findByRole('alert');expect(await addDisabled()).toBeDisabled();expect(posts(api.fetch)).toHaveLength(0);expect(localStorage.getItem(removalKey)).toBe('broken-removal')
+})
+
+it('a legacy pending removal keeps its original reverse endpoint and payload',async()=>{
+ const api=server();mount(supervisor);fireEvent.click(await addButton());await settledQueue();cleanup()
+ const saved={operationId:crypto.randomUUID(),productId:'water',name:'Água',price:5,attempted:true,itemId:api.tab.items[0].id,returnStock:true,reason:'Motivo original'}
+ localStorage.setItem(directSalesKey('operator','tab-direct','remove'),JSON.stringify({version:1,paused:false,entries:[saved]}));mount(supervisor)
+ await waitFor(()=>expect(api.tab.total).toBe(0));const calls=api.fetch.mock.calls.filter(([path])=>String(path).endsWith('/reverse'));expect(calls).toHaveLength(1);expect(JSON.parse(String(calls[0][1]?.body))).toEqual({operationId:saved.operationId,returnStock:true,reason:'Motivo original'})
 })

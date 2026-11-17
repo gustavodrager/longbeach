@@ -128,6 +128,7 @@ public static class StaffApiScope
             if (bar.Contains("/adjustments", StringComparison.Ordinal) || bar.EndsWith("/reverse", StringComparison.Ordinal) || bar.EndsWith("/cancel", StringComparison.Ordinal)) return Menu("bar.tabs") && Action("bar.supervise");
             if (bar.Contains("/payments", StringComparison.Ordinal)) return Bar("bar.receive");
             if (bar.EndsWith("/close", StringComparison.Ordinal)) return Bar("bar.tabs", "bar.receive");
+            if (bar.EndsWith("/remove-unit", StringComparison.Ordinal)) return Bar("bar.sell") && Bar("bar.orders");
             if (bar.Contains("/items/", StringComparison.Ordinal)) return Bar("bar.orders");
             if (bar == "tabs") return Bar("bar.sell", "bar.tabs");
             if (bar.EndsWith("/items", StringComparison.Ordinal)) return Bar("bar.sell");

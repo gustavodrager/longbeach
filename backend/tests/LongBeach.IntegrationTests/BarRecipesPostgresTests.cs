@@ -21,8 +21,8 @@ public sealed class BarRecipesPostgresTests
         var item = Assert.Single(tab.Items); Assert.Equal(21, (await f.Balance(f.Ingredient)).Quantity);
         await f.Save(7, "Sale", 1);
         var reverse = new TabActionInput(Guid.NewGuid(), "Correção de lançamento pelo botão menos na venda direta.", true);
-        var corrected = await f.Tabs.ItemAction(tab.Id, item.Id, "reverse", reverse, f.Actor, true, default);
-        await f.Tabs.ItemAction(tab.Id, item.Id, "reverse", reverse, f.Actor, true, default);
+        var corrected = await f.Tabs.ItemAction(tab.Id, item.Id, "remove-unit", reverse, f.Actor, false, default);
+        await f.Tabs.ItemAction(tab.Id, item.Id, "remove-unit", reverse, f.Actor, false, default);
         Assert.Equal(0, corrected.Total); Assert.Equal("Reversed", Assert.Single(corrected.Items).State);
         Assert.Equal(24, (await f.Balance(f.Ingredient)).Quantity); Assert.Equal(0, (await f.Balance(f.Ingredient)).Reserved);
         Assert.Equal(10, (await f.Balance(f.Prepared)).Quantity);
