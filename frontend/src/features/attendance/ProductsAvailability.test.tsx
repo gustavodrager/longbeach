@@ -1,3 +1,4 @@
+import { testWebLocks } from '../../test/webLocks'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -98,12 +99,14 @@ it.each([
   ['comanda aberta', '/atendimento/vender?comanda=tab-test'],
 ])('consulta o catálogo de venda e mostra produtos disponíveis na %s', async (_name, path) => {
   localStorage.clear(); sessionStorage.clear(); setAccessToken(null); setCsrfToken(null)
+  let current=tab
   const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = new URL(String(input), 'http://localhost')
-    if (init?.method && init.method !== 'GET') throw new Error('O teste não deve registrar vendas.')
+    if (init?.method === 'POST' && path.includes('comanda=')) { current={...tab,total:5,due:5,payable:5,items:[{id:'direct-item',tabId:tab.id,productId:unrestricted.id,name:unrestricted.shortName,quantity:1,unitPrice:5,total:5,state:'Fulfilled',source:'Attendant',createdAtUtc:tab.createdAtUtc,allowedActions:[]}]};return json(current) }
+    if (init?.method && init.method !== 'GET') throw new Error('Operação inesperada.')
     if (url.pathname.endsWith('/tabs/locations')) return json([{ id: 'bar-test', name: 'Bar' }])
     if (url.pathname.endsWith('/tabs/catalog')) return json([portion, unrestricted])
-    if (url.pathname.endsWith('/tabs/tab-test')) return json(tab)
+    if (url.pathname.endsWith('/tabs/tab-test')) return json(current)
     if (url.pathname.endsWith('/customers/lookup')) return json([])
     throw new Error(`Consulta inesperada: ${url.pathname}`)
   })
@@ -119,12 +122,14 @@ it.each([
     fireEvent.change(screen.getByRole('searchbox', { name: 'Procurar produto' }), { target: { value: 'agua' } })
     const add = screen.getByRole('button', { name: /Adicionar Água livre por/ })
     expect(add).toBeEnabled()
-    fireEvent.click(add)
+    await waitFor(()=>expect(add).toBeEnabled());fireEvent.click(add)
     await waitFor(() => expect(screen.getByLabelText('Quantidade de Água livre')).toHaveTextContent('1'))
     expect(fetch.mock.calls.some(([input]) => String(input).includes('/tabs/catalog?locationId=bar-test'))).toBe(true)
     expect(fetch.mock.calls.some(([input]) => String(input).includes('/bar/products'))).toBe(false)
-    expect(fetch.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
+    expect(fetch.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(path.includes('comanda='))
   } finally {
     cleanup(); client.clear(); localStorage.clear(); sessionStorage.clear(); setAccessToken(null); setCsrfToken(null)
   }
 })
+
+beforeEach(()=>{Object.defineProperty(navigator,'locks',{configurable:true,value:testWebLocks()})})

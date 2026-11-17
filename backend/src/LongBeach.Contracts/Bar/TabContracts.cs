@@ -7,7 +7,7 @@ public sealed record TabIdentity(Guid Id, string Name, bool Incomplete);
 public sealed record TabCustomer(Guid Id, string Name, string EmailHint);
 public sealed record TabResponsible(Guid Id, string Name);
 public sealed record TabItemInput(Guid ProductId, decimal Quantity, string? Notes = null);
-public sealed record AddTabItemsInput(Guid OperationId, IReadOnlyList<TabItemInput> Items, bool Deliver = false);
+public sealed record AddTabItemsInput(Guid OperationId, IReadOnlyList<TabItemInput> Items, bool Deliver = false, bool DirectSale = false, decimal? ExpectedUnitPrice = null);
 public sealed record TabChargeInput(Guid OperationId, decimal Amount, string? Description = null);
 public sealed record TabCancelInput(Guid OperationId, int ExpectedVersion, string Reason);
 public sealed record TabActionInput(Guid OperationId, string? Reason = null, bool ReturnStock = false);

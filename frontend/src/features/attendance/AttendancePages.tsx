@@ -1,3 +1,4 @@
+import { DirectTabSale } from './DirectTabSale'
 import { PaymentResultNotice } from './PaymentResultNotice'
 import { ITEM_REMOVAL_REASON, ItemRemovalConfirmation, readPendingItemRemoval, type ItemRemovalAction, type PendingItemRemoval } from './ItemRemovalConfirmation'
 import { tabTitle, personName } from './tabTitle'
@@ -19,7 +20,7 @@ import { SaleDestination } from './SaleDestination'
 import { TabSettlement } from './TabSettlement'
 import { AccessQr } from './AccessQr'
 
-import { BarFrame, LoadState, useCart, useConfirmationGate, useBarConnection } from './Core'
+import { BarFrame, LoadState, useCart, useConfirmationGate, useBarConnection, readCart } from './Core'
 import { barLocation } from './serviceLocation'
 import './sell-entry.css'
 import './service-clean.css'
@@ -27,7 +28,9 @@ export { BarFrame, LoadState, useCart } from './Core'
 
 export function SellPage() {
   const { user } = useAuth(); const [params] = useSearchParams(); const tabId = params.get('comanda')
-  return <SellOrder key={`${user?.id}:${tabId ?? 'sale'}`} tabId={tabId} />
+  let legacy = false
+  try { legacy = Boolean(tabId && (readCart(`lb-cart:${user?.id}:${tabId}`).length || localStorage.getItem(`lb-confirmation:order:${user?.id}:${tabId}`) || sessionStorage.getItem(`lb-confirmation:order:${user?.id}:${tabId}`))) } catch { legacy = true }
+  return tabId && !legacy && hasStaffMenu(user,'bar.orders') && hasStaffAction(user,'bar.orders') ? <DirectTabSale key={`${user?.id}:${tabId}`} tabId={tabId} /> : <SellOrder key={`${user?.id}:${tabId ?? 'sale'}`} tabId={tabId} />
 }
 
 function SellOrder({ tabId }: { tabId: string | null }) {

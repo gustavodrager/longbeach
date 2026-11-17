@@ -143,7 +143,9 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
     public async Task<TabResponse> Add(Guid id, AddTabItemsInput input, Guid? actor, string? accessToken, CancellationToken ct)
     {
         var scope = await Scope(id, actor, accessToken, ct);
-        return await Run(input.OperationId, input.Items?.Any(x => x.Notes is not null) == true ? Hash(new { action = "add", id, input, scope }) : Hash(new { action = "add", id, input = new { input.OperationId, Items = input.Items?.Select(x => new { x.ProductId, x.Quantity }), input.Deliver }, scope }), async () =>
+        if (input.DirectSale && (actor is null || !input.Deliver || input.Items is null || input.Items.Count != 1 || input.Items[0].Quantity != 1 || input.ExpectedUnitPrice is null)) throw new BarRuleException("Venda direta exige atendente, entrega e uma unidade por toque com preço conferido.");
+        var fingerprint = input.DirectSale ? Hash(new { action = "directAdd", id, input, scope }) : input.Items?.Any(x => x.Notes is not null) == true ? Hash(new { action = "add", id, input = new { input.OperationId, input.Items, input.Deliver }, scope }) : Hash(new { action = "add", id, input = new { input.OperationId, Items = input.Items?.Select(x => new { x.ProductId, x.Quantity }), input.Deliver }, scope });
+        async Task<BarTab> CommitItems()
         {
             var tab = await Lock(id, ct); tab.EnsureOpen();
             if (actor is null) await Scope(id, actor, accessToken, ct);
@@ -152,26 +154,35 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
             foreach (var request in items)
             {
                 var product = await db.Set<BarProduct>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == request.ProductId, ct) ?? throw new BarRuleException("Produto inexistente.");
+                if (input.DirectSale && product.SalePrice != input.ExpectedUnitPrice) throw new BarRuleException("O preço mudou. Atualize o catálogo antes de lançar novamente.");
                 var item = new BarTabItem(tab.Id, product, request.Quantity, actor, actor is null, request.Notes);
                 await EnsureSellableRecipe(item, ct);
                 db.Add(item); db.Add(new BarTabHistory(tab.Id, "Requested", actor, item.Total, itemId: item.Id));
                 if (actor is not null)
                 {
                     await Accept(tab, item, actor.Value, ct);
-                    if (input.Deliver && (!item.Prepared || tab.Mode == "Immediate"))
+                    if (input.Deliver && (!item.Prepared || tab.Mode == "Immediate" || input.DirectSale))
                     {
                         // Recipe delivery reads its immutable ingredient snapshot.
                         // Flush it inside Run's transaction before delivering;
                         // a later failure still rolls back the entire command.
-                        if (item.Prepared && tab.Mode == "Immediate" && item.RecipeId is not null)
+                        if (item.Prepared && item.RecipeId is not null)
                             await db.SaveChangesAsync(ct);
                         await Fulfill(tab, item, actor.Value, ct);
                     }
                 }
             }
-            tab.Touch(); await db.SaveChangesAsync(ct); return await Public(tab, false, actor is null, ct);
-        }, ct);
+            tab.Touch(); await db.SaveChangesAsync(ct); return tab;
+        }
+        if (input.DirectSale)
+        {
+            var receipt = await Run(input.OperationId, fingerprint, async () => new DirectSaleReceipt((await CommitItems()).Id), ct);
+            // One compact receipt per tap; replay reads the current tab without duplicating stock.
+            return await Public(await db.Set<BarTab>().AsNoTracking().SingleAsync(x => x.Id == receipt.TabId, ct), false, false, ct);
+        }
+        return await Run(input.OperationId, fingerprint, async () => await Public(await CommitItems(), false, actor is null, ct), ct);
     }
+    private sealed record DirectSaleReceipt(Guid TabId);
     public Task<TabResponse> ItemAction(Guid id, Guid itemId, string action, TabActionInput input, Guid actor, bool supervisor, CancellationToken ct) => Run(input.OperationId, Hash(new { action, id, itemId, input, actor }), async () =>
     {
         var tab = await Lock(id, ct); tab.EnsureOpen();

@@ -1,3 +1,4 @@
+import { testWebLocks } from '../../test/webLocks'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
@@ -53,7 +54,7 @@ function mount(path:string,user=actor,realReceipt=false,staleTime=0){
   render(<QueryClientProvider client={query}><AuthContext.Provider value={auth}><MemoryRouter initialEntries={[path]}><RouteState /><Routes><Route path="/" element={<BarArenaMetrics from="2026-10-01" to="2026-10-04" />} /><Route path="/bar/indicadores/:metric" element={<BarReportPage />} /><Route path="/atendimento/pedidos" element={<OrdersPage />} /><Route path="/atendimento/caixa" element={<MyCashPage />} /><Route path="/atendimento/vender" element={<SellPage />} /><Route path="/atendimento/comandas" element={<TabsPage />} /><Route path="/atendimento/comandas/:tabId" element={<TabDetailsPage />} /><Route path="/atendimento/receber" element={<ReceiveHomePage />} /><Route path="/atendimento/receber/:tabId" element={<ReceivePage />} /><Route path="/atendimento/pagamento-online/:tabId/:paymentId" element={<OnlinePaymentRecoveryPage />} /><Route path="/atendimento/comprovante/:tabId/:paymentId" element={realReceipt ? <ReceiptPage /> : <h1>Comprovante recebido</h1>} /><Route path="/cliente" element={<ClientPage />} /></Routes></MemoryRouter></AuthContext.Provider></QueryClientProvider>)
   return query
 }
-beforeEach(()=>{sessionStorage.clear();localStorage.clear();setAccessToken(null);setCsrfToken(null)})
+beforeEach(()=>{Object.defineProperty(navigator,'locks',{configurable:true,value:testWebLocks()});Object.defineProperty(navigator,'onLine',{configurable:true,value:true});sessionStorage.clear();localStorage.clear();setAccessToken(null);setCsrfToken(null)})
 afterEach(()=>{clients.splice(0).forEach(query=>query.clear());setAccessToken(null);setCsrfToken(null)})
 
 it('permite vender produtos disponíveis para venda mesmo sem saldo no estoque',async()=>{
@@ -355,11 +356,12 @@ it.each(['atendente','cliente'] as const)('pedido com resultado desconhecido con
     return json(state.tab)
   }
   const fetchMock=server(state);const path=scene==='cliente'?'/cliente#token=own-secret':'/atendimento/vender?comanda=tab-a'
+  if(scene==='atendente')localStorage.setItem(`lb-cart:${actor.id}:tab-a`,JSON.stringify([{productId:'water',quantity:1}]))
   const query=mount(path)
-  fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));
+  if(scene==='cliente')fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));
   if(scene==='cliente')fireEvent.click(screen.getByRole('button',{name:'Conferir pedido'}))
   const label=scene==='cliente'?'Enviar pedido':'Lançar e entregar'
-  fireEvent.click(screen.getByRole('button',{name:label}))
+  fireEvent.click(await screen.findByRole('button',{name:label}))
   expect(await screen.findByRole('alert')).toHaveTextContent('Resposta interrompida')
   expect(screen.getByText('1 × Água')).toBeInTheDocument();expect(screen.getByRole('button',{name:scene==='cliente'?'Alterar pedido':'Adicionar uma unidade de Água'})).toBeDisabled()
   if(scene==='atendente'){
@@ -641,13 +643,13 @@ it('fila mostra espera desde o aceite e retorna à mesma página',async()=>{
 })
 
 it('identifica a comanda e o responsável na escolha e revisão e envia somente para esse destino',async()=>{
- const tab={...makeTab(),name:'Grupo de teste',responsible:{id:'customer-a',name:'Responsável Teste'}};
+ localStorage.setItem(`lb-cart:${actor.id}:tab-a`,JSON.stringify([{productId:'water',quantity:1}]));
+  const tab={...makeTab(),name:'Grupo de teste',responsible:{id:'customer-a',name:'Responsável Teste'}};
  const state:Server={tab,pixEnabled:false,post:()=>json(tab)};const requests=server(state);mount('/atendimento/vender?comanda=tab-a');
  const destination=await screen.findByRole('region',{name:'Destino do pedido'});
  expect(within(destination).getByRole('heading',{name:'Comanda 104 - Grupo de teste'})).toBeInTheDocument();
  expect(within(destination).getByText('Responsável: Responsável Teste')).toBeInTheDocument();
  expect(within(destination).getByText(/Saldo atual/)).toHaveTextContent('12,50');
- fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));
  expect(within(screen.getByRole('region',{name:'Destino do pedido'})).getByText('Responsável: Responsável Teste')).toBeInTheDocument();
  expect(screen.getByText('1 × Água')).toBeInTheDocument();
  fireEvent.click(screen.getByRole('button',{name:'Adicionar à comanda'}));
@@ -690,8 +692,9 @@ it('comanda encerrada conserva o rascunho mas não oferece registro nem produtos
 });
 
 it('falha ao atualizar a comanda bloqueia envio mesmo com dados anteriores em cache',async()=>{
+ localStorage.setItem(`lb-cart:${actor.id}:tab-a`,JSON.stringify([{productId:'water',quantity:1}]));
  const requests=server({tab:makeTab(),pixEnabled:false});const query=mount('/atendimento/vender?comanda=tab-a');
- fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));
+ await screen.findByRole('button',{name:/Adicionar Água por/});
  requests.mockImplementation(async input=>String(input).endsWith('/tabs/tab-a')?json({detail:'Comanda indisponível.'},503):String(input).includes('/catalog')?json(products):json([{id:'bar-a',name:'Bar'}]));
  await act(async()=>{await query.invalidateQueries({queryKey:['bar-runtime']})});
  expect(await screen.findByRole('alert')).toHaveTextContent('Comanda indisponível.');
@@ -773,10 +776,10 @@ it('pagamento pendente consultado por endereço não aparece como valor recebido
 });
 
 it('preserva observação ao alterar quantidade e enviar o pedido', async () => {
-  const state:Server={tab:makeTab(),pixEnabled:false,post:()=>json(makeTab())}
+  localStorage.setItem(`lb-cart:${actor.id}:tab-a`,JSON.stringify([{productId:'water',quantity:1}]));
+   const state:Server={tab:makeTab(),pixEnabled:false,post:()=>json(makeTab())}
   const fetchMock=server(state);mount('/atendimento/vender?comanda=tab-a')
-  fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}))
-  fireEvent.change(screen.getByLabelText('Observações para Água'),{target:{value:'Sem gelo'}})
+  fireEvent.change(await screen.findByLabelText('Observações para Água'),{target:{value:'Sem gelo'}})
   fireEvent.click(screen.getByRole('button',{name:'Adicionar uma unidade de Água'}))
 
   expect(screen.getAllByDisplayValue('Sem gelo').length).toBeGreaterThan(0)
@@ -857,16 +860,16 @@ it('destino com rascunho oferece retomada sem substituir nenhum dos pedidos',asy
  expect(await screen.findByLabelText('Quantidade de Água')).toHaveTextContent('2');expect(JSON.parse(localStorage.getItem(`lb-cart:${actor.id}:sale`)!)).toEqual([{productId:'water',quantity:1}]);
 });
 
-it('busca ignora acentos e reconexão atualiza o resumo antes do registro direto',async()=>{
+it('busca ignora acentos e só permite o toque com o preço atualizado após reconexão',async()=>{
  const state:Server={tab:makeTab(),pixEnabled:false,post:()=>json(makeTab())};const requests=server(state);mount('/atendimento/vender?comanda=tab-a');
- fireEvent.change(await screen.findByRole('searchbox',{name:'Procurar produto'}),{target:{value:'agua'}});
- fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));
+ const search=await screen.findByRole('searchbox',{name:'Procurar produto'});fireEvent.change(search,{target:{value:'agua'}});
  Object.defineProperty(navigator,'onLine',{configurable:true,value:false});act(()=>window.dispatchEvent(new Event('offline')));
- expect(screen.getByRole('button',{name:'Adicionar à comanda'})).toBeDisabled();expect(localStorage.getItem(`lb-cart:${actor.id}:tab-a`)).toContain('water');
+ expect(screen.getByRole('button',{name:/Adicionar Água por/})).toBeDisabled();expect(requests.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
  state.catalog=[{...products[0],salePrice:7}];Object.defineProperty(navigator,'onLine',{configurable:true,value:true});act(()=>window.dispatchEvent(new Event('online')));
- await waitFor(()=>expect(screen.getByRole('button',{name:'Adicionar à comanda'})).toBeEnabled());
- expect(screen.getAllByText(/7,00/).length).toBeGreaterThan(0);expect(requests.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
- fireEvent.click(screen.getByRole('button',{name:'Adicionar à comanda'}));await screen.findByRole('heading',{name:'Comanda 104'});
+ const add=await screen.findByRole('button',{name:/Adicionar Água por R\$\s*7,00/});await waitFor(()=>expect(add).toBeEnabled());fireEvent.click(add);
+ await waitFor(()=>expect(requests.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(1));
+ expect(JSON.parse(String(requests.mock.calls.find(([,init])=>init?.method==='POST')![1]?.body))).toMatchObject({directSale:true,expectedUnitPrice:7});
+ await screen.findByText('Água adicionado à comanda.');expect(screen.getByRole('heading',{level:1,name:'Vender · Comanda 104'})).toBeInTheDocument();
 });
 
 it('armazenamento indisponível mantém edição visível mas impede enviar um pedido sem recuperação',async()=>{
@@ -1053,15 +1056,13 @@ it.each(['atendente','cliente'] as const)('retira da venda após atualizar o cat
 });
 
 
-it('mantém o preparo de uma comanda existente ao adicionar um produto preparado',async()=>{
+it('entrega um produto preparado diretamente ao tocar na comanda existente',async()=>{
  const state:Server={tab:makeTab(),pixEnabled:false,catalog:[{...products[0],prepared:true}],post:()=>json(makeTab())};
  const calls=server(state);mount('/atendimento/vender?comanda=tab-a');
- fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}));
- expect(screen.queryByRole('button',{name:'Salvar'})).not.toBeInTheDocument();
- fireEvent.click(screen.getByRole('button',{name:'Adicionar à comanda'}));
- expect(await screen.findByRole('heading',{name:'Comanda 104'})).toBeInTheDocument();
+ const add=await screen.findByRole('button',{name:/Adicionar Água por/});await waitFor(()=>expect(add).toBeEnabled());fireEvent.click(add);
+ await screen.findByText('Água adicionado à comanda.');expect(screen.queryByRole('button',{name:/Salvar|Adicionar à comanda|Lançar e entregar/})).not.toBeInTheDocument();
  const writes=calls.mock.calls.filter(([,init])=>init?.method==='POST');expect(writes).toHaveLength(1);
- expect(writes[0][0]).toBe('/api/v1/bar/tabs/tab-a/items');expect(JSON.parse(String(writes[0][1]?.body))).toMatchObject({deliver:false});
+ expect(JSON.parse(String(writes[0][1]?.body))).toMatchObject({deliver:true,directSale:true,expectedUnitPrice:5});
 });
 
 it.each([false,true])('reenvia venda avulsa de fila anterior sem mudar deliver=false ou UUIDs (preparado=%s)',async prepared=>{
@@ -1125,14 +1126,15 @@ it('ao consultar outra comanda usa somente o DTO do destino, sem título do rasc
  expect(await screen.findByRole('heading',{level:1,name:'Vender · Comanda 01 - Cliente Exemplo'})).toBeInTheDocument();
 });
 
-it('abre venda e recebimento diretamente da lista de comandas',async()=>{
- server({tab:makeTab(),pixEnabled:false});mount('/atendimento/comandas')
+it('abre venda e recebimento diretamente da lista e registra o produto ao tocar',async()=>{
+ const calls=server({tab:makeTab(),pixEnabled:false,post:()=>json(makeTab())});mount('/atendimento/comandas')
  expect(await screen.findByRole('link',{name:'Adicionar produtos'})).toHaveAttribute('href','/atendimento/vender?comanda=tab-a')
  expect(screen.getByRole('link',{name:'Receber'})).toHaveAttribute('href','/atendimento/receber/tab-a')
  fireEvent.click(screen.getByRole('link',{name:'Adicionar produtos'}))
- fireEvent.click(await screen.findByRole('button',{name:/Adicionar Água por/}))
- expect(screen.queryByRole('button',{name:'Conferir pedido'})).not.toBeInTheDocument()
- expect(screen.getByRole('button',{name:'Lançar e entregar'})).toBeEnabled()
+ const add=await screen.findByRole('button',{name:/Adicionar Água por/});await waitFor(()=>expect(add).toBeEnabled());fireEvent.click(add)
+ await screen.findByText('Água adicionado à comanda.')
+ expect(calls.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(1)
+ expect(screen.queryByRole('button',{name:/Conferir pedido|Lançar e entregar/})).not.toBeInTheDocument()
 })
 
 it('quitação com entrega pendente volta à lista e mostra paga aguardando entrega com comprovante opcional',async()=>{
