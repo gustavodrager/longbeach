@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../features/auth/authContext'
-import { hasPermission } from '../features/auth/access'
+import { canManageStaff, hasPermission } from '../features/auth/access'
+import { OwnerOverviewPage } from '../features/overview/OwnerOverviewPage'
 import { DashboardBarAttention } from '../features/attendance/DashboardBarAttention'
 import { useCourtSchedule } from '../features/arena/queries'
 import { useOperations, type OperationalKind } from '../features/operations/DemoDataProvider'
@@ -18,6 +19,11 @@ function Metric({ label, value, to, note }: { label: string; value: string; to: 
 const formatUpdated = (value: string) => new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
 
 export function DashboardPage() {
+  const { user } = useAuth()
+  return canManageStaff(user) ? <OwnerOverviewPage /> : <OperationalDashboardPage />
+}
+
+function OperationalDashboardPage() {
   const data = useOperations()
   const { user } = useAuth()
   const day = today()

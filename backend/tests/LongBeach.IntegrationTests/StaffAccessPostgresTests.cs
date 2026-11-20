@@ -116,7 +116,7 @@ public sealed class StaffAccessPostgresTests
     }
 
     [PostgresFact]
-    public async Task Owner_can_manage_access_without_a_finance_menu_while_hidden_salary_and_notes_are_preserved()
+    public async Task Owner_keeps_complete_access_when_the_shared_manager_template_is_restricted()
     {
         await using var f = await Fixture.Create(); using var owner = f.Client(true);
         var team = Guid.NewGuid(); var input = Member(team, "bar", "11998880015");
@@ -129,10 +129,10 @@ public sealed class StaffAccessPostgresTests
         owner.DefaultRequestHeaders.Authorization = new("Bearer", await f.Token(f.OwnerId));
         Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync("/api/v1/staff-access/context")).StatusCode);
         var rows = (await owner.GetFromJsonAsync<JsonElement[]>("/api/v1/operations/team"))!; var visible = rows.Single(x => x.GetProperty("id").GetGuid() == team);
-        Assert.Equal(0, visible.GetProperty("payAmount").GetInt32()); Assert.Equal("", visible.GetProperty("notes").GetString());
+        Assert.Equal(350, visible.GetProperty("payAmount").GetInt32()); Assert.Equal("Acordo privado preservado", visible.GetProperty("notes").GetString());
         var edited = System.Text.Json.Nodes.JsonNode.Parse(visible.GetRawText())!.AsObject(); edited["name"] = "Nome atualizado";
         var saved = await Save(owner, team, new StaffMemberInput(JsonSerializer.SerializeToElement(edited), new StaffMemberAccessInput("keep", "bar", created.Access.PhoneLogin, Version: created.Access.Version), Guid.NewGuid()));
-        Assert.Equal(0, saved.Member.GetProperty("payAmount").GetInt32()); Assert.Equal("", saved.Member.GetProperty("notes").GetString());
+        Assert.Equal(350, saved.Member.GetProperty("payAmount").GetInt32()); Assert.Equal("Acordo privado preservado", saved.Member.GetProperty("notes").GetString());
         await using var db = f.Database.NewContext(); var actual = JsonSerializer.Deserialize<JsonElement>((await db.OperationalRecords.SingleAsync(x => x.Id == team)).Payload);
         Assert.Equal(350, actual.GetProperty("payAmount").GetInt32()); Assert.Equal("Acordo privado preservado", actual.GetProperty("notes").GetString()); Assert.Equal("Nome atualizado", actual.GetProperty("name").GetString());
     }
