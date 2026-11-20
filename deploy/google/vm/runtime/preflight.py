@@ -277,12 +277,14 @@ def owner_user_ids(value: object) -> list[str]:
     config = flattened(value)
     prefix = "staffaccess:owneruserids:"
     owners = {key[len(prefix):]: item for key, item in config.items() if key.startswith(prefix)}
-    require(set(owners) == {"0", "1", "2", "3"}, "staff_owner_ids_require_four_explicit_accounts")
-    values = [owners[str(index)] for index in range(4)]
+    count = len(owners)
+    require(1 <= count <= 4 and set(owners) == {str(index) for index in range(count)},
+            "staff_owner_ids_require_one_to_four_explicit_accounts")
+    values = [owners[str(index)] for index in range(count)]
     require(all(isinstance(item, str) and re.fullmatch(r"[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}", item)
                 and item.replace("-", "") != "0" * 32 for item in values), "staff_owner_id_invalid")
     normalized = [item.lower() for item in values]
-    require(len(set(normalized)) == 4, "staff_owner_ids_not_unique")
+    require(len(set(normalized)) == count, "staff_owner_ids_not_unique")
     return normalized
 
 
@@ -424,8 +426,11 @@ def check_api_schema(settings: dict[str, str], run=None) -> dict[str, object]:
     staff = json.loads(raw)
     require(isinstance(staff, dict) and staff.get("database") == "longbeach" and staff.get("read_only") == "on",
             "staff_schema_database_identity_invalid")
-    require(staff.get("configured_owner_count") == 4 and staff.get("owners_present") == 4 and staff.get("owners_manager") == 4
-            and type(staff.get("usable_owners")) is int and 1 <= staff["usable_owners"] <= 4, "staff_owner_accounts_unproven")
+    owner_count = len(owners)
+    require(all(type(staff.get(key)) is int and staff[key] == owner_count
+                for key in ("configured_owner_count", "owners_present", "owners_manager"))
+            and type(staff.get("usable_owners")) is int and 1 <= staff["usable_owners"] <= owner_count,
+            "staff_owner_accounts_unproven")
     for key in ("staff_tables_present", "runtime_role_safe", "runtime_no_schema_ddl", "runtime_dml", "operations_immutable",
                 "no_destructive_access", "no_public_access", "no_transport_access", "staff_owner_safe"):
         require(staff.get(key) is True, "staff_database_privilege_invalid:" + key)

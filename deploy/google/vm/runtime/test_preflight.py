@@ -19,14 +19,14 @@ preflight = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(preflight)
 
 
-def config():
+def config(owner_count=4):
     return {
         "ConnectionStrings": {"LongBeach": "Host=postgres;Database=longbeach;Username=longbeach_runtime;Password=\"fictional;pass\";SSL Mode=Disable;Maximum Pool Size=20"},
         "Authentication": {"Jwt": {"SigningKey": "fictional-only-signing-key-32-characters"},
                            "CookieDomain": "longbeach.quebranunca.com.br"},
         "Cors": {"AllowedOrigins": [preflight.WEB_ORIGIN]},
         "Integrations": {"Banking": {"ImportOnly": True}},
-        "StaffAccess": {"OwnerUserIds": ["de000000-0000-4000-8000-00000000000" + str(index) for index in range(1, 5)]},
+        "StaffAccess": {"OwnerUserIds": ["de000000-0000-4000-8000-00000000000" + str(index) for index in range(1, owner_count + 1)]},
     }
 
 
@@ -44,18 +44,35 @@ def environment():
 
 
 class ConfigurationTests(unittest.TestCase):
-    def test_four_explicit_distinct_owner_ids_are_required(self):
-        for owners in (None, [], config()["StaffAccess"]["OwnerUserIds"][:3],
-                       ["Pedro", "Victor", "Gustavo", "LongBeachArena"],
-                       ["de000000-0000-4000-8000-000000000001"] * 4,
-                       ["00000000-0000-0000-0000-000000000000"] + config()["StaffAccess"]["OwnerUserIds"][:3]):
+    def test_one_to_four_explicit_distinct_owner_ids_are_accepted(self):
+        for count in range(1, 5):
+            for indexed_object in (False, True):
+                data = config(count)
+                expected = data["StaffAccess"]["OwnerUserIds"].copy()
+                data["StaffAccess"]["OwnerUserIds"][0] = expected[0].upper()
+                if indexed_object:
+                    data["StaffAccess"]["OwnerUserIds"] = {str(index): value for index, value in enumerate(data["StaffAccess"]["OwnerUserIds"])}
+                with self.subTest(count=count, indexed_object=indexed_object):
+                    preflight.check_application_config(data)
+                    self.assertEqual(preflight.owner_user_ids(data), expected)
+
+    def test_missing_excess_invalid_or_duplicate_owner_ids_are_refused(self):
+        valid = config()["StaffAccess"]["OwnerUserIds"]
+        for owners in (None, [], {}, config(5)["StaffAccess"]["OwnerUserIds"],
+                       ["not-an-account-id"], [valid[0], valid[0].upper()],
+                       ["00000000-0000-0000-0000-000000000000"], [False], [42], [None]):
             data = config()
             data["StaffAccess"]["OwnerUserIds"] = owners
             with self.subTest(owners=owners), self.assertRaises(preflight.Refused):
                 preflight.check_application_config(data)
-        data = config()
-        data["StaffAccess"]["OwnerUserIds"][0] = data["StaffAccess"]["OwnerUserIds"][0].upper()
-        self.assertEqual(preflight.owner_user_ids(data), config()["StaffAccess"]["OwnerUserIds"])
+
+    def test_owner_indices_must_be_contiguous_from_zero(self):
+        valid = config()["StaffAccess"]["OwnerUserIds"]
+        for indices in (("1",), ("0", "2"), ("0", "1", "3"), ("00",), ("-1",), ("0", "name"), ("0:0",)):
+            data = config()
+            data["StaffAccess"]["OwnerUserIds"] = dict(zip(indices, valid))
+            with self.subTest(indices=indices), self.assertRaisesRegex(preflight.Refused, "staff_owner_ids_require_one_to_four_explicit_accounts"):
+                preflight.check_application_config(data)
 
     def test_owner_ids_cannot_inject_sql_or_configuration(self):
         for value in ("'; DELETE FROM public.Users;--", "de000000-0000-4000-8000-000000000001 ", 42):
@@ -178,8 +195,9 @@ def source_migrations():
 
 
 class FakeDocker:
-    def __init__(self):
+    def __init__(self, owner_count=4):
         self.calls = []
+        self.owner_ids = config(owner_count)["StaffAccess"]["OwnerUserIds"]
         self.container = "c" * 64
         self.running_id = self.container
         self.image = {"Id": "sha256:" + "d" * 64, "Os": "linux", "Architecture": "amd64",
@@ -194,8 +212,8 @@ class FakeDocker:
                          "NetworkSettings": {"Ports": {"5432/tcp": None}},
                          "Mounts": [{"Type": "bind", "Source": "/var/lib/longbeach/postgres", "Destination": "/var/lib/postgresql", "RW": True}]}
         self.database = {"database": "longbeach", "server_version_num": 180006, "read_only": "on", "migrations": source_migrations()}
-        self.staff = {"database": "longbeach", "read_only": "on", "configured_owner_count": 4, "owners_present": 4,
-                      "owners_manager": 4, "usable_owners": 1,
+        self.staff = {"database": "longbeach", "read_only": "on", "configured_owner_count": owner_count, "owners_present": owner_count,
+                      "owners_manager": owner_count, "usable_owners": 1,
                       **{key: True for key in ("staff_tables_present", "runtime_role_safe", "runtime_no_schema_ddl", "runtime_dml",
                          "operations_immutable", "no_destructive_access", "no_public_access", "no_transport_access", "staff_owner_safe")}}
 
@@ -212,7 +230,7 @@ class FakeDocker:
             assert args == ["exec", "--user", "999:999", "-i", self.container, "psql", "--no-psqlrc", "-qAt", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "longbeach"]
             if input == preflight.SCHEMA_QUERY:
                 return json.dumps(self.database)
-            assert input == preflight.staff_schema_query(config()["StaffAccess"]["OwnerUserIds"])
+            assert input == preflight.staff_schema_query(self.owner_ids)
             return json.dumps(self.staff)
         raise AssertionError("Unexpected Docker command")
 
@@ -247,17 +265,35 @@ class ApiSchemaGateTests(unittest.TestCase):
     def test_missing_owner_configuration_fails_before_any_docker_access(self):
         fake = FakeDocker()
         with patch.object(preflight, "read_application_config", return_value={}):
-            with self.assertRaisesRegex(preflight.Refused, "staff_owner_ids_require_four_explicit_accounts"):
+            with self.assertRaisesRegex(preflight.Refused, "staff_owner_ids_require_one_to_four_explicit_accounts"):
                 preflight.check_api_schema(environment(), fake)
         self.assertEqual(fake.calls, [])
 
+    def test_one_to_four_owners_require_matching_database_proof_without_exposing_ids(self):
+        for count in range(1, 5):
+            for usable in {1, count}:
+                fake = FakeDocker(count)
+                fake.staff["usable_owners"] = usable
+                with self.subTest(count=count, usable=usable), patch.object(preflight, "read_application_config", return_value=config(count)):
+                    proof = preflight.check_api_schema(environment(), fake)
+                self.assertTrue(proof["owner_accounts_verified"])
+                self.assertEqual(proof["usable_owner_count"], usable)
+                query = fake.calls[-1][1]
+                for index, owner_id in enumerate(config()["StaffAccess"]["OwnerUserIds"]):
+                    self.assertEqual(owner_id in query, index < count)
+                    self.assertNotIn(owner_id, json.dumps(proof))
+
     def test_staff_access_requires_all_owner_identities_and_one_usable_owner(self):
-        for key, value in (("configured_owner_count", 3), ("owners_present", 3), ("owners_manager", 3),
-                           ("usable_owners", 0), ("usable_owners", True), ("usable_owners", 5)):
-            fake = FakeDocker()
-            fake.staff[key] = value
-            with self.subTest(key=key, value=value), self.assertRaisesRegex(preflight.Refused, "staff_owner_accounts_unproven"):
-                preflight.check_api_schema(environment(), fake)
+        for count in range(1, 5):
+            invalid = [(key, value) for key in ("configured_owner_count", "owners_present", "owners_manager")
+                       for value in (count - 1, count + 1, True, float(count), str(count), None)]
+            invalid += [("usable_owners", value) for value in (0, count + 1, True, 1.0, "1", None)]
+            for key, value in invalid:
+                fake = FakeDocker(count)
+                fake.staff[key] = value
+                with self.subTest(count=count, key=key, value=value), patch.object(preflight, "read_application_config", return_value=config(count)):
+                    with self.assertRaisesRegex(preflight.Refused, "staff_owner_accounts_unproven"):
+                        preflight.check_api_schema(environment(), fake)
 
     def test_staff_acl_or_schema_failure_refuses_api_start(self):
         for key in ("staff_tables_present", "runtime_role_safe", "runtime_no_schema_ddl", "runtime_dml", "operations_immutable",
