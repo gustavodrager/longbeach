@@ -12,7 +12,9 @@ Professor usa os endpoints delimitados às suas turmas e alunos. Bar usa atendim
 
 ## Donos e contas existentes
 
-`StaffAccess:OwnerUserIds` contém os identificadores estáveis confirmados das contas de Pedro, Victor, Gustavo e LongBeachArena. Nome, telefone, e-mail e função não conferem essa autorização. Configuração vazia fecha a administração da equipe. A implantação exige a conferência das quatro contas e ao menos um dono ativo, com perfil Gestor único e acesso concluído.
+`StaffAccess:OwnerUserIds` contém de um a quatro identificadores estáveis e distintos de contas explicitamente confirmadas como donas, com índices contíguos a partir de zero. Nome, telefone, e-mail e função não conferem essa autorização. Configuração vazia fecha a administração da equipe e é recusada pelo preflight de produção. A implantação exige que todas as contas configuradas existam e tenham somente o perfil Manager, e que ao menos uma esteja ativa, com acesso concluído, método de entrada disponível e eventual vínculo de equipe habilitado e compatível.
+
+A regra de cardinalidade foi atualizada em 20/11/2026 para permitir a retirada explícita de uma conta da lista sem criar outro dono ou alterar tipos compartilhados. A alteração da lista exige conferência das identidades que permanecem; não muda automaticamente o perfil ou o tipo de acesso de nenhuma conta. Os recibos anteriores que registram quatro donos permanecem históricos, e esta decisão não comprova mudança aplicada em produção.
 
 A autorização dos donos cobre cadastro de equipe, tipos, bloqueio, reativação, redefinição inicial, vínculo de professores e importações que criem equipe. Os demais Gestores não recebem essas funções. Alterações são conferidas novamente em cada requisição. A última conta de dono utilizável não pode ser bloqueada ou perder o acesso.
 
