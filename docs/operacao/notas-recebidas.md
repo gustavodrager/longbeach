@@ -5,8 +5,8 @@ Publicado em produção em 14/10/2026, commit `1a239e89ac10bcf85f085c5fe6a7b91d9
 ## Uso
 
 1. Em **Financeiro → Notas recebidas**, abra a caixa geral da Arena (`/notas-recebidas`). O endereço antigo `/bar/notas-recebidas` redireciona para a caixa geral.
-2. Selecione o XML processado da NF-e fornecido pelo emitente (até 2 MiB). Confira o destinatário, fornecedor, itens e valores na prévia; a prévia não grava a nota.
-3. Clique em **Salvar nota para conferência**. O arquivo original fica preservado para consulta/download. Reimportar o mesmo arquivo não cria duplicata; outro conteúdo para a mesma chave é recusado.
+2. Selecione o XML processado da NF-e fornecido pelo emitente (até 2 MiB). Como alternativa, use **Colar XML**, informe o nome original do anexo e cole seu conteúdo completo em UTF-8, sem reescrever campos. Declarações de outra codificação exigem selecionar o arquivo original. Confira o destinatário, fornecedor, itens e valores na prévia; a prévia não grava a nota. Alterar o conteúdo ou o nome descarta a prévia anterior.
+3. Clique em **Salvar nota para conferência**. Os bytes enviados ficam preservados para consulta/download. A colagem gera esses bytes em UTF-8; para conservar a representação binária de um anexo com outra codificação, BOM ou quebras de linha específicas, use **Selecionar arquivo**. Reimportar o mesmo conteúdo não cria duplicata; outro conteúdo para a mesma chave é recusado.
 4. Salve a finalidade: **Mercadorias do bar**, **Materiais de consumo**, **Equipamentos e patrimônio**, **Manutenção e melhorias**, **Outras compras e despesas** ou **Compra mista**. Toda nota nova começa **A classificar**. Filtre a lista por finalidade quando necessário. A classificação é auditada, pode ser corrigida antes de gerar uma compra e não altera o XML. Notas mistas permanecem para separação/conferência dos itens; não geram uma compra integral do bar.
 5. Somente nas notas classificadas como mercadorias do bar, selecione o fornecedor existente ou identifique/cadastre pelo documento do emitente. Associe cada linha a um produto e informe a quantidade na unidade de compra do cadastro. Confira a conversão mostrada para o estoque e marque a confirmação.
 6. **Criar compra conferida** cria uma compra com pagamento pendente, vinculada à nota. Abra a compra para informar o pagamento e registrar o recebimento pelo fluxo existente. Importar e gerar a compra não movimentam estoque nem registram pagamento.
@@ -21,6 +21,12 @@ A caixa geral exige `fiscal:invoices:manage` e primeiro acesso concluído. A per
 - Cada linha precisa corresponder a um produto distinto que controle estoque, ativo e com a mesma versão apresentada na conferência. Se o cadastro mudar, recarregue a página. Não há correspondência automática por nome/código nem cadastro automático de produtos.
 - Equipamentos, materiais, manutenção e demais despesas podem ter suas NF-e importadas e classificadas nesta caixa geral. Seus lançamentos financeiros, entradas de materiais e registros patrimoniais seguem os controles correspondentes, ainda sem geração automática a partir da nota. NFS-e de serviços exige outro leitor/conector; não confundir finalidade de compra com modelo fiscal do documento.
 - Esta entrega não consulta a SEFAZ, não envia manifestação do destinatário e não configura certificado. Captura automática e acompanhamento de cancelamentos serão uma etapa posterior.
+
+## Compras já registradas manualmente
+
+Salvar um XML importa somente a nota para conferência: não recebe mercadorias, registra pagamento nem vincula automaticamente uma compra manual. Se a compra já existe com a chave da NF-e como documento, preserve esse registro e não use **Criar compra conferida** para gerar outro. A proteção de duplicidade também considera compras canceladas. Não troque a referência para contornar essa proteção.
+
+A associação manual entre uma nota importada e uma compra já existente não faz parte deste fluxo. Registre a conferência e preserve os identificadores no controle operacional. A ação de reabertura de compra cancelada está descrita em [Compras rastreáveis](compras-rastreaveis.md).
 
 ## Configuração e publicação
 

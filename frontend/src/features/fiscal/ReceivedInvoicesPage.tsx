@@ -142,7 +142,9 @@ function ReceivedInvoicesContent() {
   const [purposeFilter, setPurposeFilter] = useState('')
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<string | null>(null)
+  const [inputMode, setInputMode] = useState<'file' | 'paste'>('file')
   const [file, setFile] = useState<File | null>(null)
+  const [fileName, setFileName] = useState(''), [xml, setXml] = useState('')
   const [preview, setPreview] = useState<{ upload: Upload; data: InvoiceData } | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -158,11 +160,16 @@ function ReceivedInvoicesContent() {
   }
   async function showPreview(event: FormEvent) {
     event.preventDefault()
-    if (!file) return
+    if (inputMode === 'file' ? !file : !fileName.trim() || !xml.trim()) return
     await run(async () => {
       setPreview(null); setSelected(null)
-      if (file.size > 2 * 1024 * 1024 || !file.name.toLowerCase().endsWith('.xml')) throw new Error('Selecione um arquivo XML de até 2 MB.')
-      const upload = { fileName: file.name, contentBase64: await readFile(file) }
+      if (inputMode === 'paste') {
+        const encoding = /^\uFEFF?<\?xml\b[^?]*\bencoding\s*=\s*(['"])(.*?)\1/i.exec(xml)?.[2]
+        if (encoding && !/^utf-?8$/i.test(encoding)) throw new Error('Para esta codificação, selecione o arquivo XML original. A colagem aceita XML em UTF-8.')
+      }
+      const source = inputMode === 'paste' ? new File([xml], fileName.trim(), { type: 'application/xml' }) : file!
+      if (source.size > 2 * 1024 * 1024 || source.name.length > 180 || !source.name.toLowerCase().endsWith('.xml')) throw new Error('Informe um XML de até 2 MB, com nome de até 180 caracteres e extensão .xml.')
+      const upload = { fileName: source.name, contentBase64: await readFile(source) }
       const data = await apiFetch<InvoiceData>(root + '/preview', { method: 'POST', body: JSON.stringify(upload) })
       setPreview({ upload, data })
     })
@@ -187,11 +194,18 @@ function ReceivedInvoicesContent() {
       setTimeout(() => URL.revokeObjectURL(url), 1000)
     })
   }
+  function clearPreview() { setPreview(null); setSelected(null); setError(''); setMessage('') }
   return <main className="operation-page arena-page received-invoices stock-clean"><Heading title="Notas recebidas" eyebrow=""/>
     <details className="stock-help"><summary>Quais notas posso importar?</summary><p>Importe XML de NF-e de mercadorias, de até 2 MB. A captura automática pela SEFAZ aguarda certificado digital. Notas de serviços (NFS-e) ainda não são aceitas.</p></details>
     <form className="operation-card bar-form" onSubmit={event => void showPreview(event)}>
-      <label className="bar-field">Arquivo XML da nota<input type="file" accept=".xml,application/xml,text/xml" disabled={busy} onChange={event => { setFile(event.target.files?.[0] ?? null); setPreview(null); setSelected(null); setError(''); setMessage('') }}/></label>
-      <button disabled={!file || busy}>{busy ? 'Processando…' : 'Conferir arquivo'}</button>
+      <label className="bar-field">Como enviar o XML<select disabled={busy} value={inputMode} onChange={event => { setInputMode(event.target.value as 'file' | 'paste'); setFile(null); clearPreview() }}><option value="file">Selecionar arquivo</option><option value="paste">Colar XML</option></select></label>
+      {inputMode === 'file'
+        ? <label className="bar-field">Arquivo XML da nota<input type="file" accept=".xml,application/xml,text/xml" disabled={busy} onChange={event => { setFile(event.target.files?.[0] ?? null); clearPreview() }}/></label>
+        : <><p>Cole o conteúdo completo do anexo XML em UTF-8 e informe seu nome original. Confira a prévia antes de salvar.</p>
+          <label className="bar-field">Nome original do arquivo XML<input required maxLength={180} value={fileName} disabled={busy} placeholder="nome-do-anexo.xml" onChange={event => { setFileName(event.target.value); clearPreview() }}/></label>
+          <label className="bar-field">Conteúdo do XML<textarea required rows={10} spellCheck={false} autoCapitalize="off" autoCorrect="off" value={xml} disabled={busy} onChange={event => { setXml(event.target.value); clearPreview() }}/></label>
+        </>}
+      <button disabled={busy || (inputMode === 'file' ? !file : !fileName.trim() || !xml.trim())}>{busy ? 'Processando…' : inputMode === 'paste' ? 'Conferir XML' : 'Conferir arquivo'}</button>
     </form>
     {error && <p role="alert" className="bar-error">{error}</p>}{message && <p role="status">{message}</p>}
     {preview && <><InvoiceSummary data={preview.data}/><button disabled={busy} onClick={() => void save()}>Salvar nota para conferência</button></>}

@@ -1,5 +1,8 @@
+using System.Text.Json;
+using LongBeach.Application.Abstractions;
 using LongBeach.Application.Bar;
 using LongBeach.Contracts.Bar;
+using LongBeach.Domain.Auditing;
 using LongBeach.Domain.Bar;
 using LongBeach.Domain.Inventory;
 using LongBeach.Domain.Payments;
@@ -8,7 +11,7 @@ using LongBeach.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 namespace LongBeach.Infrastructure.Bar;
-public sealed class BarPurchasesService(LongBeachDbContext db):IBarPurchases
+public sealed class BarPurchasesService(LongBeachDbContext db, IAuditContext? audit = null, TimeProvider? clock = null):IBarPurchases
 {
     public async Task<IReadOnlyList<Supplier>> Suppliers(CancellationToken ct)=>await db.Set<Supplier>().AsNoTracking().OrderBy(x=>x.Name).ToListAsync(ct);
     public async Task<Supplier> CreateSupplier(string name,CancellationToken ct) {var s=new Supplier(name);db.Add(s);await db.SaveChangesAsync(ct);return s;}
@@ -70,6 +73,53 @@ public sealed class BarPurchasesService(LongBeachDbContext db):IBarPurchases
         await db.SaveChangesAsync(ct);return purchase;
     }
     public async Task<Purchase> Cancel(Guid id,string reason,Guid actor,CancellationToken ct){var p=await db.Set<Purchase>().Include(x=>x.Items).SingleOrDefaultAsync(x=>x.Id==id,ct)??throw new BarRuleException("Compra inexistente.");p.Cancel(reason,actor);await db.SaveChangesAsync(ct);return p;}
+    public async Task<Purchase> Reopen(Guid id, PurchaseReopenInput input, Guid actor, CancellationToken ct)
+    {
+        var reason = BarRules.Text(input.Reason, 500, "Motivo da reabertura");
+        await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.ReadCommitted, ct);
+        // Expenses and legacy finance writes use this lock too. ReadCommitted is deliberate:
+        // after waiting, the following reads must see the financial writer's committed data.
+        await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(724031904)", ct);
+        var purchase = await db.Set<Purchase>().Include(p => p.Items).SingleOrDefaultAsync(p => p.Id == id, ct)
+            ?? throw new BarRuleException("Compra inexistente.");
+        if (input.Version != purchase.Version)
+            throw new BarRuleException("Compra alterada por outro usuário. Recarregue a lista antes de reabrir.", 409);
+        if (purchase.State != "Canceled") throw new BarRuleException("Somente uma compra cancelada pode ser reaberta.");
+        if (await db.Set<PurchaseReceipt>().AnyAsync(receipt => receipt.PurchaseId == id, ct))
+            throw new BarRuleException("Compra com histórico de recebimento não pode ser reaberta.");
+
+        // Preserve every financial link, including canceled/unpaid and legacy entries.
+        var financialEntries = await db.OperationalRecords.AsNoTracking().Where(row => row.Kind == "financeEntries")
+            .Select(row => row.Payload).ToListAsync(ct);
+        if (financialEntries.Any(payload => ReferencesPurchase(payload, id)))
+            throw new BarRuleException("Compra com vínculo financeiro não pode ser reaberta. Confira o lançamento existente.");
+
+        var before = new { purchase.State, purchase.PurchasedAtUtc, purchase.Version };
+        purchase.Reopen(input.PurchasedAtUtc);
+        db.AuditLogs.Add(AuditLog.Create(actor, "PurchaseReopened", nameof(Purchase), id.ToString(),
+            JsonSerializer.Serialize(new
+            {
+                Reason = reason,
+                Before = before,
+                After = new { purchase.State, purchase.PurchasedAtUtc, purchase.Version },
+                LastCancellation = new { purchase.CancellationReason, purchase.CanceledBy }
+            }), audit?.IpAddress, audit?.UserAgent, audit?.CorrelationId ?? "system", (clock ?? TimeProvider.System).GetUtcNow()));
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return purchase;
+    }
+
+    private static bool ReferencesPurchase(string payload, Guid purchaseId)
+    {
+        using var document = JsonDocument.Parse(payload);
+        var body = document.RootElement;
+        if (body.ValueKind != JsonValueKind.Object) return false;
+        bool Matches(JsonElement value, string name) => value.TryGetProperty(name, out var reference)
+            && reference.ValueKind == JsonValueKind.String && reference.TryGetGuid(out var id) && id == purchaseId;
+        return body.TryGetProperty("expense", out var expense) && expense.ValueKind == JsonValueKind.Object && Matches(expense, "purchaseId")
+            || body.TryGetProperty("sourceKind", out var sourceKind) && sourceKind.ValueKind == JsonValueKind.String
+                && sourceKind.GetString() == "barPurchases" && Matches(body, "sourceId");
+    }
     public async Task<Purchase> Receive(Guid id,ReceiptInput input,Guid actor,CancellationToken ct)
     {
         if(input.OperationId==Guid.Empty || input.Items is null || input.Items.Count is 0 or >100 || input.Items.Select(x=>x.ProductId).Distinct().Count()!=input.Items.Count) throw new BarRuleException("Recebimento inválido.");

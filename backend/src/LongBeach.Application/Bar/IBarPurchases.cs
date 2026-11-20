@@ -12,6 +12,7 @@ public interface IBarPurchases
     Task<Purchase> Create(PurchaseInput input,Guid actor,CancellationToken ct);
     Task<Purchase> CorrectPaymentReference(Guid id,PurchasePaymentReferenceInput input,CancellationToken ct);
     Task<Purchase> Cancel(Guid id,string reason,Guid actor,CancellationToken ct);
+    Task<Purchase> Reopen(Guid id,PurchaseReopenInput input,Guid actor,CancellationToken ct);
     Task<Purchase> Receive(Guid id,ReceiptInput input,Guid actor,CancellationToken ct);
 }
 

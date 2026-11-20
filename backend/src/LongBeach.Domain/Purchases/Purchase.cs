@@ -45,6 +45,17 @@ public sealed class Purchase : Entity
         PaymentMethod=method;AccountReference=reference;Version++;
     }
     public void Cancel(string reason,Guid actor){if(State=="Received"||State=="Canceled")throw new BarRuleException("Compra finalizada não pode ser cancelada.");CancellationReason=BarRules.Text(reason,500,"Motivo");CanceledBy=actor;State="Canceled";Version++;}
+    public void Reopen(DateTimeOffset purchasedAt)
+    {
+        if (State != "Canceled") throw new BarRuleException("Somente uma compra cancelada pode ser reaberta.");
+        if (Items.Any(item => item.Received != 0 || item.CostReceived != 0))
+            throw new BarRuleException("Compra com recebimento não pode ser reaberta. Confira o histórico de estoque.");
+        if (purchasedAt == default) throw new BarRuleException("Informe a data correta da compra.");
+        PurchasedAtUtc = purchasedAt.ToUniversalTime();
+        State = "Ordered";
+        Version = checked(Version + 1);
+        // Keep the last cancellation's author and reason; reopening has its own audit entry.
+    }
     public int Version {get; private set;}
     public ICollection<PurchaseItem> Items {get; private set;} = new List<PurchaseItem>();
     public void Receive() { if(State == "Received" || State == "Canceled") throw new BarRuleException("Compra finalizada."); State = Items.All(x=>x.Received == x.Quantity) ? "Received" : "PartiallyReceived"; Version++; }
