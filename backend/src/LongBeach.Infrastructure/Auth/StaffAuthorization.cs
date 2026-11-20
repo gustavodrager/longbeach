@@ -13,20 +13,20 @@ public sealed class StaffAuthorization(IOptions<StaffAccessOptions> options) : I
 
     public StaffAuthorizationResult Resolve(User user)
     {
-        var canManage = IsOwner(user);
-        string[] ownerPermissions = canManage ? [SystemPermissions.EmployeesRead, SystemPermissions.EmployeesWrite] : [];
+        // A verified owner has the complete management profile. Editable staff
+        // templates continue to limit everyone else, including other Managers.
+        if (IsOwner(user)) return new(ProfileAccess.Permissions(user.GetRoleNames(), []), true, null);
         if (user.RequiresFirstAccess || !user.IsActive) return new([], false, null);
         var membership = user.StaffMembership;
-        if (membership is null) return new(ProfileAccess.Permissions(user.GetRoleNames(), []), canManage, null);
+        if (membership is null) return new(ProfileAccess.Permissions(user.GetRoleNames(), []), false, null);
         var type = membership.AccessType;
         if (!membership.Enabled || type is null || !user.GetRoleNames().SequenceEqual([type.Role]))
-            return new(ownerPermissions, canManage, new(type?.Code ?? "", type?.Name ?? "Acesso bloqueado", type?.Role ?? "", [], [], "/conta"));
+            return new([], false, new(type?.Code ?? "", type?.Name ?? "Acesso bloqueado", type?.Role ?? "", [], [], "/conta"));
         try
         {
             var permissions = StaffAccessCatalog.Permissions(type);
-            if (canManage) permissions = permissions.Union([SystemPermissions.EmployeesRead, SystemPermissions.EmployeesWrite], StringComparer.Ordinal).ToArray();
-            return new(permissions, canManage, new(type.Code, type.Name, type.Role, type.Menus.ToArray(), type.Actions.ToArray(), StaffAccessCatalog.Home(type.Menus,type.Actions)));
+            return new(permissions, false, new(type.Code, type.Name, type.Role, type.Menus.ToArray(), type.Actions.ToArray(), StaffAccessCatalog.Home(type.Menus,type.Actions)));
         }
-        catch (StaffAccessException) { return new(ownerPermissions, canManage, new(type.Code, type.Name, type.Role, [], [], "/conta")); }
+        catch (StaffAccessException) { return new([], false, new(type.Code, type.Name, type.Role, [], [], "/conta")); }
     }
 }

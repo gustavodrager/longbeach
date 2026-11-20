@@ -212,6 +212,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 app.MapClientPortalEndpoints();
 app.MapTeachingEndpoints();
 app.MapStaffAccessEndpoints();
+app.MapOwnerOverviewEndpoints();
 app.MapBillingEndpoints();
 app.MapC6PixEndpoints();
 app.MapBarEndpoints();

@@ -37,6 +37,7 @@ public static class StaffApiScope
         if (!path.StartsWith("/api/v1/", StringComparison.Ordinal)) return true;
         if (path.StartsWith("/api/v1/auth/", StringComparison.Ordinal) || path == "/api/v1/auth" ||
             path.StartsWith("/api/v1/me/auth-methods", StringComparison.Ordinal)) return true;
+        if (path == "/api/v1/owner-overview") return read && Owner();
         if (path.StartsWith("/api/v1/staff-access", StringComparison.Ordinal) || path.StartsWith("/api/v1/teaching/access", StringComparison.Ordinal)) return Owner();
         if (path.StartsWith("/api/v1/me/teaching", StringComparison.Ordinal))
         {
