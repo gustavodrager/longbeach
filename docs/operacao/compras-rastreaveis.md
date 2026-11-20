@@ -16,6 +16,16 @@ Distinga o operador do pagamento da conta de origem. Quando um proprietário ope
 
 O registro manual como pago não é conciliação bancária. Preserve saldo, data e fonte do último extrato confirmado; não calcule um novo saldo bancário apenas subtraindo compras avulsas. Correções de um período não autorizam alterações em outro.
 
+## Reabrir uma compra cancelada
+
+Em **Compras → Ver itens e pagamento → Reabrir compra cancelada**, informe a data correta e um motivo. A operação exige gestão de compras e a versão atual do registro. Ela reabre a mesma compra; documento, fornecedor, itens, conversões e valores permanecem preservados. A data e a situação retornadas pelo servidor aparecem na confirmação.
+
+Só é possível reabrir uma compra cancelada sem quantidades ou custos recebidos, sem histórico de recebimento e sem qualquer vínculo no Financeiro, inclusive vínculos legados ou lançamentos já cancelados. A validação compartilha a trava transacional do Financeiro para considerar lançamentos concorrentes. Após conflito ou falha, use **Atualizar compra** antes de tentar novamente.
+
+A reabertura grava motivo, ator, data anterior/nova, versões e dados do cancelamento anterior na auditoria da mesma transação. O histórico do cancelamento é preservado. Nenhum recebimento, pagamento ou nova compra é criado, e a situação fiscal da NF-e não é alterada. Confira o recebimento e o Financeiro separadamente pelos fluxos existentes.
+
+Não remova a referência nem crie outra para contornar duplicidade de uma compra cancelada. Registros com movimentos ou vínculos financeiros exigem reconciliação própria; esta ação os bloqueia.
+
 ## Publicação de 2026-10-06
 
 Implementação fixada em `f20cc73d43fff7d6fe1b58318c567aac5bb3bf8f`, branch `codex/saldos-pagina-inicial`, sem migration nova.

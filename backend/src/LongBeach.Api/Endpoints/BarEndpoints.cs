@@ -76,6 +76,7 @@ public static class BarEndpoints
         bar.MapPost("/purchases", (PurchaseInput i,HttpContext h,IBarPurchases s,CancellationToken ct)=>s.Create(i,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarPurchasesManage);
         bar.MapPost("/purchases/{id:guid}/payment-reference", (Guid id,PurchasePaymentReferenceInput i,IBarPurchases s,CancellationToken ct)=>s.CorrectPaymentReference(id,i,ct)).RequireAuthorization(SystemPermissions.BarPurchasesManage);
         bar.MapPost("/purchases/{id:guid}/cancel",(Guid id,ApprovalInput i,HttpContext h,IBarPurchases s,CancellationToken ct)=>s.Cancel(id,i.Reason,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarPurchasesManage);
+        bar.MapPost("/purchases/{id:guid}/reopen", (Guid id,PurchaseReopenInput i,HttpContext h,IBarPurchases s,CancellationToken ct)=>s.Reopen(id,i,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarPurchasesManage);
         bar.MapPost("/purchases/{id:guid}/receive", (Guid id,ReceiptInput i,HttpContext h,IBarPurchases s,CancellationToken ct)=>s.Receive(id,i,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarPurchasesManage);
         bar.MapGet("/payments/config", async (IPaymentGateway s,CancellationToken ct)=> new {pixEnabled=s.Enabled,cardEnabled=s.CardEnabled,cardPublicKey=await s.CardPublicKey(ct)}).RequireAuthorization(SystemPermissions.BarSalesOperate);
         bar.MapPost("/sales/{id:guid}/payments/pix", (Guid id,PixInput i,HttpContext h,IBarPayments s,CancellationToken ct)=>s.Pix(id,i,Actor(h),ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);

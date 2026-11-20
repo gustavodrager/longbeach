@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
+import { Buffer } from 'node:buffer'
 import { ReceivedInvoicesPage, type InvoiceData } from './ReceivedInvoicesPage'
 const auth = vi.hoisted(() => ({ canBar: true }))
 vi.mock('../auth/authContext', () => ({ useAuth: () => ({ user: { roles: auth.canBar ? ['Manager'] : ['Operations'], permissions: auth.canBar ? ['fiscal:invoices:manage', 'bar:purchases:manage'] : ['fiscal:invoices:manage'], requiresFirstAccess: false } }) }))
@@ -107,4 +108,64 @@ it('bloqueia notas ao atendente mesmo com claims fiscais antigas', () => {
   expect(screen.getByRole('heading', { name: 'Acesso restrito' })).toBeInTheDocument()
   expect(screen.queryByLabelText('Arquivo XML da nota')).not.toBeInTheDocument()
   expect(fetch).not.toHaveBeenCalled(); client.clear()
+})
+
+const pastedXml = '<?xml version="1.0" encoding="UTF-8"?>\n<nfeProc><xNome>Fornecedor fictício &amp; Cia</xNome></nfeProc>'
+function pasteXml(xml = pastedXml) {
+  fireEvent.change(screen.getByLabelText('Como enviar o XML'), { target: { value: 'paste' } })
+  fireEvent.change(screen.getByLabelText('Nome original do arquivo XML'), { target: { value: 'anexo-teste.xml' } })
+  fireEvent.change(screen.getByLabelText('Conteúdo do XML'), { target: { value: xml } })
+  fireEvent.click(screen.getByRole('button', { name: 'Conferir XML' }))
+}
+
+it.each([false, true])('envia XML colado sem reescrever o conteúdo e usa a mesma prévia e confirmação de importação (duplicada=%s)', async duplicate => {
+  const { fetch, client } = setup({ duplicate })
+  pasteXml()
+  await screen.findByRole('heading', { name: 'NF-e 123 · série 1' })
+  const previewWrites = fetch.mock.calls.filter(([, init]) => init?.method === 'POST')
+  expect(previewWrites).toHaveLength(1)
+  expect(previewWrites[0][0]).toBe('/api/v1/received-invoices/preview')
+  const upload = JSON.parse(String(previewWrites[0][1]?.body))
+  expect(upload.fileName).toBe('anexo-teste.xml')
+  expect(Buffer.from(upload.contentBase64, 'base64').toString('utf8')).toBe(pastedXml)
+  expect(screen.queryByRole('button', { name: 'Criar compra conferida' })).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar nota para conferência' }))
+  await screen.findByText(duplicate ? 'Esta nota já estava importada. Nenhuma duplicata foi criada.' : 'Nota salva para conferência.')
+  const writes = fetch.mock.calls.filter(([, init]) => init?.method === 'POST')
+  expect(writes).toHaveLength(2)
+  expect(writes[1][0]).toBe('/api/v1/received-invoices/')
+  expect(JSON.parse(String(writes[1][1]?.body))).toEqual(upload)
+  expect(fetch.mock.calls.some(([url]) => /\/(purchase|receive|payments)$/.test(String(url)))).toBe(false)
+  client.clear()
+})
+
+it.each(['Nome original do arquivo XML', 'Conteúdo do XML'])('descarta a prévia anterior quando a colagem muda: %s', async field => {
+  const { fetch, client } = setup()
+  pasteXml()
+  await screen.findByRole('button', { name: 'Salvar nota para conferência' })
+  fireEvent.change(screen.getByLabelText(field), { target: { value: field === 'Conteúdo do XML' ? pastedXml + '\n' : 'outro-anexo.xml' } })
+  expect(screen.queryByRole('button', { name: 'Salvar nota para conferência' })).not.toBeInTheDocument()
+  expect(fetch.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
+  client.clear()
+})
+
+it('mantém os erros do validador fiscal para XML colado e não oferece salvamento', async () => {
+  const { fetch, client } = setup({ failure: true })
+  pasteXml()
+  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('A nota não pertence à Arena.'))
+  expect(screen.queryByRole('button', { name: 'Salvar nota para conferência' })).not.toBeInTheDocument()
+  expect(fetch.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
+  client.clear()
+})
+
+it.each([
+  ['<?xml version="1.0" encoding="ISO-8859-1"?><nfeProc/>', 'A colagem aceita XML em UTF-8.'],
+  ['á'.repeat(1024 * 1024 + 1), 'Informe um XML de até 2 MB'],
+])('recusa colagem com codificação incompatível ou tamanho em bytes acima do limite', async (xml, error) => {
+  const { fetch, client } = setup()
+  pasteXml(xml)
+  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(error))
+  expect(fetch.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0)
+  expect(screen.queryByRole('button', { name: 'Salvar nota para conferência' })).not.toBeInTheDocument()
+  client.clear()
 })
