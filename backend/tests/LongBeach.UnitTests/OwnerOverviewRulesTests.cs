@@ -30,17 +30,43 @@ public sealed class OwnerOverviewRulesTests
         Assert.Equal(30000, result.School.KnownMonthlyCents); Assert.Equal(2, result.School.PriceSampleCount); Assert.Equal(1, result.School.MissingPriceCount);
         Assert.Equal(3, result.Rentals.ActiveGroups); Assert.Equal(60000, result.Rentals.KnownMonthlyCents); Assert.Equal(1, result.Rentals.MissingPriceCount);
         Assert.Equal(90000, result.Recurring.KnownMonthlyCents); Assert.Equal(2, result.Recurring.MissingPriceCount);
-        Assert.Equal(35, result.Targets.WeeklyClasses); Assert.Equal(210, result.Targets.WeeklyPlaces); Assert.Equal(14, result.Targets.WeeklyRentalGroups);
+        Assert.Equal(25, result.Targets.WeeklyClasses); Assert.Equal(150, result.Targets.WeeklyPlaces); Assert.Equal(14, result.Targets.WeeklyRentalGroups);
         var mon = Assert.Single(result.Weekdays, x => x.WeekDay == 1);
         Assert.Equal(2, mon.Classes); Assert.Equal(2, mon.EnrollmentPlaces); Assert.Equal(1, mon.RentalGroups);
         Assert.Equal("weekday", mon.SchoolGoal.PriceReference); Assert.False(mon.SchoolGoal.UsesFallback); Assert.Equal(300000, mon.SchoolGoal.EstimatedMonthlyCents);
-        var sunday = Assert.Single(result.Weekdays, x => x.WeekDay == 0);
-        Assert.Equal("segment", sunday.SchoolGoal.PriceReference); Assert.True(sunday.SchoolGoal.UsesFallback); Assert.Equal(2, sunday.SchoolGoal.SampleCount);
-        Assert.Equal(15000, sunday.SchoolGoal.AverageMonthlyCents); Assert.Equal(450000, sunday.SchoolGoal.EstimatedMonthlyCents);
+        var thursday = Assert.Single(result.Weekdays, x => x.WeekDay == 4);
+        Assert.Equal("segment", thursday.SchoolGoal.PriceReference); Assert.True(thursday.SchoolGoal.UsesFallback); Assert.Equal(2, thursday.SchoolGoal.SampleCount);
+        Assert.Equal(15000, thursday.SchoolGoal.AverageMonthlyCents); Assert.Equal(450000, thursday.SchoolGoal.EstimatedMonthlyCents);
+        Assert.All(result.Weekdays.Where(x => x.WeekDay is 0 or 6), row => Assert.Equal(0, row.SchoolGoal.EstimatedMonthlyCents));
         var wed = Assert.Single(result.Weekdays, x => x.WeekDay == 3);
         Assert.Equal(0, wed.RentalGoal.EstimatedMonthlyCents); Assert.Equal(1, wed.RentalGoal.SampleCount); Assert.Equal("weekday", wed.RentalGoal.PriceReference);
-        Assert.Equal(3150000, result.Recurring.SchoolTargetMonthlyCents); Assert.Equal(420000, result.Recurring.RentalTargetMonthlyCents);
-        Assert.Equal(3570000, result.Recurring.TargetMonthlyCents); Assert.Null(result.Recurring.BarTargetMonthlyCents);
+        Assert.Equal(2250000, result.Recurring.SchoolTargetMonthlyCents); Assert.Equal(420000, result.Recurring.RentalTargetMonthlyCents);
+        Assert.Equal(2670000, result.Recurring.TargetMonthlyCents); Assert.Null(result.Recurring.BarTargetMonthlyCents);
+    }
+
+    [Fact]
+    public void Weekend_school_records_stay_in_the_current_portfolio_without_extending_the_five_day_goal()
+    {
+        var one = Guid.NewGuid(); var two = Guid.NewGuid(); var three = Guid.NewGuid();
+        var monday = Guid.NewGuid(); var saturday = Guid.NewGuid(); var sunday = Guid.NewGuid();
+        var result = OwnerOverviewRules.Summarize(Data(Student(one), Student(two), Student(three),
+            Lesson(monday, 1), Lesson(saturday, 6), Lesson(sunday, 0),
+            Enrollment(Guid.NewGuid(), one, monday, 100), Enrollment(Guid.NewGuid(), two, saturday, 200),
+            Enrollment(Guid.NewGuid(), three, sunday, 300), Rental(Guid.NewGuid(), 6, 600), Rental(Guid.NewGuid(), 0, 800)), null, Now);
+
+        Assert.Equal(3, result.School.ActiveStudents); Assert.Equal(3, result.School.ActiveEnrollments); Assert.Equal(3, result.School.ActiveClasses);
+        Assert.Equal(60000, result.School.KnownMonthlyCents); Assert.Equal(200000, result.Recurring.KnownMonthlyCents);
+        Assert.All(result.Weekdays.Where(x => x.WeekDay is 0 or 6), row =>
+        {
+            Assert.Equal(1, row.Classes); Assert.Equal(1, row.EnrollmentPlaces); Assert.Equal(1, row.RentalGroups);
+            Assert.Equal(0, row.SchoolGoal.EstimatedMonthlyCents);
+            Assert.Equal("weekday", row.RentalGoal.PriceReference);
+        });
+        // The existing segment fallback still observes all known school prices;
+        // only the days contributing to the school target change.
+        Assert.Equal(2700000, result.Recurring.SchoolTargetMonthlyCents);
+        Assert.Equal(980000, result.Recurring.RentalTargetMonthlyCents);
+        Assert.Equal(3680000, result.Recurring.TargetMonthlyCents);
     }
 
     [Fact]
@@ -62,8 +88,8 @@ public sealed class OwnerOverviewRulesTests
         var a = Guid.NewGuid(); var b = Guid.NewGuid(); var lesson = Guid.NewGuid();
         var result = OwnerOverviewRules.Summarize(Data(Student(a), Student(b), Lesson(lesson, 1),
             Enrollment(Guid.NewGuid(), a, lesson, .01m), Enrollment(Guid.NewGuid(), b, lesson, .02m), Rental(Guid.NewGuid(), 1, 0)), null, Now);
-        Assert.All(result.Weekdays, row => { Assert.Equal(2, row.SchoolGoal.AverageMonthlyCents); Assert.Equal(45, row.SchoolGoal.EstimatedMonthlyCents); });
-        Assert.Equal(315, result.Recurring.TargetMonthlyCents);
+        Assert.All(result.Weekdays, row => { Assert.Equal(2, row.SchoolGoal.AverageMonthlyCents); Assert.Equal(row.WeekDay is >= 1 and <= 5 ? 45 : 0, row.SchoolGoal.EstimatedMonthlyCents); });
+        Assert.Equal(225, result.Recurring.TargetMonthlyCents);
     }
 
     [Fact]

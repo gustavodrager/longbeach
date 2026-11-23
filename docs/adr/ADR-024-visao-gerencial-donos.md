@@ -16,9 +16,11 @@ A base ativa é uma fotografia na data da consulta em São Paulo. Alunos são pe
 
 ## Metas e valores
 
-As metas autorizadas são cinco aulas recorrentes por dia da semana, seis vagas por aula e dois grupos mensalistas por dia, de segunda a domingo: 35 aulas, 210 vagas e 14 grupos na semana. As 210 vagas não equivalem a 210 alunos únicos.
+Em 23/11/2026, o responsável restringiu a meta de aulas a **segunda a sexta**: cinco turmas por dia e seis vagas por turma, totalizando **25 turmas e 150 vagas semanais**. Esta revisão substitui o cenário anterior de 35 turmas e 210 vagas. A meta de mensalistas permanece em dois grupos por dia, de segunda a domingo: **14 grupos na semana**. As 150 vagas não equivalem a 150 alunos únicos.
 
-A meta mensal em reais é estimada com as mensalidades conhecidas de cada dia. Na ausência de preço local, utiliza a média conhecida do mesmo segmento; sem referência no segmento, a estimativa é nula. Zero explicitamente combinado é preservado e valores a combinar não são convertidos em zero. A estimativa não gera cobrança ou receita. O Bar permanece sem meta monetária até existir um valor explicitamente definido.
+As turmas, matrículas e mensalidades reais de sábado e domingo continuam na base ativa e no detalhamento. Esses dias não recebem meta de aulas e não entram no numerador dos comparativos contra 25 turmas e 150 vagas. A interface apresenta suas contagens sem medidor ou divisão por uma meta zero. Esta alteração muda somente o calendário da meta; não muda preços, contratos ou cobranças.
+
+A meta mensal em reais é estimada com as mensalidades conhecidas de cada dia com meta: cinco dias para aulas e sete para mensalistas. Na ausência de preço local, utiliza a média conhecida do mesmo segmento, preservando todas as referências da base ativa; sem referência no segmento, a estimativa é nula. Zero explicitamente combinado é preservado e valores a combinar não são convertidos em zero. A estimativa não gera cobrança ou receita. O Bar permanece sem meta monetária até existir um valor explicitamente definido.
 
 ## Fontes financeiras
 

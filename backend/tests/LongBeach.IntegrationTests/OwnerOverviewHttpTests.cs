@@ -44,7 +44,8 @@ public sealed class OwnerOverviewHttpTests
         Assert.Equal("competence", result.Finance.School.Basis); Assert.Equal("due-date", result.Finance.OtherSchool.Basis);
         Assert.Equal("confirmation-date", result.Finance.Bar.Basis); Assert.Equal("event-date", result.Finance.BarLegacy.Basis);
         Assert.Equal(0, result.Finance.School.OverdueCents); Assert.Equal(0, result.Finance.OtherSchool.OverdueChargeCount);
-        Assert.Null(result.Recurring.TargetMonthlyCents); Assert.Equal(210, result.Targets.WeeklyPlaces);
+        Assert.Null(result.Recurring.TargetMonthlyCents); Assert.Equal(25, result.Targets.WeeklyClasses);
+        Assert.Equal(150, result.Targets.WeeklyPlaces); Assert.Equal(14, result.Targets.WeeklyRentalGroups);
         var json = await response.Content.ReadAsStringAsync();
         foreach (var field in new[] { "customerId", "studentId", "userId", "password", "email", "phone", "pixText" }) Assert.DoesNotContain("\"" + field + "\"", json);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/v1/owner-overview?month=2026-13")).StatusCode);

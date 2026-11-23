@@ -22,13 +22,15 @@ O painel tem duas referências temporais. A base de contratos e a grade refletem
 | Mensalistas | Grupos com contrato recorrente ativo e datas válidas. Integrantes do grupo não multiplicam a mensalidade. |
 | Mensalidades conhecidas | Soma dos preços mensais informados nas matrículas e nos grupos ativos. Não é faturamento emitido nem recebimento. |
 
-O cenário de meta usa os sete dias, de segunda a domingo: **5 aulas por dia, 6 vagas por aula e 2 grupos mensalistas por dia**. Resultam **35 aulas semanais, 210 vagas na grade semanal e 14 contratos mensalistas**. As 210 vagas não representam 210 pessoas diferentes. Ocupação de matrícula também não representa presença realizada.
+Conforme ajuste autorizado em 23/11/2026, o cenário de **aulas usa segunda a sexta: 5 turmas por dia e 6 vagas por turma**, resultando em **25 turmas e 150 vagas na grade semanal**. A meta de **mensalistas mantém os sete dias: 2 grupos por dia e 14 contratos na semana**. As 150 vagas não representam 150 pessoas diferentes. Ocupação de matrícula também não representa presença realizada.
+
+Os comparativos de aulas contra 25 turmas e 150 vagas consideram somente os registros de segunda a sexta. Turmas e matrículas reais de sábado e domingo continuam nas contagens da base completa, nas mensalidades conhecidas e nas linhas desses dias, apresentadas como **sem meta**. Não se divide a ocupação por zero. O ajuste altera o calendário da meta, sem recalcular preços contratados ou criar cobranças.
 
 A meta monetária é uma **estimativa de mensalidade ao atingir a ocupação**:
 
-- Em cada dia, 30 vagas multiplicadas pela média dos preços conhecidos das matrículas daquele dia.
+- Em cada dia de segunda a sexta, 30 vagas multiplicadas pela média dos preços conhecidos das matrículas daquele dia. Sábado e domingo não acrescentam estimativa à meta de aulas.
 - Para mensalistas, 2 grupos multiplicados pela média dos preços mensais dos grupos daquele dia.
-- Sem preço conhecido no dia, usa-se a média dos contratos ativos do mesmo segmento. A interface identifica esse uso e a quantidade de referências.
+- Sem preço conhecido no dia, usa-se a média dos contratos ativos do mesmo segmento, preservando a regra existente e todas as referências conhecidas da base ativa. A interface identifica esse uso e a quantidade de referências.
 - Sem preço conhecido em todo o segmento, sua meta monetária fica sem referência. O total dos dois segmentos também fica sem estimativa completa.
 
 Preço ausente significa **a combinar**; preço explicitamente zero continua conhecido e participa da média. O subtotal conhecido mostra quantas mensalidades ainda não têm preço. As metas em reais não usam campos livres antigos de alunos, valores de reserva avulsa ou um preço presumido de turma. O cadastro de turma não oferece um preço mensal padrão para substituir os contratos.
