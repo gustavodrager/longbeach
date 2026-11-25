@@ -15,8 +15,12 @@ const money = (cents: number) => currency.format(cents / 100)
 const estimatedMoney = (cents: number | null) => cents === null ? 'Sem referência de preço' : money(cents)
 const weekdays = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado']
 const weekdayOrder = [1, 2, 3, 4, 5, 6, 0]
+const isSchoolGoalDay = (day: number) => day >= 1 && day <= 5
+const schoolGoalTotals = (report: OwnerOverview) => report.weekdays.filter(row => isSchoolGoalDay(row.weekDay))
+  .reduce((total, row) => ({ classes: total.classes + row.classes, enrollments: total.enrollments + row.enrollmentPlaces }), { classes: 0, enrollments: 0 })
 
 function GoalProgress({ value, target, label }: { value: number; target: number; label: string }) {
+  if (target <= 0) return <div className="owner-goal-progress"><strong>{number.format(value)}</strong><small>Sem meta</small></div>
   return <div className="owner-goal-progress">
     <span><strong>{number.format(value)}</strong> <span>de {number.format(target)}</span></span>
     <div className="owner-goal-track" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.min(value, target)} aria-valuetext={`${number.format(value)} de ${number.format(target)}${value > target ? ' · acima da meta' : ''}`}>
@@ -32,6 +36,8 @@ function KnownPrice({ cents, samples, missing }: { cents: number; samples: numbe
 
 function ActiveBase({ report }: { report: OwnerOverview }) {
   const { school, rentals, recurring } = report
+  const schoolGoals = schoolGoalTotals(report)
+  const hasWeekendClasses = school.activeClasses > schoolGoals.classes
   const hasPrices = school.priceSampleCount > 0 || rentals.priceSampleCount > 0
   return <section className="owner-section" aria-labelledby="owner-base-heading">
     <div className="owner-section-heading"><div><h2 id="owner-base-heading">Alunos e mensalistas</h2><p>Base ativa em {dateLabel(report.asOfDate)} · a competência abaixo não altera esta base.</p></div></div>
@@ -39,7 +45,8 @@ function ActiveBase({ report }: { report: OwnerOverview }) {
       <article className="owner-base-card" aria-labelledby="owner-school-heading">
         <div className="owner-card-top"><h3 id="owner-school-heading">Alunos</h3><Link to="/alunos">Ver alunos <span aria-hidden="true">→</span></Link></div>
         <p className="owner-big-number"><strong>{number.format(school.activeStudents)}</strong>{' '}<span>alunos únicos com matrícula ativa</span></p>
-        <div className="owner-base-counts"><span><strong>{number.format(school.activeEnrollments)} / {report.targets.weeklyPlaces}</strong> matrículas<small>ocupação da meta de vagas</small></span><span><strong>{number.format(school.activeClasses)} / {report.targets.weeklyClasses}</strong> turmas ativas<small>meta da grade semanal</small></span></div>
+        <div className="owner-base-counts"><span><strong>{number.format(schoolGoals.enrollments)} / {report.targets.weeklyPlaces}</strong> matrículas<small>meta de vagas · segunda a sexta</small></span><span><strong>{number.format(schoolGoals.classes)} / {report.targets.weeklyClasses}</strong> turmas ativas<small>meta da grade · segunda a sexta</small></span></div>
+        {hasWeekendClasses && <p className="owner-note">Base completa: {number.format(school.activeEnrollments)} matrícula(s) em {number.format(school.activeClasses)} turma(s), incluindo o fim de semana. As atividades de sábado e domingo ficam fora da meta de aulas.</p>}
         <div className="owner-known-price"><span>Mensalidades conhecidas · aulas</span><KnownPrice cents={school.knownMonthlyCents} samples={school.priceSampleCount} missing={school.missingPriceCount} /></div>
         {school.activeEnrollments === 0 && <p className="owner-empty-note">Nenhuma matrícula ativa nesta leitura.</p>}
         <Link className="owner-detail-link" to="/escola/matriculas">Conferir matrículas e mensalidades <span aria-hidden="true">→</span></Link>
@@ -117,22 +124,23 @@ function PriceReference({ goal }: { goal: GoalEstimate }) {
 
 function WeeklyGoals({ report }: { report: OwnerOverview }) {
   const { targets, recurring } = report
+  const schoolGoals = schoolGoalTotals(report)
   const rows = weekdayOrder.map(day => report.weekdays.find(row => row.weekDay === day)!)
   const placesPerDay = targets.classesPerWeekday * targets.placesPerClass
   return <section className="owner-section" aria-labelledby="owner-goals-heading">
-    <div className="owner-section-heading"><div><h2 id="owner-goals-heading">Metas da semana</h2><p>Grade ativa em {dateLabel(report.asOfDate)} · {targets.classesPerWeekday} aulas por dia, {targets.placesPerClass} alunos por aula e {targets.rentalGroupsPerWeekday} grupos mensalistas por dia.</p></div><Link className="owner-detail-link" to="/escola">Abrir grade de aulas <span aria-hidden="true">→</span></Link></div>
+    <div className="owner-section-heading"><div><h2 id="owner-goals-heading">Metas da semana</h2><p>Grade ativa em {dateLabel(report.asOfDate)} · aulas de segunda a sexta: {targets.classesPerWeekday} turmas por dia e {targets.placesPerClass} vagas por turma. Mensalistas de segunda a domingo: {targets.rentalGroupsPerWeekday} grupos por dia.</p></div><Link className="owner-detail-link" to="/escola">Abrir grade de aulas <span aria-hidden="true">→</span></Link></div>
     <div className="owner-goals-card"><table className="owner-goals-table" aria-label="Metas por dia da semana"><thead><tr><th scope="col">Dia da semana</th><th scope="col">Aulas recorrentes</th><th scope="col">Vagas ocupadas</th><th scope="col">Grupos mensalistas</th></tr></thead><tbody>{rows.map(row => <tr key={row.weekDay}>
       <th scope="row">{weekdays[row.weekDay]}</th>
-      <td data-label="Aulas"><GoalProgress value={row.classes} target={targets.classesPerWeekday} label={`Aulas de ${weekdays[row.weekDay]}`} /></td>
-      <td data-label="Vagas"><GoalProgress value={row.enrollmentPlaces} target={placesPerDay} label={`Vagas de ${weekdays[row.weekDay]}`} /><small>{row.classes > 0 ? `${number.format(row.enrollmentPlaces / row.classes)} aluno(s) por aula, em média · meta ${targets.placesPerClass}` : 'Sem aulas ativas neste dia'}</small></td>
+      <td data-label="Aulas"><GoalProgress value={row.classes} target={isSchoolGoalDay(row.weekDay) ? targets.classesPerWeekday : 0} label={`Aulas de ${weekdays[row.weekDay]}`} /></td>
+      <td data-label="Vagas"><GoalProgress value={row.enrollmentPlaces} target={isSchoolGoalDay(row.weekDay) ? placesPerDay : 0} label={`Vagas de ${weekdays[row.weekDay]}`} /><small>{row.classes > 0 ? `${number.format(row.enrollmentPlaces / row.classes)} aluno(s) por aula, em média${isSchoolGoalDay(row.weekDay) ? ` · meta ${targets.placesPerClass}` : ''}` : 'Sem aulas ativas neste dia'}</small></td>
       <td data-label="Mensalistas"><GoalProgress value={row.rentalGroups} target={targets.rentalGroupsPerWeekday} label={`Mensalistas de ${weekdays[row.weekDay]}`} /></td>
-    </tr>)}</tbody><tfoot><tr><th scope="row">Semana completa</th><td data-label="Aulas"><strong>{number.format(report.school.activeClasses)} de {targets.weeklyClasses}</strong></td><td data-label="Vagas"><strong>{number.format(report.school.activeEnrollments)} de {targets.weeklyPlaces}</strong></td><td data-label="Mensalistas"><strong>{number.format(report.rentals.activeGroups)} de {targets.weeklyRentalGroups}</strong></td></tr></tfoot></table></div>
-    <p className="owner-note">A meta de {targets.weeklyPlaces} vagas corresponde a matrículas na grade semanal, não a pessoas diferentes. Um aluno em duas aulas ocupa duas vagas. A ocupação mostra matrículas, não presenças realizadas.</p>
+    </tr>)}</tbody><tfoot><tr><th scope="row">Total nas metas</th><td data-label="Aulas"><strong>{number.format(schoolGoals.classes)} de {targets.weeklyClasses}</strong><small>Segunda a sexta</small></td><td data-label="Vagas"><strong>{number.format(schoolGoals.enrollments)} de {targets.weeklyPlaces}</strong><small>Segunda a sexta</small></td><td data-label="Mensalistas"><strong>{number.format(report.rentals.activeGroups)} de {targets.weeklyRentalGroups}</strong><small>Segunda a domingo</small></td></tr></tfoot></table></div>
+    <p className="owner-note">A meta de {targets.weeklyPlaces} vagas corresponde a matrículas na grade de segunda a sexta, não a pessoas diferentes. Um aluno em duas aulas ocupa duas vagas. A ocupação mostra matrículas, não presenças realizadas. Aulas e matrículas de sábado e domingo permanecem visíveis, sem meta nesses dias.</p>
     <div className="owner-target-money"><div><h3>Mensalidade estimada ao atingir as metas</h3><p>Estimativa com os preços combinados na base ativa. Não é cobrança emitida nem receita garantida.</p></div><strong>{estimatedMoney(recurring.targetMonthlyCents)}</strong>
       <dl><div><dt>Aulas</dt><dd>{estimatedMoney(recurring.schoolTargetMonthlyCents)}</dd></div><div><dt>Mensalistas</dt><dd>{estimatedMoney(recurring.rentalTargetMonthlyCents)}</dd></div><div><dt>Bar</dt><dd>Sem meta em reais</dd></div></dl>
     </div>
-    <Disclosure title="Preços usados na estimativa das metas"><p className="owner-note">A estimativa usa a média das mensalidades conhecidas do mesmo dia. Quando não existe preço naquele dia, usa a média conhecida do segmento. Mensalidades a combinar ficam fora da média; preços explicitamente definidos em zero continuam sendo considerados. Sem referência em um segmento, sua meta em reais e o total ficam sem estimativa.</p>
-      <div className="owner-table-wrap"><table className="owner-estimate-table" aria-label="Estimativa de mensalidades por dia"><thead><tr><th scope="col">Dia da semana</th><th scope="col">Meta de aulas</th><th scope="col">Meta de mensalistas</th></tr></thead><tbody>{rows.map(row => <tr key={row.weekDay}><th scope="row">{weekdays[row.weekDay]}</th><td><PriceReference goal={row.schoolGoal} /></td><td><PriceReference goal={row.rentalGoal} /></td></tr>)}</tbody></table></div>
+    <Disclosure title="Preços usados na estimativa das metas"><p className="owner-note">A estimativa de aulas soma somente segunda a sexta; a de mensalistas mantém os sete dias. Em cada dia com meta, usa a média das mensalidades conhecidas do mesmo dia. Quando não existe preço naquele dia, usa a média conhecida do segmento. Mensalidades a combinar ficam fora da média; preços explicitamente definidos em zero continuam sendo considerados. Sem referência em um segmento, sua meta em reais e o total ficam sem estimativa.</p>
+      <div className="owner-table-wrap"><table className="owner-estimate-table" aria-label="Estimativa de mensalidades por dia"><thead><tr><th scope="col">Dia da semana</th><th scope="col">Meta de aulas</th><th scope="col">Meta de mensalistas</th></tr></thead><tbody>{rows.map(row => <tr key={row.weekDay}><th scope="row">{weekdays[row.weekDay]}</th><td>{isSchoolGoalDay(row.weekDay) ? <PriceReference goal={row.schoolGoal} /> : <span>Sem meta de aulas</span>}</td><td><PriceReference goal={row.rentalGoal} /></td></tr>)}</tbody></table></div>
     </Disclosure>
   </section>
 }

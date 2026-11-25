@@ -26,7 +26,7 @@ public static class OwnerOverviewRules
 {
     public const string ZoneId = "America/Sao_Paulo";
     private static readonly TimeZoneInfo Zone = TimeZoneInfo.FindSystemTimeZoneById(ZoneId);
-    private static readonly OwnerPhysicalTargets Targets = new(5, 6, 2, 35, 210, 14);
+    private static readonly OwnerPhysicalTargets Targets = new(5, 6, 2, 25, 150, 14);
     private sealed record Row(Guid Id, string Kind, JsonElement Data);
     private sealed record PricedRow(Guid Id, int WeekDay, long? Price, Guid? StudentId = null);
     private sealed record Charge(Row Row, Guid SourceId, string SourceKind, long Amount);
@@ -100,9 +100,9 @@ public static class OwnerOverviewRules
         warnings.Add("rental_prices_missing", "Há mensalidades de grupos a combinar; a base conhecida não representa toda a carteira.", rentalMissing);
         var weekdays = Enumerable.Range(0, 7).Select(day => new OwnerWeekdayOverview(day,
             classes.Values.Count(d => d == day), enrollments.Count(x => x.WeekDay == day), rentals.Count(x => x.WeekDay == day),
-            Goal(enrollments, schoolPrices, day, Targets.ClassesPerWeekday * Targets.PlacesPerClass),
+            Goal(enrollments, schoolPrices, day, IsSchoolGoalDay(day) ? Targets.ClassesPerWeekday * Targets.PlacesPerClass : 0),
             Goal(rentals, rentalPrices, day, Targets.RentalGroupsPerWeekday))).ToArray();
-        var schoolTarget = CompleteTotal(weekdays.Select(x => x.SchoolGoal.EstimatedMonthlyCents));
+        var schoolTarget = CompleteTotal(weekdays.Where(x => IsSchoolGoalDay(x.WeekDay)).Select(x => x.SchoolGoal.EstimatedMonthlyCents));
         var rentalTarget = CompleteTotal(weekdays.Select(x => x.RentalGoal.EstimatedMonthlyCents));
         var knownMonthly = checked(schoolPrices.Sum() + rentalPrices.Sum());
         var finance = Finance(rows, data.Settlements, competence, today, now, warnings);
@@ -115,6 +115,8 @@ public static class OwnerOverviewRules
                 schoolTarget.HasValue && rentalTarget.HasValue ? checked(schoolTarget.Value + rentalTarget.Value) : null, null),
             Targets, weekdays, new(finance.School, finance.Rentals, finance.OtherSchool, bar, legacyBar), warnings.Items());
     }
+
+    private static bool IsSchoolGoalDay(int day) => day is >= 1 and <= 5;
 
     private static OwnerGoalEstimate Goal(IEnumerable<PricedRow> rows, long[] global, int day, int quantity)
     {

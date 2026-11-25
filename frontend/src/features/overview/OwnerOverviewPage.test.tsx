@@ -16,9 +16,9 @@ function report(): OwnerOverview {
     month: '2026-11', asOfDate: '2026-11-20', queriedAtUtc: '2026-11-20T15:00:00Z', timeZone: 'America/Sao_Paulo',
     school: { activeStudents: 2, activeEnrollments: 3, activeClasses: 2, knownMonthlyCents: 45000, priceSampleCount: 2, missingPriceCount: 1 },
     rentals: { activeGroups: 2, knownMonthlyCents: 110000, priceSampleCount: 1, missingPriceCount: 1 },
-    recurring: { knownMonthlyCents: 155000, missingPriceCount: 2, schoolTargetMonthlyCents: 4725000, rentalTargetMonthlyCents: 1540000, targetMonthlyCents: 6265000, barTargetMonthlyCents: null },
-    targets: { classesPerWeekday: 5, placesPerClass: 6, rentalGroupsPerWeekday: 2, weeklyClasses: 35, weeklyPlaces: 210, weeklyRentalGroups: 14 },
-    weekdays: Array.from({ length: 7 }, (_, weekDay) => ({ weekDay, classes: [1, 2].includes(weekDay) ? 1 : 0, enrollmentPlaces: weekDay === 1 ? 2 : weekDay === 2 ? 1 : 0, rentalGroups: [1, 2].includes(weekDay) ? 1 : 0, schoolGoal: price(22500, 30), rentalGoal: price(110000, 2) })),
+    recurring: { knownMonthlyCents: 155000, missingPriceCount: 2, schoolTargetMonthlyCents: 3375000, rentalTargetMonthlyCents: 1540000, targetMonthlyCents: 4915000, barTargetMonthlyCents: null },
+    targets: { classesPerWeekday: 5, placesPerClass: 6, rentalGroupsPerWeekday: 2, weeklyClasses: 25, weeklyPlaces: 150, weeklyRentalGroups: 14 },
+    weekdays: Array.from({ length: 7 }, (_, weekDay) => ({ weekDay, classes: [1, 2].includes(weekDay) ? 1 : 0, enrollmentPlaces: weekDay === 1 ? 2 : weekDay === 2 ? 1 : 0, rentalGroups: [1, 2].includes(weekDay) ? 1 : 0, schoolGoal: price(22500, weekDay >= 1 && weekDay <= 5 ? 30 : 0), rentalGoal: price(110000, 2) })),
     finance: {
       school: { billedCents: 20000, receivedCents: 15000, outstandingCents: 5000, overdueCents: 4000, chargeCount: 2, partiallyPaidCount: 1, manualPaidCount: 0, overdueChargeCount: 1, basis: 'competence' },
       rentals: { billedCents: 40000, receivedCents: 10000, outstandingCents: 30000, overdueCents: 0, chargeCount: 1, partiallyPaidCount: 1, manualPaidCount: 1, overdueChargeCount: 0, basis: 'competence' },
@@ -43,15 +43,15 @@ it('abre a visão dos donos sem depender dos cadastros carregados pelo painel op
   mount()
   const school = await screen.findByRole('article', { name: 'Alunos' })
   expect(school).toHaveTextContent('2 alunos únicos com matrícula ativa')
-  expect(school).toHaveTextContent('3 / 210 matrículas')
-  expect(school).toHaveTextContent('2 / 35 turmas ativas')
+  expect(school).toHaveTextContent('3 / 150 matrículas')
+  expect(school).toHaveTextContent('2 / 25 turmas ativas')
   expect(school).toHaveTextContent('R$ 450,00')
   expect(school).toHaveTextContent('1 a combinar')
   expect(screen.getByRole('article', { name: 'Mensalistas' })).toHaveTextContent('2 grupos com contrato ativo')
   expect(screen.getByText('R$ 1.550,00')).toBeInTheDocument()
   const base = screen.getByRole('region', { name: 'Alunos e mensalistas' })
   expect(within(base).getByText('Meta recorrente estimada')).toBeVisible()
-  expect(within(base).getByText('R$ 62.650,00')).toBeVisible()
+  expect(within(base).getByText('R$ 49.150,00')).toBeVisible()
   expect(screen.getByText(/Atualizado em 20\/11\/2026, 12:00/)).toBeInTheDocument()
   expect(screen.getByText(/Há mensalidades a combinar/)).toBeVisible()
   expect(screen.queryByRole('heading', { name: 'Hoje' })).not.toBeInTheDocument()
@@ -86,19 +86,49 @@ it('mantém competência das mensalidades e movimentos do Bar separados sem tota
 
 it('ordena as metas de segunda a domingo e distingue pessoas, matrículas e grupos', async () => {
   const value = report(); value.weekdays[1].classes = 6; value.weekdays[1].enrollmentPlaces = 36
+  value.school.activeClasses = 7; value.school.activeEnrollments = 37
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(value)); mount()
   const table = await screen.findByRole('table', { name: 'Metas por dia da semana' })
-  expect(within(table).getAllByRole('rowheader').map(row => row.textContent)).toEqual(['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo', 'Semana completa'])
+  expect(within(table).getAllByRole('rowheader').map(row => row.textContent)).toEqual(['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo', 'Total nas metas'])
   expect(within(table).getByRole('meter', { name: 'Aulas de Segunda-feira' })).toHaveAttribute('aria-valuetext', '6 de 5 · acima da meta')
   expect(within(table).getByRole('meter', { name: 'Vagas de Segunda-feira' })).toHaveAttribute('aria-valuetext', '36 de 30 · acima da meta')
-  expect(within(table).getByText('3 de 210')).toBeInTheDocument()
+  expect(within(table).getByText('37 de 150')).toBeInTheDocument()
   expect(within(table).getByText('2 de 14')).toBeInTheDocument()
-  expect(screen.getByText(/210 vagas corresponde a matrículas/)).toBeVisible()
+  expect(screen.getByText(/150 vagas corresponde a matrículas na grade de segunda a sexta/)).toBeVisible()
   expect(screen.getByText('Sem meta em reais')).toBeInTheDocument()
   await userEvent.click(screen.getByText('Preços usados na estimativa das metas', { selector: 'summary' }))
   const estimates = screen.getByRole('table', { name: 'Estimativa de mensalidades por dia' })
-  expect(within(estimates).getAllByText(/Usa a média do segmento/)).toHaveLength(14)
-  expect(within(screen.getByRole('region', { name: 'Metas da semana' })).getByText('R$ 62.650,00')).toBeVisible()
+  expect(within(estimates).getAllByText(/Usa a média do segmento/)).toHaveLength(12)
+  expect(within(estimates).getAllByText('Sem meta de aulas')).toHaveLength(2)
+  expect(within(screen.getByRole('region', { name: 'Metas da semana' })).getByText('R$ 49.150,00')).toBeVisible()
+})
+
+it('preserva aulas reais no fim de semana sem incluí-las nas metas de segunda a sexta', async () => {
+  const value = report()
+  value.weekdays[6] = { ...value.weekdays[6], classes: 1, enrollmentPlaces: 2, rentalGroups: 1 }
+  value.weekdays[0] = { ...value.weekdays[0], classes: 1, enrollmentPlaces: 1, rentalGroups: 1 }
+  value.school = { ...value.school, activeStudents: 5, activeClasses: 4, activeEnrollments: 6 }
+  value.rentals.activeGroups = 4
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(value)); mount()
+  const school = await screen.findByRole('article', { name: 'Alunos' })
+  expect(school).toHaveTextContent('5 alunos únicos com matrícula ativa')
+  expect(school).toHaveTextContent('3 / 150 matrículas')
+  expect(school).toHaveTextContent('2 / 25 turmas ativas')
+  expect(school).toHaveTextContent('Base completa: 6 matrícula(s) em 4 turma(s), incluindo o fim de semana.')
+  const table = screen.getByRole('table', { name: 'Metas por dia da semana' })
+  for (const day of ['Sábado', 'Domingo']) {
+    const row = within(table).getByRole('rowheader', { name: day }).closest('tr')!
+    const cells = within(row).getAllByRole('cell')
+    expect(cells[0]).toHaveTextContent('1Sem meta')
+    expect(cells[1]).toHaveTextContent(`${day === 'Sábado' ? 2 : 1}Sem meta`)
+    expect(within(row).getAllByRole('meter')).toHaveLength(1)
+    expect(within(row).getByRole('meter', { name: `Mensalistas de ${day}` })).toHaveAttribute('aria-valuetext', '1 de 2')
+    expect(within(row).queryByRole('meter', { name: `Aulas de ${day}` })).not.toBeInTheDocument()
+    expect(within(row).queryByRole('meter', { name: `Vagas de ${day}` })).not.toBeInTheDocument()
+  }
+  expect(within(table).getByText('3 de 150')).toBeInTheDocument()
+  expect(within(table).getByText('2 de 25')).toBeInTheDocument()
+  expect(within(table).getByText('4 de 14')).toBeInTheDocument()
 })
 
 it('preserva preços nulos como pendência e preços explicitamente zero como conhecidos', async () => {
