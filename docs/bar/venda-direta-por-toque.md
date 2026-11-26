@@ -2,9 +2,11 @@
 
 Implementação desenvolvida e validada localmente em 17/11/2026, na branch `codex/venda-direta-toque-20261116`. Integrada à main pelo PR #82 e publicada posteriormente, após autorização do proprietário e aprovação de Production. O [recibo da publicação](../operacao/release-venda-direta-2026-11-17.json) identifica o commit, os artefatos e as verificações.
 
+As regras de recuperação abaixo foram evoluídas em 25/11/2026 para isolar falhas por produto. Esta evolução está preparada no código; não representa uma publicação em produção. O [runbook de recuperação](../operacao/recuperacao-venda-direta-2026-11-25.md) descreve limites, diagnóstico e promoção.
+
 ## Comportamento
 
-Na tela Vender de uma comanda aberta, o atendente com acesso a venda e entrega toca no produto para registrar uma unidade. O sistema aceita e entrega na mesma transação, incluindo produtos preparados e suas receitas, sem carrinho, Salvar ou confirmação de lançamento. O catálogo permanece aberto. Toques rápidos são guardados e enviados na ordem; o resumo agrupa itens equivalentes sem juntar registros do histórico. O saldo confirmado e o acesso a Receber ficam visíveis no rodapé em telas menores.
+Na tela Vender de uma comanda aberta, o atendente com acesso a venda e entrega toca no produto para registrar uma unidade. O sistema aceita e entrega na mesma transação, incluindo produtos preparados e suas receitas, sem carrinho, Salvar ou confirmação de lançamento. O catálogo permanece aberto. Toques rápidos são guardados e enviados na ordem dentro de cada produto; uma falha isolada permite continuar os outros produtos. O resumo agrupa itens equivalentes sem juntar registros do histórico. O saldo confirmado e o acesso a Receber ficam visíveis no rodapé em telas menores.
 
 A comanda continua aberta até o pagamento. O encerramento automático após quitação e entrega, implementado no pacote anterior, permanece. O caixa do operador não é encerrado junto.
 
@@ -13,12 +15,14 @@ A venda avulsa e os rascunhos/operações antigos mantêm seu fluxo de recupera�
 ## Recuperação e concorrência
 
 - Cada toque recebe UUID próprio e é gravado no dispositivo antes do envio. A fila é separada por operador e comanda.
-- Web Locks separam a escrita da fila do envio; duas abas compartilham a fila sem perder toques ou enviar simultaneamente a mesma cabeça. Navegador sem o recurso bloqueia o lançamento direto.
+- Web Locks separam a escrita da fila, a admissão de toques e o envio; o envio é serializado por comanda, inclusive entre operadores do mesmo dispositivo. Navegador sem o recurso bloqueia o lançamento direto.
 - O servidor exige um produto e uma unidade por toque, entrega explícita e o preço que o atendente viu. Mudança de preço ou indisponibilidade recusa o lançamento sem mexer em consumo/estoque.
-- Falha de resposta pausa a fila; **Retomar registros** repete os mesmos dados e UUID. Um lançamento incerto já tentado não pode ser removido localmente. É possível remover um registro definitivamente recusado ou ainda não enviado.
+- Falhas recuperáveis têm até três envios por ciclo, com a mesma chave e os mesmos dados, intervalos de 1,5 e 4,5 segundos e timeout de 15 segundos por requisição. Falhas permanentes ou tentativas esgotadas ficam em conferência; não reiniciam automaticamente ao recarregar a página.
+- A pendência impede novos toques do mesmo produto, mas libera os demais produtos e a navegação para outras comandas. **Retomar registros** inicia um novo ciclo explícito com os dados e UUID originais. Um lançamento incerto já tentado não pode ser removido localmente, mesmo que uma repetição posterior seja recusada. É possível remover um registro definitivamente recusado ou ainda não enviado.
 - A fila pode conter registros já aplicados pelo servidor; a tela os apresenta como aguardando confirmação, sem afirmar que estão fora do saldo.
-- Enquanto houver fila ou gravação local em andamento, Receber e trocar de comanda nessa tela ficam bloqueados. Sair pelo navegador preserva a fila no destino original. Trocar de usuário interrompe os próximos envios da conta anterior.
-- Novos toques ficam bloqueados sem conexão. Ao reconectar, registros previamente guardados podem continuar; falhas indeterminadas exigem Retomar. Não limpar os dados do app enquanto houver registros em conferência.
+- Enquanto houver fila ou gravação local em andamento, o saldo aparece em conferência. Receber, encerrar e cancelar ficam protegidos também nas rotas diretas, considerando as filas de todos os operadores deste dispositivo. Uma conta não envia nem apaga os registros de outra. Sair da tela preserva a fila no destino original; trocar de usuário interrompe os próximos envios da conta anterior.
+- A confirmação financeira usa um lock exclusivo de admissão: um toque feito durante a cobrança não fica esperando para entrar depois do encerramento. Requisições financeiras protegidas têm timeout de 30 segundos e não recebem retentativa automática. A recuperação de um pagamento já iniciado mantém seu identificador e continua acessível.
+- Novos toques ficam bloqueados sem conexão. Ao reconectar, registros previamente guardados continuam dentro do limite do ciclo; pendências em conferência exigem Retomar. Não limpar os dados do app enquanto houver registros em conferência.
 - Consultas atrasadas não substituem uma versão mais recente da comanda. Atualização em segundo plano não bloqueia novos toques quando já existe um catálogo válido; o preço é conferido novamente no servidor.
 
 ## Servidor e estoque
@@ -26,6 +30,8 @@ A venda avulsa e os rascunhos/operações antigos mantêm seu fluxo de recupera�
 `AddTabItemsInput` acrescenta `DirectSale` e `ExpectedUnitPrice`, opcionais para preservar os clientes anteriores. Venda direta exige atendente e `Deliver=true`; o acesso de cliente não pode declarar entrega direta. O endpoint mantém as permissões de venda e entrega.
 
 A operação reutiliza a transação serializável, o bloqueio da comanda e as regras de estoque/receita existentes. A receita é congelada e salva dentro da transação antes de sua entrega; qualquer falha reverte o comando inteiro. Cada toque guarda apenas um comprovante compacto em `bar_tab_operations`. Repetição lê a comanda atual e não repete entrega ou estoque, inclusive após fechamento. A chave dos carrinhos anteriores, com e sem observações, conserva seu formato original.
+
+A recuperação de 25/11 repete somente conflitos transitórios conhecidos de venda direta, até três tentativas transacionais por requisição. A transação anterior é descartada e o tracker é limpo antes da próxima tentativa. Demais falhas de banco retornam um problema estruturado para manter o item em conferência, com identificação de suporte e indicação de retentativa. O resultado permanece `unconfirmed`: a falha atual não prova que uma tentativa anterior nunca foi gravada.
 
 Não há alteração de schema ou migration. PagBank permanece fora deste pacote.
 
@@ -51,7 +57,7 @@ O proprietário definiu que a retirada devolve a unidade ao estoque. A interface
 
 Somente linhas unitárias podem ser retiradas nesse atalho, como todas as criadas pelo fluxo de toque. Lotes anteriores com quantidade maior que um continuam na correção supervisionada de detalhes; o atalho não retira o lote inteiro silenciosamente.
 
-A retirada tem armazenamento separado (`lb-direct-removals-v1`), sem mudar o formato dos lançamentos anteriores. Os dois fluxos compartilham o lock de envio. Enquanto a retirada está em gravação ou conferência, novos toques, Receber e trocar de comanda nessa tela ficam bloqueados. Uma resposta perdida preserva UUID, item, motivo e devolução; Retomar retirada repete exatamente a mesma operação. Cliques rápidos e duas abas compartilham uma única tentativa; nenhuma repetição escolhe automaticamente outro item. Tentativas recusadas e ainda não enviadas podem ser descartadas, sem apagar operações de resultado incerto. Dados inválidos do dispositivo são preservados e bloqueiam a operação.
+A retirada tem armazenamento separado (`lb-direct-removals-v1`), sem mudar o formato dos lançamentos anteriores. Os dois fluxos compartilham o lock de envio. Enquanto a retirada está em gravação ou conferência, novos toques e Receber nessa comanda ficam bloqueados; a evolução de 25/11 libera a navegação para continuar em outras comandas. Uma resposta perdida preserva UUID, item, motivo e devolução; Retomar retirada repete exatamente a mesma operação, sem retentativa automática da retirada. Cliques rápidos e duas abas compartilham uma única tentativa; nenhuma repetição escolhe automaticamente outro item. Tentativas recusadas e ainda não enviadas podem ser descartadas, sem apagar operações de resultado incerto. Dados inválidos do dispositivo são preservados e bloqueiam a operação.
 
 Os testes incluem devolução única do produto e da receita após mudança da ficha, permissão, zero, resposta perdida/reabertura, cliques repetidos, duas vistas, offline, estoque e valores pagos. A prévia usa dados fictícios em 390×844 e 800×1280; não foi feita operação de negócio em produção nem teste no tablet físico. Evidências em `../evidencias/retirada-produto-toque-2026-11-17/`. Em eventual retorno da interface, preservar também a retirada pendente no dispositivo até sua conferência.
 

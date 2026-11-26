@@ -116,3 +116,25 @@ it('permite reenvios paralelos que pertencem à mesma renovação', async () => 
   expect(fetch.mock.calls.filter(([url]) => String(url).endsWith('/auth/refresh'))).toHaveLength(1)
   expect(fetch.mock.calls.slice(-2).map(([, init]) => new Headers(init?.headers).get('Authorization'))).toEqual(['Bearer new-token', 'Bearer new-token'])
 })
+
+it('preserva o diagnóstico estruturado de recuperação sem expor o corpo inteiro da falha', async () => {
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ detail: 'Registro em conferência', code: 'direct_sale_write_failed', retryable: false, outcome: 'unconfirmed', operationId: 'operation-fixture', traceId: 'trace-fixture', internal: 'not exposed' }, 409))
+  await expect(apiFetch('/api/v1/bar/tabs/fixture/items', { method: 'POST', body: '{}' })).rejects.toMatchObject({
+    status: 409, message: 'Registro em conferência', problem: { code: 'direct_sale_write_failed', retryable: false, outcome: 'unconfirmed', operationId: 'operation-fixture', traceId: 'trace-fixture' },
+  })
+})
+
+it('aborta a espera de renovação sem reenviar uma operação depois do prazo', async () => {
+  let finish!: (response: Response) => void
+  const refresh = new Promise<Response>(resolve => { finish = resolve })
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(json({}, 401)).mockReturnValueOnce(refresh)
+  const controller = new AbortController()
+  const stopped = new Error('Prazo encerrado')
+  const request = apiFetch('/api/v1/bar/tabs/fixture/items', { method: 'POST', body: '{}', signal: controller.signal }).catch(error => error)
+  await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+  controller.abort(stopped)
+  expect(await request).toBe(stopped)
+  finish(json({ accessToken: 'new-token', csrfToken: 'new-csrf', user: attendant }))
+  await vi.waitFor(() => expect(getCsrfToken()).toBe('new-csrf'))
+  expect(fetch.mock.calls.filter(([url]) => String(url).endsWith('/items'))).toHaveLength(1)
+})

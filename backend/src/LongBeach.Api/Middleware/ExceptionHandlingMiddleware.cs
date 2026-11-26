@@ -1,4 +1,5 @@
 using LongBeach.Application.Auth;
+using LongBeach.Application.Bar;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LongBeach.Api.Middleware;
@@ -38,6 +39,34 @@ public sealed class ExceptionHandlingMiddleware(
                 _ => StatusCodes.Status410Gone
             };
             await WriteProblemAsync(context, status, "Acesso à comanda indisponível", exception.Message);
+        }
+        catch (DirectSaleWriteException exception)
+        {
+            var postgres = PostgresCause(exception);
+            // Do not log the exception itself: PostgreSQL details may include stored
+            // values. These fields identify the failed operation without its payload.
+            logger.LogWarning(
+                "Direct sale remains unconfirmed for request {TraceIdentifier}, operation {OperationId}, tab {TabId}, code {Code}, retryable {Retryable}, attempts {Attempts}, SQL state {SqlState}, constraint {ConstraintName}, failure {FailureType}",
+                context.TraceIdentifier, exception.OperationId, exception.TabId, exception.Code,
+                exception.Retryable, exception.Attempts, postgres?.SqlState, postgres?.ConstraintName,
+                exception.InnerException?.GetType().Name);
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
+            if (exception.Retryable) context.Response.Headers.RetryAfter = "1";
+            await context.Response.WriteAsJsonAsync(new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Confirmação do item pendente",
+                Detail = exception.Message,
+                Instance = context.Request.Path,
+                Extensions =
+                {
+                    ["traceId"] = context.TraceIdentifier,
+                    ["operationId"] = exception.OperationId,
+                    ["code"] = exception.Code,
+                    ["retryable"] = exception.Retryable,
+                    ["outcome"] = exception.Outcome
+                }
+            });
         }
         catch (LongBeach.Application.Fiscal.InvoiceRuleException exception)
         {
@@ -123,6 +152,13 @@ public sealed class ExceptionHandlingMiddleware(
         for (Exception? cause = exception; cause is not null; cause = cause.InnerException)
             if (cause is Npgsql.PostgresException postgres && postgres.SqlState is "40001" or "40P01") return true;
         return false;
+    }
+
+    private static Npgsql.PostgresException? PostgresCause(Exception exception)
+    {
+        for (Exception? cause = exception; cause is not null; cause = cause.InnerException)
+            if (cause is Npgsql.PostgresException postgres) return postgres;
+        return null;
     }
 
     private static Task WriteProblemAsync(HttpContext context, int status, string title, string detail)

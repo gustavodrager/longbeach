@@ -10,6 +10,7 @@ import { BarFrame, LoadState } from './Core'
 import { Empty, Header, Icon, ItemStatus } from './components'
 import { dateTime, postBar, useIntent, type PageResult, type Tab, type TabItem } from './api'
 import { OrderWaiting, TabAttention, useAttentionClock } from './TabAttention'
+import { itemActionCanCloseTab, withDirectSalesSettled } from './directSalesPending'
 import './orders.css'
 import './service-clean.css'
 
@@ -51,7 +52,8 @@ export function OrdersPage() {
     const queues = { predicate: (q: { queryKey: readonly unknown[] }) => q.queryKey[0] === 'bar-runtime' && q.queryKey[1] === user?.id && String(q.queryKey[2]).startsWith('/tabs?state=Orders') }
     try {
       await cache.cancelQueries(queues)
-      const result = await postBar<Tab>(`/tabs/${tab.id}/items/${item.id}/${name}`, { operationId: intent(`${item.id}:${name}:${reason}`), reason, ...(name === 'reverse' ? { returnStock: false } : {}) })
+      const send = (signal?: AbortSignal) => postBar<Tab>(`/tabs/${tab.id}/items/${item.id}/${name}`, { operationId: intent(`${item.id}:${name}:${reason}`), reason, ...(name === 'reverse' ? { returnStock: false } : {}) }, signal)
+      const result = await (itemActionCanCloseTab(name) ? withDirectSalesSettled(tab.id, send) : send())
       const confirmed = result.items.find(row => row.id === item.id)
       if (!confirmed) throw new Error('Resposta sem o item confirmado')
       await cache.cancelQueries(queues)

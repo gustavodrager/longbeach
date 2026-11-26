@@ -73,7 +73,7 @@ export function useBarCommand() {
   }
   return { run, busy, error, message, setMessage, setError }
 }
-export const postBar = <T,>(path: string, body: unknown) => apiFetch<T>(`/api/v1/bar${path}`, { method: 'POST', body: JSON.stringify(body) })
+export const postBar = <T,>(path: string, body: unknown, signal?: AbortSignal) => apiFetch<T>(`/api/v1/bar${path}`, { method: 'POST', body: JSON.stringify(body), signal })
 
 /** The QR credential is the only authority for a client request. Never attach the attendant's session. */
 export async function clientRequest<T>(token: string, path = '', body?: unknown): Promise<T> {
