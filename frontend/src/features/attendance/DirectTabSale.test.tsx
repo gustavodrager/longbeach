@@ -220,3 +220,21 @@ it('a legacy pending removal keeps its original reverse endpoint and payload',as
  localStorage.setItem(directSalesKey('operator','tab-direct','remove'),JSON.stringify({version:1,paused:false,entries:[saved]}));mount(supervisor)
  await waitFor(()=>expect(api.tab.total).toBe(0));const calls=api.fetch.mock.calls.filter(([path])=>String(path).endsWith('/reverse'));expect(calls).toHaveLength(1);expect(JSON.parse(String(calls[0][1]?.body))).toEqual({operationId:saved.operationId,returnStock:true,reason:'Motivo original'})
 })
+
+it('a timed out removal releases its request and resumes the same item without a second stock return',async()=>{
+ let removals=0;let firstSignal:AbortSignal|null|undefined
+ const api=server((body,commit)=>{const response=commit();return body.returnStock!==undefined&&++removals===1?new Promise<Response>(()=>{}):response})
+ const original=api.fetch.getMockImplementation()!
+ api.fetch.mockImplementation(async(input,init)=>{if(String(input).endsWith('/remove-unit')&&!firstSignal)firstSignal=init?.signal;return original(input,init)})
+ mount(supervisor);fireEvent.click(await addButton());await settledQueue();const minus=await minusButton();vi.useFakeTimers()
+ try {
+  fireEvent.click(minus);await act(async()=>{await vi.advanceTimersByTimeAsync(15_000)})
+  expect(firstSignal?.aborted).toBe(true);expect(api.tab.total).toBe(0)
+  expect(screen.getByRole('button',{name:/Adicionar Água por/})).toBeDisabled()
+  const retry=screen.getByRole('button',{name:'Retomar retirada'});expect(retry).toBeEnabled();fireEvent.click(retry)
+  await act(async()=>{await vi.advanceTimersByTimeAsync(0)})
+  const writes=posts(api.fetch).filter(row=>row.returnStock!==undefined);expect(writes).toHaveLength(2);expect(writes[1]).toEqual(writes[0])
+  expect(api.tab.items).toHaveLength(1);expect(api.tab.total).toBe(0)
+  expect(JSON.parse(localStorage.getItem(directSalesKey('operator','tab-direct','remove'))!).entries).toHaveLength(0)
+ } finally {vi.useRealTimers()}
+})

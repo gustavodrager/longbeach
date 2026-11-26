@@ -2,6 +2,7 @@ using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using LongBeach.Application.Abstractions;
 using LongBeach.Application.Bar;
 using LongBeach.Application.Customers;
 using LongBeach.Domain.Customers;
@@ -17,10 +18,17 @@ using LongBeach.Infrastructure.Persistence;
 using LongBeach.Infrastructure.Finance;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace LongBeach.Infrastructure.Bar;
 
-public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGateway gateway, TimeProvider time, IConfiguration configuration) : IBarTabs
+public sealed partial class BarTabsService(
+    LongBeachDbContext db,
+    IPaymentGateway gateway,
+    TimeProvider time,
+    IConfiguration configuration,
+    ILogger<BarTabsService>? logger = null,
+    IAuditContext? auditContext = null) : IBarTabs
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private ICustomerRegistry CustomerRegistry => new CustomerService(db, time);
@@ -176,7 +184,7 @@ public sealed partial class BarTabsService(LongBeachDbContext db, IPaymentGatewa
         }
         if (input.DirectSale)
         {
-            var receipt = await Run(input.OperationId, fingerprint, async () => new DirectSaleReceipt((await CommitItems()).Id), ct);
+            var receipt = await RunDirectSale(id, input.OperationId, fingerprint, async () => new DirectSaleReceipt((await CommitItems()).Id), ct);
             // One compact receipt per tap; replay reads the current tab without duplicating stock.
             return await Public(await db.Set<BarTab>().AsNoTracking().SingleAsync(x => x.Id == receipt.TabId, ct), false, false, ct);
         }

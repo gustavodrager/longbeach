@@ -36,13 +36,17 @@ export function expireSession() {
   notifySession(null)
 }
 
+export type ApiProblem = { code?: string; retryable?: boolean; outcome?: string; operationId?: string; traceId?: string }
+
 export class ApiError extends Error {
   readonly status: number
+  readonly problem: ApiProblem
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, problem: ApiProblem = {}) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.problem = problem
   }
 }
 
@@ -93,10 +97,15 @@ function buildHeaders(init?: RequestInit) {
 
 async function readError(response: Response) {
   try {
-    const body = (await response.json()) as { detail?: string; message?: string; title?: string }
-    return body.detail ?? body.message ?? body.title ?? 'Não foi possível concluir a solicitação.'
+    const body = (await response.json()) as Record<string, unknown>
+    const message = [body.detail, body.message, body.title].find(value => typeof value === 'string') as string | undefined
+    const problem: ApiProblem = {}
+    for (const key of ['code', 'outcome', 'operationId', 'traceId'] as const)
+      if (typeof body[key] === 'string' && body[key].length <= 200) problem[key] = body[key]
+    if (typeof body.retryable === 'boolean') problem.retryable = body.retryable
+    return new ApiError(response.status, message ?? 'Não foi possível concluir a solicitação.', problem)
   } catch {
-    return 'Não foi possível concluir a solicitação.'
+    return new ApiError(response.status, 'Não foi possível concluir a solicitação.')
   }
 }
 
@@ -160,33 +169,49 @@ async function revalidateSession(version: number) {
   try { await request } finally { if (identityRequest?.request === request) identityRequest = null }
 }
 
+/** Stop this request promptly without cancelling a session refresh shared by other requests. */
+function abortable<T>(work: Promise<T>, signal?: AbortSignal | null): Promise<T> {
+  if (!signal) return work
+  if (signal.aborted) {
+    void work.catch(() => {})
+    return Promise.reject(signal.reason ?? new DOMException('Request aborted', 'AbortError'))
+  }
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason ?? new DOMException('Request aborted', 'AbortError'))
+    signal.addEventListener('abort', abort, { once: true })
+    work.then(value => { signal.removeEventListener('abort', abort); resolve(value) }, error => { signal.removeEventListener('abort', abort); reject(error) })
+  })
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit, canRefresh = true, responseType: 'json' | 'blob' = 'json'): Promise<T> {
+  init?.signal?.throwIfAborted()
   if (path.startsWith('/api/v1/bar/') && init?.method && !['GET', 'HEAD'].includes(init.method.toUpperCase()) && !navigator.onLine)
     throw new ApiError(0, 'Sem conexão. O registro só será confirmado após reconectar. Seu rascunho foi preservado.');
   const version = sessionVersion
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await abortable(fetch(`${API_URL}${path}`, {
     ...init,
     credentials: 'include',
     headers: buildHeaders(init),
-  })
+  }), init?.signal)
+  init?.signal?.throwIfAborted()
 
   const authentication = path.startsWith('/api/v1/auth/')
   if (response.status === 401 && canRefresh && version === sessionVersion) {
-    const { session: refreshed } = await refreshAccessToken()
+    const { session: refreshed } = await abortable(refreshAccessToken(), init?.signal)
     if (refreshed && refreshed.version === sessionVersion && refreshed.token === accessToken) return apiFetch<T>(path, init, false, responseType)
   }
 
   if (response.status === 401 && !canRefresh && version === sessionVersion && (!authentication || path === '/api/v1/auth/me')) expireSession()
   if (response.status === 403 && !canRefresh && version === sessionVersion && path === '/api/v1/auth/me') expireSession()
-  if (response.status === 403 && !authentication && version === sessionVersion && sessionListeners.size > 0) await revalidateSession(version)
+  if (response.status === 403 && !authentication && version === sessionVersion && sessionListeners.size > 0) await abortable(revalidateSession(version), init?.signal)
 
   if (!response.ok) {
-    throw new ApiError(response.status, await readError(response))
+    throw await abortable(readError(response), init?.signal)
   }
 
   if (response.status === 204) return undefined as T
-  if (responseType === 'blob') return response.blob() as Promise<T>
-  return response.json() as Promise<T>
+  if (responseType === 'blob') return abortable(response.blob() as Promise<T>, init?.signal)
+  return abortable(response.json() as Promise<T>, init?.signal)
 }
 
 /** Private media uses the same authentication and expiry rules as JSON requests. */

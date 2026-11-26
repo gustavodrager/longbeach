@@ -1,28 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ApiError } from '../../lib/http'
-import { postBar, type CatalogItem, type TabItem, type Tab } from './api'
+import { apiFetch, ApiError } from '../../lib/http'
+import { type CatalogItem, type TabItem, type Tab } from './api'
 
-export type DirectTap = { operationId: string; productId: string; name: string; price: number; attempted: boolean; itemId?: string; returnStock?: boolean; reason?: string; action?: 'reverse' | 'remove-unit' }
-type Queue = { version: 1; entries: DirectTap[]; paused: boolean; error?: string; rejectedId?: string }
-const empty = (): Queue => ({ version: 1, entries: [], paused: false })
-const eventName = 'lb-direct-sales-change'
-export function directSalesKey(owner: string, tabId: string, kind: 'add' | 'remove' = 'add') { return `${kind === 'add' ? 'lb-direct-sales' : 'lb-direct-removals'}-v1:${owner}:${tabId}` }
-export function readDirectSales(key: string): Queue {
-  const raw = localStorage.getItem(key)
-  if (!raw) return empty()
-  const removal = key.startsWith('lb-direct-removals-v1:')
-  const value = JSON.parse(raw) as Queue
-  if (value.version !== 1 || !Array.isArray(value.entries) || value.entries.length > 500 || typeof value.paused !== 'boolean'
-    || !value.entries.every(row => typeof row.operationId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(row.operationId) && typeof row.productId === 'string' && row.productId.length > 0 && row.productId.length <= 100 && typeof row.name === 'string' && row.name.length <= 200 && Number.isFinite(row.price) && row.price > 0 && typeof row.attempted === 'boolean')
-    || (removal && (value.entries.length > 1 || !value.entries.every(row => typeof row.itemId === 'string' && row.itemId.length > 0 && row.itemId.length <= 100 && typeof row.returnStock === 'boolean' && typeof row.reason === 'string' && row.reason.length >= 3 && row.reason.length <= 450 && (row.action === undefined || row.action === 'reverse' || row.action === 'remove-unit'))))
-    || (!removal && value.entries.some(row => row.itemId !== undefined || row.returnStock !== undefined || row.reason !== undefined || row.action !== undefined))
-    || (value.error !== undefined && (typeof value.error !== 'string' || value.error.length > 450)) || (value.rejectedId !== undefined && (typeof value.rejectedId !== 'string' || value.rejectedId !== value.entries[0]?.operationId))
-    || new Set(value.entries.map(row => row.operationId)).size !== value.entries.length) throw new Error('Fila inválida')
-  return value
+import { readDirectSalesPending } from './directSalesPending'
+import { directSalesKey, directSalesEventName, directSalesSendLock, directSalesAdmissionLock, directSalesRequestTimeout, directSalesRetryDelays,
+  directSalesMaximumAttempts as maximumAttempts, emptyDirectSales as empty, summarizeDirectSales as summarize, readDirectSales, type DirectTap, type DirectSalesQueue as Queue } from './directSalesStorage'
+export { directSalesKey, directSalesEventName, directSalesSendLock, directSalesAdmissionLock, directSalesRequestTimeout, directSalesRetryDelays, readDirectSales, type DirectTap } from './directSalesStorage'
+
+/** Only the first outstanding unit of each product can advance. Other products stay available. */
+function candidates(queue: Queue): DirectTap[] {
+  const seen = new Set<string>()
+  return queue.entries.filter(row => { if (seen.has(row.productId)) return false; seen.add(row.productId); return true })
 }
+const accessBlocked = (queue: Queue) => queue.entries.some(row => row.httpStatus === 401 || row.httpStatus === 403)
+const mayRetry = (error: unknown) => !(error instanceof ApiError) || error.problem.retryable !== false
+  && ([0, 408, 409, 425, 429].includes(error.status) || error.status >= 500)
 
-/** One durable UUID per tap. Separate storage/send locks allow rapid taps and multiple tabs. */
+/** One durable UUID per tap. Storage/send locks and bounded retries preserve the original intent. */
 export function useDirectSales(owner: string, tabId: string, availability: { authorized: boolean; online: boolean; known: boolean; open: boolean; accepting: boolean; suspended?: boolean }, kind: 'add' | 'remove' = 'add') {
   const key = directSalesKey(owner, tabId, kind); const cache = useQueryClient()
   const [queue, setQueue] = useState<Queue>(empty)
@@ -30,7 +25,9 @@ export function useDirectSales(owner: string, tabId: string, availability: { aut
   const [saving, setSaving] = useState(false)
   const [adding, setAdding] = useState(0)
   const [message, setMessage] = useState('')
+  const [notice, setNotice] = useState('')
   const active = useRef(false); const running = useRef<string | null>(null); const current = useRef(availability); current.current = availability
+  const request = useRef<{ key: string; controller: AbortController } | null>(null)
   const identity = useRef(key); identity.current = key
   const isCurrent = () => active.current && identity.current === key
   function storageFailure() { if (isCurrent()) setStorageError('Não foi possível guardar os lançamentos. Libere o armazenamento antes de tocar nos produtos novamente.') }
@@ -39,41 +36,62 @@ export function useDirectSales(owner: string, tabId: string, availability: { aut
     return navigator.locks.request(`${key}:storage`, async () => {
       const value = update(readDirectSales(key))
       localStorage.setItem(key, JSON.stringify(value))
-      window.dispatchEvent(new CustomEvent(eventName, { detail: key }))
+      window.dispatchEvent(new CustomEvent(directSalesEventName, { detail: key }))
       return value
     })
+  }
+  async function send(head: DirectTap) {
+    const controller = new AbortController(); request.current = { key, controller }
+    const path = kind === 'remove' ? `/tabs/${tabId}/items/${head.itemId}/${head.action ?? 'reverse'}` : `/tabs/${tabId}/items`
+    const body = kind === 'remove' ? { operationId: head.operationId, reason: head.reason, returnStock: head.returnStock }
+      : { operationId: head.operationId, items: [{ productId: head.productId, quantity: 1 }], deliver: true, directSale: true, expectedUnitPrice: head.price }
+    const timeout = setTimeout(() => controller.abort(new ApiError(0,
+      'A confirmação demorou. O registro foi preservado para conferência.', { retryable: true, outcome: 'unconfirmed' })), directSalesRequestTimeout)
+    try {
+      return await apiFetch<Tab>(`/api/v1/bar${path}`, { method: 'POST', body: JSON.stringify(body), signal: controller.signal })
+    } finally { clearTimeout(timeout); if (request.current?.controller === controller) request.current = null }
   }
   async function drain() {
     if (running.current === key || !navigator.locks || storageError) return
     running.current = key
     let processed = false
     try {
-      await navigator.locks.request(`${directSalesKey(owner, tabId)}:send`, async () => {
+      await navigator.locks.request(directSalesSendLock(tabId), async () => {
         while (isCurrent() && current.current.authorized && current.current.online && current.current.known && !current.current.suspended) {
-          const saved = readDirectSales(key); const head = saved.entries[0]
-          if (!head || saved.paused || (!current.current.open && !head.attempted)) break
-          const marked = await mutate(value => ({ ...value, entries: value.entries.map(row => row.operationId === head.operationId ? { ...row, attempted: true } : row) }))
-          if (marked.entries[0]?.operationId !== head.operationId) continue
+          const saved = readDirectSales(key)
+          if (accessBlocked(saved)) break
+          const head = kind === 'remove' ? saved.paused ? undefined : saved.entries[0]
+            : candidates(saved).find(row => row.state !== 'attention' && row.state !== 'rejected' && (row.attempts ?? 0) < maximumAttempts && (row.retryAt ?? 0) <= Date.now() && (current.current.open || row.attempted))
+          if (!head || (!current.current.open && !head.attempted)) break
+          const attempts = (head.attempts ?? 0) + 1
+          const marked = await mutate(value => summarize(value.entries.map(row => row.operationId === head.operationId ? { ...row, attempted: true, attempts, uncertain: true } : row)))
+          if (!marked.entries.some(row => row.operationId === head.operationId)) continue
           if (!isCurrent() || !current.current.authorized || !current.current.online) break
           setSaving(true)
           try {
-            const result = kind === 'remove'
-              ? await postBar<Tab>(`/tabs/${tabId}/items/${head.itemId}/${head.action ?? 'reverse'}`, { operationId: head.operationId, reason: head.reason, returnStock: head.returnStock })
-              : await postBar<Tab>(`/tabs/${tabId}/items`, { operationId: head.operationId, items: [{ productId: head.productId, quantity: 1 }], deliver: true, directSale: true, expectedUnitPrice: head.price })
+            const result = await send(head)
             if (!isCurrent()) break
             processed = true
-            // Removing only this UUID preserves taps added concurrently by another tab.
-            await mutate(value => ({ ...value, entries: value.entries.filter(row => row.operationId !== head.operationId), paused: false, error: undefined, rejectedId: undefined }))
+            // Remove only this UUID; taps added concurrently by another tab stay durable.
+            await mutate(value => summarize(value.entries.filter(row => row.operationId !== head.operationId)))
             cache.setQueryData<Tab>(['bar-runtime', owner, `/tabs/${tabId}`], old => old && (old.version ?? 0) > (result.version ?? 0) ? old : result)
             void cache.invalidateQueries({ queryKey: ['bar-runtime', owner], refetchType: 'none' })
             void cache.invalidateQueries({ queryKey: ['bar'], refetchType: 'none' })
             if (isCurrent()) setMessage(`${head.name} ${kind === 'remove' ? 'retirado da' : 'adicionado à'} comanda.`)
           } catch (error) {
             if (!isCurrent()) break
-            const rejected = error instanceof ApiError && [400, 422].includes(error.status)
-            await mutate(value => ({ ...value, paused: true, error: error instanceof ApiError ? error.message.slice(0, 450) : 'A conexão foi interrompida. Retome os mesmos registros; não toque no produto novamente.', rejectedId: rejected ? head.operationId : undefined }))
-            if (rejected) void cache.invalidateQueries({ queryKey: ['bar-runtime', owner] })
-            break
+            // A later refusal cannot erase a previously uncertain attempt (lost response, reload).
+            const uncertainBefore = head.uncertain ?? head.attempted
+            const rejected = !uncertainBefore && error instanceof ApiError && [400, 422].includes(error.status)
+            const retry = kind === 'add' && !rejected && mayRetry(error) && attempts < maximumAttempts
+            await mutate(value => summarize(value.entries.map(row => row.operationId !== head.operationId ? row : {
+              ...row, state: rejected ? 'rejected' : retry ? 'retry' : 'attention', uncertain: !rejected,
+              retryAt: retry ? Date.now() + directSalesRetryDelays[attempts - 1] : undefined,
+              error: error instanceof ApiError ? error.message.slice(0, 450) : 'A conexão foi interrompida. O registro foi preservado para conferência.',
+              httpStatus: error instanceof ApiError ? error.status : 0, traceId: error instanceof ApiError ? error.problem.traceId : undefined,
+            })))
+            void cache.invalidateQueries({ queryKey: ['bar-runtime', owner] })
+            if (kind === 'remove') break
           } finally { if (isCurrent()) setSaving(false) }
         }
       })
@@ -88,6 +106,7 @@ export function useDirectSales(owner: string, tabId: string, availability: { aut
   }
   useEffect(() => {
     active.current = true
+    setSaving(false); setNotice('')
     setStorageError(navigator.locks ? '' : 'Este navegador precisa ser atualizado para registrar os toques com segurança.')
     sync()
     const changed = (event: Event) => {
@@ -95,18 +114,38 @@ export function useDirectSales(owner: string, tabId: string, availability: { aut
       sync()
       try { if (isCurrent() && !readDirectSales(key).entries.length) void cache.invalidateQueries({ queryKey: ['bar-runtime', owner, `/tabs/${tabId}`] }) } catch { storageFailure() }
     }
-    window.addEventListener('storage', changed); window.addEventListener(eventName, changed)
-    return () => { active.current = false; window.removeEventListener('storage', changed); window.removeEventListener(eventName, changed) }
+    window.addEventListener('storage', changed); window.addEventListener(directSalesEventName, changed)
+    return () => { active.current = false; if (request.current?.key === key) request.current.controller.abort(); window.removeEventListener('storage', changed); window.removeEventListener(directSalesEventName, changed) }
   }, [key])
-  useEffect(() => { if (!storageError) void drain() }, [queue, availability.authorized, availability.online, availability.known, availability.open, availability.suspended, storageError])
+  useEffect(() => {
+    if (storageError) return
+    void drain()
+    if (kind !== 'add' || !availability.authorized || !availability.online || !availability.known || availability.suspended || accessBlocked(queue)) return
+    const next = candidates(queue).filter(row => row.state === 'retry' && (row.retryAt ?? 0) > Date.now()).map(row => row.retryAt!)
+    if (!next.length) return
+    const timer = setTimeout(() => void drain(), Math.max(0, Math.min(...next) - Date.now()))
+    return () => clearTimeout(timer)
+  }, [key, queue, availability.authorized, availability.online, availability.known, availability.open, availability.suspended, storageError])
   async function enqueue(product: Pick<CatalogItem, 'id' | 'name' | 'shortName' | 'salePrice'>, removal?: Pick<DirectTap, 'itemId' | 'returnStock' | 'reason' | 'action'>) {
     if (!isCurrent() || !current.current.accepting || !current.current.authorized || !current.current.online || !current.current.open || storageError) return
-    setAdding(value => value + 1); setMessage('')
+    setAdding(value => value + 1); setMessage(''); setNotice('')
     try {
-      await mutate(value => {
-        if (kind === 'remove' && value.entries.length) return value
-        if (value.entries.length >= 500) throw new Error('Fila indisponível')
-        return { ...value, entries: [...value.entries, { operationId: crypto.randomUUID(), productId: product.id, name: product.shortName || product.name, price: product.salePrice, attempted: false, ...removal }] }
+      await navigator.locks.request(directSalesAdmissionLock(tabId), { mode: 'shared', ifAvailable: true }, async lock => {
+        if (!lock) { if (isCurrent()) setNotice('Recebimento em andamento nesta comanda. Aguarde a confirmação antes de lançar.'); return }
+        if (!isCurrent() || !current.current.accepting || !current.current.authorized || !current.current.online || !current.current.open) return
+        const existing = readDirectSalesPending(tabId, owner)
+        if (existing.unreadable) { storageFailure(); return }
+        if (kind === 'add' && (existing.removal || existing.productIds.includes(product.id))) {
+          setNotice(existing.removal ? 'Confira a retirada pendente antes de lançar outros produtos.' : 'Este produto já tem um lançamento em conferência nesta comanda. Retome o registro original.')
+          return
+        }
+        if (kind === 'remove' && existing.blocked) { setNotice('Confira os registros pendentes antes de retirar uma unidade.'); return }
+        await mutate(value => {
+          if (accessBlocked(value) || kind === 'remove' && value.entries.length) return value
+          if (kind === 'add' && value.entries.some(row => row.productId === product.id && row.state !== undefined)) return value
+          if (value.entries.length >= 500) throw new Error('Fila indisponível')
+          return summarize([...value.entries, { operationId: crypto.randomUUID(), productId: product.id, name: product.shortName || product.name, price: product.salePrice, attempted: false, uncertain: false, ...removal }])
+        })
       })
       void drain()
     } catch { storageFailure() }
@@ -114,15 +153,20 @@ export function useDirectSales(owner: string, tabId: string, availability: { aut
   }
   async function resume() {
     if (!isCurrent() || !current.current.authorized || !current.current.online || storageError) return
-    try { await mutate(value => ({ ...value, paused: false, error: undefined })); void drain() } catch { storageFailure() }
+    try {
+      await mutate(value => summarize(value.entries.map(row => row.state === undefined ? row : {
+        ...row, state: undefined, error: undefined, httpStatus: undefined, traceId: undefined, retryAt: undefined, attempts: 0,
+      })))
+      void drain()
+    } catch { storageFailure() }
   }
   async function removeUnsent(id: string) {
     if (!isCurrent()) return
     try {
       await mutate(value => {
         const row = value.entries.find(row => row.operationId === id)
-        if (!row || row.attempted && value.rejectedId !== id) return value
-        return { ...value, entries: value.entries.filter(row => row.operationId !== id), ...(value.entries[0]?.operationId === id ? { paused: false, error: undefined, rejectedId: undefined } : {}) }
+        if (!row || row.attempted && row.state !== 'rejected') return value
+        return summarize(value.entries.filter(row => row.operationId !== id))
       })
       void drain()
     } catch { storageFailure() }
@@ -132,5 +176,5 @@ export function useDirectSales(owner: string, tabId: string, availability: { aut
     if (kind !== 'remove' || item.quantity !== 1 || !['Accepted', 'Fulfilled'].includes(item.state)) return
     await enqueue({ id: item.productId, name: item.name, shortName: item.name, salePrice: item.unitPrice }, { itemId: item.id, returnStock, action: 'remove-unit', reason: 'Correção de lançamento pelo botão menos na venda direta.' })
   }
-  return { queue, saving, adding, message, storageError, add, remove, resume, removeUnsent }
+  return { queue, saving, adding, message, notice, storageError, accessBlocked: accessBlocked(queue), add, remove, resume, removeUnsent }
 }
