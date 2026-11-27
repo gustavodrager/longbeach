@@ -9,6 +9,7 @@ import './customers.css'
 export type CustomerPickerProps = {
   scope: CustomerScope; value: CustomerSelection | null; onChange: (value: CustomerLookup | null) => void
   disabled?: boolean; required?: boolean; label?: string; contextKey?: string; compact?: boolean; existingOnly?: boolean
+  freeText?: { value: string; onChange: (value: string) => void; onSubmit: () => void; onCreatingChange: (creating: boolean) => void }
 }
 
 /** Inline creation deliberately has no nested form and never grants portal access. */
@@ -17,7 +18,7 @@ export function CustomerPicker(props: CustomerPickerProps) {
   const session = user ? `${user.id}:${[...user.roles].sort().join(',')}:${[...user.permissions].sort().join(',')}` : 'signed-out'
   return <CustomerPickerContent key={`${session}:${props.scope}:${props.contextKey ?? 'default'}`} {...props} />
 }
-function CustomerPickerContent({ scope, value, onChange, disabled = false, required = false, label = 'Cliente', contextKey = 'default', compact = false, existingOnly = false }: CustomerPickerProps) {
+function CustomerPickerContent({ scope, value, onChange, disabled = false, required = false, label = 'Cliente', contextKey = 'default', compact = false, existingOnly = false, freeText }: CustomerPickerProps) {
   const { user } = useAuth()
   const [saved, setSaved] = useConfirmationGate(`customer-create-v1:${user?.id}:${scope}:${contextKey}`)
   const pending = readCustomerCreation(saved)
@@ -26,7 +27,8 @@ function CustomerPickerContent({ scope, value, onChange, disabled = false, requi
   const [recovered, setRecovered] = useState<CustomerLookup | null>(null)
   const root = useRef<HTMLFieldSetElement>(null)
   const pendingRef = useRef(Boolean(saved)); pendingRef.current = Boolean(saved)
-  const [search, setSearch] = useState('')
+  const [lookupText, setSearch] = useState('')
+  const search = freeText?.value ?? lookupText
   const [submitted, setSubmitted] = useState('')
   const [creating, setCreating] = useState(Boolean(saved))
   const [name, setName] = useState(pending?.name ?? '')
@@ -40,6 +42,8 @@ function CustomerPickerContent({ scope, value, onChange, disabled = false, requi
   const readable = canUseCustomerScope(user, scope)
   const writable = !existingOnly && canUseCustomerScope(user, scope, true)
   const locked = disabled || command.busy || !readable
+  const onCreatingChange = freeText?.onCreatingChange
+  useEffect(() => { onCreatingChange?.(creating) }, [creating, onCreatingChange])
   useEffect(() => {
     setSubmitted('')
     if (disabled || !readable || value || creating) return
@@ -86,12 +90,12 @@ function CustomerPickerContent({ scope, value, onChange, disabled = false, requi
       {invalidPending && <p role="alert">Há uma confirmação anterior que não pôde ser lida. Peça à gestão para conferir antes de iniciar outro cadastro.</p>}
       {recovered && !value && <div className="customer-merge-review" role="status"><p>Cadastro recuperado: <strong>{recovered.name}</strong> · {recovered.phoneHint || 'Telefone pendente'} · {customerReference(recovered.id)}. Confira se é a pessoa deste atendimento.</p><button type="button" className="secondary-link" onClick={() => { onChange(recovered); setRecovered(null) }}>Selecionar cliente recuperado</button></div>}
       {value ? <div className="customer-selection"><strong>{value.name}</strong><small className="customer-reference">{customerReference(value.id)}</small>{value.phoneHint && <span>{value.phoneHint}</span>}{value.incomplete && <span className="status-pill arena-warning">Telefone pendente</span>}<button type="button" className="text-button" onClick={() => { onChange(null); setSearch(''); setSubmitted(''); setValidation(''); requestAnimationFrame(() => input.current?.focus()) }}>Trocar cliente</button>{!required && <button type="button" className="text-button" onClick={() => onChange(null)}>Continuar sem identificar</button>}</div> : !creating ? <>
-        <label className="operation-field" htmlFor={id}><span className={compact ? 'customer-search-label-compact' : undefined}>{`Buscar ${label.toLocaleLowerCase('pt-BR')}`}</span><input id={id} ref={input} type="search" value={search} maxLength={240} autoComplete="off" placeholder="Nome ou telefone" aria-describedby={id + '-hint'} onChange={event => { setSearch(event.target.value); setSubmitted('') }} /></label>
-        <p className="arena-hint" id={id + '-hint'}>Digite ao menos 3 caracteres.</p>
+        <label className="operation-field" htmlFor={id}><span className={compact ? 'customer-search-label-compact' : undefined}>{`Buscar ${label.toLocaleLowerCase('pt-BR')}`}</span><input id={id} ref={input} type="search" value={search} maxLength={freeText ? 80 : 240} autoComplete="off" placeholder={freeText ? 'Nome livre ou cliente cadastrado' : 'Nome ou telefone'} aria-describedby={id + '-hint'} onChange={event => { setSearch(event.target.value); freeText?.onChange(event.target.value); setSubmitted('') }} onKeyDown={event => { if (freeText && event.key === 'Enter') { event.preventDefault(); freeText.onSubmit() } }} /></label>
+        <p className="arena-hint" id={id + '-hint'}>{freeText ? 'Digite o nome e salve sem cadastro. A busca por clientes começa com 3 caracteres.' : 'Digite ao menos 3 caracteres.'}</p>
         {shown && <div className="customer-search-results" aria-live="polite">
           {results.isFetching ? <p role="status">Buscando clientes…</p> : results.isError ? <p role="alert">Não foi possível buscar clientes. <button type="button" className="text-button" onClick={() => void results.refetch()}>Tentar novamente</button></p> : results.data && <>
             {results.data.map(person => <button className="customer-option" type="button" key={person.id} aria-label={`${person.name} · ${person.phoneHint || 'Telefone pendente'}${person.incomplete ? ' · Cadastro incompleto' : ''} · ${customerReference(person.id)}`} onClick={() => { onChange(person); setSearch(''); setSubmitted(''); setValidation('') }}><strong>{person.name}</strong><span>{person.phoneHint || 'Telefone pendente'}</span>{person.incomplete && <small>Cadastro incompleto</small>}<small className="customer-reference">{customerReference(person.id)}</small></button>)}
-            {!results.data.length && <p>Nenhum cliente encontrado. Confira a busca antes de cadastrar.</p>}
+            {!results.data.length && <p>{freeText ? 'Nenhum cliente encontrado. Você pode salvar o nome digitado sem cadastrar.' : 'Nenhum cliente encontrado. Confira a busca antes de cadastrar.'}</p>}
             {results.data.length >= 20 && <p>Refine a busca para identificar a pessoa correta.</p>}
           </>}
         </div>}
