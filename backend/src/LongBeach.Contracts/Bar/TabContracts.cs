@@ -3,6 +3,7 @@ namespace LongBeach.Contracts.Bar;
 public sealed record PageResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int Total);
 public sealed record OpenTabInput(Guid OperationId, Guid LocationId, string? Name = null, string Mode = "Tab", Guid? ResponsibleUserId = null, string? Notes = null, Guid? CustomerId = null);
 public sealed record TabCustomerInput(Guid OperationId, Guid? CustomerId, int ExpectedVersion);
+public sealed record TabNameInput(Guid OperationId, string Name, int ExpectedVersion);
 public sealed record TabIdentity(Guid Id, string Name, bool Incomplete);
 public sealed record TabCustomer(Guid Id, string Name, string EmailHint);
 public sealed record TabResponsible(Guid Id, string Name);
