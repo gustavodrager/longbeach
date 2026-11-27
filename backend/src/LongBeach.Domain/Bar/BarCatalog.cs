@@ -118,7 +118,11 @@ public sealed class BarProduct : Entity
     {
         BarRules.Quantity(received);
         BarRules.Cost(unitCost);
-        AverageCost = decimal.Round((currentQuantity * AverageCost + received * unitCost) / (currentQuantity + received), 6);
+        // A stock deficit is not an asset to include in the weighted cost.
+        var existingQuantity = decimal.Max(0, currentQuantity);
+        if (existingQuantity > 0) BarRules.Cost(AverageCost);
+        var averageCost = decimal.Round((existingQuantity * AverageCost + received * unitCost) / (existingQuantity + received), 6);
+        AverageCost = BarRules.Cost(averageCost);
         LastCost = unitCost;
         Version++;
     }
