@@ -12,13 +12,14 @@ import type { Tab } from './api'
 const actor: AuthUser = { id: 'name-operator', name: 'Equipe teste', email: 'name@example.invalid', roles: ['Operations'], permissions: ['bar:sales:read', 'bar:sales:operate', 'bar:cash:operate'] }
 const tab = (values: Partial<Tab> = {}): Tab => ({ id: 'tab-name', version: 1, number: 105, name: '', mode: 'Tab', state: 'Open', locationId: 'bar-name', actorId: actor.id, total: 10, paid: 0, pending: 0, due: 10, payable: 10, createdAtUtc: '2026-11-27T12:00:00Z', customer: null, items: [], payments: [], history: [], allowedActions: [], ...values })
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } })
-type State = { tab: Tab; put?: (body: Record<string, unknown>) => Response | Promise<Response>; get?: () => Response | Promise<Response> }
+type State = { tab: Tab; put?: (body: Record<string, unknown>) => Response | Promise<Response>; customerPut?: (body: Record<string, unknown>) => Response | Promise<Response>; get?: () => Response | Promise<Response>; lookup?: () => Response | Promise<Response> }
 function server(state: State) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const path = String(input)
     if (init?.method === 'PUT') {
-      expect(path).toBe('/api/v1/bar/tabs/tab-name/name')
       const body = JSON.parse(String(init.body)) as Record<string, unknown>
+      if (path === '/api/v1/bar/tabs/tab-name/customer' && state.customerPut) return state.customerPut(body)
+      expect(path).toBe('/api/v1/bar/tabs/tab-name/name')
       if (state.put) return state.put(body)
       state.tab = { ...state.tab, name: String(body.name), version: state.tab.version! + 1 }
       return json(state.tab)
@@ -27,7 +28,7 @@ function server(state: State) {
     if (path.includes('/tabs?')) return json({ items: [state.tab], page: 1, pageSize: 24, total: 1 })
     if (path.endsWith('/config')) return json({ pixEnabled: false })
     if (path.endsWith('/cash/sessions')) return json([])
-    if (path.includes('/customers/lookup?')) return json([])
+    if (path.includes('/customers/lookup?')) return state.lookup ? state.lookup() : json([])
     throw new Error(`Consulta inesperada: ${path}`)
   })
 }
@@ -313,13 +314,196 @@ it('consulta sem permissão de operar não oferece edição nem retoma nome pend
   expect(localStorage.getItem(`lb-confirmation:tab-name-v1:${actor.id}:tab-name`)).toBe(pending)
 })
 
-it('texto digitado apenas na busca cadastral não produz sucesso nem alteração vazia', async () => {
-  const fetch = server({ tab: tab() }); mount()
-  fireEvent.click(await screen.findByRole('button', { name: 'Vincular cliente cadastrado (opcional)' }))
-  fireEvent.change(screen.getByRole('searchbox', { name: 'Buscar cliente da comanda' }), { target: { value: 'Nome apenas pesquisado' } })
+it.each([['A', 'A'], ['  A  ', 'A'], ['a'.repeat(80), 'a'.repeat(80)]])('salva identificação livre %j sem selecionar ou cadastrar cliente', async (typed, expected) => {
+  const state: State = { tab: tab() }; const fetch = server(state); mount()
+  fireEvent.click(await screen.findByRole('button', { name: 'Identificar comanda' }))
+  const input = screen.getByRole('searchbox', { name: 'Buscar cliente da comanda' })
+  expect(input).toHaveAttribute('maxLength', '80')
+  fireEvent.change(input, { target: { value: typed } })
+  const save = screen.getByRole('button', { name: 'Salvar identificação' })
+  expect(save).toBeEnabled(); fireEvent.click(save)
+  expect(await screen.findByRole('heading', { level: 1, name: `Comanda 105 - ${expected}` })).toBeVisible()
+  const writes = fetch.mock.calls.filter(([, init]) => init?.method === 'PUT')
+  expect(writes).toHaveLength(1)
+  expect(writes[0][0]).toBe('/api/v1/bar/tabs/tab-name/name')
+  expect(JSON.parse(String(writes[0][1]?.body))).toEqual({ operationId: expect.any(String), name: expected, expectedVersion: 1 })
+  expect(state.tab.customer).toBeNull()
+  expect(fetch.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
+  if (expected.length === 1) expect(fetch.mock.calls.some(([path]) => String(path).includes('/customers/lookup?'))).toBe(false)
+  expect(localStorage.getItem(`lb-confirmation:tab-customer:${actor.id}:tab-name`)).toBeNull()
+})
+
+it.each([['somente espaços', '   '], ['mais de 80 caracteres', 'a'.repeat(81)]])('não salva identificação com %s, inclusive por Enter', async (_, typed) => {
+  const state: State = { tab: tab({ name: 'Nome preservado' }) }; const fetch = server(state); mount()
+  fireEvent.click(await screen.findByRole('button', { name: 'Alterar identificação' }))
+  const input = screen.getByRole('searchbox', { name: 'Buscar cliente da comanda' })
+  fireEvent.change(input, { target: { value: typed } })
   expect(screen.getByRole('button', { name: 'Salvar identificação' })).toBeDisabled()
-  await screen.findByText('Nenhum cliente encontrado. Confira a busca antes de cadastrar.')
+  fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
   fireEvent.click(screen.getByRole('button', { name: 'Salvar identificação' }))
-  expect(screen.queryByText(/Identificação atualizada/)).not.toBeInTheDocument()
+  expect(state.tab.name).toBe('Nome preservado')
   expect(fetch.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false)
+  expect(localStorage.getItem(`lb-confirmation:tab-name-v1:${actor.id}:tab-name`)).toBeNull()
+})
+
+it.each(['sem resultado', 'erro'])('a consulta cadastral com %s não bloqueia salvar o nome livre', async result => {
+  const state: State = { tab: tab(), lookup: () => result === 'erro' ? json({ detail: 'Consulta indisponível.' }, 503) : json([]) }
+  const fetch = server(state); mount()
+  fireEvent.click(await screen.findByRole('button', { name: 'Identificar comanda' }))
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Buscar cliente da comanda' }), { target: { value: 'Nome sem cadastro' } })
+  if (result === 'erro') await screen.findByText(/Não foi possível buscar clientes/)
+  else await screen.findByText('Nenhum cliente encontrado. Você pode salvar o nome digitado sem cadastrar.')
+  const save = screen.getByRole('button', { name: 'Salvar identificação' })
+  expect(save).toBeEnabled(); fireEvent.click(save)
+  expect(await screen.findByRole('heading', { level: 1, name: 'Comanda 105 - Nome sem cadastro' })).toBeVisible()
+  const writes = fetch.mock.calls.filter(([, init]) => init?.method === 'PUT')
+  expect(writes).toHaveLength(1); expect(writes[0][0]).toBe('/api/v1/bar/tabs/tab-name/name')
+  expect(fetch.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
+  expect(state.tab.customer).toBeNull()
+})
+
+it('alterar identificação para nome livre preserva cadastro, responsável e valores com Pix pendente', async () => {
+  const customer = { id: 'registered-person', name: 'Pessoa cadastrada', incomplete: false }
+  const responsible = { id: 'payer-person', name: 'Responsável teste' }
+  const state: State = { tab: tab({ name: 'Grupo anterior', customer, responsible, total: 30, paid: 10, pending: 5, due: 20, payable: 15 }) }
+  const fetch = server(state); mount()
+  fireEvent.click(await screen.findByRole('button', { name: 'Alterar identificação' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Trocar cliente' }))
+  expect(fetch.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false)
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Buscar cliente da comanda' }), { target: { value: 'Novo nome livre' } })
+  const save = screen.getByRole('button', { name: 'Salvar identificação' })
+  expect(save).toBeEnabled(); fireEvent.click(save)
+  await screen.findByRole('heading', { level: 1, name: 'Comanda 105 - Novo nome livre' })
+  expect(state.tab).toMatchObject({ name: 'Novo nome livre', customer, responsible, total: 30, paid: 10, pending: 5, due: 20, payable: 15 })
+  const writes = fetch.mock.calls.filter(([, init]) => init?.method === 'PUT')
+  expect(writes).toHaveLength(1); expect(writes[0][0]).toBe('/api/v1/bar/tabs/tab-name/name')
+  const body = JSON.parse(String(writes[0][1]?.body))
+  expect(body).not.toHaveProperty('customerId'); expect(body).not.toHaveProperty('responsibleUserId')
+})
+
+it('salvar identificação preserva a mesma intenção de nome após resposta perdida e recarregamento', async () => {
+  const writes: Record<string, unknown>[] = []
+  const state: State = { tab: tab(), put: body => {
+    writes.push(body); state.tab = { ...state.tab, name: String(body.name), version: 2 }
+    if (writes.length === 1) throw new TypeError('connection interrupted')
+    return json(state.tab)
+  } }
+  server(state); const view = mount()
+  fireEvent.click(await screen.findByRole('button', { name: 'Identificar comanda' }))
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Buscar cliente da comanda' }), { target: { value: 'Nome preservado' } })
+  const save = screen.getByRole('button', { name: 'Salvar identificação' })
+  act(() => { fireEvent.click(save); fireEvent.click(save) })
+  await screen.findByText(/Não foi possível confirmar o nome/)
+  expect(writes).toHaveLength(1)
+  expect(screen.getByRole('searchbox', { name: 'Buscar cliente da comanda' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Conferir identificação' })).toBeEnabled()
+  expect(screen.getByRole('link', { name: 'Adicionar produtos' })).toBeVisible()
+  expect(screen.getByRole('link', { name: 'Pagamento' })).toBeVisible()
+  expect(JSON.parse(localStorage.getItem(`lb-confirmation:tab-name-v1:${actor.id}:tab-name`)!)).toEqual(writes[0])
+  expect(localStorage.getItem(`lb-confirmation:tab-customer:${actor.id}:tab-name`)).toBeNull()
+  view.unmount(); view.cache.clear(); mount()
+  const retry = await screen.findByRole('button', { name: 'Conferir nome' })
+  await waitFor(() => expect(retry).toBeEnabled()); fireEvent.click(retry)
+  await screen.findByText('Alteração do nome confirmada.')
+  expect(writes).toHaveLength(2); expect(writes[1]).toEqual(writes[0])
+  expect(writes[1]).toMatchObject({ name: 'Nome preservado', expectedVersion: 1 })
+  expect(localStorage.getItem(`lb-confirmation:tab-name-v1:${actor.id}:tab-name`)).toBeNull()
+})
+
+it('conflito ao salvar identificação mantém nome e exige nova intenção com a versão consultada', async () => {
+  const writes: Record<string, unknown>[] = []
+  const state: State = { tab: tab(), put: body => {
+    writes.push(body)
+    if (writes.length === 1) { state.tab = { ...state.tab, name: 'Nome de outro atendimento', version: 5 }; return json({ detail: 'A comanda mudou. Atualize antes de alterar o nome.' }, 409) }
+    state.tab = { ...state.tab, name: String(body.name), version: 6 }; return json(state.tab)
+  } }
+  server(state); mount()
+  fireEvent.click(await screen.findByRole('button', { name: 'Identificar comanda' }))
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Buscar cliente da comanda' }), { target: { value: 'Nome revisado' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar identificação' }))
+  await screen.findByRole('heading', { level: 1, name: 'Comanda 105 - Nome de outro atendimento' })
+  expect(screen.getByRole('searchbox', { name: 'Buscar cliente da comanda' })).toHaveValue('Nome revisado')
+  const save = screen.getByRole('button', { name: 'Salvar identificação' })
+  await waitFor(() => expect(save).toBeEnabled()); expect(writes).toHaveLength(1)
+  fireEvent.click(save); await screen.findByText('Alteração do nome confirmada.')
+  expect(writes.map(value => value.expectedVersion)).toEqual([1, 5])
+  expect(writes[1].operationId).not.toBe(writes[0].operationId)
+})
+
+it('consulta automática não substitui a versão capturada ao começar a identificar a comanda', async () => {
+  const writes: Record<string, unknown>[] = []
+  const state: State = { tab: tab(), put: body => { writes.push(body); return json({ detail: 'A comanda mudou. Atualize antes de alterar o nome.' }, 409) } }
+  server(state); const view = mount()
+  fireEvent.click(await screen.findByRole('button', { name: 'Identificar comanda' }))
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Buscar cliente da comanda' }), { target: { value: 'Nome em edição' } })
+  state.tab = { ...state.tab, name: 'Nome salvo por outra pessoa', version: 2 }
+  act(() => { view.cache.setQueryData(['bar-runtime', actor.id, '/tabs/tab-name'], state.tab) })
+  await screen.findByRole('heading', { level: 1, name: 'Comanda 105 - Nome salvo por outra pessoa' })
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar identificação' }))
+  await screen.findByText('A comanda mudou. Atualize antes de alterar o nome.')
+  expect(writes).toHaveLength(1); expect(writes[0]).toMatchObject({ name: 'Nome em edição', expectedVersion: 1 })
+  expect(screen.getByRole('searchbox', { name: 'Buscar cliente da comanda' })).toHaveValue('Nome em edição')
+})
+
+it('recupera nome e vínculo cadastral pendentes sem bloquear as duas confirmações nem mudar seus contratos', async () => {
+  const nameIntent = { operationId: '11111111-1111-4111-8111-111111111111', name: 'Nome preservado', expectedVersion: 1 }
+  const customerIntent = { operationId: '22222222-2222-4222-8222-222222222222', customerId: 'registered-person', expectedVersion: 2 }
+  localStorage.setItem(`lb-confirmation:tab-name-v1:${actor.id}:tab-name`, JSON.stringify(nameIntent))
+  localStorage.setItem(`lb-confirmation:tab-customer:${actor.id}:tab-name`, JSON.stringify(customerIntent))
+  const customer = { id: 'registered-person', name: 'Pessoa cadastrada', incomplete: false }
+  const state: State = { tab: tab({ name: 'Nome preservado', version: 3, customer }),
+    put: () => json(tab({ name: 'Nome preservado', version: 2 })), customerPut: () => json(state.tab) }
+  const fetch = server(state); mount()
+  const nameRetry = await screen.findByRole('button', { name: 'Conferir nome' })
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Conferir identificação' })).toBeEnabled())
+  await waitFor(() => expect(nameRetry).toBeEnabled()); fireEvent.click(nameRetry)
+  const customerRetry = await screen.findByRole('button', { name: 'Conferir identificação' })
+  await waitFor(() => expect(customerRetry).toBeEnabled())
+  expect(localStorage.getItem(`lb-confirmation:tab-customer:${actor.id}:tab-name`)).toBe(JSON.stringify(customerIntent))
+  fireEvent.click(customerRetry); await screen.findByText(/Identificação atualizada/)
+  const writes = fetch.mock.calls.filter(([, init]) => init?.method === 'PUT')
+  expect(writes.map(([path]) => path)).toEqual(['/api/v1/bar/tabs/tab-name/name', '/api/v1/bar/tabs/tab-name/customer'])
+  expect(writes.map(([, init]) => JSON.parse(String(init?.body)))).toEqual([nameIntent, customerIntent])
+  expect(localStorage.getItem(`lb-confirmation:tab-name-v1:${actor.id}:tab-name`)).toBeNull()
+  expect(localStorage.getItem(`lb-confirmation:tab-customer:${actor.id}:tab-name`)).toBeNull()
+})
+
+it('mantém a conferência do nome acessível depois de rejeitar um vínculo cadastral pendente', async () => {
+  const nameIntent = { operationId: '11111111-1111-4111-8111-111111111111', name: 'Nome preservado', expectedVersion: 1 }
+  const customerIntent = { operationId: '22222222-2222-4222-8222-222222222222', customerId: 'registered-person', expectedVersion: 1 }
+  localStorage.setItem(`lb-confirmation:tab-name-v1:${actor.id}:tab-name`, JSON.stringify(nameIntent))
+  localStorage.setItem(`lb-confirmation:tab-customer:${actor.id}:tab-name`, JSON.stringify(customerIntent))
+  const state: State = { tab: tab({ name: 'Nome preservado', version: 2 }),
+    put: () => json(state.tab), customerPut: () => json({ detail: 'Comanda mudou. Confira o vínculo.' }, 409) }
+  const fetch = server(state); mount()
+  const customerRetry = await screen.findByRole('button', { name: 'Conferir identificação' })
+  await waitFor(() => expect(customerRetry).toBeEnabled()); fireEvent.click(customerRetry)
+  await screen.findByText('Comanda mudou. Confira o vínculo.')
+  const nameRetry = screen.getByRole('button', { name: 'Conferir nome' })
+  await waitFor(() => expect(nameRetry).toBeEnabled()); fireEvent.click(nameRetry)
+  await waitFor(() => expect(localStorage.getItem(`lb-confirmation:tab-name-v1:${actor.id}:tab-name`)).toBeNull())
+  const writes = fetch.mock.calls.filter(([, init]) => init?.method === 'PUT')
+  expect(writes.map(([path]) => path)).toEqual(['/api/v1/bar/tabs/tab-name/customer', '/api/v1/bar/tabs/tab-name/name'])
+  expect(writes.map(([, init]) => JSON.parse(String(init?.body)))).toEqual([customerIntent, nameIntent])
+})
+
+it('nome pendente inválido não bloqueia replay cadastral válido nem perde seu checkpoint', async () => {
+  const nameKey = `lb-confirmation:tab-name-v1:${actor.id}:tab-name`
+  const customerKey = `lb-confirmation:tab-customer:${actor.id}:tab-name`
+  const customerIntent = { operationId: '22222222-2222-4222-8222-222222222222', customerId: 'registered-person', expectedVersion: 1 }
+  localStorage.setItem(nameKey, 'not-json')
+  localStorage.setItem(customerKey, JSON.stringify(customerIntent))
+  const customer = { id: 'registered-person', name: 'Pessoa cadastrada', incomplete: false }
+  const state: State = { tab: tab({ customer, version: 2 }), customerPut: () => json(state.tab) }
+  const fetch = server(state); mount()
+  await screen.findByText(/Não foi possível ler uma alteração de nome pendente/)
+  const retry = await screen.findByRole('button', { name: 'Conferir identificação' })
+  await waitFor(() => expect(retry).toBeEnabled()); fireEvent.click(retry)
+  await screen.findByText(/Identificação atualizada/)
+  const writes = fetch.mock.calls.filter(([, init]) => init?.method === 'PUT')
+  expect(writes).toHaveLength(1); expect(writes[0][0]).toBe('/api/v1/bar/tabs/tab-name/customer')
+  expect(JSON.parse(String(writes[0][1]?.body))).toEqual(customerIntent)
+  expect(localStorage.getItem(customerKey)).toBeNull()
+  expect(localStorage.getItem(nameKey)).toBe('not-json')
+  expect(screen.getByText(/Não foi possível ler uma alteração de nome pendente/)).toBeVisible()
 })

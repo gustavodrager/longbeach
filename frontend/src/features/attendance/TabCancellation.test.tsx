@@ -51,7 +51,7 @@ it('exige motivo e confirma uma única operação versionada sem estorno ou paga
  expect(await screen.findByText('Comanda cancelada.')).toBeInTheDocument()
  const writes=api.mock.calls.filter(([,init])=>init?.method==='POST');expect(writes).toHaveLength(1)
  expect(writes[0][0]).toBe('/api/v1/bar/tabs/tab-example/cancel');expect(JSON.parse(String(writes[0][1]?.body))).toEqual({operationId:expect.any(String),expectedVersion:3,reason:'Pedido duplicado'})
- expect(screen.queryByRole('button',{name:/Cancelar comanda|Gerar QR Code|Encerrar comanda|Alterar cliente cadastrado|Vincular cliente cadastrado|Editar nome|Adicionar nome/})).not.toBeInTheDocument()
+ expect(screen.queryByRole('button',{name:/Cancelar comanda|Gerar QR Code|Encerrar comanda|Alterar identificação|Identificar comanda|Editar nome|Adicionar nome/})).not.toBeInTheDocument()
  expect(screen.queryByRole('link',{name:'Adicionar produtos'})).not.toBeInTheDocument();expect(localStorage.getItem(`lb-confirmation:tab-cancel:${owner.id}:tab-example`)).toBeNull()
 })
 

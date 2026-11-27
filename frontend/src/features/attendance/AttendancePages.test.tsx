@@ -902,7 +902,7 @@ it('abre comanda com o nome digitado sem exigir cadastro ou vínculo financeiro'
 it('comanda com nome dispensa identificação e avisos no recebimento',async()=>{
  server({tab:{...makeTab(),name:'Gabriel'},pixEnabled:false});mount('/atendimento/receber/tab-a');
  expect(await screen.findByRole('heading',{name:'Receber · Comanda 104 - Gabriel'})).toBeInTheDocument();
- expect(screen.queryByRole('button',{name:'Vincular cliente cadastrado (opcional)'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:/Identificar comanda|Alterar identificação/})).not.toBeInTheDocument();
  expect(screen.queryByText('Sem responsável vinculado à área do cliente.')).not.toBeInTheDocument();
  expect(screen.queryByText('O recebimento será registrado somente nesta comanda.')).not.toBeInTheDocument();
 })
@@ -910,7 +910,7 @@ it('detalhes de comanda com nome oferecem alteração sem aviso de responsável 
  server({tab:{...makeTab(),name:'Gabriel'},pixEnabled:false});mount('/atendimento/comandas/tab-a');
  expect(await screen.findByRole('heading',{level:1,name:'Comanda 104 - Gabriel'})).toBeInTheDocument();
  expect(screen.getByRole('button',{name:'Editar nome'})).toBeInTheDocument();
- expect(screen.getByRole('button',{name:'Vincular cliente cadastrado (opcional)'})).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Alterar identificação'})).toBeInTheDocument();
  expect(screen.queryByText('Sem responsável vinculado à área do cliente.')).not.toBeInTheDocument();
 })
 it('venda avulsa preserva cliente e operação incerta após remontar sem vincular Google',async()=>{
@@ -921,19 +921,28 @@ it('venda avulsa preserva cliente e operação incerta após remontar sem vincul
 })
 it('identificação antes de receber repete mesma intenção e versão após resposta interrompida',async()=>{
  const writes:Record<string,unknown>[]=[];const state:Server={tab:makeTab(),pixEnabled:false,customerLookups:[identified],put:(path,body)=>{expect(path).toBe('/api/v1/bar/tabs/tab-a/customer');writes.push(body);state.tab={...state.tab,version:3,customer:identified};if(writes.length===1)throw new TypeError('interrupted');return json(state.tab)}}
- server(state);const client=mount('/atendimento/receber/tab-a');await screen.findByRole('heading',{name:'Cliente identificado'});expect(screen.queryByText('A identificação cadastral não concede acesso à comanda nem altera quem responde pelo pagamento.')).not.toBeInTheDocument();fireEvent.click(await screen.findByRole('button',{name:'Vincular cliente cadastrado (opcional)'}));expect(screen.getByText('A identificação cadastral não concede acesso à comanda nem altera quem responde pelo pagamento.')).toBeVisible();await chooseIdentified('Buscar cliente da comanda');const save=screen.getByRole('button',{name:'Salvar identificação'});act(()=>{fireEvent.click(save);fireEvent.click(save)});await screen.findByText(/Não foi possível confirmar esta operação/);expect(writes).toHaveLength(1)
+ server(state);const client=mount('/atendimento/receber/tab-a');await screen.findByRole('heading',{name:'Cliente identificado'});expect(screen.queryByText('A identificação cadastral não concede acesso à comanda nem altera quem responde pelo pagamento.')).not.toBeInTheDocument();fireEvent.click(await screen.findByRole('button',{name:'Identificar comanda'}));expect(screen.getByText('A identificação cadastral não concede acesso à comanda nem altera quem responde pelo pagamento.')).toBeVisible();await chooseIdentified('Buscar cliente da comanda');const save=screen.getByRole('button',{name:'Salvar identificação'});act(()=>{fireEvent.click(save);fireEvent.click(save)});await screen.findByText(/Não foi possível confirmar esta operação/);expect(writes).toHaveLength(1)
  cleanup();client.clear();mount('/atendimento/receber/tab-a');const retry=await screen.findByRole('button',{name:'Conferir identificação'});await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry);await screen.findByText(/Identificação atualizada/);expect(writes).toHaveLength(2);expect(writes[1]).toEqual(writes[0]);expect(writes[0]).toEqual({operationId:expect.any(String),customerId:identified.id,expectedVersion:1});expect(writes[0]).not.toHaveProperty('responsibleUserId')
 })
 it('conflito na identificação atualiza versão e permite conferência explícita sem perder seleção',async()=>{
  const writes:Record<string,unknown>[]=[];const state:Server={tab:makeTab(),pixEnabled:false,customerLookups:[identified],put:(_,body)=>{writes.push(body);if(writes.length===1){state.tab={...state.tab,version:5};return json({message:'Comanda mudou. Confira os dados atuais.'},409)}state.tab={...state.tab,version:6,customer:identified};return json(state.tab)}}
- server(state);mount('/atendimento/comandas/tab-a');fireEvent.click(await screen.findByRole('button',{name:'Vincular cliente cadastrado (opcional)'}));await chooseIdentified('Buscar cliente da comanda');fireEvent.click(screen.getByRole('button',{name:'Salvar identificação'}));await screen.findByText('Comanda mudou. Confira os dados atuais.');const retry=screen.getByRole('button',{name:'Salvar identificação'});await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry);await screen.findByText(/Identificação atualizada/);expect(writes.map(w=>w.expectedVersion)).toEqual([1,5]);expect(writes[1].operationId).not.toBe(writes[0].operationId)
+ server(state);mount('/atendimento/comandas/tab-a');fireEvent.click(await screen.findByRole('button',{name:'Identificar comanda'}));await chooseIdentified('Buscar cliente da comanda');fireEvent.click(screen.getByRole('button',{name:'Salvar identificação'}));await screen.findByText('Comanda mudou. Confira os dados atuais.');const retry=screen.getByRole('button',{name:'Salvar identificação'});await waitFor(()=>expect(retry).toBeEnabled());fireEvent.click(retry);await screen.findByText(/Identificação atualizada/);expect(writes.map(w=>w.expectedVersion)).toEqual([1,5]);expect(writes[1].operationId).not.toBe(writes[0].operationId)
 })
 it('retirar identificação conserva responsável financeiro e permite atendimento anônimo',async()=>{
  const writes:Record<string,unknown>[]=[];const responsible={id:'google-payer',name:'Responsável de exemplo'};const state:Server={tab:{...makeTab(),customer:identified,responsible},pixEnabled:false,put:(_,body)=>{writes.push(body);state.tab={...state.tab,version:2,customer:null};return json(state.tab)}}
- server(state);mount('/atendimento/comandas/tab-a');fireEvent.click(await screen.findByRole('button',{name:'Alterar cliente cadastrado'}));fireEvent.click(screen.getByRole('button',{name:'Continuar sem identificar'}));fireEvent.click(screen.getByRole('button',{name:'Salvar identificação'}));await screen.findByText(/Identificação atualizada/);expect(writes[0]).toMatchObject({customerId:null,expectedVersion:1});expect(writes[0]).not.toHaveProperty('responsibleUserId');expect(state.tab.responsible).toEqual(responsible)
+ server(state);mount('/atendimento/comandas/tab-a');fireEvent.click(await screen.findByRole('button',{name:'Alterar identificação'}));fireEvent.click(screen.getByRole('button',{name:'Continuar sem identificar'}));fireEvent.click(screen.getByRole('button',{name:'Salvar identificação'}));await screen.findByText(/Identificação atualizada/);expect(writes[0]).toMatchObject({customerId:null,expectedVersion:1});expect(writes[0]).not.toHaveProperty('responsibleUserId');expect(state.tab.responsible).toEqual(responsible)
 })
-it('sem operação ou com pagamento pendente não oferece alterar identificação',async()=>{
- const state:Server={tab:{...makeTab(),customer:identified},pixEnabled:false};const requests=server(state);const client=mount('/atendimento/comandas/tab-a',{...actor,permissions:['bar:sales:read']});await screen.findByRole('heading',{level:1,name:/Comanda 104/});expect(screen.queryByRole('button',{name:'Alterar cliente cadastrado'})).not.toBeInTheDocument();cleanup();client.clear();state.tab.pending=5;mount('/atendimento/comandas/tab-a');await screen.findByRole('heading',{level:1,name:/Comanda 104/});expect(screen.queryByRole('button',{name:'Alterar cliente cadastrado'})).not.toBeInTheDocument();expect(requests.mock.calls.every(([,i])=>i?.method!=='PUT')).toBe(true)
+it('consulta não oferece identificação e pagamento pendente impede apenas mudar o vínculo cadastral',async()=>{
+ const state:Server={tab:{...makeTab(),customer:identified},pixEnabled:false};const requests=server(state)
+ const client=mount('/atendimento/comandas/tab-a',{...actor,permissions:['bar:sales:read']})
+ await screen.findByRole('heading',{level:1,name:/Comanda 104/})
+ expect(screen.queryByRole('button',{name:/Alterar identificação|Identificar comanda|Editar nome|Adicionar nome/})).not.toBeInTheDocument()
+ cleanup();client.clear();state.tab.pending=5;mount('/atendimento/comandas/tab-a')
+ fireEvent.click(await screen.findByRole('button',{name:'Alterar identificação'}))
+ fireEvent.click(screen.getByRole('button',{name:'Continuar sem identificar'}))
+ const save=screen.getByRole('button',{name:'Salvar identificação'});expect(save).toBeDisabled();fireEvent.click(save)
+ expect(state.tab.customer).toEqual(identified)
+ expect(requests.mock.calls.every(([,i])=>i?.method!=='PUT')).toBe(true)
 })
 
 it('pedido anônimo pendente anterior ao cadastro único conserva identificadores operacionais',async()=>{
