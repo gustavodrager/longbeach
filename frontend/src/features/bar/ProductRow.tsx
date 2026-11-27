@@ -15,6 +15,7 @@ export function ProductRow({item,balance,stockReady,canAdjust,canEdit=true,categ
  const change=(key:string,value:unknown)=>{dirty.current=true;guard.setDirty(true);setDraft(d=>({...d,[key]:value}))};
  const begin=()=>{setConfirmDelete(false);setInitial({item,balance});setDraft({...p,...item,product:undefined,availableForSale:p.availableForSale??true,name:p.name,salePrice:String(p.salePrice),averageCost:String(item.averageCost),available:String(balance?.available??0)});onEdit()};
  const number=(value:string)=>Number(value.replace(',','.'));
+ const unchangedNegativeAvailable=number(draft.available)<0&&number(draft.available)===(initial.balance?.available??0);
  const remove=async()=>{
   if(!canEdit)return;
   const result=await a.run('/products/'+p.id+'?version='+encodeURIComponent(initial.item.product.version),undefined,'DELETE');
@@ -22,7 +23,7 @@ export function ProductRow({item,balance,stockReady,canAdjust,canEdit=true,categ
  };
  const input=(key:'name'|'salePrice'|'averageCost'|'available',label:string)=>key==='salePrice'||key==='averageCost'
   ?<FormattedInput format="money" decimalPlaces={key==='averageCost'?6:2} aria-label={label} form={id} required disabled={a.busy} value={draft[key]} onValueChange={value=>change(key,value)} />
-  :<input aria-label={label} form={id} required disabled={a.busy} value={draft[key]} inputMode={key==='name'?undefined:'decimal'} onChange={e=>change(key,e.target.value)} pattern={key==='available'?'[0-9]+([.,][0-9]{1,3})?':undefined} />;
+  :<input aria-label={label} form={id} required disabled={a.busy} value={draft[key]} inputMode={key==='name'?undefined:'decimal'} onChange={e=>change(key,e.target.value)} pattern={key==='available'&&!unchangedNegativeAvailable?'[0-9]+([.,][0-9]{1,3})?':undefined} />;
  return <><tr className={isEditing?'product-row product-editing':'product-row'}>
  <td data-label="Produto">{isEditing?input('name','Nome'):<div className="product-name">{p.imageUrl&&!imageFailed?<img className="product-thumbnail" src={p.imageUrl} alt="" width={44} height={44} loading="lazy" onError={()=>setImageFailed(true)}/>:<span className="product-thumbnail product-placeholder" aria-hidden="true">◇</span>}<div><strong>{p.name}</strong>{p.availableForSale===false&&<small className="product-sale-status">Fora da venda</small>}</div></div>}</td>
  <td data-label="Preço">{isEditing?input('salePrice','Preço de venda (R$)'):money(p.salePrice)}</td>
