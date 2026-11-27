@@ -26,6 +26,55 @@ public sealed class StaffAccessPostgresTests
     private const string PermanentPassword = "StaffPermanentPassword2!";
 
     [PostgresFact]
+    public async Task Tab_name_endpoint_requires_operation_and_returns_saved_name_or_version_conflict()
+    {
+        await using var f = await Fixture.Create();
+        using var owner = f.Client(true);
+        var type = (await owner.GetFromJsonAsync<StaffAccessTypeSummary[]>("/api/v1/staff-access/types"))!.Single(x => x.Id == "bar");
+        Assert.Equal(HttpStatusCode.OK, (await owner.PutAsJsonAsync("/api/v1/staff-access/types/bar", new StaffAccessTypeInput("Consulta de comandas", ["bar.tabs"], [], type.Version))).StatusCode);
+        var team = Guid.NewGuid();
+        var created = await Save(owner, team, Member(team, "bar", "11998880032"));
+        using var staff = f.Client();
+        var first = await Login(staff, "11998880032", created.InitialPassword!);
+        staff.DefaultRequestHeaders.Authorization = new("Bearer", first.AccessToken);
+        Assert.Equal(HttpStatusCode.OK, (await staff.PostAsJsonAsync("/api/v1/auth/change-password", new ChangePasswordRequest(created.InitialPassword, PermanentPassword))).StatusCode);
+        var session = await Login(staff, "11998880032", PermanentPassword);
+        staff.DefaultRequestHeaders.Authorization = new("Bearer", session.AccessToken);
+        Guid location;
+        await using (var db = f.Database.NewContext()) location = (await db.Set<StockLocation>().SingleAsync(x => x.Name == "Bar")).Id;
+        var opened = await owner.PostAsJsonAsync("/api/v1/bar/tabs", new OpenTabInput(Guid.NewGuid(), location));
+        Assert.Equal(HttpStatusCode.OK, opened.StatusCode);
+        var tab = (await opened.Content.ReadFromJsonAsync<TabResponse>())!;
+        var path = $"/api/v1/bar/tabs/{tab.Id}/name";
+        var input = new TabNameInput(Guid.NewGuid(), " Mesa sintética ", tab.Version);
+        using var anonymous = f.Client();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.PutAsJsonAsync(path, input)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await staff.PutAsJsonAsync(path, input)).StatusCode);
+        Assert.Equal("", (await owner.GetFromJsonAsync<TabResponse>($"/api/v1/bar/tabs/{tab.Id}"))!.Name);
+
+        foreach (var action in new[] { "bar.orders", "bar.tabs", "bar.sell" })
+        {
+            type = (await owner.GetFromJsonAsync<StaffAccessTypeSummary[]>("/api/v1/staff-access/types"))!.Single(x => x.Id == "bar");
+            Assert.Equal(HttpStatusCode.OK, (await owner.PutAsJsonAsync("/api/v1/staff-access/types/bar", new StaffAccessTypeInput("Operação de teste", [action], [action], type.Version))).StatusCode);
+            session = await Login(staff, "11998880032", PermanentPassword);
+            staff.DefaultRequestHeaders.Authorization = new("Bearer", session.AccessToken);
+            var response = await staff.PutAsJsonAsync(path, input);
+            if (action == "bar.orders") { Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode); continue; }
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var saved = (await response.Content.ReadFromJsonAsync<TabResponse>())!;
+            Assert.Equal("Mesa sintética", saved.Name);
+            Assert.Single(saved.History, row => row.Kind == "NameChanged");
+        }
+        var stale = await staff.PutAsJsonAsync(path, input with { OperationId = Guid.NewGuid(), Name = "Versão antiga" });
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Equal("A comanda mudou. Atualize antes de alterar o nome.", (await stale.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("detail").GetString());
+        var current = (await staff.GetFromJsonAsync<TabResponse>($"/api/v1/bar/tabs/{tab.Id}"))!;
+        Assert.Equal("Mesa sintética", current.Name);
+        var invalid = await staff.PutAsJsonAsync(path, new TabNameInput(Guid.NewGuid(), new string('a', 81), current.Version));
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+    }
+
+    [PostgresFact]
     public async Task Import_administration_does_not_restore_an_unselected_destination_operation()
     {
         await using var f = await Fixture.Create(); using var owner = f.Client(true);

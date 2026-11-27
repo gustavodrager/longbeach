@@ -117,10 +117,24 @@ public sealed class StaffScopeAuthorizationTests
         var user = Principal(["bar.tabs"], ["bar.tabs"]);
         Assert.True(StaffApiScope.Allowed(user, "POST", "/api/v1/bar/tabs"));
         Assert.True(StaffApiScope.Allowed(user, "PUT", "/api/v1/bar/tabs/11111111-1111-1111-1111-111111111111/customer"));
+        Assert.True(StaffApiScope.Allowed(user, "PUT", "/api/v1/bar/tabs/11111111-1111-1111-1111-111111111111/name"));
         Assert.True(StaffApiScope.Allowed(user, "POST", "/api/v1/bar/tabs/11111111-1111-1111-1111-111111111111/access"));
         Assert.False(StaffApiScope.Allowed(user, "POST", "/api/v1/bar/tabs/11111111-1111-1111-1111-111111111111/items"));
         Assert.False(StaffApiScope.Allowed(user, "POST", "/api/v1/bar/tabs/11111111-1111-1111-1111-111111111111/payments"));
         Assert.True(StaffApiScope.Allowed(Principal(["stock"], ["stock.operate"]), "POST", "/api/v1/bar/categories"));
+    }
+
+    [Fact]
+    public void Tab_name_requires_selling_or_tabs_operation_and_cannot_reuse_orders_or_receiving_access()
+    {
+        const string path = "/api/v1/bar/tabs/11111111-1111-1111-1111-111111111111/name";
+        Assert.True(StaffApiScope.Allowed(Principal(["bar.sell"], ["bar.sell"]), "PUT", path));
+        Assert.True(StaffApiScope.Allowed(Principal(["bar.tabs"], ["bar.tabs"]), "PUT", path));
+        Assert.False(StaffApiScope.Allowed(Principal(["bar.tabs"], []), "PUT", path));
+        Assert.False(StaffApiScope.Allowed(Principal(["bar.sell"], []), "PUT", path));
+        Assert.False(StaffApiScope.Allowed(Principal(["bar.orders"], ["bar.orders"]), "PUT", path));
+        Assert.False(StaffApiScope.Allowed(Principal(["bar.receive"], ["bar.receive"]), "PUT", path));
+        Assert.False(StaffApiScope.Allowed(Principal(["bar.cash"], ["bar.cash"]), "PUT", path));
     }
 
     [Fact]

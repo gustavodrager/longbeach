@@ -9,6 +9,7 @@ import { useConfirmationGate } from './Core'
 import { Feedback } from './components'
 import { useBarCommand, type Tab } from './api'
 import { tabCustomerName } from './tabTitle'
+import { TabNameEditor } from './TabNameEditor'
 
 type Identification = { operationId: string; customerId: string | null; expectedVersion: number }
 function restore(raw: string): Identification | null {
@@ -20,7 +21,7 @@ function restore(raw: string): Identification | null {
 
 export function TabCustomerIdentification({ tab, disabled = false, inline = false }: { tab: Tab; disabled?: boolean; inline?: boolean }) {
   const { user } = useAuth()
-  return <IdentificationForm key={`${user?.id}:${tab.id}`} tab={tab} disabled={disabled} inline={inline} />
+  return <><TabNameEditor tab={tab} disabled={disabled} /><IdentificationForm key={`${user?.id}:${tab.id}`} tab={tab} disabled={disabled} inline={inline} /></>
 }
 
 function IdentificationForm({ tab, disabled, inline }: { tab: Tab; disabled: boolean; inline: boolean }) {
@@ -34,8 +35,9 @@ function IdentificationForm({ tab, disabled, inline }: { tab: Tab; disabled: boo
   const request = useRef(false)
   const allowed = hasPermission(user, 'bar:sales:operate') && ['bar.sell', 'bar.tabs'].some(menu => hasStaffMenu(user, menu) && hasStaffAction(user, menu))
   const ready = allowed && tab.state === 'Open' && tab.pending === 0 && Number.isInteger(tab.version)
+  const changed = (selected?.id ?? null) !== (tab.customer?.id ?? null)
   async function save() {
-    if (request.current || disabled || command.busy || !allowed || !pending && !ready) return
+    if (request.current || disabled || command.busy || !allowed || !pending && (!ready || !changed)) return
     const body: Identification = pending ?? { operationId: crypto.randomUUID(), customerId: selected?.id ?? null, expectedVersion: tab.version! }
     request.current = true
     try {
@@ -56,20 +58,20 @@ function IdentificationForm({ tab, disabled, inline }: { tab: Tab; disabled: boo
     {editing && allowed ? <>
       <p className="ux-note">A identificação cadastral não concede acesso à comanda nem altera quem responde pelo pagamento.</p>
       {pending ? <p role="status">A identificação aguarda confirmação. Repita os mesmos dados antes de trocar o cliente.</p> : <CustomerPicker scope="bar" contextKey={`tab-identify:${tab.id}`} label="Cliente da comanda" value={selected} onChange={setSelected} disabled={disabled || command.busy} />}
-      <div className="ux-actions"><button type="button" className="ux-button primary" disabled={disabled || command.busy || !allowed || !pending && !ready} onClick={() => void save()}>{pending ? 'Conferir identificação' : 'Salvar identificação'}</button>{!pending && <button type="button" className="ux-button secondary" disabled={command.busy} onClick={() => setEditing(false)}>Voltar</button>}</div>
-    </> : ready && <button type="button" className="ux-button secondary" disabled={disabled || command.busy} onClick={() => { setSelected(tab.customer ?? null); setEditing(true) }}>{tabCustomerName(tab) ? 'Alterar identificação' : 'Identificar cliente (opcional)'}</button>}
+      <div className="ux-actions"><button type="button" className="ux-button primary" disabled={disabled || command.busy || !allowed || !pending && (!ready || !changed)} onClick={() => void save()}>{pending ? 'Conferir identificação' : 'Salvar identificação'}</button>{!pending && <button type="button" className="ux-button secondary" disabled={command.busy} onClick={() => setEditing(false)}>Voltar</button>}</div>
+    </> : ready && <button type="button" className="ux-button secondary" disabled={disabled || command.busy} onClick={() => { setSelected(tab.customer ?? null); setEditing(true) }}>{tab.customer ? 'Alterar cliente cadastrado' : 'Vincular cliente cadastrado (opcional)'}</button>}
     {allowed && tab.state === 'Open' && tab.pending > 0 && <p className="ux-note">Aguarde a confirmação dos pagamentos pendentes para alterar a identificação.</p>}
   </section>
   return <>
     {!editing && <Feedback {...command} />}
-    {ready && !editing && <button type="button" className="ux-button secondary" disabled={disabled || command.busy} onClick={() => { setSelected(tab.customer ?? null); setEditing(true) }}>{tabCustomerName(tab) ? 'Alterar identificação' : 'Identificar cliente (opcional)'}</button>}
+    {ready && !editing && <button type="button" className="ux-button secondary" disabled={disabled || command.busy} onClick={() => { setSelected(tab.customer ?? null); setEditing(true) }}>{tab.customer ? 'Alterar cliente cadastrado' : 'Vincular cliente cadastrado (opcional)'}</button>}
     {editing && allowed && <section className="ux-panel lb-customer-identification" aria-label="Identificação do cliente">
-      <h2>{tab.customer ? 'Alterar identificação' : 'Identificar cliente'}</h2>
+      <h2>{tab.customer ? 'Alterar cliente cadastrado' : 'Vincular cliente cadastrado'}</h2>
       {tab.customer?.incomplete && <p className="ux-note">Telefone pendente no cadastro anterior. O atendimento continua disponível.</p>}
       <Feedback {...command} />
       <p className="ux-note">A identificação cadastral não concede acesso à comanda nem altera quem responde pelo pagamento.</p>
       {pending ? <p role="status">A identificação aguarda confirmação. Repita os mesmos dados antes de trocar o cliente.</p> : <CustomerPicker scope="bar" contextKey={`tab-identify:${tab.id}`} label="Cliente da comanda" value={selected} onChange={setSelected} disabled={disabled || command.busy} />}
-      <div className="ux-actions"><button type="button" className="ux-button primary" disabled={disabled || command.busy || !allowed || !pending && !ready} onClick={() => void save()}>{pending ? 'Conferir identificação' : 'Salvar identificação'}</button>{!pending && <button type="button" className="ux-button secondary" disabled={command.busy} onClick={() => setEditing(false)}>Voltar</button>}</div>
+      <div className="ux-actions"><button type="button" className="ux-button primary" disabled={disabled || command.busy || !allowed || !pending && (!ready || !changed)} onClick={() => void save()}>{pending ? 'Conferir identificação' : 'Salvar identificação'}</button>{!pending && <button type="button" className="ux-button secondary" disabled={command.busy} onClick={() => setEditing(false)}>Voltar</button>}</div>
     </section>}
   </>
 }

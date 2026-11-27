@@ -17,6 +17,7 @@ public interface IBarTabs
     Task<TabSourceDetails> Source(string kind, Guid id, int page, int pageSize, CancellationToken ct);
     Task<TabResponse> Open(OpenTabInput input, Guid actor, CancellationToken ct);
     Task<TabResponse> IdentifyCustomer(Guid id, TabCustomerInput input, Guid actor, CancellationToken ct) => throw new NotSupportedException();
+    Task<TabResponse> Rename(Guid id, TabNameInput input, Guid actor, CancellationToken ct) => throw new NotSupportedException();
     Task<IReadOnlyList<TabCatalogProduct>> Catalog(Guid locationId, CancellationToken ct);
     Task<TabResponse> Add(Guid id, AddTabItemsInput input, Guid? actor, string? accessToken, CancellationToken ct);
     Task<TabResponse> ItemAction(Guid id, Guid itemId, string action, TabActionInput input, Guid actor, bool supervisor, CancellationToken ct);

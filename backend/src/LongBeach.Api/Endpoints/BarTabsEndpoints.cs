@@ -22,6 +22,7 @@ public static class BarTabsEndpoints
             return Results.Ok(await s.Open(i, Actor(h), ct));
         }).RequireAuthorization(SystemPermissions.BarSalesOperate);
         tabs.MapPut("/{id:guid}/customer", (Guid id, TabCustomerInput i, HttpContext h, IBarTabs s, CancellationToken ct) => s.IdentifyCustomer(id, i, Actor(h), ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
+        tabs.MapPut("/{id:guid}/name", (Guid id, TabNameInput i, HttpContext h, IBarTabs s, CancellationToken ct) => s.Rename(id, i, Actor(h), ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
         tabs.MapGet("/customers", (string? search, IBarTabs s, CancellationToken ct) => s.Customers(search, ct)).RequireAuthorization(SystemPermissions.BarSalesOperate);
         tabs.MapGet("/locations", (IBarTabs s, CancellationToken ct) => s.Locations(ct)).RequireAuthorization(SystemPermissions.BarSalesRead);
         tabs.MapGet("/catalog", async (Guid? locationId, HttpContext h, IBarTabs s, IBarCash cash, CancellationToken ct) =>

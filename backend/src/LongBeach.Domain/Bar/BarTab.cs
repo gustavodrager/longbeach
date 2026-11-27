@@ -35,6 +35,16 @@ public sealed class BarTab : Entity
         Version++;
     }
     public string Name { get; private set; } = "";
+    public void Rename(string name)
+    {
+        EnsureOpen();
+        if (name is null) throw new BarRuleException("Informe o nome da comanda ou deixe o campo vazio para remover.");
+        var normalized = name.Trim();
+        if (normalized.Length > 80) throw new BarRuleException("Nome deve ter até 80 caracteres.");
+        if (Name == normalized) return;
+        Name = normalized;
+        Version++;
+    }
     public string Mode { get; private set; } = "Tab";
     public string State { get; private set; } = "Open";
     public DateTimeOffset? ClosedAtUtc { get; private set; }
